@@ -1,0 +1,60 @@
+import React from 'react';
+import { Box, Chip, Typography, Stack } from '@mui/material';
+import FolderIcon from '@mui/icons-material/Folder';
+import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import type { ProjectStats } from '../types';
+import { useLanguage } from '../context/LanguageContext';
+
+interface Props {
+  stats: ProjectStats;
+}
+
+export const HeaderStats: React.FC<Props> = ({ stats }) => {
+  const { t } = useLanguage();
+
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+      <Box>
+        <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 1, fontWeight: 600 }}>
+          {t('brandCompany')} · {t('brandLocation')}
+        </Typography>
+        <Typography variant="h5" color="primary.dark" sx={{ fontWeight: 700 }}>
+          {t('headerProjectTracker')}
+        </Typography>
+      </Box>
+
+      <Stack direction="row" spacing={1.5} sx={{ flexWrap: 'wrap' }}>
+        <Chip
+          icon={<FolderIcon />}
+          label={`${t('statInCreation')}: ${stats.active}`}
+          color="primary"
+          variant="outlined"
+          sx={{ fontWeight: 600 }}
+        />
+        <Chip
+          icon={<CheckCircleOutlinedIcon />}
+          label={`${t('statDone')}: ${stats.done}`}
+          color="info"
+          variant="outlined"
+          sx={{ fontWeight: 600 }}
+        />
+        <Chip
+          icon={<WarningAmberIcon />}
+          label={`${t('statStale')}: ${stats.stale}`}
+          color="warning"
+          variant="outlined"
+          sx={{ fontWeight: 600 }}
+        />
+        <Chip
+          icon={<AccessTimeIcon />}
+          label={`${t('statMonitorSoon')}: ${stats.monitor}`}
+          color="secondary"
+          variant="outlined"
+          sx={{ fontWeight: 600 }}
+        />
+      </Stack>
+    </Box>
+  );
+};
