@@ -25,6 +25,7 @@ import { ProjectModal } from './components/ProjectModal';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { ConfirmDeleteDialog } from './components/ConfirmDeleteDialog';
 import { LoginView } from './components/auth/LoginView';
+import { apiFetch } from './api';
 import './index.css';
 
 function MainApp() {
@@ -91,7 +92,7 @@ function MainApp() {
 
   const fetchPreferences = useCallback(async () => {
     try {
-      const res = await fetch('/api/preferences', { headers: authHeaders() });
+      const res = await apiFetch('/api/preferences', { headers: authHeaders() });
       if (res.ok) {
         setUserPreferences(await res.json());
       }
@@ -103,7 +104,7 @@ function MainApp() {
   const updatePreference = async (key: string, value: any) => {
     setUserPreferences((prev) => ({ ...prev, [key]: value }));
     try {
-      await fetch(`/api/preferences/${key}`, {
+      await apiFetch(`/api/preferences/${key}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -122,13 +123,13 @@ function MainApp() {
       const headers = authHeaders();
 
       const [pRes, cRes, uRes, sRes, catRes, remRes, stRes] = await Promise.all([
-        fetch(`/api/projects${q}`, { headers }),
-        fetch('/api/clients', { headers }),
-        fetch('/api/users', { headers }),
-        fetch('/api/services', { headers }),
-        fetch('/api/categories', { headers }),
-        fetch('/api/reminders', { headers }),
-        fetch('/api/projects/stats', { headers }),
+        apiFetch(`/api/projects${q}`, { headers }),
+        apiFetch('/api/clients', { headers }),
+        apiFetch('/api/users', { headers }),
+        apiFetch('/api/services', { headers }),
+        apiFetch('/api/categories', { headers }),
+        apiFetch('/api/reminders', { headers }),
+        apiFetch('/api/projects/stats', { headers }),
       ]);
 
       if (pRes.ok) setProjects(await pRes.json());
@@ -169,7 +170,7 @@ function MainApp() {
 
     const executeToggle = async () => {
       try {
-        const res = await fetch(`/api/projects/${id}/toggle-done`, {
+        const res = await apiFetch(`/api/projects/${id}/toggle-done`, {
           method: 'PATCH',
           headers: authHeaders(),
         });
@@ -197,7 +198,7 @@ function MainApp() {
 
   const handleMarkSampled = async (id: string) => {
     try {
-      const res = await fetch(`/api/projects/${id}/sample`, {
+      const res = await apiFetch(`/api/projects/${id}/sample`, {
         method: 'PATCH',
         headers: authHeaders(),
       });
@@ -215,7 +216,7 @@ function MainApp() {
   const handleDeleteProject = (id: string) => {
     askDeleteConfirm(t('confirmDeleteProject'), async () => {
       try {
-        const res = await fetch(`/api/projects/${id}`, {
+        const res = await apiFetch(`/api/projects/${id}`, {
           method: 'DELETE',
           headers: authHeaders(),
         });
@@ -240,13 +241,13 @@ function MainApp() {
       };
 
       if (editingProject) {
-        res = await fetch(`/api/projects/${editingProject.id}`, {
+        res = await apiFetch(`/api/projects/${editingProject.id}`, {
           method: 'PUT',
           headers,
           body: JSON.stringify(data),
         });
       } else {
-        res = await fetch('/api/projects', {
+        res = await apiFetch('/api/projects', {
           method: 'POST',
           headers,
           body: JSON.stringify(data),
@@ -276,13 +277,13 @@ function MainApp() {
       };
 
       if (data.id) {
-        res = await fetch(`/api/clients/${data.id}`, {
+        res = await apiFetch(`/api/clients/${data.id}`, {
           method: 'PUT',
           headers,
           body: JSON.stringify(data),
         });
       } else {
-        res = await fetch('/api/clients', {
+        res = await apiFetch('/api/clients', {
           method: 'POST',
           headers,
           body: JSON.stringify(data),
@@ -303,7 +304,7 @@ function MainApp() {
   const handleDeleteClient = (id: string) => {
     askDeleteConfirm(t('confirmDeleteClient'), async () => {
       try {
-        const res = await fetch(`/api/clients/${id}`, {
+        const res = await apiFetch(`/api/clients/${id}`, {
           method: 'DELETE',
           headers: authHeaders(),
         });
@@ -329,13 +330,13 @@ function MainApp() {
       };
 
       if (data.id) {
-        res = await fetch(`/api/users/${data.id}`, {
+        res = await apiFetch(`/api/users/${data.id}`, {
           method: 'PUT',
           headers,
           body: JSON.stringify(data),
         });
       } else {
-        res = await fetch('/api/users', {
+        res = await apiFetch('/api/users', {
           method: 'POST',
           headers,
           body: JSON.stringify(data),
@@ -356,7 +357,7 @@ function MainApp() {
   const handleDeleteUser = (id: string) => {
     askDeleteConfirm(t('confirmDeleteUser'), async () => {
       try {
-        const res = await fetch(`/api/users/${id}`, {
+        const res = await apiFetch(`/api/users/${id}`, {
           method: 'DELETE',
           headers: authHeaders(),
         });
@@ -374,7 +375,7 @@ function MainApp() {
 
   const handleApproveUser = async (userId: string, role: string) => {
     try {
-      const res = await fetch(`/api/users/${userId}/approve`, {
+      const res = await apiFetch(`/api/users/${userId}/approve`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -395,7 +396,7 @@ function MainApp() {
 
   const handleRejectUser = async (userId: string) => {
     try {
-      const res = await fetch(`/api/users/${userId}/reject`, {
+      const res = await apiFetch(`/api/users/${userId}/reject`, {
         method: 'POST',
         headers: authHeaders(),
       });
@@ -420,13 +421,13 @@ function MainApp() {
       };
 
       if (data.id) {
-        res = await fetch(`/api/services/${data.id}`, {
+        res = await apiFetch(`/api/services/${data.id}`, {
           method: 'PUT',
           headers,
           body: JSON.stringify(data),
         });
       } else {
-        res = await fetch('/api/services', {
+        res = await apiFetch('/api/services', {
           method: 'POST',
           headers,
           body: JSON.stringify(data),
@@ -447,7 +448,7 @@ function MainApp() {
   const handleDeleteService = (id: string) => {
     askDeleteConfirm(t('confirmDeleteService'), async () => {
       try {
-        const res = await fetch(`/api/services/${id}`, {
+        const res = await apiFetch(`/api/services/${id}`, {
           method: 'DELETE',
           headers: authHeaders(),
         });
@@ -473,13 +474,13 @@ function MainApp() {
       };
 
       if (data.id) {
-        res = await fetch(`/api/categories/${data.id}`, {
+        res = await apiFetch(`/api/categories/${data.id}`, {
           method: 'PUT',
           headers,
           body: JSON.stringify(data),
         });
       } else {
-        res = await fetch('/api/categories', {
+        res = await apiFetch('/api/categories', {
           method: 'POST',
           headers,
           body: JSON.stringify(data),
@@ -500,7 +501,7 @@ function MainApp() {
   const handleDeleteCategory = (id: string) => {
     askDeleteConfirm(t('confirmDeleteCategory'), async () => {
       try {
-        const res = await fetch(`/api/categories/${id}`, {
+        const res = await apiFetch(`/api/categories/${id}`, {
           method: 'DELETE',
           headers: authHeaders(),
         });
@@ -526,13 +527,13 @@ function MainApp() {
       };
 
       if (data.id) {
-        res = await fetch(`/api/reminders/${data.id}`, {
+        res = await apiFetch(`/api/reminders/${data.id}`, {
           method: 'PUT',
           headers,
           body: JSON.stringify(data),
         });
       } else {
-        res = await fetch('/api/reminders', {
+        res = await apiFetch('/api/reminders', {
           method: 'POST',
           headers,
           body: JSON.stringify(data),
@@ -553,7 +554,7 @@ function MainApp() {
   const handleDeleteReminder = (id: string) => {
     askDeleteConfirm(t('confirmDeleteReminder'), async () => {
       try {
-        const res = await fetch(`/api/reminders/${id}`, {
+        const res = await apiFetch(`/api/reminders/${id}`, {
           method: 'DELETE',
           headers: authHeaders(),
         });
@@ -571,7 +572,7 @@ function MainApp() {
 
   const handleStatusChangeReminder = async (id: string, status: string) => {
     try {
-      const res = await fetch(`/api/reminders/${id}/status`, {
+      const res = await apiFetch(`/api/reminders/${id}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

@@ -1,4 +1,5 @@
 import React from 'react';
+import { apiFetch } from '../api';
 import {
   AppBar,
   Toolbar,
@@ -221,7 +222,7 @@ export const AdminLayout: React.FC<Props> = ({
     }
     setIsSavingProfile(true);
     try {
-      const res = await fetch(`/api/users/${currentUser.id}`, {
+      const res = await apiFetch(`/api/users/${currentUser.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
