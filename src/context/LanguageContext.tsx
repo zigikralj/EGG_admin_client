@@ -19,7 +19,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (saved && (saved === 'en' || saved === 'sr-Latn' || saved === 'sr-Cyrl')) {
       return saved as Language;
     }
-    return 'en'; // Default language is English
+    return 'sr-Latn'; // Default language is Serbian (Latin)
   });
 
   const setLanguage = (lang: Language) => {
@@ -32,8 +32,8 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [language]);
 
   const t = (key: keyof TranslationKeys, params?: Record<string, string | number>): string => {
-    const dict = translations[language] || translations['en'];
-    let text = dict[key] || translations['en'][key] || String(key);
+    const dict = translations[language] || translations['sr-Latn'] || translations['en'];
+    let text = dict[key] || translations['sr-Latn']?.[key] || translations['en']?.[key] || String(key);
 
     if (params) {
       Object.entries(params).forEach(([pKey, pValue]) => {
@@ -45,8 +45,8 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const getServiceLabel = (typeCode: string): string => {
-    const langDict = serviceTypeTranslations[language] || serviceTypeTranslations['en'];
-    return langDict[typeCode] || serviceTypeTranslations['en'][typeCode] || typeCode;
+    const langDict = serviceTypeTranslations[language] || serviceTypeTranslations['sr-Latn'] || serviceTypeTranslations['en'];
+    return langDict[typeCode] || serviceTypeTranslations['sr-Latn']?.[typeCode] || serviceTypeTranslations['en']?.[typeCode] || typeCode;
   };
 
   return (
