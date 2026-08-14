@@ -152,19 +152,7 @@ export const LoginView: React.FC = () => {
         position: 'relative',
       }}
     >
-      {/* Top Header Actions */}
-      <Box
-        sx={{
-          position: 'absolute',
-          top: 16,
-          right: 24,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1.5,
-        }}
-      >
-        <LanguageSelector />
-      </Box>
+
 
       {/* Main Container */}
       <Card
@@ -524,6 +512,11 @@ export const LoginView: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Footer Language Selector */}
+      <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
+        <LanguageSelector />
+      </Box>
     </Box>
   );
 };
