@@ -208,7 +208,16 @@ client/
 
 ## 🚀 Deployment
 
-### Prerequisites for Deployment
+### GitHub Pages (Automated via GitHub Actions)
+
+This project contains a GitHub Actions workflow (`.github/workflows/deploy.yml`) that automatically builds and deploys the application to GitHub Pages whenever changes are pushed to the `main` branch.
+
+To enable GitHub Pages for your repository:
+1. Go to your repository on GitHub: **Settings** > **Pages**
+2. Under **Build and deployment** > **Source**, select **GitHub Actions**
+3. Push changes to the `main` branch to trigger deployment!
+
+### Prerequisites for Manual Deployment
 
 1. Ensure the backend API is accessible at the configured `VITE_API_BASE_URL`
 2. Build the application for production:
