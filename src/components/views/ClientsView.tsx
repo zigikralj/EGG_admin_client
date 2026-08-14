@@ -247,11 +247,11 @@ export const ClientsView: React.FC<Props> = ({
   const paginatedClients = sortedClients.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, height: '100%', flex: 1, minHeight: 0 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%', flex: 1, minHeight: 0 }}>
       {/* TOP ACTION BAR */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+      <Box sx={{ display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' }, alignItems: 'center' }}>
         {canManageClients ? (
-          <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={openNew}>
+          <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={openNew} sx={{ width: { xs: '100%', sm: 'auto' } }}>
             {t('btnNewClient')}
           </Button>
         ) : (
@@ -266,12 +266,12 @@ export const ClientsView: React.FC<Props> = ({
 
       {/* TABLE CARD */}
       <Card variant="outlined" sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+        <Box sx={{ p: { xs: 1.5, sm: 2 }, display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
           <Typography variant="h6" sx={{ fontWeight: 700 }}>
             {t('clientsListTitle')}
           </Typography>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', width: { xs: '100%', sm: 'auto' } }}>
             {/* SEARCH FIELD */}
             <TextField
               size="small"
@@ -287,7 +287,7 @@ export const ClientsView: React.FC<Props> = ({
                   ),
                 },
               }}
-              sx={{ width: 220 }}
+              sx={{ width: { xs: '100%', sm: 220 } }}
             />
 
             {/* FILTER POPOVER */}
@@ -327,9 +327,10 @@ export const ClientsView: React.FC<Props> = ({
                 <TextField
                   size="small"
                   type="number"
-                  placeholder="Count"
+                  placeholder="0"
                   value={filterProjectCountVal}
                   onChange={(e) => setFilterProjectCountVal(e.target.value)}
+                  sx={{ flex: 1 }}
                   disabled={filterProjectCountOp === 'all'}
                 />
               </Box>
@@ -344,8 +345,8 @@ export const ClientsView: React.FC<Props> = ({
           </Box>
         </Box>
 
-        <TableContainer sx={{ flex: 1, overflowY: 'auto' }}>
-          <Table stickyHeader sx={{ width: '100%' }}>
+        <TableContainer sx={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
+          <Table stickyHeader sx={{ width: '100%', minWidth: 600 }}>
             <TableHead>
               <TableRow>
                 {activeCols.includes('name') && (

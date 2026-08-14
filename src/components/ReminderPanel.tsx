@@ -182,10 +182,13 @@ export const ReminderPanel: React.FC<Props> = ({
         sx={{
           position: 'relative',
           height: '100%',
+          width: '100%',
+          maxWidth: '100%',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'visible',
           mt: 1,
+          boxSizing: 'border-box',
         }}
       >
         {/* NOTCHED TITLE */}
@@ -212,9 +215,9 @@ export const ReminderPanel: React.FC<Props> = ({
           {t('remindersTitle')}
         </Typography>
 
-        <CardContent sx={{ p: 2, pt: 2, pb: '8px !important', flex: 1, display: 'flex', flexDirection: 'column' }}>
-          <TableContainer sx={{ maxHeight: isFullHeight ? 'none' : 235, overflowY: isFullHeight ? 'visible' : 'auto', flex: 1 }}>
-            <Table stickyHeader size="small">
+        <CardContent sx={{ p: 2, pt: 2, pb: '4px !important', flex: 1, display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box' }}>
+          <TableContainer sx={{ maxHeight: isFullHeight ? 'none' : 240, overflowY: isFullHeight ? 'visible' : 'auto', overflowX: 'auto', width: '100%', maxWidth: '100%', minWidth: 0, flex: 1, display: 'block', pb: 1.5 }}>
+            <Table stickyHeader size="small" sx={{ minWidth: 480, width: '100%' }}>
               <TableHead>
                 <TableRow>
                   <TableCell sx={{ fontWeight: 700, bgcolor: 'background.paper' }}>{t('colProject')}</TableCell>
@@ -275,7 +278,7 @@ export const ReminderPanel: React.FC<Props> = ({
             page={page}
             onPageChange={handleChangePage}
             onRowsPerPageChange={handleChangeRowsPerPage}
-            sx={{ borderTop: 1, borderColor: 'divider', mt: 'auto' }}
+            sx={{ borderTop: 1, borderColor: 'divider', mt: 0.5, flexShrink: 0 }}
           />
         </CardContent>
       </Card>

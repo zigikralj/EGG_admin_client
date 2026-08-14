@@ -315,7 +315,7 @@ export const UsersView: React.FC<Props> = ({
       )}
 
       {/* TOP ACTION BAR */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
+      <Box sx={{ display: 'flex', justifyContent: { xs: 'stretch', sm: 'space-between' }, alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {filterStatus === 'pending' && (
             <Chip
@@ -328,7 +328,7 @@ export const UsersView: React.FC<Props> = ({
         </Box>
 
         {canManageUsers ? (
-          <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={openNew}>
+          <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={openNew} sx={{ width: { xs: '100%', sm: 'auto' } }}>
             {t('btnNewUser')}
           </Button>
         ) : (
@@ -343,14 +343,14 @@ export const UsersView: React.FC<Props> = ({
 
       {/* TABLE CARD */}
       <Card variant="outlined" sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+        <Box sx={{ p: { xs: 1.5, sm: 2 }, display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
           <Typography variant="h6" sx={{ fontWeight: 700 }}>
             {t('usersListTitle', { count: sortedUsers.length })}
           </Typography>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, width: { xs: '100%', sm: 'auto' } }}>
             <TextField
-              variant="standard"
+              size="small"
               placeholder={t('searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -358,12 +358,12 @@ export const UsersView: React.FC<Props> = ({
                 input: {
                   startAdornment: (
                     <InputAdornment position="start">
-                      <SearchIcon color="action" fontSize="small" />
+                      <SearchIcon fontSize="small" color="action" />
                     </InputAdornment>
                   ),
                 },
               }}
-              sx={{ width: { xs: '100%', sm: 200 }, pb: 0.5 }}
+              sx={{ width: { xs: '100%', sm: 200 } }}
             />
 
             <TableFilterSelector activeCount={activeFilterCount} onClear={clearFilters}>
@@ -406,8 +406,8 @@ export const UsersView: React.FC<Props> = ({
           </Box>
         </Box>
 
-        <TableContainer sx={{ flex: 1, overflowY: 'auto' }}>
-          <Table stickyHeader sx={{ width: '100%' }}>
+        <TableContainer sx={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
+          <Table stickyHeader sx={{ width: '100%', minWidth: 600 }}>
             <TableHead>
               <TableRow>
                 {activeCols.includes('name') && (

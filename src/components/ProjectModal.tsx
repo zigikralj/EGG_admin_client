@@ -132,7 +132,7 @@ export const ProjectModal: React.FC<Props> = ({
   return (
     <Dialog open={isOpen} onClose={onClose} maxWidth="md" fullWidth>
       <form onSubmit={handleSubmit}>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
+        <DialogTitle sx={{ display: 'flex', alignItems: { xs: 'flex-start', sm: 'center' }, justifyContent: 'space-between', flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5, pb: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Button startIcon={<ArrowBackIcon />} onClick={onClose} size="small" variant="outlined">
               {t('btnBackToProjects')}

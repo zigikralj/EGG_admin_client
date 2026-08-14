@@ -140,6 +140,63 @@ export const getTheme = (mode: 'light' | 'dark' = 'light') => {
           },
         },
       },
+      MuiTablePagination: {
+        styleOverrides: {
+          root: {
+            color: isDark ? '#9ec1a3' : '#475569',
+            borderTop: isDark ? '1px solid #1c3024' : '1px solid #e2e8f0',
+            overflow: 'hidden',
+          },
+          toolbar: {
+            minHeight: '40px !important',
+            height: '40px',
+            paddingLeft: '8px !important',
+            paddingRight: '8px !important',
+            gap: '4px',
+            flexWrap: 'nowrap',
+            justifyContent: 'space-between',
+            '@media (max-width: 600px)': {
+              minHeight: '38px !important',
+              height: '38px',
+              paddingLeft: '4px !important',
+              paddingRight: '4px !important',
+            },
+          },
+          selectLabel: {
+            fontSize: '0.75rem',
+            fontWeight: 500,
+            margin: 0,
+            '@media (max-width: 480px)': {
+              display: 'none',
+            },
+          },
+          displayedRows: {
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            whiteSpace: 'nowrap',
+            margin: 0,
+          },
+          select: {
+            fontSize: '0.75rem',
+            fontWeight: 600,
+            paddingTop: '2px',
+            paddingBottom: '2px',
+            paddingLeft: '4px',
+            paddingRight: '18px !important',
+          },
+          actions: {
+            marginLeft: '4px',
+            flexShrink: 0,
+            '& .MuiIconButton-root': {
+              padding: '3px',
+              borderRadius: '6px',
+              '&:hover': {
+                backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
+              },
+            },
+          },
+        },
+      },
     },
   });
 };

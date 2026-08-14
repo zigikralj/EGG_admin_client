@@ -782,4 +782,43 @@ button.ghost {
   box-shadow: 0 0 0 2px var(--teal-soft);
 }
 
+/* MOBILE TOUCH & RESPONSIVE SCROLLING IMPROVEMENTS */
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+.MuiTableContainer-root {
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+
+.MuiTableContainer-root::-webkit-scrollbar {
+  height: 5px;
+  width: 5px;
+}
+.MuiTableContainer-root::-webkit-scrollbar-track {
+  background: transparent;
+}
+.MuiTableContainer-root::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+[data-theme='dark'] .MuiTableContainer-root::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
+}
+.MuiTableContainer-root::-webkit-scrollbar-thumb:hover {
+  background: var(--teal);
+}
+
+@media (max-width: 600px) {
+  .MuiDialog-paper {
+    margin: 12px !important;
+    width: calc(100% - 24px) !important;
+    max-width: 100% !important;
+  }
+}
+
+
+
 

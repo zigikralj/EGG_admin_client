@@ -228,11 +228,11 @@ export const DashboardView: React.FC<Props> = ({
       {/* DEFAULT COMBINED VIEW */}
       {dashboardSubTab === 'default' && (
         <>
-          <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', md: 'row' }, alignItems: 'flex-start' }}>
-            <Box sx={{ width: { xs: '100%', md: 'fit-content' }, minWidth: { md: 'max-content' } }}>
+          <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', md: 'row' }, alignItems: 'flex-start', width: '100%', maxWidth: '100%', minWidth: 0 }}>
+            <Box sx={{ width: { xs: '100%', md: 'fit-content' }, maxWidth: '100%', minWidth: 0 }}>
               {renderStatisticsCard(false)}
             </Box>
-            <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Box sx={{ flex: 1, minWidth: 0, width: '100%', maxWidth: '100%' }}>
               {renderRemindersPanel()}
             </Box>
           </Box>

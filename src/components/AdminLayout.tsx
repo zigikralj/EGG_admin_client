@@ -30,6 +30,8 @@ import {
   Collapse,
   Switch,
   FormControlLabel,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import FolderIcon from '@mui/icons-material/Folder';
@@ -54,6 +56,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ViewQuiltIcon from '@mui/icons-material/ViewQuilt';
 import BarChartIcon from '@mui/icons-material/BarChart';
+import MenuIcon from '@mui/icons-material/Menu';
 import type { ActiveTab, DashboardSubTab, ProjectStats } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { useThemeContext } from '../context/ThemeContext';
@@ -99,6 +102,9 @@ export const AdminLayout: React.FC<Props> = ({
   children,
 }) => {
   const { t } = useLanguage();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const [mobileOpen, setMobileOpen] = React.useState(false);
   const { themeMode, setThemeMode } = useThemeContext();
   const { currentUser, users, pendingUsersCount, setCurrentUser, logout, role, isUser, canManageUsers, canToggleEntityWorkMode, workOnEntities, setWorkOnEntities } = useAuth();
 
@@ -364,24 +370,38 @@ export const AdminLayout: React.FC<Props> = ({
           borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
         }}
       >
-        <Toolbar sx={{ justifyContent: 'space-between', gap: 2 }}>
+        <Toolbar sx={{ justifyContent: 'space-between', gap: { xs: 1, sm: 2 }, px: { xs: 1.5, sm: 3 } }}>
+          {/* HAMBURGER MENU BUTTON FOR MOBILE */}
+          <IconButton
+            color="inherit"
+            aria-label="open drawer"
+            edge="start"
+            onClick={() => setMobileOpen(!mobileOpen)}
+            sx={{ mr: 0.5, display: { md: 'none' } }}
+          >
+            <MenuIcon />
+          </IconButton>
+
           {/* BRAND LOGO */}
           <Box
             sx={{
               display: 'flex',
               alignItems: 'center',
               cursor: 'pointer',
-              minWidth: DRAWER_WIDTH - 24,
+              minWidth: { xs: 'auto', md: DRAWER_WIDTH - 24 },
               py: 0.5,
             }}
-            onClick={() => onTabChange('dashboard')}
+            onClick={() => {
+              onTabChange('dashboard');
+              if (isMobile) setMobileOpen(false);
+            }}
           >
             <Box
               component="img"
               src={logoUrl}
               alt="Ekos Green Group"
               sx={{
-                height: 38,
+                height: { xs: 32, sm: 38 },
                 maxHeight: 42,
                 width: 'auto',
                 objectFit: 'contain',
@@ -394,7 +414,7 @@ export const AdminLayout: React.FC<Props> = ({
           </Box>
 
           {/* PAGE TITLE */}
-          <Box sx={{ flexGrow: 1, display: { xs: 'none', sm: 'block' } }}>
+          <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'block' } }}>
             {activeTab !== 'dashboard' && (
               <Typography variant="h6" sx={{ fontWeight: 700, color: '#ffffff' }}>
                 {t(tabTranslationKeys[activeTab])}
@@ -403,19 +423,19 @@ export const AdminLayout: React.FC<Props> = ({
           </Box>
 
           {/* RIGHT SIDE CONTROLS */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            {/* USER SWITCHER (RETURNED TO HEADER) */}
-            <FormControl size="small">
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 } }}>
+            {/* USER SWITCHER (DESKTOP ONLY) */}
+            <FormControl size="small" sx={{ minWidth: { xs: 100, sm: 160 }, display: { xs: 'none', md: 'flex' } }}>
               <Select
                 value={currentUser?.id || ''}
                 onChange={(e) => {
                   const target = users.find((u) => u.id === e.target.value);
                   if (target) setCurrentUser(target);
                 }}
-                startAdornment={<PersonIcon fontSize="small" sx={{ mr: 1, color: 'rgba(255, 255, 255, 0.7)' }} />}
+                startAdornment={<PersonIcon fontSize="small" sx={{ mr: 0.5, color: 'rgba(255, 255, 255, 0.7)' }} />}
                 sx={{
                   borderRadius: 2,
-                  fontSize: '0.875rem',
+                  fontSize: '0.8125rem',
                   color: '#ffffff',
                   '.MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.23)' },
                   '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.5)' },
@@ -424,14 +444,14 @@ export const AdminLayout: React.FC<Props> = ({
                 }}
               >
                 {users.map((u) => (
-                  <MenuItem key={u.id} value={u.id} sx={{ fontSize: '0.875rem' }}>
+                  <MenuItem key={u.id} value={u.id} sx={{ fontSize: '0.8125rem' }}>
                     {u.name} ({getRoleBadgeLabel(u.role)})
                   </MenuItem>
                 ))}
               </Select>
             </FormControl>
 
-            {/* ENTITY WORK MODE SWITCH FOR MANAGER / ADMIN */}
+            {/* ENTITY WORK MODE SWITCH FOR MANAGER / ADMIN (DESKTOP ONLY) */}
             {canToggleEntityWorkMode && (
               <Tooltip title={workOnEntities ? t('lblEntityWorkModeOn') : t('lblEntityWorkModeOff')}>
                 <FormControlLabel
@@ -450,7 +470,7 @@ export const AdminLayout: React.FC<Props> = ({
                     />
                   }
                   label={
-                    <Typography variant="body2" sx={{ color: '#ffffff', fontWeight: 600, fontSize: '0.8125rem', whiteSpace: 'nowrap' }}>
+                    <Typography variant="body2" sx={{ color: '#ffffff', fontWeight: 600, fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
                       {t('switchWorkOnEntities')}
                     </Typography>
                   }
@@ -464,6 +484,7 @@ export const AdminLayout: React.FC<Props> = ({
                     px: 1.2,
                     py: 0.2,
                     transition: 'all 0.2s ease',
+                    display: { xs: 'none', md: 'inline-flex' },
                   }}
                 />
               </Tooltip>
@@ -885,10 +906,224 @@ export const AdminLayout: React.FC<Props> = ({
         </DialogActions>
       </Dialog>
 
-      {/* SIDEBAR DRAWER */}
+      {/* SIDEBAR DRAWER - MOBILE */}
+      <Drawer
+        variant="temporary"
+        open={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        ModalProps={{ keepMounted: true }}
+        sx={{
+          display: { xs: 'block', md: 'none' },
+          [`& .MuiDrawer-paper`]: {
+            width: DRAWER_WIDTH,
+            boxSizing: 'border-box',
+            bgcolor: 'background.paper',
+          },
+        }}
+      >
+        <Toolbar />
+        <Box sx={{ overflow: 'auto', p: 1.5 }}>
+          {/* MOBILE USER SWITCHER & WORK MODE SWITCH */}
+          <Box sx={{ mb: 2, pb: 1.5, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            <Box>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', mb: 0.5 }}>
+                {t('tabUsers')}
+              </Typography>
+              <FormControl fullWidth size="small">
+                <Select
+                  value={currentUser?.id || ''}
+                  onChange={(e) => {
+                    const target = users.find((u) => u.id === e.target.value);
+                    if (target) setCurrentUser(target);
+                  }}
+                  startAdornment={<PersonIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />}
+                  sx={{ borderRadius: 2, fontSize: '0.875rem' }}
+                >
+                  {users.map((u) => (
+                    <MenuItem key={u.id} value={u.id} sx={{ fontSize: '0.875rem' }}>
+                      {u.name} ({getRoleBadgeLabel(u.role)})
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+
+            {canToggleEntityWorkMode && (
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: 'action.hover', p: 1, px: 1.5, borderRadius: 2 }}>
+                <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8125rem' }}>
+                  {t('switchWorkOnEntities')}
+                </Typography>
+                <Switch
+                  checked={workOnEntities}
+                  onChange={(e) => {
+                    const nextVal = e.target.checked;
+                    setWorkOnEntities(nextVal);
+                    if (onPreferenceChange) {
+                      onPreferenceChange('work_on_entities', nextVal);
+                    }
+                  }}
+                  color="primary"
+                  size="small"
+                />
+              </Box>
+            )}
+          </Box>
+
+          <List component="nav" disablePadding sx={{ gap: 0.5, display: 'flex', flexDirection: 'column' }}>
+            {navItems
+              .filter((item) => item.show)
+              .map((item) => {
+                const isSelected = activeTab === item.id;
+                if (item.id === 'dashboard') {
+                  const dashboardSubItems: { id: DashboardSubTab; label: string; icon: React.ReactNode }[] = [
+                    { id: 'default', label: t('subTabDefault'), icon: <ViewQuiltIcon fontSize="small" /> },
+                    { id: 'statistic', label: t('subTabStatistic'), icon: <BarChartIcon fontSize="small" /> },
+                    { id: 'reminders', label: t('subTabReminders'), icon: <NotificationsActiveIcon fontSize="small" /> },
+                    { id: 'projects', label: t('subTabProjects'), icon: <FolderIcon fontSize="small" /> },
+                  ];
+
+                  return (
+                    <React.Fragment key="dashboard-menu-group-mobile">
+                      <ListItemButton
+                        selected={isSelected}
+                        onClick={() => {
+                          if (activeTab !== 'dashboard') {
+                            onTabChange('dashboard');
+                            setIsDashboardExpanded(true);
+                          } else {
+                            setIsDashboardExpanded((prev) => !prev);
+                          }
+                          setMobileOpen(false);
+                        }}
+                        sx={{
+                          borderRadius: 2,
+                          py: 1.2,
+                          px: 2,
+                          '&.Mui-selected': {
+                            bgcolor: 'primary.50',
+                            color: 'primary.main',
+                            fontWeight: 700,
+                            '& .MuiListItemIcon-root': {
+                              color: 'primary.main',
+                            },
+                          },
+                        }}
+                      >
+                        <ListItemIcon sx={{ minWidth: 40, color: isSelected ? 'primary.main' : 'text.secondary' }}>
+                          {item.icon}
+                        </ListItemIcon>
+                        <ListItemText
+                          primary={
+                            <Typography variant="body2" sx={{ fontWeight: isSelected ? 700 : 500 }}>
+                              {item.label}
+                            </Typography>
+                          }
+                        />
+                        {isDashboardExpanded ? (
+                          <ExpandLessIcon fontSize="small" sx={{ color: isSelected ? 'primary.main' : 'text.secondary' }} />
+                        ) : (
+                          <ExpandMoreIcon fontSize="small" sx={{ color: isSelected ? 'primary.main' : 'text.secondary' }} />
+                        )}
+                      </ListItemButton>
+
+                      <Collapse in={isDashboardExpanded || activeTab === 'dashboard'} timeout="auto">
+                        <List component="div" disablePadding sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, my: 0.25 }}>
+                          {dashboardSubItems.map((sub) => {
+                            const isSubSelected = activeTab === 'dashboard' && dashboardSubTab === sub.id;
+                            return (
+                              <ListItemButton
+                                key={sub.id}
+                                selected={isSubSelected}
+                                onClick={() => {
+                                  if (activeTab !== 'dashboard') {
+                                    onTabChange('dashboard');
+                                  }
+                                  if (onDashboardSubTabChange) {
+                                    onDashboardSubTabChange(sub.id);
+                                  }
+                                  setMobileOpen(false);
+                                }}
+                                sx={{
+                                  pl: 4,
+                                  py: 0.8,
+                                  pr: 2,
+                                  borderRadius: 2,
+                                  '&.Mui-selected': {
+                                    bgcolor: 'primary.50',
+                                    color: 'primary.main',
+                                    fontWeight: 700,
+                                    '& .MuiListItemIcon-root': {
+                                      color: 'primary.main',
+                                    },
+                                  },
+                                }}
+                              >
+                                <ListItemIcon sx={{ minWidth: 32, color: isSubSelected ? 'primary.main' : 'text.secondary' }}>
+                                  {sub.icon}
+                                </ListItemIcon>
+                                <ListItemText
+                                  primary={
+                                    <Typography
+                                      variant="body2"
+                                      sx={{ fontWeight: isSubSelected ? 700 : 500, fontSize: '0.8125rem' }}
+                                    >
+                                      {sub.label}
+                                    </Typography>
+                                  }
+                                />
+                              </ListItemButton>
+                            );
+                          })}
+                        </List>
+                      </Collapse>
+                    </React.Fragment>
+                  );
+                }
+
+                return (
+                  <ListItemButton
+                    key={item.id}
+                    selected={isSelected}
+                    onClick={() => {
+                      onTabChange(item.id);
+                      setMobileOpen(false);
+                    }}
+                    sx={{
+                      borderRadius: 2,
+                      py: 1.2,
+                      px: 2,
+                      '&.Mui-selected': {
+                        bgcolor: 'primary.50',
+                        color: 'primary.main',
+                        fontWeight: 700,
+                        '& .MuiListItemIcon-root': {
+                          color: 'primary.main',
+                        },
+                      },
+                    }}
+                  >
+                    <ListItemIcon sx={{ minWidth: 40, color: isSelected ? 'primary.main' : 'text.secondary' }}>
+                      {item.icon}
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={
+                        <Typography variant="body2" sx={{ fontWeight: isSelected ? 700 : 500 }}>
+                          {item.label}
+                        </Typography>
+                      }
+                    />
+                  </ListItemButton>
+                );
+              })}
+          </List>
+        </Box>
+      </Drawer>
+
+      {/* SIDEBAR DRAWER - DESKTOP */}
       <Drawer
         variant="permanent"
         sx={{
+          display: { xs: 'none', md: 'block' },
           width: DRAWER_WIDTH,
           flexShrink: 0,
           [`& .MuiDrawer-paper`]: {
@@ -916,7 +1151,7 @@ export const AdminLayout: React.FC<Props> = ({
                   ];
 
                   return (
-                    <React.Fragment key="dashboard-menu-group">
+                    <React.Fragment key="dashboard-menu-group-desktop">
                       <ListItemButton
                         selected={isSelected}
                         onClick={() => {
@@ -1053,7 +1288,8 @@ export const AdminLayout: React.FC<Props> = ({
         sx={{
           flexGrow: 1,
           p: 0,
-          width: `calc(100vw - ${DRAWER_WIDTH}px)`,
+          width: { xs: '100vw', md: `calc(100vw - ${DRAWER_WIDTH}px)` },
+          maxWidth: '100vw',
           height: 'calc(100vh - 64px)',
           mt: '64px',
           bgcolor: 'background.default',

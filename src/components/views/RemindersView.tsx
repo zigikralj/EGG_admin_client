@@ -351,15 +351,15 @@ export const RemindersView: React.FC<Props> = ({
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, height: '100%', flex: 1, minHeight: 0 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%', flex: 1, minHeight: 0 }}>
       {/* TOP ACTION BAR */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+      <Box sx={{ display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' }, alignItems: 'center' }}>
         <Button
           variant="contained"
           color="primary"
           startIcon={<AddIcon />}
           onClick={handleOpenNew}
-          sx={{ fontWeight: 600, borderRadius: 2 }}
+          sx={{ fontWeight: 600, borderRadius: 2, width: { xs: '100%', sm: 'auto' } }}
         >
           {t('btnNewReminder')}
         </Button>
@@ -369,13 +369,14 @@ export const RemindersView: React.FC<Props> = ({
       <Card variant="outlined" sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <Box
           sx={{
-            p: 2,
+            p: { xs: 1.5, sm: 2 },
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: 'center',
+            alignItems: { xs: 'stretch', sm: 'center' },
+            flexDirection: { xs: 'column', sm: 'row' },
             width: '100%',
             flexWrap: 'wrap',
-            gap: 2,
+            gap: 1.5,
             borderBottom: '1px solid',
             borderColor: 'divider',
           }}
@@ -384,10 +385,10 @@ export const RemindersView: React.FC<Props> = ({
             {t('remindersAllTitle', { count: sortedReminders.length })}
           </Typography>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-            {/* SEARCH INPUT FIELD (BOTTOM LINE ONLY - LEFT OF FILTERS) */}
+          <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, width: { xs: '100%', sm: 'auto' } }}>
+            {/* SEARCH INPUT FIELD */}
             <TextField
-              variant="standard"
+              size="small"
               placeholder={t('searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -400,7 +401,7 @@ export const RemindersView: React.FC<Props> = ({
                   ),
                 },
               }}
-              sx={{ width: { xs: '100%', sm: 200 }, pb: 0.5 }}
+              sx={{ width: { xs: '100%', sm: 180 } }}
             />
 
             {/* QUICK FILTERS TOGGLE */}
@@ -412,17 +413,17 @@ export const RemindersView: React.FC<Props> = ({
                 if (val) handleQuickFilterChange(val);
               }}
               color="primary"
-              sx={{ bgcolor: 'background.paper', borderRadius: 2 }}
+              sx={{ bgcolor: 'background.paper', borderRadius: 2, width: { xs: '100%', sm: 'auto' } }}
             >
-              <ToggleButton value="all" sx={{ px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600 }}>
+              <ToggleButton value="all" sx={{ flex: { xs: 1, sm: 'none' }, px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600 }}>
                 {t('quickFilterAll')}
               </ToggleButton>
               {currentUser && (
-                <ToggleButton value="my" sx={{ px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600 }}>
+                <ToggleButton value="my" sx={{ flex: { xs: 1, sm: 'none' }, px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600 }}>
                   {t('quickFilterMyReminders')}
                 </ToggleButton>
               )}
-              <ToggleButton value="pending" sx={{ px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600 }}>
+              <ToggleButton value="pending" sx={{ flex: { xs: 1, sm: 'none' }, px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600 }}>
                 {t('statusPending')}
               </ToggleButton>
             </ToggleButtonGroup>
@@ -466,8 +467,8 @@ export const RemindersView: React.FC<Props> = ({
           </Box>
         </Box>
 
-        <TableContainer sx={{ flex: 1, overflowY: 'auto' }}>
-          <Table stickyHeader sx={{ width: '100%' }}>
+        <TableContainer sx={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
+          <Table stickyHeader sx={{ width: '100%', minWidth: 650 }}>
             <TableHead>
               <TableRow>
                 {activeCols.includes('project') && (

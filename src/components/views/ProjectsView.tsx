@@ -259,14 +259,15 @@ export const ProjectsView: React.FC<Props> = ({
   const paginatedProjects = sortedProjects.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, height: '100%', flex: 1, minHeight: 0 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%', flex: 1, minHeight: 0 }}>
       {/* TOP ACTION BAR */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+      <Box sx={{ display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' }, alignItems: 'center' }}>
         <Button
           variant="contained"
           color="primary"
           startIcon={<AddIcon />}
           onClick={onOpenNew}
+          sx={{ width: { xs: '100%', sm: 'auto' } }}
         >
           {t('btnNewProject')}
         </Button>
@@ -274,12 +275,12 @@ export const ProjectsView: React.FC<Props> = ({
 
       {/* TABLE CONTAINER CARD */}
       <Card variant="outlined" sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+        <Box sx={{ p: { xs: 1.5, sm: 2 }, display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
           <Typography variant="h6" sx={{ fontWeight: 700 }}>
             {t('projectsListTitle')}
           </Typography>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', width: { xs: '100%', sm: 'auto' } }}>
             {/* QUICK FILTERS */}
             <ToggleButtonGroup
               value={quickFilter}
@@ -287,14 +288,15 @@ export const ProjectsView: React.FC<Props> = ({
               onChange={(_, val) => val && handleQuickFilterChange(val)}
               size="small"
               color="primary"
+              sx={{ width: { xs: '100%', sm: 'auto' } }}
             >
-              <ToggleButton value="all" sx={{ px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600 }}>
+              <ToggleButton value="all" sx={{ flex: { xs: 1, sm: 'none' }, px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600 }}>
                 {t('quickFilterAll')}
               </ToggleButton>
-              <ToggleButton value="my" sx={{ px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600 }}>
+              <ToggleButton value="my" sx={{ flex: { xs: 1, sm: 'none' }, px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600 }}>
                 {t('quickFilterMyProjects')}
               </ToggleButton>
-              <ToggleButton value="active" sx={{ px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600 }}>
+              <ToggleButton value="active" sx={{ flex: { xs: 1, sm: 'none' }, px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600 }}>
                 {t('quickFilterActive')}
               </ToggleButton>
             </ToggleButtonGroup>
@@ -314,7 +316,7 @@ export const ProjectsView: React.FC<Props> = ({
                   ),
                 },
               }}
-              sx={{ width: 220 }}
+              sx={{ width: { xs: '100%', sm: 220 } }}
             />
 
             {/* POPOVER FILTERS */}
@@ -375,8 +377,8 @@ export const ProjectsView: React.FC<Props> = ({
           </Box>
         </Box>
 
-        <TableContainer sx={{ flex: 1, overflowY: 'auto' }}>
-          <Table stickyHeader sx={{ width: '100%' }}>
+        <TableContainer sx={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
+          <Table stickyHeader sx={{ width: '100%', minWidth: 650 }}>
             <TableHead>
               <TableRow>
                 {activeCols.includes('name') && (
