@@ -39,12 +39,16 @@ export const ColumnSelector: React.FC<Props> = ({
   };
 
   const toggleColumn = (id: string) => {
+    let nextVisible: string[];
     if (visibleColumns.includes(id)) {
       if (visibleColumns.length <= 1) return; // Keep at least one column
-      onChange(visibleColumns.filter((c) => c !== id));
+      nextVisible = visibleColumns.filter((c) => c !== id);
     } else {
-      onChange([...visibleColumns, id]);
+      nextVisible = [...visibleColumns, id];
     }
+    const orderMap = new Map(columns.map((c, idx) => [c.id, idx]));
+    nextVisible.sort((a, b) => (orderMap.get(a) ?? 0) - (orderMap.get(b) ?? 0));
+    onChange(nextVisible);
   };
 
   const open = Boolean(anchorEl);

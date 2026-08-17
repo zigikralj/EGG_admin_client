@@ -25,6 +25,7 @@ export interface TranslationKeys {
   statInCreation: string;
   statDone: string;
   statStale: string;
+  statOverdueUrgent: string;
   statMonitorSoon: string;
   chartProjectsByUser: string;
   chartProjectsByCategory: string;
@@ -286,6 +287,7 @@ export interface TranslationKeys {
   quickFilterMyProjects: string;
   quickFilterMyReminders: string;
   quickFilterActive: string;
+  quickFilterOverdue: string;
   quickFilterAll: string;
   lblProjectCountFilter: string;
   filterOpEquals: string;
@@ -374,6 +376,7 @@ export const translations: Record<Language, TranslationKeys> = {
     statInCreation: 'In Progress',
     statDone: 'Completed',
     statStale: 'Takes >2 mos.',
+    statOverdueUrgent: 'Late - Urgent!',
     statMonitorSoon: 'Sampling Soon',
     chartProjectsByUser: 'Projects per User',
     chartProjectsByCategory: 'Projects per Category',
@@ -621,6 +624,7 @@ export const translations: Record<Language, TranslationKeys> = {
     quickFilterMyProjects: 'My Projects',
     quickFilterMyReminders: 'My Reminders',
     quickFilterActive: 'Active',
+    quickFilterOverdue: 'Late - Urgent',
     quickFilterAll: 'All',
     lblProjectCountFilter: 'Project Count',
     filterOpEquals: 'Equals (=)',
@@ -722,6 +726,7 @@ export const translations: Record<Language, TranslationKeys> = {
     statInCreation: 'U izradi',
     statDone: 'Završeno',
     statStale: 'Traje >2mes.',
+    statOverdueUrgent: 'Kasni - Hitno!',
     statMonitorSoon: 'Uzorkovanje uskoro',
     chartProjectsByUser: 'Projekti po korisniku',
     chartProjectsByCategory: 'Projekti po kategoriji',
@@ -969,6 +974,7 @@ export const translations: Record<Language, TranslationKeys> = {
     quickFilterMyProjects: 'Moji projekti',
     quickFilterMyReminders: 'Moji podsetnici',
     quickFilterActive: 'Aktivni',
+    quickFilterOverdue: 'Kasni - Hitno',
     quickFilterAll: 'Svi',
     lblProjectCountFilter: 'Broj projekata',
     filterOpEquals: 'Jednako (=)',
@@ -1070,6 +1076,7 @@ export const translations: Record<Language, TranslationKeys> = {
     statInCreation: 'У изради',
     statDone: 'Завршено',
     statStale: 'Траје >2мес.',
+    statOverdueUrgent: 'Касни - Хитно!',
     statMonitorSoon: 'Узорковање ускоро',
     chartProjectsByUser: 'Пројекти по кориснику',
     chartProjectsByCategory: 'Пројекти по категорији',
@@ -1317,6 +1324,7 @@ export const translations: Record<Language, TranslationKeys> = {
     quickFilterMyProjects: 'Моји пројекти',
     quickFilterMyReminders: 'Моји подсетници',
     quickFilterActive: 'Активни',
+    quickFilterOverdue: 'Касни - Хитно',
     quickFilterAll: 'Сви',
     lblProjectCountFilter: 'Број пројеката',
     filterOpEquals: 'Једнако (=)',

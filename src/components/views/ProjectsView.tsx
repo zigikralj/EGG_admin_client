@@ -48,14 +48,19 @@ interface Props {
   onSortChange?: (sort: { field: string; direction: 'asc' | 'desc' }) => void;
 }
 
-const DEFAULT_COLUMNS = ['name', 'client', 'category', 'responsible', 'progress', 'nextSample', 'status'];
+const DEFAULT_COLUMNS = ['name', 'client', 'category', 'responsible', 'start', 'deadline', 'progress', 'status'];
 
-function isStale(startStr: string | null, progress: number): boolean {
-  if (!startStr || progress === 100) return false;
+function isStale(startStr: string | null, done: boolean): boolean {
+  if (done || !startStr) return false;
   const start = new Date(startStr);
-  const now = new Date();
-  const diffDays = (now.getTime() - start.getTime()) / (1000 * 3600 * 24);
-  return diffDays > 60;
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - 2);
+  return start < cutoff;
+}
+
+function isLate(deadlineStr: string | null, done: boolean): boolean {
+  if (done || !deadlineStr) return false;
+  return new Date(deadlineStr) < new Date(new Date().toDateString());
 }
 
 function fmtDate(d: string | null): string {
@@ -104,15 +109,15 @@ export const ProjectsView: React.FC<Props> = ({
     }
   };
 
-  // Quick Filter state ('all' | 'my' | 'active')
-  const [quickFilter, setQuickFilter] = useState<'all' | 'my' | 'active'>('all');
+  // Quick Filter state ('all' | 'my' | 'active' | 'overdue')
+  const [quickFilter, setQuickFilter] = useState<'all' | 'my' | 'active' | 'overdue'>('all');
 
   // Popover Filter states
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterResponsible, setFilterResponsible] = useState<string>('all');
 
-  const handleQuickFilterChange = (val: 'all' | 'my' | 'active') => {
+  const handleQuickFilterChange = (val: 'all' | 'my' | 'active' | 'overdue') => {
     setQuickFilter(val);
     if (val === 'my' && currentUser?.name) {
       setFilterResponsible(currentUser.name);
@@ -124,7 +129,7 @@ export const ProjectsView: React.FC<Props> = ({
   const handleFilterResponsibleChange = (val: string) => {
     setFilterResponsible(val);
     if (currentUser?.name && val === currentUser.name) {
-      if (quickFilter !== 'active') {
+      if (quickFilter !== 'active' && quickFilter !== 'overdue') {
         setQuickFilter('my');
       }
     } else if (quickFilter === 'my') {
@@ -133,7 +138,7 @@ export const ProjectsView: React.FC<Props> = ({
   };
 
   const activeFilterCount =
-    (quickFilter === 'active' ? 1 : 0) +
+    (quickFilter === 'active' || quickFilter === 'overdue' ? 1 : 0) +
     (filterCategory !== 'all' ? 1 : 0) +
     (filterStatus !== 'all' ? 1 : 0) +
     (filterResponsible !== 'all' ? 1 : 0);
@@ -156,8 +161,9 @@ export const ProjectsView: React.FC<Props> = ({
     { id: 'client', label: t('colClient') },
     { id: 'category', label: t('colCategory') },
     { id: 'responsible', label: t('colResponsible') },
+    { id: 'start', label: t('start') },
+    { id: 'deadline', label: t('deadline') },
     { id: 'progress', label: t('progress') },
-    { id: 'nextSample', label: t('colNextSample') },
     { id: 'status', label: t('colDeadlineStatus') },
   ];
 
@@ -179,14 +185,17 @@ export const ProjectsView: React.FC<Props> = ({
       if (!isMyName && !isMyId) return false;
     }
     if (quickFilter === 'active' && p.done) return false;
+    if (quickFilter === 'overdue' && (!isLate(p.deadline, p.done) || p.done)) return false;
 
     if (filterCategory !== 'all' && p.type !== filterCategory) return false;
     if (filterResponsible !== 'all' && p.responsible !== filterResponsible) return false;
     if (filterStatus !== 'all') {
-      const stale = isStale(p.start, p.progress);
+      const stale = isStale(p.start, p.done);
+      const late = isLate(p.deadline, p.done);
       if (filterStatus === 'done' && !p.done) return false;
+      if (filterStatus === 'overdue' && (!late || p.done)) return false;
       if (filterStatus === 'stale' && (!stale || p.done)) return false;
-      if (filterStatus === 'creation' && (p.done || stale)) return false;
+      if (filterStatus === 'creation' && (p.done || stale || late)) return false;
     }
     return true;
   });
@@ -222,14 +231,21 @@ export const ProjectsView: React.FC<Props> = ({
       case 'progress':
         res = a.progress - b.progress;
         break;
-      case 'nextSample':
+      case 'start':
         res =
-          (a.nextSample ? new Date(a.nextSample).getTime() : 0) -
-          (b.nextSample ? new Date(b.nextSample).getTime() : 0);
+          (a.start ? new Date(a.start).getTime() : 0) -
+          (b.start ? new Date(b.start).getTime() : 0);
+        break;
+      case 'deadline':
+        res =
+          (a.deadline ? new Date(a.deadline).getTime() : 0) -
+          (b.deadline ? new Date(b.deadline).getTime() : 0);
         break;
       case 'status': {
-        const valA = a.done ? 2 : isStale(a.start, a.progress) ? 1 : 0;
-        const valB = b.done ? 2 : isStale(b.start, b.progress) ? 1 : 0;
+        const lateA = isLate(a.deadline, a.done);
+        const lateB = isLate(b.deadline, b.done);
+        const valA = a.done ? 3 : lateA ? 0 : isStale(a.start, a.done) ? 2 : 1;
+        const valB = b.done ? 3 : lateB ? 0 : isStale(b.start, b.done) ? 2 : 1;
         res = valA - valB;
         break;
       }
@@ -297,6 +313,9 @@ export const ProjectsView: React.FC<Props> = ({
               </ToggleButton>
               <ToggleButton value="active" sx={{ flex: { xs: 1, sm: 'none' }, px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600 }}>
                 {t('quickFilterActive')}
+              </ToggleButton>
+              <ToggleButton value="overdue" sx={{ flex: { xs: 1, sm: 'none' }, px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600, color: 'error.main' }}>
+                {t('quickFilterOverdue')}
               </ToggleButton>
             </ToggleButtonGroup>
 
@@ -366,6 +385,7 @@ export const ProjectsView: React.FC<Props> = ({
                 >
                   <MenuItem value="all">{t('filterAll')}</MenuItem>
                   <MenuItem value="creation">{t('statInCreation')}</MenuItem>
+                  <MenuItem value="overdue">{t('statOverdueUrgent')}</MenuItem>
                   <MenuItem value="stale">{t('statStale')}</MenuItem>
                   <MenuItem value="done">{t('statDone')}</MenuItem>
                 </Select>
@@ -440,14 +460,25 @@ export const ProjectsView: React.FC<Props> = ({
                     </TableSortLabel>
                   </TableCell>
                 )}
-                {activeCols.includes('nextSample') && (
+                {activeCols.includes('start') && (
                   <TableCell>
                     <TableSortLabel
-                      active={sortColumn === 'nextSample'}
-                      direction={sortColumn === 'nextSample' ? sortDirection : 'asc'}
-                      onClick={() => handleSort('nextSample')}
+                      active={sortColumn === 'start'}
+                      direction={sortColumn === 'start' ? sortDirection : 'asc'}
+                      onClick={() => handleSort('start')}
                     >
-                      {t('colNextSample')}
+                      {t('start')}
+                    </TableSortLabel>
+                  </TableCell>
+                )}
+                {activeCols.includes('deadline') && (
+                  <TableCell>
+                    <TableSortLabel
+                      active={sortColumn === 'deadline'}
+                      direction={sortColumn === 'deadline' ? sortDirection : 'asc'}
+                      onClick={() => handleSort('deadline')}
+                    >
+                      {t('deadline')}
                     </TableSortLabel>
                   </TableCell>
                 )}
@@ -474,7 +505,7 @@ export const ProjectsView: React.FC<Props> = ({
                 </TableRow>
               ) : (
                 paginatedProjects.map((p) => {
-                  const stale = isStale(p.start, p.progress);
+                  const stale = isStale(p.start, p.done);
                   const editable = canEditProject(p);
 
                   return (
@@ -505,13 +536,29 @@ export const ProjectsView: React.FC<Props> = ({
                       {activeCols.includes('progress') && (
                         <TableCell>{p.progress}%</TableCell>
                       )}
-                      {activeCols.includes('nextSample') && (
-                        <TableCell>{fmtDate(p.nextSample)}</TableCell>
+                      {activeCols.includes('start') && (
+                        <TableCell>{fmtDate(p.start)}</TableCell>
+                      )}
+                      {activeCols.includes('deadline') && (
+                        <TableCell>
+                          <Typography
+                            variant="body2"
+                            component="span"
+                            sx={{
+                              fontWeight: isLate(p.deadline, p.done) ? 700 : 'normal',
+                              color: isLate(p.deadline, p.done) ? 'error.main' : 'inherit',
+                            }}
+                          >
+                            {fmtDate(p.deadline)}
+                          </Typography>
+                        </TableCell>
                       )}
                       {activeCols.includes('status') && (
                         <TableCell>
                           {p.done ? (
                             <Chip label={t('statDone')} size="small" color="info" />
+                          ) : isLate(p.deadline, p.done) ? (
+                            <Chip label={t('statOverdueUrgent')} size="small" color="error" />
                           ) : stale ? (
                             <Chip label={t('staleFlag')} size="small" color="warning" />
                           ) : (

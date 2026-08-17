@@ -48,7 +48,7 @@ interface Props {
   onSortChange?: (sort: { field: string; direction: 'asc' | 'desc' }) => void;
 }
 
-const DEFAULT_COLUMNS = ['name', 'group', 'frequency', 'description'];
+const DEFAULT_COLUMNS = ['code', 'name', 'group', 'frequency', 'description'];
 
 export const ServicesView: React.FC<Props> = ({
   services,

@@ -113,6 +113,11 @@ export const DashboardView: React.FC<Props> = ({
       return start < cutoff;
     };
 
+    const isLateProject = (p: Project): boolean => {
+      if (p.done || !p.deadline) return false;
+      return new Date(p.deadline) < new Date(new Date().toDateString());
+    };
+
     return projects
       .filter((p) => {
         if (quickFilters.includes('my') && currentUser) {
@@ -125,15 +130,18 @@ export const DashboardView: React.FC<Props> = ({
         }
         if (quickFilters.includes('active') && p.done) return false;
         if (quickFilters.includes('stale') && (!isStaleProject(p) || p.done)) return false;
+        if (quickFilters.includes('overdue') && (!isLateProject(p) || p.done)) return false;
         if (quickFilters.includes('done') && !p.done) return false;
 
         if (filterCategory !== 'all' && p.type !== filterCategory) return false;
         if (filterResponsible !== 'all' && p.responsible !== filterResponsible) return false;
         if (filterStatus !== 'all') {
           const stale = isStaleProject(p);
+          const late = isLateProject(p);
           if (filterStatus === 'done' && !p.done) return false;
+          if (filterStatus === 'overdue' && (!late || p.done)) return false;
           if (filterStatus === 'stale' && (!stale || p.done)) return false;
-          if (filterStatus === 'creation' && (p.done || stale)) return false;
+          if (filterStatus === 'creation' && (p.done || stale || late)) return false;
         }
 
         if (searchQuery.trim()) {
@@ -184,7 +192,6 @@ export const DashboardView: React.FC<Props> = ({
     const now = new Date();
     const twoMonthsMs = 60 * 24 * 60 * 60 * 1000;
     const twoMonthsFromNow = new Date(now.getTime() + twoMonthsMs);
-    const twoMonthsAgo = new Date(now.getTime() - twoMonthsMs);
 
     const hasApproachingDeadline = (p: Project): boolean => {
       if (!p.deadline) return false;
@@ -193,9 +200,11 @@ export const DashboardView: React.FC<Props> = ({
     };
 
     const isOlderThan2Months = (p: Project): boolean => {
-      if (!p.start) return false;
+      if (p.done || !p.start) return false;
       const startDate = new Date(p.start);
-      return startDate < twoMonthsAgo;
+      const cutoff = new Date();
+      cutoff.setMonth(cutoff.getMonth() - 2);
+      return startDate < cutoff;
     };
 
     const userRespName = (currentUser?.name || '').trim().toLowerCase();
@@ -540,6 +549,21 @@ export const DashboardView: React.FC<Props> = ({
                     </Typography>
                   }
                 />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      size="small"
+                      checked={quickFilters.includes('overdue')}
+                      onChange={(e) => handleToggleFilter('overdue', e.target.checked)}
+                      color="error"
+                    />
+                  }
+                  label={
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'error.main' }}>
+                      {t('statOverdueUrgent')}
+                    </Typography>
+                  }
+                />
               </FormGroup>
 
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
@@ -591,6 +615,7 @@ export const DashboardView: React.FC<Props> = ({
                     >
                       <MenuItem value="all">{t('filterAll')}</MenuItem>
                       <MenuItem value="creation">{t('statInCreation')}</MenuItem>
+                      <MenuItem value="overdue">{t('statOverdueUrgent')}</MenuItem>
                       <MenuItem value="stale">{t('statStale')}</MenuItem>
                       <MenuItem value="done">{t('statDone')}</MenuItem>
                     </Select>

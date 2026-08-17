@@ -14,6 +14,7 @@ import {
 import EditIcon from '@mui/icons-material/Edit';
 import LockIcon from '@mui/icons-material/Lock';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import ErrorIcon from '@mui/icons-material/Error';
 import type { Project } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
@@ -64,19 +65,30 @@ export const ProjectCard: React.FC<Props> = ({
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        borderColor: stale ? 'warning.main' : 'divider',
-        bgcolor: stale ? 'warning.50' : 'background.paper',
+        borderColor: late ? 'error.main' : (stale ? 'warning.main' : 'divider'),
+        borderWidth: late ? 2 : 1,
+        borderStyle: 'solid',
+        bgcolor: late ? 'rgba(211, 47, 47, 0.03)' : (stale ? 'warning.50' : 'background.paper'),
         position: 'relative',
         transition: 'all 0.2s ease-in-out',
         '&:hover': {
-          boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+          boxShadow: late ? '0 4px 14px rgba(211, 47, 47, 0.2)' : '0 4px 12px rgba(0,0,0,0.08)',
         },
       }}
     >
       <CardContent sx={{ flexGrow: 1, p: 2 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, minHeight: 28 }}>
-          <Box>
-            {stale && (
+          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+            {late && (
+              <Chip
+                icon={<ErrorIcon fontSize="small" />}
+                label={t('statOverdueUrgent')}
+                color="error"
+                size="small"
+                sx={{ height: 22, fontSize: '0.6875rem', fontWeight: 700 }}
+              />
+            )}
+            {stale && !late && (
               <Chip
                 icon={<WarningAmberIcon fontSize="small" />}
                 label={t('staleFlag')}
@@ -162,16 +174,22 @@ export const ProjectCard: React.FC<Props> = ({
           <LinearProgress
             variant="determinate"
             value={p.progress}
-            color={p.done ? 'info' : p.progress > 75 ? 'success' : 'primary'}
+            color={p.done ? 'info' : late ? 'error' : p.progress > 75 ? 'success' : 'primary'}
             sx={{ height: 8, borderRadius: 4 }}
           />
         </Box>
 
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', mb: 0.5, color: 'text.secondary' }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', mb: 0.5, color: 'text.secondary' }}>
           <span>{t('start')}: {fmtDate(p.start)}</span>
-          <span>
+          <span style={{ fontSize: late ? '0.875rem' : 'inherit' }}>
             {t('deadline')}:{' '}
-            <strong style={{ color: late ? '#d32f2f' : 'inherit' }}>
+            <strong
+              style={{
+                color: late ? '#d32f2f' : 'inherit',
+                fontWeight: late ? 800 : 700,
+                fontSize: late ? '0.925rem' : 'inherit',
+              }}
+            >
               {fmtDate(p.deadline)}
             </strong>
           </span>

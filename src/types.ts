@@ -79,6 +79,7 @@ export interface ProjectStats {
   done: number;
   stale: number;
   monitor: number;
+  overdue?: number;
   clientsCount: number;
   usersCount: number;
   servicesCount: number;

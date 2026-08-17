@@ -328,8 +328,9 @@ export const AdminLayout: React.FC<Props> = ({
           { id: 'client', label: t('colClient') },
           { id: 'category', label: t('colCategory') },
           { id: 'responsible', label: t('colResponsible') },
+          { id: 'start', label: t('start') },
+          { id: 'deadline', label: t('deadline') },
           { id: 'progress', label: t('progress') },
-          { id: 'nextSample', label: t('colNextSample') },
           { id: 'status', label: t('colDeadlineStatus') },
         ];
       case 'clients':
@@ -345,6 +346,8 @@ export const AdminLayout: React.FC<Props> = ({
         return [
           { id: 'name', label: t('colFullName') },
           { id: 'role', label: t('colRole') },
+          { id: 'status', label: t('colApprovalStatus') },
+          { id: 'gender', label: t('colGender') },
           { id: 'email', label: t('colEmail') },
           { id: 'phone', label: t('colPhone') },
         ];
@@ -354,6 +357,7 @@ export const AdminLayout: React.FC<Props> = ({
           { id: 'name', label: t('colServiceName') },
           { id: 'group', label: t('colCategory') },
           { id: 'frequency', label: t('colPeriodicSampling') },
+          { id: 'description', label: t('colDescription') },
         ];
       case 'categories':
         return [
@@ -369,6 +373,8 @@ export const AdminLayout: React.FC<Props> = ({
           { id: 'status', label: t('colStatus') },
           { id: 'notes', label: t('colNotes') },
         ];
+      default:
+        return [];
     }
   };
 
