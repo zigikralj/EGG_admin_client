@@ -68,12 +68,55 @@ export const StatisticsCharts: React.FC<Props> = ({
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [trendMode, setTrendMode] = useState<TrendMode>('cumulative');
 
-  // Filter projects by status for Pie Charts
+  const adminNames = useMemo(() => {
+    const set = new Set<string>();
+    users.forEach((u) => {
+      if (u.role === 'Administrator' || u.role?.toLowerCase() === 'administrator') {
+        if (u.name) set.add(u.name.trim().toLowerCase());
+      }
+    });
+    return set;
+  }, [users]);
+
+  const isAdminUser = useCallback(
+    (userNameOrId: string) => {
+      if (!userNameOrId) return false;
+      const trimmed = userNameOrId.trim().toLowerCase();
+      if (adminNames.has(trimmed)) return true;
+      const found = users.find(
+        (u) => u.id === userNameOrId || u.name.trim().toLowerCase() === trimmed
+      );
+      return found ? (found.role === 'Administrator' || found.role?.toLowerCase() === 'administrator') : false;
+    },
+    [adminNames, users]
+  );
+
+  // Helper to map project to owner name
+  const getProjectOwner = useCallback(
+    (p: Project): string => {
+      if (p.responsible && p.responsible.trim()) return p.responsible.trim();
+      if ((p as any).responsibleId) {
+        const found = users.find((u) => u.id === (p as any).responsibleId);
+        if (found) return found.name;
+      }
+      return t('unassignedUser');
+    },
+    [users, t]
+  );
+
+  // Filter projects by status and exclude projects assigned to Administrators
   const filteredProjects = useMemo(() => {
-    if (filterStatus === 'active') return projects.filter((p) => !p.done);
-    if (filterStatus === 'done') return projects.filter((p) => p.done);
-    return projects;
-  }, [projects, filterStatus]);
+    const nonAdminProjects = projects.filter((p) => {
+      const owner = getProjectOwner(p);
+      if (isAdminUser(owner)) return false;
+      if ((p as any).responsibleId && isAdminUser((p as any).responsibleId)) return false;
+      return true;
+    });
+
+    if (filterStatus === 'active') return nonAdminProjects.filter((p) => !p.done);
+    if (filterStatus === 'done') return nonAdminProjects.filter((p) => p.done);
+    return nonAdminProjects;
+  }, [projects, filterStatus, isAdminUser, getProjectOwner]);
 
   const totalFiltered = filteredProjects.length;
 
@@ -120,21 +163,26 @@ export const StatisticsCharts: React.FC<Props> = ({
         userName = t('unassignedUser');
       }
 
+      if (isAdminUser(userName) || ((p as any).responsibleId && isAdminUser((p as any).responsibleId))) {
+        return;
+      }
+
       const existing = userCountMap.get(userName) || { label: userName, count: 0 };
       existing.count += 1;
       userCountMap.set(userName, existing);
     });
 
     const list = Array.from(userCountMap.values()).sort((a, b) => b.count - a.count);
+    const totalUserProjects = list.reduce((acc, item) => acc + item.count, 0);
 
     return list.map((item, idx) => ({
       id: `user-${idx}`,
       value: item.count,
       label: item.label,
       color: MOUNTAIN_COLORS[idx % MOUNTAIN_COLORS.length],
-      percentage: totalFiltered > 0 ? ((item.count / totalFiltered) * 100).toFixed(1) : '0',
+      percentage: totalUserProjects > 0 ? ((item.count / totalUserProjects) * 100).toFixed(1) : '0',
     }));
-  }, [filteredProjects, users, totalFiltered, t]);
+  }, [filteredProjects, users, totalFiltered, isAdminUser, t]);
 
   // 2. Projects per Category data (Pie Chart)
   const categoryChartData = useMemo(() => {
@@ -194,19 +242,6 @@ export const StatisticsCharts: React.FC<Props> = ({
     return months;
   }, [language]);
 
-  // Helper to map project to owner name
-  const getProjectOwner = useCallback(
-    (p: Project): string => {
-      if (p.responsible && p.responsible.trim()) return p.responsible.trim();
-      if ((p as any).responsibleId) {
-        const found = users.find((u) => u.id === (p as any).responsibleId);
-        if (found) return found.name;
-      }
-      return t('unassignedUser');
-    },
-    [users, t]
-  );
-
   // Helper to extract completion year-month key (YYYY-MM)
   const getCompletionMonthKey = (p: Project): string | null => {
     if (!p.done) return null;
@@ -225,13 +260,26 @@ export const StatisticsCharts: React.FC<Props> = ({
 
   // Build series for Mountain Area Chart
   const { stackedSeries, totalCompletedIn12Months, ownerLegendList } = useMemo(() => {
-    const completedProjects = projects.filter((p) => p.done);
+    const completedProjects = projects.filter((p) => {
+      if (!p.done) return false;
+      const owner = getProjectOwner(p);
+      if (isAdminUser(owner)) return false;
+      if ((p as any).responsibleId && isAdminUser((p as any).responsibleId)) return false;
+      return true;
+    });
 
-    // Get list of distinct owners
+    // Get list of distinct non-admin owners
     const ownerSet = new Set<string>();
-    users.forEach((u) => ownerSet.add(u.name));
+    users.forEach((u) => {
+      if (u.role !== 'Administrator' && u.role?.toLowerCase() !== 'administrator') {
+        ownerSet.add(u.name);
+      }
+    });
     completedProjects.forEach((p) => {
-      ownerSet.add(getProjectOwner(p));
+      const owner = getProjectOwner(p);
+      if (!isAdminUser(owner)) {
+        ownerSet.add(owner);
+      }
     });
 
     const owners = Array.from(ownerSet);
@@ -281,10 +329,12 @@ export const StatisticsCharts: React.FC<Props> = ({
       };
     });
 
-    // Filter to owners who have at least 1 completed project or are in the registered users list
+    const nonAdminUsers = users.filter((u) => u.role !== 'Administrator' && u.role?.toLowerCase() !== 'administrator');
+
+    // Filter to owners who have at least 1 completed project or are in the registered non-admin users list
     // Sort by total descending
     const sortedOwners = ownerTotals
-      .filter((o) => o.total > 0 || users.some((u) => u.name === o.name))
+      .filter((o) => o.total > 0 || nonAdminUsers.some((u) => u.name === o.name))
       .sort((a, b) => b.total - a.total);
 
     const series = sortedOwners.map((o) => ({
@@ -304,7 +354,7 @@ export const StatisticsCharts: React.FC<Props> = ({
       totalCompletedIn12Months: totalCompleted,
       ownerLegendList: sortedOwners,
     };
-  }, [projects, users, last12Months, getProjectOwner, trendMode, t]);
+  }, [projects, users, last12Months, getProjectOwner, isAdminUser, trendMode, t]);
 
   const xLabels = useMemo(() => last12Months.map((m) => m.label), [last12Months]);
 
