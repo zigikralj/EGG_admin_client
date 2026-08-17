@@ -18,6 +18,7 @@ import {
   FormControl,
   Menu,
   Divider,
+  Link,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -1150,7 +1151,8 @@ export const AdminLayout: React.FC<Props> = ({
         }}
       >
         <Toolbar />
-        <Box sx={{ overflow: 'auto', p: 1.5 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1, overflow: 'hidden' }}>
+          <Box sx={{ overflowY: 'auto', flexGrow: 1, p: 1.5 }}>
           {/* MOBILE USER SWITCHER & WORK MODE SWITCH */}
           <Box sx={{ mb: 2, pb: 1.5, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', flexDirection: 'column', gap: 1.5 }}>
             <Box>
@@ -1345,7 +1347,72 @@ export const AdminLayout: React.FC<Props> = ({
               })}
           </List>
         </Box>
-      </Drawer>
+
+        <Box
+          sx={{
+            p: 1.5,
+            px: 2,
+            borderTop: '1px solid',
+            borderColor: 'divider',
+            mt: 'auto',
+            bgcolor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.015)'),
+          }}
+        >
+          <Typography
+            variant="caption"
+            sx={{
+              fontWeight: 700,
+              color: 'text.primary',
+              display: 'block',
+              mb: 0.5,
+              fontSize: '0.75rem',
+              letterSpacing: '0.2px',
+            }}
+          >
+            Made by Zigi Code.
+          </Typography>
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary',
+              display: 'block',
+              fontSize: '0.7rem',
+              lineHeight: 1.5,
+              wordBreak: 'break-all',
+            }}
+          >
+            E-mail:{' '}
+            <Link
+              href="mailto:nemanja.stanojevic.kv@gmail.com"
+              underline="hover"
+              color="inherit"
+              sx={{ fontWeight: 500 }}
+            >
+              nemanja.stanojevic.kv@gmail.com
+            </Link>
+          </Typography>
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary',
+              display: 'block',
+              fontSize: '0.7rem',
+              lineHeight: 1.5,
+            }}
+          >
+            Phone:{' '}
+            <Link
+              href="tel:+381641327858"
+              underline="hover"
+              color="inherit"
+              sx={{ fontWeight: 500 }}
+            >
+              +381 64 132 78 58
+            </Link>
+          </Typography>
+        </Box>
+      </Box>
+    </Drawer>
 
       {/* SIDEBAR DRAWER - DESKTOP */}
       <Drawer
@@ -1364,7 +1431,8 @@ export const AdminLayout: React.FC<Props> = ({
         }}
       >
         <Toolbar />
-        <Box sx={{ overflow: 'auto', p: 1.5 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1, overflow: 'hidden' }}>
+          <Box sx={{ overflowY: 'auto', flexGrow: 1, p: 1.5 }}>
           <List component="nav" disablePadding sx={{ gap: 0.5, display: 'flex', flexDirection: 'column' }}>
             {navItems
               .filter((item) => item.show)
@@ -1508,7 +1576,72 @@ export const AdminLayout: React.FC<Props> = ({
               })}
           </List>
         </Box>
-      </Drawer>
+
+        <Box
+          sx={{
+            p: 1.5,
+            px: 2,
+            borderTop: '1px solid',
+            borderColor: 'divider',
+            mt: 'auto',
+            bgcolor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.015)'),
+          }}
+        >
+          <Typography
+            variant="caption"
+            sx={{
+              fontWeight: 700,
+              color: 'text.primary',
+              display: 'block',
+              mb: 0.5,
+              fontSize: '0.75rem',
+              letterSpacing: '0.2px',
+            }}
+          >
+            Made by Zigi Code.
+          </Typography>
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary',
+              display: 'block',
+              fontSize: '0.7rem',
+              lineHeight: 1.5,
+              wordBreak: 'break-all',
+            }}
+          >
+            E-mail:{' '}
+            <Link
+              href="mailto:nemanja.stanojevic.kv@gmail.com"
+              underline="hover"
+              color="inherit"
+              sx={{ fontWeight: 500 }}
+            >
+              nemanja.stanojevic.kv@gmail.com
+            </Link>
+          </Typography>
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary',
+              display: 'block',
+              fontSize: '0.7rem',
+              lineHeight: 1.5,
+            }}
+          >
+            Phone:{' '}
+            <Link
+              href="tel:+381641327858"
+              underline="hover"
+              color="inherit"
+              sx={{ fontWeight: 500 }}
+            >
+              +381 64 132 78 58
+            </Link>
+          </Typography>
+        </Box>
+      </Box>
+    </Drawer>
 
       {/* MAIN CONTENT AREA */}
       <Box

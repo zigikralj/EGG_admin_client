@@ -23,7 +23,7 @@ import {
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
-import FilterListOffIcon from '@mui/icons-material/FilterListOff';
+import FilterListIcon from '@mui/icons-material/FilterList';
 import type { Project, ProjectStats, Reminder, DashboardSubTab, User, Category, Service } from '../../types';
 import { ReminderPanel } from '../ReminderPanel';
 import { ProjectCard } from '../ProjectCard';
@@ -180,12 +180,11 @@ export const DashboardView: React.FC<Props> = ({
   const activeFilterCount =
     (filterCategory !== 'all' ? 1 : 0) +
     (filterResponsible !== 'all' ? 1 : 0) +
-    (filterStatus !== 'all' ? 1 : 0);
+    (filterStatus !== 'all' ? 1 : 0) +
+    quickFilters.length;
 
   const clearFilters = () => {
-    setFilterCategory('all');
-    setFilterResponsible('all');
-    setFilterStatus('all');
+    handleClearAllFilters();
   };
 
   const { approachingDeadlineProjects, staleProjects } = useMemo(() => {
@@ -636,20 +635,6 @@ export const DashboardView: React.FC<Props> = ({
                     <MenuItem value="progress">{t('progress')}</MenuItem>
                   </Select>
                 </FormControl>
-
-                {/* CLEAR / RESET ALL FILTERS BUTTON */}
-                {(quickFilters.length > 0 || activeFilterCount > 0 || searchQuery.trim() !== '') && (
-                  <Button
-                    size="small"
-                    color="error"
-                    variant="outlined"
-                    startIcon={<FilterListOffIcon fontSize="small" />}
-                    onClick={handleClearAllFilters}
-                    sx={{ textTransform: 'none', fontWeight: 600, px: 1.5 }}
-                  >
-                    {t('btnClearFilters')}
-                  </Button>
-                )}
               </Box>
             </Box>
           </Card>
