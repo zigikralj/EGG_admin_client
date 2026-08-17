@@ -48,7 +48,7 @@ interface Props {
   onSortChange?: (sort: { field: string; direction: 'asc' | 'desc' }) => void;
 }
 
-const DEFAULT_COLUMNS = ['code', 'name', 'group', 'frequency', 'description'];
+const DEFAULT_COLUMNS = ['name', 'group', 'frequency', 'description'];
 
 export const ServicesView: React.FC<Props> = ({
   services,
@@ -66,12 +66,12 @@ export const ServicesView: React.FC<Props> = ({
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [localColumns, setLocalColumns] = useState<string[]>(visibleColumns);
 
-  const [sortColumn, setSortColumn] = useState<string>(sortState?.field || 'code');
+  const [sortColumn, setSortColumn] = useState<string>(sortState?.field || 'name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(sortState?.direction || 'asc');
 
   useEffect(() => {
     if (sortState) {
-      setSortColumn(sortState.field || 'code');
+      setSortColumn(sortState.field || 'name');
       setSortDirection(sortState.direction || 'asc');
     }
   }, [sortState]);
@@ -107,7 +107,6 @@ export const ServicesView: React.FC<Props> = ({
   };
 
   const columnDefs: ColumnDef[] = [
-    { id: 'code', label: t('colCode') },
     { id: 'name', label: t('colServiceName') },
     { id: 'group', label: t('colCategory') },
     { id: 'frequency', label: t('colPeriodicSampling') },
@@ -346,17 +345,6 @@ export const ServicesView: React.FC<Props> = ({
           <Table stickyHeader sx={{ width: '100%', minWidth: 600 }}>
             <TableHead>
               <TableRow>
-                {activeCols.includes('code') && (
-                  <TableCell>
-                    <TableSortLabel
-                      active={sortColumn === 'code'}
-                      direction={sortColumn === 'code' ? sortDirection : 'asc'}
-                      onClick={() => handleSort('code')}
-                    >
-                      {t('colCode')}
-                    </TableSortLabel>
-                  </TableCell>
-                )}
                 {activeCols.includes('name') && (
                   <TableCell>
                     <TableSortLabel
@@ -414,13 +402,6 @@ export const ServicesView: React.FC<Props> = ({
               ) : (
                 paginatedServices.map((s) => (
                   <TableRow key={s.id} hover>
-                    {activeCols.includes('code') && (
-                      <TableCell>
-                        <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 600 }}>
-                          {s.code}
-                        </Typography>
-                      </TableCell>
-                    )}
                     {activeCols.includes('name') && (
                       <TableCell>
                         <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>

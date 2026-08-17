@@ -353,7 +353,6 @@ export const AdminLayout: React.FC<Props> = ({
         ];
       case 'services':
         return [
-          { id: 'code', label: t('colCode') },
           { id: 'name', label: t('colServiceName') },
           { id: 'group', label: t('colCategory') },
           { id: 'frequency', label: t('colPeriodicSampling') },
@@ -361,7 +360,6 @@ export const AdminLayout: React.FC<Props> = ({
         ];
       case 'categories':
         return [
-          { id: 'code', label: t('lblCategoryCode') },
           { id: 'name', label: t('colCategoryName') },
           { id: 'description', label: t('colDescription') },
         ];

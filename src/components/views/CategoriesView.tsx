@@ -41,7 +41,7 @@ interface Props {
   onSortChange?: (sort: { field: string; direction: 'asc' | 'desc' }) => void;
 }
 
-const DEFAULT_COLUMNS = ['code', 'name', 'description'];
+const DEFAULT_COLUMNS = ['name', 'description'];
 
 export const CategoriesView: React.FC<Props> = ({
   categories,
@@ -87,7 +87,6 @@ export const CategoriesView: React.FC<Props> = ({
   };
 
   const columnDefs: ColumnDef[] = [
-    { id: 'code', label: t('lblCategoryCode') },
     { id: 'name', label: t('colCategoryName') },
     { id: 'description', label: t('colDescription') },
   ];
@@ -203,7 +202,7 @@ export const CategoriesView: React.FC<Props> = ({
           sx={{
             p: { xs: 1.5, sm: 2 },
             display: 'flex',
-            justify: 'space-between',
+            justifyContent: 'space-between',
             alignItems: { xs: 'stretch', sm: 'center' },
             flexDirection: { xs: 'column', sm: 'row' },
             gap: 1.5,
@@ -245,17 +244,6 @@ export const CategoriesView: React.FC<Props> = ({
           <Table stickyHeader sx={{ width: '100%', minWidth: 500 }}>
             <TableHead>
               <TableRow>
-                {activeCols.includes('code') && (
-                  <TableCell>
-                    <TableSortLabel
-                      active={sortColumn === 'code'}
-                      direction={sortColumn === 'code' ? sortDirection : 'asc'}
-                      onClick={() => handleSort('code')}
-                    >
-                      {t('lblCategoryCode')}
-                    </TableSortLabel>
-                  </TableCell>
-                )}
                 {activeCols.includes('name') && (
                   <TableCell>
                     <TableSortLabel
@@ -295,13 +283,6 @@ export const CategoriesView: React.FC<Props> = ({
               ) : (
                 paginatedCategories.map((c) => (
                   <TableRow key={c.id} hover>
-                    {activeCols.includes('code') && (
-                      <TableCell>
-                        <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 600 }}>
-                          {c.code}
-                        </Typography>
-                      </TableCell>
-                    )}
                     {activeCols.includes('name') && (
                       <TableCell>
                         <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>

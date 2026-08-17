@@ -533,7 +533,7 @@ export const translations: Record<Language, TranslationKeys> = {
 
     // Services View
     btnNewService: 'New Service',
-    servicesListTitle: 'Ekos Green Group Service Catalog',
+    servicesListTitle: 'Services List',
     colCode: 'Code (ID)',
     colServiceName: 'Service Name',
     colCategory: 'Category',
@@ -883,7 +883,7 @@ export const translations: Record<Language, TranslationKeys> = {
 
     // Services View
     btnNewService: 'Nova usluga',
-    servicesListTitle: 'Katalog usluga Ekos Green Group',
+    servicesListTitle: 'Lista usluga',
     colCode: 'Šifra (ID)',
     colServiceName: 'Naziv usluge',
     colCategory: 'Kategorija',
@@ -1233,7 +1233,7 @@ export const translations: Record<Language, TranslationKeys> = {
 
     // Services View
     btnNewService: 'Нова услуга',
-    servicesListTitle: 'Каталог услуга Екос Грин Груп',
+    servicesListTitle: 'Листа услуга',
     colCode: 'Шифра (ID)',
     colServiceName: 'Назив услуге',
     colCategory: 'Категорија',
