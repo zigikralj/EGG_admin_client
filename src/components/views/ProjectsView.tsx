@@ -114,6 +114,7 @@ export const ProjectsView: React.FC<Props> = ({
 
   // Popover Filter states
   const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [filterClient, setFilterClient] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterResponsible, setFilterResponsible] = useState<string>('all');
 
@@ -140,12 +141,14 @@ export const ProjectsView: React.FC<Props> = ({
   const activeFilterCount =
     (quickFilter === 'active' || quickFilter === 'overdue' ? 1 : 0) +
     (filterCategory !== 'all' ? 1 : 0) +
+    (filterClient !== 'all' ? 1 : 0) +
     (filterStatus !== 'all' ? 1 : 0) +
     (filterResponsible !== 'all' ? 1 : 0);
 
   const clearFilters = () => {
     setQuickFilter('all');
     setFilterCategory('all');
+    setFilterClient('all');
     setFilterStatus('all');
     setFilterResponsible('all');
   };
@@ -168,6 +171,7 @@ export const ProjectsView: React.FC<Props> = ({
   ];
 
   const uniqueCategories = Array.from(new Set(projects.map((p) => p.type).filter(Boolean)));
+  const uniqueClients = Array.from(new Set(projects.map((p) => p.clientName).filter(Boolean))).sort((a, b) => a.localeCompare(b));
   const otherResponsibles = Array.from(
     new Set(projects.map((p) => p.responsible).filter(Boolean) as string[])
   )
@@ -188,6 +192,7 @@ export const ProjectsView: React.FC<Props> = ({
     if (quickFilter === 'overdue' && (!isLate(p.deadline, p.done) || p.done)) return false;
 
     if (filterCategory !== 'all' && p.type !== filterCategory) return false;
+    if (filterClient !== 'all' && p.clientName !== filterClient) return false;
     if (filterResponsible !== 'all' && p.responsible !== filterResponsible) return false;
     if (filterStatus !== 'all') {
       const stale = isStale(p.start, p.done);
@@ -350,6 +355,22 @@ export const ProjectsView: React.FC<Props> = ({
                   {uniqueCategories.map((cat) => (
                     <MenuItem key={cat} value={cat}>
                       {getServiceLabel(cat)}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl fullWidth size="small">
+                <InputLabel>{t('colClient')}</InputLabel>
+                <Select
+                  value={filterClient}
+                  label={t('colClient')}
+                  onChange={(e) => setFilterClient(e.target.value)}
+                >
+                  <MenuItem value="all">{t('filterAll')}</MenuItem>
+                  {uniqueClients.map((client) => (
+                    <MenuItem key={client} value={client}>
+                      {client}
                     </MenuItem>
                   ))}
                 </Select>

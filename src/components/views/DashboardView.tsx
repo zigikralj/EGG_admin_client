@@ -71,6 +71,7 @@ export const DashboardView: React.FC<Props> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [quickFilters, setQuickFilters] = useState<string[]>(['my', 'active']);
   const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [filterClient, setFilterClient] = useState<string>('all');
   const [filterResponsible, setFilterResponsible] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [sortOption, setSortOption] = useState<'deadline' | 'name' | 'start' | 'progress'>('deadline');
@@ -86,6 +87,7 @@ export const DashboardView: React.FC<Props> = ({
   const handleClearAllFilters = () => {
     setQuickFilters([]);
     setFilterCategory('all');
+    setFilterClient('all');
     setFilterResponsible('all');
     setFilterStatus('all');
     setSearchQuery('');
@@ -93,6 +95,10 @@ export const DashboardView: React.FC<Props> = ({
 
   const uniqueCategories = useMemo(() => {
     return Array.from(new Set(projects.map((p) => p.type).filter(Boolean)));
+  }, [projects]);
+
+  const uniqueClients = useMemo(() => {
+    return Array.from(new Set(projects.map((p) => p.clientName).filter(Boolean))).sort((a, b) => a.localeCompare(b));
   }, [projects]);
 
   const otherResponsibles = useMemo(() => {
@@ -133,6 +139,7 @@ export const DashboardView: React.FC<Props> = ({
         if (quickFilters.includes('done') && !p.done) return false;
 
         if (filterCategory !== 'all' && p.type !== filterCategory) return false;
+        if (filterClient !== 'all' && p.clientName !== filterClient) return false;
         if (filterResponsible !== 'all' && p.responsible !== filterResponsible) return false;
         if (filterStatus !== 'all') {
           const stale = isStaleProject(p);
@@ -174,10 +181,11 @@ export const DashboardView: React.FC<Props> = ({
             return 0;
         }
       });
-  }, [projects, quickFilters, currentUser, filterCategory, filterResponsible, filterStatus, searchQuery, getServiceLabel, sortOption]);
+  }, [projects, quickFilters, currentUser, filterCategory, filterClient, filterResponsible, filterStatus, searchQuery, getServiceLabel, sortOption]);
 
   const activeFilterCount =
     (filterCategory !== 'all' ? 1 : 0) +
+    (filterClient !== 'all' ? 1 : 0) +
     (filterResponsible !== 'all' ? 1 : 0) +
     (filterStatus !== 'all' ? 1 : 0) +
     quickFilters.length;
@@ -578,6 +586,22 @@ export const DashboardView: React.FC<Props> = ({
                       {uniqueCategories.map((cat) => (
                         <MenuItem key={cat} value={cat}>
                           {getServiceLabel(cat)}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <FormControl fullWidth size="small">
+                    <InputLabel>{t('colClient')}</InputLabel>
+                    <Select
+                      value={filterClient}
+                      label={t('colClient')}
+                      onChange={(e) => setFilterClient(e.target.value)}
+                    >
+                      <MenuItem value="all">{t('filterAll')}</MenuItem>
+                      {uniqueClients.map((client) => (
+                        <MenuItem key={client} value={client}>
+                          {client}
                         </MenuItem>
                       ))}
                     </Select>
