@@ -243,6 +243,20 @@ export interface TranslationKeys {
   menuLogout: string;
   userProfileTitle: string;
   userPreferencesTitle: string;
+  lblChangePassword: string;
+  lblCurrentPassword: string;
+  lblNewPassword: string;
+  lblConfirmNewPassword: string;
+  lblResetPassword: string;
+  phCurrentPassword: string;
+  phNewPassword: string;
+  phConfirmNewPassword: string;
+  phLeaveBlankToKeep: string;
+  phInitialPassword: string;
+  passwordMismatchError: string;
+  passwordTooShortError: string;
+  passwordUpdatedSuccess: string;
+  currentPasswordIncorrectError: string;
   lblTableColumns: string;
   lblLanguage: string;
   lblTheme: string;
@@ -629,6 +643,20 @@ export const translations: Record<Language, TranslationKeys> = {
     msgRejectSuccess: 'Registration request rejected.',
     lblAssignRole: 'Assigned Role',
     lblSelectRole: 'Select Role',
+    lblChangePassword: 'Change Password',
+    lblCurrentPassword: 'Current Password',
+    lblNewPassword: 'New Password',
+    lblConfirmNewPassword: 'Confirm New Password',
+    lblResetPassword: 'Reset / Set Password',
+    phCurrentPassword: 'Enter current password',
+    phNewPassword: 'Enter new password',
+    phConfirmNewPassword: 'Re-enter new password',
+    phLeaveBlankToKeep: 'Leave blank to keep existing password',
+    phInitialPassword: 'Initial password (default: password123)',
+    passwordMismatchError: 'New passwords do not match.',
+    passwordTooShortError: 'Password must be at least 4 characters long.',
+    passwordUpdatedSuccess: 'Password updated successfully!',
+    currentPasswordIncorrectError: 'Current password is incorrect.',
   },
 
   'sr-Latn': {
@@ -944,6 +972,20 @@ export const translations: Record<Language, TranslationKeys> = {
     msgRejectSuccess: 'Zahtev za registraciju je odbijen.',
     lblAssignRole: 'Dodeljena uloga',
     lblSelectRole: 'Izaberite ulogu',
+    lblChangePassword: 'Promeni lozinku',
+    lblCurrentPassword: 'Trenutna lozinka',
+    lblNewPassword: 'Nova lozinka',
+    lblConfirmNewPassword: 'Potvrdi novu lozinku',
+    lblResetPassword: 'Reset / Postavi lozinku',
+    phCurrentPassword: 'Unesite trenutnu lozinku',
+    phNewPassword: 'Unesite novu lozinku',
+    phConfirmNewPassword: 'Ponovo unesite novu lozinku',
+    phLeaveBlankToKeep: 'Ostavite prazno ako ne menjate lozinku',
+    phInitialPassword: 'Početna lozinka (podrazumevano: password123)',
+    passwordMismatchError: 'Nove lozinke se ne poklapaju.',
+    passwordTooShortError: 'Lozinka mora imati najmanje 4 karaktera.',
+    passwordUpdatedSuccess: 'Lozinka je uspešno promenjena!',
+    currentPasswordIncorrectError: 'Trenutna lozinka nije tačna.',
   },
 
   'sr-Cyrl': {
@@ -1259,6 +1301,20 @@ export const translations: Record<Language, TranslationKeys> = {
     msgRejectSuccess: 'Захтев за регистрацију је одбијен.',
     lblAssignRole: 'Додељена улога',
     lblSelectRole: 'Изаберите улогу',
+    lblChangePassword: 'Промени лозинку',
+    lblCurrentPassword: 'Тренутна лозинка',
+    lblNewPassword: 'Нова лозинка',
+    lblConfirmNewPassword: 'Потврди нову лозинку',
+    lblResetPassword: 'Ресетуј / Постави лозинку',
+    phCurrentPassword: 'Унесите тренутну лозинку',
+    phNewPassword: 'Унесите нову лозинку',
+    phConfirmNewPassword: 'Поново унесите нову лозинку',
+    phLeaveBlankToKeep: 'Оставите празно ако не мењате лозинку',
+    phInitialPassword: 'Почетна лозинка (подразумевано: password123)',
+    passwordMismatchError: 'Нове лозинке се не поклапају.',
+    passwordTooShortError: 'Лозинка мора имати најмање 4 карактера.',
+    passwordUpdatedSuccess: 'Лозинка је успешно променена!',
+    currentPasswordIncorrectError: 'Тренутна лозинка није тачна.',
   },
 };
 

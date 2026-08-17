@@ -117,6 +117,21 @@ export const ProjectCard: React.FC<Props> = ({
           </Box>
         </Box>
 
+        {/* CLIENT NAME */}
+        {p.clientName && (
+          <Typography
+            variant="h6"
+            sx={{
+              color: 'primary.main',
+              fontWeight: 700,
+              lineHeight: 1.3,
+              mb: 0.25,
+            }}
+          >
+            {p.clientName}
+          </Typography>
+        )}
+
         <Typography variant="h6" sx={{ mb: 1, lineHeight: 1.3, fontWeight: 700 }}>
           {p.name}
         </Typography>

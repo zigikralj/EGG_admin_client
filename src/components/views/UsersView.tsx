@@ -39,6 +39,9 @@ import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import BlockIcon from '@mui/icons-material/Block';
+import VpnKeyIcon from '@mui/icons-material/VpnKey';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import type { User } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -132,6 +135,8 @@ export const UsersView: React.FC<Props> = ({
   const [role, setRole] = useState('User');
   const [phone, setPhone] = useState('');
   const [status, setStatus] = useState<string>('APPROVED');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   const getRoleLabel = (r: string) => {
@@ -160,6 +165,8 @@ export const UsersView: React.FC<Props> = ({
     setRole('User');
     setPhone('');
     setStatus('APPROVED');
+    setPassword('');
+    setShowPassword(false);
     setIsOpen(true);
   };
 
@@ -171,6 +178,8 @@ export const UsersView: React.FC<Props> = ({
     setRole(u.role || 'User');
     setPhone(u.phone || '');
     setStatus(u.status || (u.isApproved === false ? 'BLOCKED' : 'APPROVED'));
+    setPassword('');
+    setShowPassword(false);
     setIsOpen(true);
   };
 
@@ -212,6 +221,7 @@ export const UsersView: React.FC<Props> = ({
       phone: phone.trim() || null,
       status,
       isApproved: status === 'APPROVED',
+      ...(password.trim() ? { password: password.trim() } : {}),
     });
     setIsOpen(false);
   };
@@ -739,6 +749,37 @@ export const UsersView: React.FC<Props> = ({
                   placeholder="aleksandar@ekosgreen.rs"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                />
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type={showPassword ? 'text' : 'password'}
+                  label={editingUser ? t('lblResetPassword') : t('lblPassword')}
+                  placeholder={editingUser ? t('phLeaveBlankToKeep') : t('phInitialPassword')}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <VpnKeyIcon fontSize="small" color="action" />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            size="small"
+                            onClick={() => setShowPassword(!showPassword)}
+                            edge="end"
+                          >
+                            {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
                 />
               </Grid>
             </Grid>

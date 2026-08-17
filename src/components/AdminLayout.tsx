@@ -32,6 +32,8 @@ import {
   FormControlLabel,
   useMediaQuery,
   useTheme,
+  InputAdornment,
+  Alert,
 } from '@mui/material';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import FolderIcon from '@mui/icons-material/Folder';
@@ -48,12 +50,16 @@ import CloseIcon from '@mui/icons-material/Close';
 import EmailIcon from '@mui/icons-material/Email';
 import PhoneIcon from '@mui/icons-material/Phone';
 import BadgeIcon from '@mui/icons-material/Badge';
+import VpnKeyIcon from '@mui/icons-material/VpnKey';
+import LockIcon from '@mui/icons-material/Lock';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import SettingsBrightnessIcon from '@mui/icons-material/SettingsBrightness';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ViewQuiltIcon from '@mui/icons-material/ViewQuilt';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import MenuIcon from '@mui/icons-material/Menu';
@@ -128,6 +134,15 @@ export const AdminLayout: React.FC<Props> = ({
   const [editProfilePhone, setEditProfilePhone] = React.useState('');
   const [editAvatarUrl, setEditAvatarUrl] = React.useState<string | null>(null);
   const [isSavingProfile, setIsSavingProfile] = React.useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = React.useState(false);
+  const [currentPassword, setCurrentPassword] = React.useState('');
+  const [newPassword, setNewPassword] = React.useState('');
+  const [confirmPassword, setConfirmPassword] = React.useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = React.useState(false);
+  const [showNewPassword, setShowNewPassword] = React.useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
+  const [passwordError, setPasswordError] = React.useState('');
+  const [passwordSuccess, setPasswordSuccess] = React.useState('');
 
   // Preferences entity columns state
   const [prefSelectedEntity, setPrefSelectedEntity] = React.useState<EntityType>('projects');
@@ -196,6 +211,15 @@ export const AdminLayout: React.FC<Props> = ({
       setEditProfilePhone(currentUser.phone || '');
       setEditAvatarUrl(currentUser.avatarUrl || null);
     }
+    setChangePasswordOpen(false);
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
+    setPasswordError('');
+    setPasswordSuccess('');
     setIsProfileOpen(true);
   };
 
@@ -226,6 +250,21 @@ export const AdminLayout: React.FC<Props> = ({
       alert(t('alertUserNameRequired'));
       return;
     }
+    if (changePasswordOpen || newPassword || currentPassword) {
+      if (!currentPassword) {
+        setPasswordError(t('currentPasswordIncorrectError'));
+        return;
+      }
+      if (newPassword.length < 4) {
+        setPasswordError(t('passwordTooShortError'));
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        setPasswordError(t('passwordMismatchError'));
+        return;
+      }
+    }
+
     setIsSavingProfile(true);
     try {
       const res = await apiFetch(`/api/users/${currentUser.id}`, {
@@ -239,16 +278,22 @@ export const AdminLayout: React.FC<Props> = ({
           email: editProfileEmail,
           phone: editProfilePhone,
           avatarUrl: editAvatarUrl !== null ? editAvatarUrl : currentUser.avatarUrl,
+          ...(newPassword ? { password: newPassword, currentPassword } : {}),
         }),
       });
 
       if (res.ok) {
         const updated = await res.json();
         setCurrentUser(updated);
+        alert(newPassword ? t('passwordUpdatedSuccess') : 'Profile updated successfully!');
         setIsProfileOpen(false);
       } else {
         const err = await res.json();
-        alert(err.error || t('errorSavingProject'));
+        if (err.error && (err.error.includes('password') || err.error.includes('Password') || err.error.includes('incorrect') || err.error.includes('tačna'))) {
+          setPasswordError(err.error);
+        } else {
+          alert(err.error || t('errorSavingProject'));
+        }
       }
     } catch (e) {
       console.error('Error saving profile:', e);
@@ -774,6 +819,98 @@ export const AdminLayout: React.FC<Props> = ({
                 },
               }}
             />
+            <Divider sx={{ my: 0.5 }} />
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => {
+                setChangePasswordOpen(!changePasswordOpen);
+                setPasswordError('');
+                setPasswordSuccess('');
+              }}
+              startIcon={<VpnKeyIcon fontSize="small" />}
+              endIcon={changePasswordOpen ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+              sx={{ justifyContent: 'space-between', textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
+            >
+              {t('lblChangePassword')}
+            </Button>
+            <Collapse in={changePasswordOpen}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, pt: 1, pb: 0.5 }}>
+                {passwordError && (
+                  <Alert severity="error" sx={{ py: 0.5, borderRadius: 2, fontSize: '0.8125rem' }}>
+                    {passwordError}
+                  </Alert>
+                )}
+                {passwordSuccess && (
+                  <Alert severity="success" sx={{ py: 0.5, borderRadius: 2, fontSize: '0.8125rem' }}>
+                    {passwordSuccess}
+                  </Alert>
+                )}
+                <TextField
+                  label={t('lblCurrentPassword')}
+                  placeholder={t('phCurrentPassword')}
+                  type={showCurrentPassword ? 'text' : 'password'}
+                  value={currentPassword}
+                  onChange={(e) => { setCurrentPassword(e.target.value); setPasswordError(''); }}
+                  fullWidth
+                  size="small"
+                  slotProps={{
+                    input: {
+                      startAdornment: <LockIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />,
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton size="small" onClick={() => setShowCurrentPassword(!showCurrentPassword)} edge="end">
+                            {showCurrentPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                />
+                <TextField
+                  label={t('lblNewPassword')}
+                  placeholder={t('phNewPassword')}
+                  type={showNewPassword ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={(e) => { setNewPassword(e.target.value); setPasswordError(''); }}
+                  fullWidth
+                  size="small"
+                  slotProps={{
+                    input: {
+                      startAdornment: <VpnKeyIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />,
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton size="small" onClick={() => setShowNewPassword(!showNewPassword)} edge="end">
+                            {showNewPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                />
+                <TextField
+                  label={t('lblConfirmNewPassword')}
+                  placeholder={t('phConfirmNewPassword')}
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => { setConfirmPassword(e.target.value); setPasswordError(''); }}
+                  fullWidth
+                  size="small"
+                  slotProps={{
+                    input: {
+                      startAdornment: <VpnKeyIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />,
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton size="small" onClick={() => setShowConfirmPassword(!showConfirmPassword)} edge="end">
+                            {showConfirmPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                />
+              </Box>
+            </Collapse>
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 2, gap: 1 }}>

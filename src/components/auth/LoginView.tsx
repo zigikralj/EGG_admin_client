@@ -12,8 +12,6 @@ import {
   InputAdornment,
   IconButton,
   CircularProgress,
-  Paper,
-  Chip,
 } from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
 import LockIcon from '@mui/icons-material/Lock';
@@ -129,12 +127,6 @@ export const LoginView: React.FC = () => {
     }
   };
 
-  const fillQuickDemo = (email: string) => {
-    setTabIndex(0);
-    setLoginIdentifier(email);
-    setLoginPassword('password123');
-  };
-
   return (
     <Box
       sx={{
@@ -145,8 +137,8 @@ export const LoginView: React.FC = () => {
         justifyContent: 'center',
         background: (theme) =>
           theme.palette.mode === 'dark'
-            ? 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)'
-            : 'linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 50%, #f8fafc 100%)',
+            ? 'linear-gradient(135deg, #0b130e 0%, #14261c 50%, #08100b 100%)'
+            : 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 50%, #ecfdf5 100%)',
         py: 4,
         px: 2,
         position: 'relative',
@@ -308,50 +300,6 @@ export const LoginView: React.FC = () => {
               >
                 {isSubmittingLogin ? <CircularProgress size={24} color="inherit" /> : t('btnLogin')}
               </Button>
-
-              {/* Demo Accounts Quick Login Assistance */}
-              <Paper variant="outlined" sx={{ p: 2, mt: 3, borderRadius: 2, bgcolor: 'action.hover' }}>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block', mb: 1 }}>
-                  Demo Accounts (Password: <code>password123</code>):
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                  <Chip
-                    label="Admin (Aleksandar)"
-                    size="small"
-                    color="secondary"
-                    clickable
-                    onClick={() => fillQuickDemo('aleksandar@ekosgreen.rs')}
-                  />
-                  <Chip
-                    label="Manager (Nenad)"
-                    size="small"
-                    color="primary"
-                    clickable
-                    onClick={() => fillQuickDemo('nenad@ekosgreen.rs')}
-                  />
-                  <Chip
-                    label="User (Marija)"
-                    size="small"
-                    color="success"
-                    clickable
-                    onClick={() => fillQuickDemo('marija@ekosgreen.rs')}
-                  />
-                  <Chip
-                    label="Blocked (Jovana)"
-                    size="small"
-                    color="error"
-                    clickable
-                    onClick={() => fillQuickDemo('jovana@ekosgreen.rs')}
-                  />
-                  <Chip
-                    label="Pending (Marko)"
-                    size="small"
-                    color="warning"
-                    clickable
-                    onClick={() => fillQuickDemo('marko@ekosgreen.rs')}
-                  />
-                </Box>
-              </Paper>
             </Box>
           )}
 
