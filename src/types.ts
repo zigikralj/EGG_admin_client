@@ -34,6 +34,7 @@ export interface User {
   role: UserRole | string;
   phone?: string | null;
   avatarUrl?: string | null;
+  gender?: string | null;
   isApproved?: boolean;
   status?: string;
   createdAt?: string;

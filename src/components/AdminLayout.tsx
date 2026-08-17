@@ -10,6 +10,7 @@ import {
   ListItemIcon,
   ListItemText,
   Avatar,
+  Badge,
   Chip,
   Box,
   Select,
@@ -57,11 +58,13 @@ import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
+import WcIcon from '@mui/icons-material/Wc';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import SettingsBrightnessIcon from '@mui/icons-material/SettingsBrightness';
 import ViewQuiltIcon from '@mui/icons-material/ViewQuilt';
 import BarChartIcon from '@mui/icons-material/BarChart';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import MenuIcon from '@mui/icons-material/Menu';
 import type { ActiveTab, DashboardSubTab, ProjectStats } from '../types';
 import { useLanguage } from '../context/LanguageContext';
@@ -80,6 +83,7 @@ interface Props {
   stats: ProjectStats;
   userPreferences?: Record<string, any>;
   onPreferenceChange?: (key: string, value: any) => void;
+  onNavigateToPendingUsers?: () => void;
   children: React.ReactNode;
 }
 
@@ -105,6 +109,7 @@ export const AdminLayout: React.FC<Props> = ({
   stats,
   userPreferences,
   onPreferenceChange,
+  onNavigateToPendingUsers,
   children,
 }) => {
   const { t } = useLanguage();
@@ -132,6 +137,7 @@ export const AdminLayout: React.FC<Props> = ({
   const [editProfileName, setEditProfileName] = React.useState('');
   const [editProfileEmail, setEditProfileEmail] = React.useState('');
   const [editProfilePhone, setEditProfilePhone] = React.useState('');
+  const [editProfileGender, setEditProfileGender] = React.useState('');
   const [editAvatarUrl, setEditAvatarUrl] = React.useState<string | null>(null);
   const [isSavingProfile, setIsSavingProfile] = React.useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = React.useState(false);
@@ -209,6 +215,7 @@ export const AdminLayout: React.FC<Props> = ({
       setEditProfileName(currentUser.name || '');
       setEditProfileEmail(currentUser.email || '');
       setEditProfilePhone(currentUser.phone || '');
+      setEditProfileGender(currentUser.gender || '');
       setEditAvatarUrl(currentUser.avatarUrl || null);
     }
     setChangePasswordOpen(false);
@@ -277,6 +284,7 @@ export const AdminLayout: React.FC<Props> = ({
           name: editProfileName,
           email: editProfileEmail,
           phone: editProfilePhone,
+          gender: editProfileGender,
           avatarUrl: editAvatarUrl !== null ? editAvatarUrl : currentUser.avatarUrl,
           ...(newPassword ? { password: newPassword, currentPassword } : {}),
         }),
@@ -572,20 +580,35 @@ export const AdminLayout: React.FC<Props> = ({
                   />
                 </Box>
 
-                <Avatar
-                  src={currentUser?.avatarUrl || undefined}
+                <Badge
+                  badgeContent={pendingUsersCount}
+                  color="warning"
+                  overlap="circular"
+                  anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                  invisible={!canToggleEntityWorkMode || pendingUsersCount <= 0}
                   sx={{
-                    bgcolor: currentUser ? 'primary.main' : 'grey.400',
-                    width: 38,
-                    height: 38,
-                    fontWeight: 700,
-                    fontSize: '0.875rem',
-                    boxShadow: isMenuOpen ? '0 0 0 2px rgba(25, 118, 210, 0.4)' : 'none',
-                    transition: 'all 0.2s ease-in-out',
+                    '& .MuiBadge-badge': {
+                      fontWeight: 700,
+                      fontSize: '0.7rem',
+                      boxShadow: '0 0 0 2px #121a16',
+                    },
                   }}
                 >
-                  {initials}
-                </Avatar>
+                  <Avatar
+                    src={currentUser?.avatarUrl || undefined}
+                    sx={{
+                      bgcolor: currentUser ? 'primary.main' : 'grey.400',
+                      width: 38,
+                      height: 38,
+                      fontWeight: 700,
+                      fontSize: '0.875rem',
+                      boxShadow: isMenuOpen ? '0 0 0 2px rgba(25, 118, 210, 0.4)' : 'none',
+                      transition: 'all 0.2s ease-in-out',
+                    }}
+                  >
+                    {initials}
+                  </Avatar>
+                </Badge>
               </Box>
             </Tooltip>
 
@@ -642,6 +665,55 @@ export const AdminLayout: React.FC<Props> = ({
                 </Box>
               )}
               {currentUser && <Divider sx={{ my: 0.5 }} />}
+
+              {canToggleEntityWorkMode && pendingUsersCount > 0 && (
+                <MenuItem
+                  onClick={() => {
+                    handleMenuClose();
+                    if (!workOnEntities) {
+                      setWorkOnEntities(true);
+                      if (onPreferenceChange) {
+                        onPreferenceChange('work_on_entities', true);
+                      }
+                    }
+                    if (onNavigateToPendingUsers) {
+                      onNavigateToPendingUsers();
+                    } else {
+                      onTabChange('users');
+                    }
+                  }}
+                  sx={{
+                    borderRadius: 1.5,
+                    py: 1.2,
+                    px: 2,
+                    my: 0.5,
+                    bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(237, 108, 2, 0.15)' : 'warning.50',
+                    border: '1px solid',
+                    borderColor: 'warning.main',
+                    '&:hover': {
+                      bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(237, 108, 2, 0.25)' : 'warning.100',
+                    },
+                  }}
+                >
+                  <ListItemIcon>
+                    <Badge badgeContent={pendingUsersCount} color="warning">
+                      <PersonAddIcon fontSize="small" color="warning" />
+                    </Badge>
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={
+                      <Typography variant="body2" sx={{ fontWeight: 700, color: 'warning.main' }}>
+                        {t('menuPendingUsers', { count: pendingUsersCount })}
+                      </Typography>
+                    }
+                    secondary={
+                      <Typography variant="caption" color="text.secondary">
+                        {t('menuPendingUsersSub')}
+                      </Typography>
+                    }
+                  />
+                </MenuItem>
+              )}
 
               <MenuItem onClick={handleOpenProfile} sx={{ borderRadius: 1.5, py: 1.2, px: 2 }}>
                 <ListItemIcon>
@@ -807,6 +879,21 @@ export const AdminLayout: React.FC<Props> = ({
                 },
               }}
             />
+            <FormControl fullWidth size="small">
+              <Select
+                value={editProfileGender}
+                onChange={(e) => setEditProfileGender(e.target.value)}
+                displayEmpty
+                startAdornment={<WcIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />}
+              >
+                <MenuItem value="">
+                  <em>{t('genderNotSpecified')} ({t('lblGender')})</em>
+                </MenuItem>
+                <MenuItem value="Male">{t('genderMale')}</MenuItem>
+                <MenuItem value="Female">{t('genderFemale')}</MenuItem>
+                <MenuItem value="Other">{t('genderOther')}</MenuItem>
+              </Select>
+            </FormControl>
             <TextField
               label={t('colRole')}
               value={getRoleBadgeLabel(role)}

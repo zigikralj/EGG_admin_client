@@ -63,6 +63,9 @@ export interface TranslationKeys {
   // Project Card
   staleFlag: string;
   responsible: string;
+  responsibleMale: string;
+  responsibleFemale: string;
+  responsibleOther: string;
   start: string;
   deadline: string;
   progress: string;
@@ -138,6 +141,7 @@ export interface TranslationKeys {
   usersListTitle: string;
   colFullName: string;
   colRole: string;
+  colGender: string;
   emptyUsers: string;
 
   // User Modal
@@ -146,6 +150,12 @@ export interface TranslationKeys {
   lblFullName: string;
   phFullName: string;
   lblRole: string;
+  lblGender: string;
+  phGender: string;
+  genderMale: string;
+  genderFemale: string;
+  genderOther: string;
+  genderNotSpecified: string;
   alertUserNameRequired: string;
 
   // User Roles
@@ -319,6 +329,9 @@ export interface TranslationKeys {
   msgRegistrationSuccess: string;
   lblPendingApprovals: string;
   badgePendingUsers: string;
+  msgPendingUsersBanner: string;
+  menuPendingUsers: string;
+  menuPendingUsersSub: string;
   btnApproveAndAssignRole: string;
   btnRejectRegistration: string;
   modalApproveUserTitle: string;
@@ -399,6 +412,9 @@ export const translations: Record<Language, TranslationKeys> = {
     // Project Card
     staleFlag: 'Takes > 2 months',
     responsible: 'Responsible',
+    responsibleMale: 'Responsible',
+    responsibleFemale: 'Responsible',
+    responsibleOther: 'Responsible',
     start: 'Start',
     deadline: 'Deadline',
     progress: 'Progress',
@@ -474,6 +490,7 @@ export const translations: Record<Language, TranslationKeys> = {
     usersListTitle: 'Users / Employees',
     colFullName: 'Full Name',
     colRole: 'Role / Position',
+    colGender: 'Gender',
     emptyUsers: 'No registered users. Click "New User".',
 
     // User Modal
@@ -482,6 +499,12 @@ export const translations: Record<Language, TranslationKeys> = {
     lblFullName: 'Full Name',
     phFullName: 'e.g. Aleksandar Stanković',
     lblRole: 'Role / Position',
+    lblGender: 'Gender',
+    phGender: 'Select gender',
+    genderMale: 'Male',
+    genderFemale: 'Female',
+    genderOther: 'Other',
+    genderNotSpecified: 'Not specified',
     alertUserNameRequired: 'User full name is required.',
 
     // User Roles
@@ -642,6 +665,9 @@ export const translations: Record<Language, TranslationKeys> = {
     msgRegistrationSuccess: 'Registration submitted successfully! A manager must approve your account and assign your role before you can sign in.',
     lblPendingApprovals: 'Pending Approvals',
     badgePendingUsers: '{count} Pending',
+    msgPendingUsersBanner: '{count} user registration request(s) awaiting manager approval and role assignment.',
+    menuPendingUsers: '{count} Pending User(s)',
+    menuPendingUsersSub: 'Review registration requests',
     btnApproveAndAssignRole: 'Approve & Assign Role',
     btnRejectRegistration: 'Reject Registration',
     modalApproveUserTitle: 'Approve User & Assign Role',
@@ -734,6 +760,9 @@ export const translations: Record<Language, TranslationKeys> = {
     // Project Card
     staleFlag: 'Traje > 2 meseca',
     responsible: 'Odgovoran',
+    responsibleMale: 'Odgovoran',
+    responsibleFemale: 'Odgovorna',
+    responsibleOther: 'Odgovorno',
     start: 'Početak',
     deadline: 'Rok',
     progress: 'Napredak',
@@ -809,6 +838,7 @@ export const translations: Record<Language, TranslationKeys> = {
     usersListTitle: 'Korisnici / Zaposleni',
     colFullName: 'Ime i prezime',
     colRole: 'Uloga / Pozicija',
+    colGender: 'Pol',
     emptyUsers: 'Nema registrovanih korisnika. Kliknite na "Novi korisnik".',
 
     // User Modal
@@ -817,6 +847,12 @@ export const translations: Record<Language, TranslationKeys> = {
     lblFullName: 'Ime i prezime',
     phFullName: 'npr. Aleksandar Stanković',
     lblRole: 'Uloga / Funkcija',
+    lblGender: 'Pol',
+    phGender: 'Izaberite pol',
+    genderMale: 'Muški',
+    genderFemale: 'Ženski',
+    genderOther: 'Drugo',
+    genderNotSpecified: 'Nije navedeno',
     alertUserNameRequired: 'Ime i prezime korisnika je obavezno.',
 
     // User Roles
@@ -977,6 +1013,9 @@ export const translations: Record<Language, TranslationKeys> = {
     msgRegistrationSuccess: 'Registracija je uspešno poslata! Menadžer mora odobriti vaš nalog i dodeliti vam ulogu pre nego što se možete prijaviti.',
     lblPendingApprovals: 'Zahtevi na čekanju',
     badgePendingUsers: '{count} na čekanju',
+    msgPendingUsersBanner: '{count} zahtev(a) za registraciju korisnika čeka odobrenje menadžera i dodelu uloge.',
+    menuPendingUsers: '{count} korisnik(a) na čekanju',
+    menuPendingUsersSub: 'Pregledajte zahteve za registraciju',
     btnApproveAndAssignRole: 'Odobri i dodeli ulogu',
     btnRejectRegistration: 'Odbij registraciju',
     modalApproveUserTitle: 'Odobri korisnika i dodeli ulogu',
@@ -1069,6 +1108,9 @@ export const translations: Record<Language, TranslationKeys> = {
     // Project Card
     staleFlag: 'Траје > 2 месеца',
     responsible: 'Одговоран',
+    responsibleMale: 'Одговоран',
+    responsibleFemale: 'Одговорна',
+    responsibleOther: 'Одговорно',
     start: 'Почетак',
     deadline: 'Рок',
     progress: 'Напредак',
@@ -1144,6 +1186,7 @@ export const translations: Record<Language, TranslationKeys> = {
     usersListTitle: 'Корисници / Запослени',
     colFullName: 'Име и презиме',
     colRole: 'Улога / Позиција',
+    colGender: 'Пол',
     emptyUsers: 'Нема регистрованих корисника. Кликните на "Нови корисник".',
 
     // User Modal
@@ -1152,6 +1195,12 @@ export const translations: Record<Language, TranslationKeys> = {
     lblFullName: 'Име и презиме',
     phFullName: 'нпр. Александар Станковић',
     lblRole: 'Улога / Функција',
+    lblGender: 'Пол',
+    phGender: 'Изаберите пол',
+    genderMale: 'Мушки',
+    genderFemale: 'Женски',
+    genderOther: 'Друго',
+    genderNotSpecified: 'Није наведено',
     alertUserNameRequired: 'Име и презиме корисника је обавезно.',
 
     // User Roles
@@ -1312,6 +1361,9 @@ export const translations: Record<Language, TranslationKeys> = {
     msgRegistrationSuccess: 'Регистрација је успешно послата! Менаџер мора одобрити ваш налог и доделити вам улогu пре него што се можете пријавити.',
     lblPendingApprovals: 'Захтеви на чекању',
     badgePendingUsers: '{count} на чекању',
+    msgPendingUsersBanner: '{count} захтев(а) за регистрацију корисника чека одобрење менаџера и доделу улоге.',
+    menuPendingUsers: '{count} корисник(а) на чекању',
+    menuPendingUsersSub: 'Прегледајте захтеве за регистрацију',
     btnApproveAndAssignRole: 'Одобри и додели улогу',
     btnRejectRegistration: 'Одбиј регистрацију',
     modalApproveUserTitle: 'Одобри корисника и додели улогу',

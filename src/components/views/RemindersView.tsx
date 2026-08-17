@@ -69,7 +69,7 @@ export const RemindersView: React.FC<Props> = ({
   sortState,
   onSortChange,
 }) => {
-  const { t } = useLanguage();
+  const { t, getResponsibleLabel } = useLanguage();
   const { currentUser } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
@@ -682,35 +682,42 @@ export const RemindersView: React.FC<Props> = ({
               </Grid>
 
               {/* Responsible Selection / Custom Name */}
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>{t('colResponsible')}</InputLabel>
-                  <Select
-                    value={selectedResponsibleId}
-                    label={t('colResponsible')}
-                    onChange={(e) => handleResponsibleSelect(e.target.value)}
-                  >
-                    <MenuItem value="">
-                      <em>-- Custom Person --</em>
-                    </MenuItem>
-                    {users.map((u) => (
-                      <MenuItem key={u.id} value={u.id}>
-                        {u.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
+              {(() => {
+                const respLabel = getResponsibleLabel(selectedResponsibleId || responsible, users);
+                return (
+                  <>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>{respLabel}</InputLabel>
+                        <Select
+                          value={selectedResponsibleId}
+                          label={respLabel}
+                          onChange={(e) => handleResponsibleSelect(e.target.value)}
+                        >
+                          <MenuItem value="">
+                            <em>-- Custom Person --</em>
+                          </MenuItem>
+                          {users.map((u) => (
+                            <MenuItem key={u.id} value={u.id}>
+                              {u.name}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
 
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label={t('colResponsible')}
-                  value={responsible}
-                  onChange={(e) => setResponsible(e.target.value)}
-                />
-              </Grid>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label={respLabel}
+                        value={responsible}
+                        onChange={(e) => setResponsible(e.target.value)}
+                      />
+                    </Grid>
+                  </>
+                );
+              })()}
 
               {/* Status & Due Date */}
               <Grid size={{ xs: 12, sm: 6 }}>

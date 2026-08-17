@@ -47,7 +47,7 @@ export const ProjectModal: React.FC<Props> = ({
   onSave,
   onDelete,
 }) => {
-  const { t, getServiceLabel } = useLanguage();
+  const { t, getServiceLabel, getResponsibleLabel } = useLanguage();
   const { currentUser, isUser, canEditProject } = useAuth();
   const todayStr = new Date().toISOString().slice(0, 10);
 
@@ -200,42 +200,45 @@ export const ProjectModal: React.FC<Props> = ({
 
             {/* RESPONSIBLE */}
             <Grid size={{ xs: 12, sm: 6 }}>
-              {isUser ? (
-                <TextField
-                  fullWidth
-                  label={t('lblResponsiblePerson')}
-                  value={currentUser?.name || ''}
-                  disabled
-                  size="small"
-                />
-              ) : users.length > 0 ? (
-                <FormControl fullWidth size="small">
-                  <InputLabel>{t('lblResponsiblePerson')}</InputLabel>
-                  <Select
+              {(() => {
+                const respLabel = getResponsibleLabel(responsible || (isUser ? currentUser?.name : ''), users);
+                return isUser ? (
+                  <TextField
+                    fullWidth
+                    label={respLabel}
+                    value={currentUser?.name || ''}
+                    disabled
+                    size="small"
+                  />
+                ) : users.length > 0 ? (
+                  <FormControl fullWidth size="small">
+                    <InputLabel>{respLabel}</InputLabel>
+                    <Select
+                      value={responsible}
+                      label={respLabel}
+                      onChange={(e) => setResponsible(e.target.value as string)}
+                    >
+                      {users.map((u) => {
+                        const isMe = currentUser?.name && u.name.trim().toLowerCase() === currentUser.name.trim().toLowerCase();
+                        return (
+                          <MenuItem key={u.id} value={u.name}>
+                            {isMe ? `${t('lblMe')} (${u.name})` : u.name} ({u.role})
+                          </MenuItem>
+                        );
+                      })}
+                    </Select>
+                  </FormControl>
+                ) : (
+                  <TextField
+                    fullWidth
+                    label={respLabel}
+                    placeholder={t('phResponsiblePerson')}
                     value={responsible}
-                    label={t('lblResponsiblePerson')}
-                    onChange={(e) => setResponsible(e.target.value as string)}
-                  >
-                    {users.map((u) => {
-                      const isMe = currentUser?.name && u.name.trim().toLowerCase() === currentUser.name.trim().toLowerCase();
-                      return (
-                        <MenuItem key={u.id} value={u.name}>
-                          {isMe ? `${t('lblMe')} (${u.name})` : u.name} ({u.role})
-                        </MenuItem>
-                      );
-                    })}
-                  </Select>
-                </FormControl>
-              ) : (
-                <TextField
-                  fullWidth
-                  label={t('lblResponsiblePerson')}
-                  placeholder={t('phResponsiblePerson')}
-                  value={responsible}
-                  onChange={(e) => setResponsible(e.target.value)}
-                  size="small"
-                />
-              )}
+                    onChange={(e) => setResponsible(e.target.value)}
+                    size="small"
+                  />
+                );
+              })()}
             </Grid>
 
             {/* SERVICE TYPE */}

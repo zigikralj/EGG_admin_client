@@ -33,6 +33,7 @@ function MainApp() {
   const { currentUser, setUsersList, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [dashboardSubTab, setDashboardSubTab] = useState<DashboardSubTab>('default');
+  const [usersFilterStatus, setUsersFilterStatus] = useState<string>('all');
   const [projects, setProjects] = useState<Project[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -609,7 +610,16 @@ function MainApp() {
     >
       <AdminLayout
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={(tab) => {
+          setActiveTab(tab);
+          if (tab === 'users') {
+            setUsersFilterStatus('all');
+          }
+        }}
+        onNavigateToPendingUsers={() => {
+          setActiveTab('users');
+          setUsersFilterStatus('pending');
+        }}
         dashboardSubTab={dashboardSubTab}
         onDashboardSubTabChange={setDashboardSubTab}
         stats={stats}
@@ -708,6 +718,7 @@ function MainApp() {
             onVisibleColumnsChange={(cols) => updatePreference('cols_users', cols)}
             sortState={userPreferences.sort_users}
             onSortChange={(sort) => updatePreference('sort_users', sort)}
+            initialFilterStatus={usersFilterStatus}
           />
         )}
 

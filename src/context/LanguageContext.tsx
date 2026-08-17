@@ -7,6 +7,10 @@ interface LanguageContextType {
   setLanguage: (lang: Language) => void;
   t: (key: keyof TranslationKeys, params?: Record<string, string | number>) => string;
   getServiceLabel: (typeCode: string) => string;
+  getResponsibleLabel: (
+    userOrGender?: string | { gender?: string | null } | null,
+    usersList?: { id: string; name: string; gender?: string | null }[]
+  ) => string;
 }
 
 const STORAGE_KEY = 'app_language';
@@ -49,8 +53,32 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return langDict[typeCode] || serviceTypeTranslations['sr-Latn']?.[typeCode] || serviceTypeTranslations['en']?.[typeCode] || typeCode;
   };
 
+  const getResponsibleLabel = (
+    userOrGender?: string | { gender?: string | null } | null,
+    usersList?: { id: string; name: string; gender?: string | null }[]
+  ): string => {
+    let gender: string | null | undefined = null;
+    if (userOrGender && typeof userOrGender === 'object') {
+      gender = userOrGender.gender;
+    } else if (typeof userOrGender === 'string') {
+      if (userOrGender === 'Female' || userOrGender === 'Male' || userOrGender === 'Other') {
+        gender = userOrGender;
+      } else if (usersList && usersList.length > 0) {
+        const found = usersList.find(
+          (u) => u.id === userOrGender || (u.name && u.name.trim().toLowerCase() === userOrGender.trim().toLowerCase())
+        );
+        if (found) gender = found.gender;
+      }
+    }
+
+    if (gender === 'Female') return t('responsibleFemale');
+    if (gender === 'Other') return t('responsibleOther');
+    if (gender === 'Male') return t('responsibleMale');
+    return t('responsible');
+  };
+
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t, getServiceLabel }}>
+    <LanguageContext.Provider value={{ language, setLanguage, t, getServiceLabel, getResponsibleLabel }}>
       {children}
     </LanguageContext.Provider>
   );

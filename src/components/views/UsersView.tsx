@@ -28,6 +28,8 @@ import {
   Alert,
   Tooltip,
   Paper,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
@@ -58,9 +60,10 @@ interface Props {
   onVisibleColumnsChange?: (cols: string[]) => void;
   sortState?: { field: string; direction: 'asc' | 'desc' };
   onSortChange?: (sort: { field: string; direction: 'asc' | 'desc' }) => void;
+  initialFilterStatus?: string;
 }
 
-const DEFAULT_COLUMNS = ['name', 'role', 'status', 'email', 'phone'];
+const DEFAULT_COLUMNS = ['name', 'role', 'status', 'gender', 'email', 'phone'];
 
 export const UsersView: React.FC<Props> = ({
   users,
@@ -72,6 +75,7 @@ export const UsersView: React.FC<Props> = ({
   onVisibleColumnsChange,
   sortState,
   onSortChange,
+  initialFilterStatus = 'all',
 }) => {
   const { t } = useLanguage();
   const { canManageUsers, canEditUser, isAdmin } = useAuth();
@@ -108,7 +112,13 @@ export const UsersView: React.FC<Props> = ({
 
   // Filter state
   const [filterRole, setFilterRole] = useState<string>('all');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>(initialFilterStatus);
+
+  useEffect(() => {
+    if (initialFilterStatus) {
+      setFilterStatus(initialFilterStatus);
+    }
+  }, [initialFilterStatus]);
 
   const activeFilterCount = (filterRole !== 'all' ? 1 : 0) + (filterStatus !== 'all' ? 1 : 0);
   const clearFilters = () => {
@@ -126,6 +136,7 @@ export const UsersView: React.FC<Props> = ({
     { id: 'name', label: t('colFullName') },
     { id: 'role', label: t('colRole') },
     { id: 'status', label: t('colApprovalStatus') },
+    { id: 'gender', label: t('colGender') },
     { id: 'email', label: t('colEmail') },
     { id: 'phone', label: t('colPhone') },
   ];
@@ -134,6 +145,7 @@ export const UsersView: React.FC<Props> = ({
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('User');
   const [phone, setPhone] = useState('');
+  const [gender, setGender] = useState('');
   const [status, setStatus] = useState<string>('APPROVED');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -145,6 +157,15 @@ export const UsersView: React.FC<Props> = ({
       case 'Manager': return t('roleManager');
       case 'User': return t('roleUser');
       default: return r;
+    }
+  };
+
+  const getGenderLabel = (g?: string | null) => {
+    switch (g) {
+      case 'Male': return t('genderMale');
+      case 'Female': return t('genderFemale');
+      case 'Other': return t('genderOther');
+      default: return '—';
     }
   };
 
@@ -164,6 +185,7 @@ export const UsersView: React.FC<Props> = ({
     setEmail('');
     setRole('User');
     setPhone('');
+    setGender('');
     setStatus('APPROVED');
     setPassword('');
     setShowPassword(false);
@@ -177,6 +199,7 @@ export const UsersView: React.FC<Props> = ({
     setEmail(u.email || '');
     setRole(u.role || 'User');
     setPhone(u.phone || '');
+    setGender(u.gender || '');
     setStatus(u.status || (u.isApproved === false ? 'BLOCKED' : 'APPROVED'));
     setPassword('');
     setShowPassword(false);
@@ -219,6 +242,7 @@ export const UsersView: React.FC<Props> = ({
       email: email.trim() || null,
       role: role.trim() || 'User',
       phone: phone.trim() || null,
+      gender: gender || null,
       status,
       isApproved: status === 'APPROVED',
       ...(password.trim() ? { password: password.trim() } : {}),
@@ -319,7 +343,7 @@ export const UsersView: React.FC<Props> = ({
           sx={{ borderRadius: 2.5, boxShadow: 1 }}
         >
           <Typography variant="body2" sx={{ fontWeight: 600 }}>
-            {pendingUsers.length} user registration request(s) awaiting manager approval and role assignment.
+            {t('msgPendingUsersBanner', { count: pendingUsers.length })}
           </Typography>
         </Alert>
       )}
@@ -359,6 +383,23 @@ export const UsersView: React.FC<Props> = ({
           </Typography>
 
           <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, width: { xs: '100%', sm: 'auto' } }}>
+            {/* QUICK FILTERS */}
+            <ToggleButtonGroup
+              value={filterStatus === 'pending' ? 'pending' : 'all'}
+              exclusive
+              onChange={(_, val) => val && setFilterStatus(val)}
+              size="small"
+              color="primary"
+              sx={{ width: { xs: '100%', sm: 'auto' } }}
+            >
+              <ToggleButton value="all" sx={{ flex: { xs: 1, sm: 'none' }, px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600 }}>
+                {t('quickFilterAll')}
+              </ToggleButton>
+              <ToggleButton value="pending" sx={{ flex: { xs: 1, sm: 'none' }, px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600 }}>
+                {t('statusPending')}
+              </ToggleButton>
+            </ToggleButtonGroup>
+
             <TextField
               size="small"
               placeholder={t('searchPlaceholder')}
@@ -453,6 +494,17 @@ export const UsersView: React.FC<Props> = ({
                     </TableSortLabel>
                   </TableCell>
                 )}
+                {activeCols.includes('gender') && (
+                  <TableCell>
+                    <TableSortLabel
+                      active={sortColumn === 'gender'}
+                      direction={sortColumn === 'gender' ? sortDirection : 'asc'}
+                      onClick={() => handleSort('gender')}
+                    >
+                      {t('colGender')}
+                    </TableSortLabel>
+                  </TableCell>
+                )}
                 {activeCols.includes('email') && (
                   <TableCell>
                     <TableSortLabel
@@ -540,6 +592,7 @@ export const UsersView: React.FC<Props> = ({
                           )}
                         </TableCell>
                       )}
+                      {activeCols.includes('gender') && <TableCell>{getGenderLabel(u.gender)}</TableCell>}
                       {activeCols.includes('email') && <TableCell>{u.email || '—'}</TableCell>}
                       {activeCols.includes('phone') && <TableCell>{u.phone || '—'}</TableCell>}
                       {canManageUsers && (
@@ -699,6 +752,21 @@ export const UsersView: React.FC<Props> = ({
                     {isAdmin && <MenuItem value="Administrator">{t('roleAdministrator')}</MenuItem>}
                     <MenuItem value="Manager">{t('roleManager')}</MenuItem>
                     <MenuItem value="User">{t('roleUser')}</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>{t('lblGender')}</InputLabel>
+                  <Select
+                    value={gender}
+                    label={t('lblGender')}
+                    onChange={(e) => setGender(e.target.value as string)}
+                  >
+                    <MenuItem value=""><em>{t('genderNotSpecified')}</em></MenuItem>
+                    <MenuItem value="Male">{t('genderMale')}</MenuItem>
+                    <MenuItem value="Female">{t('genderFemale')}</MenuItem>
+                    <MenuItem value="Other">{t('genderOther')}</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>

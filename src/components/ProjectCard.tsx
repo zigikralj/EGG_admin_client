@@ -50,8 +50,8 @@ export const ProjectCard: React.FC<Props> = ({
   onToggleDone,
   onEdit,
 }) => {
-  const { t, getServiceLabel } = useLanguage();
-  const { canEditProject } = useAuth();
+  const { t, getServiceLabel, getResponsibleLabel } = useLanguage();
+  const { canEditProject, users } = useAuth();
 
   const canEdit = canEditProject(p);
   const late = isLate(p);
@@ -147,7 +147,7 @@ export const ProjectCard: React.FC<Props> = ({
         </Stack>
 
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          {t('responsible')}: <strong>{p.responsible || '—'}</strong>
+          {getResponsibleLabel(p.responsible, users)}: <strong>{p.responsible || '—'}</strong>
         </Typography>
 
         <Box sx={{ mb: 2 }}>
