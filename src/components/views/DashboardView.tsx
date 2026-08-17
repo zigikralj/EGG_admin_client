@@ -23,7 +23,6 @@ import {
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
-import FilterListIcon from '@mui/icons-material/FilterList';
 import type { Project, ProjectStats, Reminder, DashboardSubTab, User, Category, Service } from '../../types';
 import { ReminderPanel } from '../ReminderPanel';
 import { ProjectCard } from '../ProjectCard';
