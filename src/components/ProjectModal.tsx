@@ -17,7 +17,6 @@ import {
   Box,
   Paper,
 } from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
@@ -133,14 +132,9 @@ export const ProjectModal: React.FC<Props> = ({
     <Dialog open={isOpen} onClose={onClose} maxWidth="md" fullWidth>
       <form onSubmit={handleSubmit}>
         <DialogTitle sx={{ display: 'flex', alignItems: { xs: 'flex-start', sm: 'center' }, justifyContent: 'space-between', flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5, pb: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Button startIcon={<ArrowBackIcon />} onClick={onClose} size="small" variant="outlined">
-              {t('btnBackToProjects')}
-            </Button>
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              {projectToEdit ? t('modalEditProject') : t('modalNewProject')}
-            </Typography>
-          </Box>
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+            {projectToEdit ? t('modalEditProject') : t('modalNewProject')}
+          </Typography>
 
           {projectToEdit && isEditable && onDelete && (
             <Button
@@ -222,11 +216,14 @@ export const ProjectModal: React.FC<Props> = ({
                     label={t('lblResponsiblePerson')}
                     onChange={(e) => setResponsible(e.target.value as string)}
                   >
-                    {users.map((u) => (
-                      <MenuItem key={u.id} value={u.name}>
-                        {u.name} ({u.role})
-                      </MenuItem>
-                    ))}
+                    {users.map((u) => {
+                      const isMe = currentUser?.name && u.name.trim().toLowerCase() === currentUser.name.trim().toLowerCase();
+                      return (
+                        <MenuItem key={u.id} value={u.name}>
+                          {isMe ? `${t('lblMe')} (${u.name})` : u.name} ({u.role})
+                        </MenuItem>
+                      );
+                    })}
                   </Select>
                 </FormControl>
               ) : (

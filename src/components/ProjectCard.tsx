@@ -124,6 +124,7 @@ export const ProjectCard: React.FC<Props> = ({
             sx={{
               color: 'primary.main',
               fontWeight: 700,
+              fontSize: '1rem',
               lineHeight: 1.3,
               mb: 0.25,
             }}

@@ -631,55 +631,58 @@ function MainApp() {
             onEditProject={(p) => {
               setEditingProject(p);
               setIsProjectModalOpen(true);
-              setActiveTab('projects');
             }}
             onDeleteProject={handleDeleteProject}
             onNavigateToProjects={() => {
               setActiveTab('dashboard');
               setDashboardSubTab('projects');
             }}
+            onOpenNewProject={() => {
+              setEditingProject(null);
+              setIsProjectModalOpen(true);
+            }}
           />
         )}
 
         {activeTab === 'projects' && (
-          isProjectModalOpen ? (
-            <ProjectModal
-              isOpen={isProjectModalOpen}
-              projectToEdit={editingProject}
-              clients={clients}
-              users={users}
-              services={services}
-              onClose={() => {
-                setIsProjectModalOpen(false);
-                setEditingProject(null);
-              }}
-              onSave={handleSaveProject}
-              onDelete={handleDeleteProject}
-              onToggleDone={handleToggleDone}
-              onMarkSampled={handleMarkSampled}
-            />
-          ) : (
-            <ProjectsView
-              projects={projects}
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              onOpenNew={() => {
-                setEditingProject(null);
-                setIsProjectModalOpen(true);
-              }}
-              onToggleDone={handleToggleDone}
-              onMarkSampled={handleMarkSampled}
-              onEdit={(p) => {
-                setEditingProject(p);
-                setIsProjectModalOpen(true);
-              }}
-              onDelete={handleDeleteProject}
-              visibleColumns={userPreferences.cols_projects}
-              onVisibleColumnsChange={(cols) => updatePreference('cols_projects', cols)}
-              sortState={userPreferences.sort_projects}
-              onSortChange={(sort) => updatePreference('sort_projects', sort)}
-            />
-          )
+          <ProjectsView
+            projects={projects}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            onOpenNew={() => {
+              setEditingProject(null);
+              setIsProjectModalOpen(true);
+            }}
+            onToggleDone={handleToggleDone}
+            onMarkSampled={handleMarkSampled}
+            onEdit={(p) => {
+              setEditingProject(p);
+              setIsProjectModalOpen(true);
+            }}
+            onDelete={handleDeleteProject}
+            visibleColumns={userPreferences.cols_projects}
+            onVisibleColumnsChange={(cols) => updatePreference('cols_projects', cols)}
+            sortState={userPreferences.sort_projects}
+            onSortChange={(sort) => updatePreference('sort_projects', sort)}
+          />
+        )}
+
+        {isProjectModalOpen && (
+          <ProjectModal
+            isOpen={isProjectModalOpen}
+            projectToEdit={editingProject}
+            clients={clients}
+            users={users}
+            services={services}
+            onClose={() => {
+              setIsProjectModalOpen(false);
+              setEditingProject(null);
+            }}
+            onSave={handleSaveProject}
+            onDelete={handleDeleteProject}
+            onToggleDone={handleToggleDone}
+            onMarkSampled={handleMarkSampled}
+          />
         )}
 
         {activeTab === 'clients' && (

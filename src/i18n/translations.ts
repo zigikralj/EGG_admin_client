@@ -55,6 +55,10 @@ export interface TranslationKeys {
   emptyActiveProjects: string;
   emptyDoneProjects: string;
   emptyDashboardActive: string;
+  approachingDeadlinesTitle: string;
+  staleProjectsTitle: string;
+  emptyApproachingDeadlines: string;
+  emptyStaleProjects: string;
 
   // Project Card
   staleFlag: string;
@@ -265,6 +269,8 @@ export interface TranslationKeys {
   themeSystem: string;
   btnFilters: string;
   lblFilterOptions: string;
+  lblSortBy: string;
+  lblMe: string;
   btnClearFilters: string;
   filterAll: string;
   quickFilterMyProjects: string;
@@ -380,11 +386,15 @@ export const translations: Record<Language, TranslationKeys> = {
     emptyProjects: 'No projects found.',
     searchPlaceholder: 'Search...',
     btnNewProject: 'New Project',
-    btnShowAllProjects: 'View All Projects →',
+    btnShowAllProjects: 'View All Projects',
     activeProjects: 'Active Projects',
     emptyActiveProjects: 'No projects in progress. Add your first project using "New Project".',
     emptyDoneProjects: 'No completed projects yet.',
     emptyDashboardActive: 'No active projects currently in progress.',
+    approachingDeadlinesTitle: 'Approaching Deadlines',
+    staleProjectsTitle: 'Stale Projects (Starts > 2 Months Ago)',
+    emptyApproachingDeadlines: 'No projects with approaching deadlines.',
+    emptyStaleProjects: 'No projects older than 2 months.',
 
     // Project Card
     staleFlag: 'Takes > 2 months',
@@ -560,12 +570,12 @@ export const translations: Record<Language, TranslationKeys> = {
     errorSavingProject: 'Error saving project',
     hqLocation: 'Headquarters',
     other: 'Other',
-    btnBackToList: '← Back to List',
-    btnBackToProjects: '← Back to Projects',
-    btnBackToClients: '← Back to Clients',
-    btnBackToUsers: '← Back to Users',
-    btnBackToServices: '← Back to Services',
-    btnBackToCategories: '← Back to Categories',
+    btnBackToList: 'Back to List',
+    btnBackToProjects: 'Back to Projects',
+    btnBackToClients: 'Back to Clients',
+    btnBackToUsers: 'Back to Users',
+    btnBackToServices: 'Back to Services',
+    btnBackToCategories: 'Back to Categories',
     btnCustomizeColumns: 'Columns',
     lblSelectColumns: 'Select Visible Columns',
     menuProfile: 'Profile',
@@ -581,6 +591,8 @@ export const translations: Record<Language, TranslationKeys> = {
     themeSystem: 'System',
     btnFilters: 'Filters',
     lblFilterOptions: 'Filter Options',
+    lblSortBy: 'Sort by',
+    lblMe: 'Me',
     btnClearFilters: 'Clear Filters',
     filterAll: 'All',
     quickFilterMyProjects: 'My Projects',
@@ -709,11 +721,15 @@ export const translations: Record<Language, TranslationKeys> = {
     emptyProjects: 'Nema pronađenih projekata.',
     searchPlaceholder: 'Pretraga...',
     btnNewProject: 'Novi projekat',
-    btnShowAllProjects: 'Prikaži sve projekte →',
+    btnShowAllProjects: 'Prikaži sve projekte',
     activeProjects: 'Aktivni projekti',
     emptyActiveProjects: 'Nema projekata u izradi. Dodaj prvi projekat dugmetom „Novi projekat".',
     emptyDoneProjects: 'Još uvek nema završenih projekata.',
     emptyDashboardActive: 'Nema aktivnih projekata u izradi.',
+    approachingDeadlinesTitle: 'Rokovi koji se bliže',
+    staleProjectsTitle: 'Traje > 2 meseca',
+    emptyApproachingDeadlines: 'Nema projekata sa rokovima koji se bliže.',
+    emptyStaleProjects: 'Nema projekata starijih od 2 meseca.',
 
     // Project Card
     staleFlag: 'Traje > 2 meseca',
@@ -889,12 +905,12 @@ export const translations: Record<Language, TranslationKeys> = {
     errorSavingProject: 'Greška pri čuvanju projekta',
     hqLocation: 'Sedište',
     other: 'Ostalo',
-    btnBackToList: '← Nazad na listu',
-    btnBackToProjects: '← Nazad na projekte',
-    btnBackToClients: '← Nazad na klijente',
-    btnBackToUsers: '← Nazad na korisnike',
-    btnBackToServices: '← Nazad na usluge',
-    btnBackToCategories: '← Nazad na kategorije',
+    btnBackToList: 'Nazad na listu',
+    btnBackToProjects: 'Nazad na projekte',
+    btnBackToClients: 'Nazad na klijente',
+    btnBackToUsers: 'Nazad na korisnike',
+    btnBackToServices: 'Nazad na usluge',
+    btnBackToCategories: 'Nazad na kategorije',
     btnCustomizeColumns: 'Kolone',
     lblSelectColumns: 'Izaberi vidljive kolone',
     menuProfile: 'Profil',
@@ -910,6 +926,8 @@ export const translations: Record<Language, TranslationKeys> = {
     themeSystem: 'Sistemska',
     btnFilters: 'Filteri',
     lblFilterOptions: 'Opcije filtriranja',
+    lblSortBy: 'Sortiraj po',
+    lblMe: 'Ja',
     btnClearFilters: 'Očisti filtere',
     filterAll: 'Sve',
     quickFilterMyProjects: 'Moji projekti',
@@ -1038,11 +1056,15 @@ export const translations: Record<Language, TranslationKeys> = {
     emptyProjects: 'Нема пронађених пројеката.',
     searchPlaceholder: 'Претрага...',
     btnNewProject: 'Нови пројекат',
-    btnShowAllProjects: 'Прикажи све пројекте →',
+    btnShowAllProjects: 'Прикажи све пројекте',
     activeProjects: 'Активни пројекти',
     emptyActiveProjects: 'Нема пројеката у изради. Додај први пројекат дугметом „Нови пројекат".',
     emptyDoneProjects: 'Још увек нема завршених пројеката.',
     emptyDashboardActive: 'Нема активних пројеката у изради.',
+    approachingDeadlinesTitle: 'Рокови који се ближе',
+    staleProjectsTitle: 'Траје > 2 месеца',
+    emptyApproachingDeadlines: 'Нема пројеката са роковима који се ближе.',
+    emptyStaleProjects: 'Нема пројеката старијих од 2 месеца.',
 
     // Project Card
     staleFlag: 'Траје > 2 месеца',
@@ -1218,12 +1240,12 @@ export const translations: Record<Language, TranslationKeys> = {
     errorSavingProject: 'Грешка при чувању пројекта',
     hqLocation: 'Седиште',
     other: 'Остало',
-    btnBackToList: '← Назад на листу',
-    btnBackToProjects: '← Назад на пројекте',
-    btnBackToClients: '← Назад на клијенте',
-    btnBackToUsers: '← Назад на кориснике',
-    btnBackToServices: '← Назад на услуге',
-    btnBackToCategories: '← Назад на категорије',
+    btnBackToList: 'Назад на листу',
+    btnBackToProjects: 'Назад на пројекте',
+    btnBackToClients: 'Назад на клијенте',
+    btnBackToUsers: 'Назад на кориснике',
+    btnBackToServices: 'Назад на услуге',
+    btnBackToCategories: 'Назад на категорије',
     btnCustomizeColumns: 'Колоне',
     lblSelectColumns: 'Изабери видљиве колоне',
     menuProfile: 'Профил',
@@ -1239,6 +1261,8 @@ export const translations: Record<Language, TranslationKeys> = {
     themeSystem: 'Системска',
     btnFilters: 'Филтери',
     lblFilterOptions: 'Опције филтрирања',
+    lblSortBy: 'Сортирај по',
+    lblMe: 'Ја',
     btnClearFilters: 'Очисти филтере',
     filterAll: 'Све',
     quickFilterMyProjects: 'Моји пројекти',

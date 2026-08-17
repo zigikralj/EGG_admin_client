@@ -38,6 +38,7 @@ interface Props {
   onMarkSampled?: (id: string) => void;
   onSaveReminder?: (reminder: Partial<Reminder>) => void;
   isFullHeight?: boolean;
+  hideNotch?: boolean;
 }
 
 interface ReminderItem {
@@ -67,6 +68,7 @@ export const ReminderPanel: React.FC<Props> = ({
   reminders = [],
   onSaveReminder,
   isFullHeight = false,
+  hideNotch = false,
 }) => {
   const { t } = useLanguage();
   const { currentUser, isAdmin, isManager } = useAuth();
@@ -187,33 +189,35 @@ export const ReminderPanel: React.FC<Props> = ({
           display: 'flex',
           flexDirection: 'column',
           overflow: 'visible',
-          mt: 1,
+          mt: hideNotch ? 0 : 1,
           boxSizing: 'border-box',
         }}
       >
         {/* NOTCHED TITLE */}
-        <Typography
-          variant="caption"
-          sx={{
-            position: 'absolute',
-            top: -8,
-            left: 20,
-            bgcolor: 'background.paper',
-            border: 1,
-            borderColor: 'divider',
-            borderRadius: 1,
-            px: 0.75,
-            py: 0.1,
-            color: 'text.secondary',
-            fontWeight: 700,
-            fontSize: '0.8rem',
-            letterSpacing: '0.4px',
-            lineHeight: 1,
-            zIndex: 1,
-          }}
-        >
-          {t('remindersTitle')}
-        </Typography>
+        {!hideNotch && (
+          <Typography
+            variant="caption"
+            sx={{
+              position: 'absolute',
+              top: -8,
+              left: 20,
+              bgcolor: 'background.paper',
+              border: 1,
+              borderColor: 'divider',
+              borderRadius: 1,
+              px: 0.75,
+              py: 0.1,
+              color: 'text.secondary',
+              fontWeight: 700,
+              fontSize: '0.8rem',
+              letterSpacing: '0.4px',
+              lineHeight: 1,
+              zIndex: 1,
+            }}
+          >
+            {t('remindersTitle')}
+          </Typography>
+        )}
 
         <CardContent sx={{ p: 2, pt: 2, pb: '4px !important', flex: 1, display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box' }}>
           <TableContainer sx={{ maxHeight: isFullHeight ? 'none' : 240, overflowY: isFullHeight ? 'visible' : 'auto', overflowX: 'auto', width: '100%', maxWidth: '100%', minWidth: 0, flex: 1, display: 'block', pb: 1.5 }}>

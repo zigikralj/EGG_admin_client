@@ -162,12 +162,11 @@ export const ProjectsView: React.FC<Props> = ({
   ];
 
   const uniqueCategories = Array.from(new Set(projects.map((p) => p.type).filter(Boolean)));
-  const uniqueResponsibles = Array.from(
-    new Set([
-      ...(currentUser?.name ? [currentUser.name] : []),
-      ...projects.map((p) => p.responsible).filter(Boolean),
-    ])
-  ) as string[];
+  const otherResponsibles = Array.from(
+    new Set(projects.map((p) => p.responsible).filter(Boolean) as string[])
+  )
+    .filter((r) => !currentUser?.name || r.trim().toLowerCase() !== currentUser.name.trim().toLowerCase())
+    .sort((a, b) => a.localeCompare(b));
 
   // 1. Apply Quick & Popover Filters
   const filteredProjects = projects.filter((p) => {
@@ -345,7 +344,12 @@ export const ProjectsView: React.FC<Props> = ({
                   onChange={(e) => handleFilterResponsibleChange(e.target.value)}
                 >
                   <MenuItem value="all">{t('filterAll')}</MenuItem>
-                  {uniqueResponsibles.map((resp) => (
+                  {currentUser?.name && (
+                    <MenuItem value={currentUser.name}>
+                      {t('lblMe')} ({currentUser.name})
+                    </MenuItem>
+                  )}
+                  {otherResponsibles.map((resp) => (
                     <MenuItem key={resp} value={resp}>
                       {resp}
                     </MenuItem>
