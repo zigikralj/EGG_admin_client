@@ -638,6 +638,8 @@ function MainApp() {
             onMarkSampled={handleMarkSampled}
             onToggleDone={handleToggleDone}
             onSaveReminder={handleSaveReminder}
+            onDeleteReminder={handleDeleteReminder}
+            onStatusChangeReminder={handleStatusChangeReminder}
             onEditProject={(p) => {
               setEditingProject(p);
               setIsProjectModalOpen(true);
@@ -657,6 +659,7 @@ function MainApp() {
         {activeTab === 'projects' && (
           <ProjectsView
             projects={projects}
+            services={services}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             onOpenNew={() => {
@@ -684,6 +687,7 @@ function MainApp() {
             clients={clients}
             users={users}
             services={services}
+            reminders={reminders}
             onClose={() => {
               setIsProjectModalOpen(false);
               setEditingProject(null);
@@ -691,7 +695,9 @@ function MainApp() {
             onSave={handleSaveProject}
             onDelete={handleDeleteProject}
             onToggleDone={handleToggleDone}
-            onMarkSampled={handleMarkSampled}
+            onSaveReminder={handleSaveReminder}
+            onDeleteReminder={handleDeleteReminder}
+            onStatusChangeReminder={handleStatusChangeReminder}
           />
         )}
 

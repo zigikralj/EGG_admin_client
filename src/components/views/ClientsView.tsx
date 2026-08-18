@@ -31,6 +31,8 @@ import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import LockIcon from '@mui/icons-material/Lock';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import type { Client } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -86,18 +88,41 @@ export const ClientsView: React.FC<Props> = ({
     }
   };
 
+  const handleSortColumnChange = (colId: string) => {
+    setSortColumn(colId);
+    if (onSortChange) {
+      onSortChange({ field: colId, direction: sortDirection });
+    }
+  };
+
+  const handleToggleSortDirection = () => {
+    const newDir = sortDirection === 'asc' ? 'desc' : 'asc';
+    setSortDirection(newDir);
+    if (onSortChange) {
+      onSortChange({ field: sortColumn, direction: newDir });
+    }
+  };
+
   // Filter states
   const [filterCity, setFilterCity] = useState<string>('all');
   const [filterProjectCountOp, setFilterProjectCountOp] = useState<string>('all');
   const [filterProjectCountVal, setFilterProjectCountVal] = useState<string>('');
 
   const isProjectCountActive = filterProjectCountOp !== 'all' && filterProjectCountVal.trim() !== '';
-  const activeFilterCount = (filterCity !== 'all' ? 1 : 0) + (isProjectCountActive ? 1 : 0);
+  const activeFilterCount =
+    (filterCity !== 'all' ? 1 : 0) +
+    (isProjectCountActive ? 1 : 0) +
+    (sortColumn !== 'name' || sortDirection !== 'asc' ? 1 : 0);
 
   const clearFilters = () => {
     setFilterCity('all');
     setFilterProjectCountOp('all');
     setFilterProjectCountVal('');
+    setSortColumn('name');
+    setSortDirection('asc');
+    if (onSortChange) {
+      onSortChange({ field: 'name', direction: 'asc' });
+    }
   };
 
   const activeCols = onVisibleColumnsChange ? visibleColumns : localColumns;
@@ -222,6 +247,9 @@ export const ClientsView: React.FC<Props> = ({
       case 'projectCount':
         res = (a.projects ? a.projects.length : 0) - (b.projects ? b.projects.length : 0);
         break;
+      case 'createdAt':
+        res = (a.createdAt ? new Date(a.createdAt).getTime() : 0) - (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+        break;
       default:
         res = 0;
     }
@@ -291,50 +319,84 @@ export const ClientsView: React.FC<Props> = ({
             />
 
             {/* FILTER POPOVER */}
-            <TableFilterSelector activeCount={activeFilterCount} onClear={clearFilters}>
-              <FormControl fullWidth size="small">
-                <InputLabel>{t('colCity')}</InputLabel>
-                <Select
-                  value={filterCity}
-                  label={t('colCity')}
-                  onChange={(e) => setFilterCity(e.target.value)}
-                >
-                  <MenuItem value="all">{t('filterAll')}</MenuItem>
-                  {uniqueCities.map((c) => (
-                    <MenuItem key={c} value={c}>
-                      {c}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <FormControl size="small" sx={{ minWidth: 110 }}>
-                  <InputLabel>{t('colProjectCount')}</InputLabel>
-                  <Select
-                    value={filterProjectCountOp}
-                    label={t('colProjectCount')}
-                    onChange={(e) => setFilterProjectCountOp(e.target.value)}
+            <TableFilterSelector
+              activeCount={activeFilterCount}
+              onClear={clearFilters}
+              sortingContent={
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>{t('lblSortBy')}</InputLabel>
+                    <Select
+                      value={sortColumn}
+                      label={t('lblSortBy')}
+                      onChange={(e) => handleSortColumnChange(e.target.value)}
+                    >
+                      <MenuItem value="name">{t('colClientName')}</MenuItem>
+                      <MenuItem value="city">{t('colCity')}</MenuItem>
+                      <MenuItem value="contactPerson">{t('colContactPerson')}</MenuItem>
+                      <MenuItem value="email">{t('colEmail')}</MenuItem>
+                      <MenuItem value="phone">{t('colPhone')}</MenuItem>
+                      <MenuItem value="projectCount">{t('colProjectCount')}</MenuItem>
+                      <MenuItem value="createdAt">{t('lblCreatedDate')}</MenuItem>
+                    </Select>
+                  </FormControl>
+                  <IconButton
+                    size="small"
+                    onClick={handleToggleSortDirection}
+                    title={sortDirection === 'asc' ? t('sortAscending') : t('sortDescending')}
+                    sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0.75 }}
                   >
-                    <MenuItem value="all">{t('filterAll')}</MenuItem>
-                    <MenuItem value="gt">&gt;</MenuItem>
-                    <MenuItem value="gte">&ge;</MenuItem>
-                    <MenuItem value="eq">=</MenuItem>
-                    <MenuItem value="lte">&le;</MenuItem>
-                    <MenuItem value="lt">&lt;</MenuItem>
-                  </Select>
-                </FormControl>
-                <TextField
-                  size="small"
-                  type="number"
-                  placeholder="0"
-                  value={filterProjectCountVal}
-                  onChange={(e) => setFilterProjectCountVal(e.target.value)}
-                  sx={{ flex: 1 }}
-                  disabled={filterProjectCountOp === 'all'}
-                />
-              </Box>
-            </TableFilterSelector>
+                    {sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />}
+                  </IconButton>
+                </Box>
+              }
+              filteringContent={
+                <>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>{t('colCity')}</InputLabel>
+                    <Select
+                      value={filterCity}
+                      label={t('colCity')}
+                      onChange={(e) => setFilterCity(e.target.value)}
+                    >
+                      <MenuItem value="all">{t('filterAll')}</MenuItem>
+                      {uniqueCities.map((c) => (
+                        <MenuItem key={c} value={c}>
+                          {c}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <FormControl size="small" sx={{ minWidth: 110 }}>
+                      <InputLabel>{t('colProjectCount')}</InputLabel>
+                      <Select
+                        value={filterProjectCountOp}
+                        label={t('colProjectCount')}
+                        onChange={(e) => setFilterProjectCountOp(e.target.value)}
+                      >
+                        <MenuItem value="all">{t('filterAll')}</MenuItem>
+                        <MenuItem value="gt">&gt;</MenuItem>
+                        <MenuItem value="gte">&ge;</MenuItem>
+                        <MenuItem value="eq">=</MenuItem>
+                        <MenuItem value="lte">&le;</MenuItem>
+                        <MenuItem value="lt">&lt;</MenuItem>
+                      </Select>
+                    </FormControl>
+                    <TextField
+                      size="small"
+                      type="number"
+                      placeholder="0"
+                      value={filterProjectCountVal}
+                      onChange={(e) => setFilterProjectCountVal(e.target.value)}
+                      sx={{ flex: 1 }}
+                      disabled={filterProjectCountOp === 'all'}
+                    />
+                  </Box>
+                </>
+              }
+            />
 
             {/* COLUMN SELECTOR */}
             <ColumnSelector

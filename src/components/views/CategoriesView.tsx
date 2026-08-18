@@ -20,16 +20,23 @@ import {
   DialogContent,
   DialogActions,
   Grid,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import LockIcon from '@mui/icons-material/Lock';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import type { Category } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { ColumnSelector, type ColumnDef } from '../ColumnSelector';
+import { TableFilterSelector } from '../TableFilterSelector';
 
 interface Props {
   categories: Category[];
@@ -77,6 +84,30 @@ export const CategoriesView: React.FC<Props> = ({
     setSortDirection(newDir);
     if (onSortChange) {
       onSortChange({ field: colId, direction: newDir });
+    }
+  };
+
+  const handleSortColumnChange = (colId: string) => {
+    setSortColumn(colId);
+    if (onSortChange) {
+      onSortChange({ field: colId, direction: sortDirection });
+    }
+  };
+
+  const handleToggleSortDirection = () => {
+    const newDir = sortDirection === 'asc' ? 'desc' : 'asc';
+    setSortDirection(newDir);
+    if (onSortChange) {
+      onSortChange({ field: sortColumn, direction: newDir });
+    }
+  };
+
+  const activeFilterCount = sortColumn !== 'name' || sortDirection !== 'asc' ? 1 : 0;
+  const clearFilters = () => {
+    setSortColumn('name');
+    setSortDirection('asc');
+    if (onSortChange) {
+      onSortChange({ field: 'name', direction: 'asc' });
     }
   };
 
@@ -154,6 +185,9 @@ export const CategoriesView: React.FC<Props> = ({
       case 'description':
         res = (a.description || '').localeCompare(b.description || '');
         break;
+      case 'createdAt':
+        res = (a.createdAt ? new Date(a.createdAt).getTime() : 0) - (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+        break;
       default:
         res = 0;
     }
@@ -230,6 +264,36 @@ export const CategoriesView: React.FC<Props> = ({
                 },
               }}
               sx={{ width: { xs: '100%', sm: 200 } }}
+            />
+
+            <TableFilterSelector
+              activeCount={activeFilterCount}
+              onClear={clearFilters}
+              sortingContent={
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>{t('lblSortBy')}</InputLabel>
+                    <Select
+                      value={sortColumn}
+                      label={t('lblSortBy')}
+                      onChange={(e) => handleSortColumnChange(e.target.value)}
+                    >
+                      <MenuItem value="name">{t('colCategoryName')}</MenuItem>
+                      <MenuItem value="code">{t('lblCategoryCode')}</MenuItem>
+                      <MenuItem value="description">{t('colDescription')}</MenuItem>
+                      <MenuItem value="createdAt">{t('lblCreatedDate')}</MenuItem>
+                    </Select>
+                  </FormControl>
+                  <IconButton
+                    size="small"
+                    onClick={handleToggleSortDirection}
+                    title={sortDirection === 'asc' ? t('sortAscending') : t('sortDescending')}
+                    sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0.75 }}
+                  >
+                    {sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />}
+                  </IconButton>
+                </Box>
+              }
             />
 
             <ColumnSelector

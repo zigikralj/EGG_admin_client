@@ -15,12 +15,13 @@ import EditIcon from '@mui/icons-material/Edit';
 import LockIcon from '@mui/icons-material/Lock';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import ErrorIcon from '@mui/icons-material/Error';
-import type { Project } from '../types';
+import type { Project, Service } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 
 interface Props {
   project: Project;
+  services?: Service[];
   onToggleDone: (id: string) => void;
   onMarkSampled?: (id: string) => void;
   onEdit: (project: Project) => void;
@@ -48,6 +49,7 @@ function isStale(p: Project): boolean {
 
 export const ProjectCard: React.FC<Props> = ({
   project: p,
+  services = [],
   onToggleDone,
   onEdit,
 }) => {
@@ -151,7 +153,7 @@ export const ProjectCard: React.FC<Props> = ({
 
         <Stack direction="row" spacing={1} sx={{ mb: 1.5 }}>
           <Chip
-            label={getServiceLabel(p.type)}
+            label={getServiceLabel(p.type, services)}
             size="small"
             color={p.done ? 'default' : 'primary'}
             variant={p.done ? 'outlined' : 'filled'}

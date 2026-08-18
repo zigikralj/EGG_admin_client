@@ -61,10 +61,11 @@ export interface Category {
 
 export interface Reminder {
   id: string;
+  title?: string | null;
   projectId?: string | null;
-  projectName: string;
+  projectName?: string | null;
   clientId?: string | null;
-  clientName: string;
+  clientName?: string | null;
   responsibleId?: string | null;
   responsible?: string | null;
   status: string;

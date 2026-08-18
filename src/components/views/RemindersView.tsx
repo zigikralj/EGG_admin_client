@@ -28,12 +28,15 @@ import {
   Tooltip,
   ToggleButtonGroup,
   ToggleButton,
+  Autocomplete,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CheckIcon from '@mui/icons-material/Check';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import type { Reminder, Project, Client, User } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -54,7 +57,7 @@ interface Props {
   onSortChange?: (sort: { field: string; direction: 'asc' | 'desc' }) => void;
 }
 
-const DEFAULT_COLUMNS = ['project', 'client', 'responsible', 'status', 'notes'];
+const DEFAULT_COLUMNS = ['title', 'project', 'client', 'responsible', 'status', 'notes'];
 
 export const RemindersView: React.FC<Props> = ({
   reminders,
@@ -76,12 +79,12 @@ export const RemindersView: React.FC<Props> = ({
   const [localColumns, setLocalColumns] = useState<string[]>(visibleColumns);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [sortColumn, setSortColumn] = useState<string>(sortState?.field || 'project');
+  const [sortColumn, setSortColumn] = useState<string>(sortState?.field || 'title');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(sortState?.direction || 'asc');
 
   useEffect(() => {
     if (sortState) {
-      setSortColumn(sortState.field || 'project');
+      setSortColumn(sortState.field || 'title');
       setSortDirection(sortState.direction || 'asc');
     }
   }, [sortState]);
@@ -103,6 +106,7 @@ export const RemindersView: React.FC<Props> = ({
 
   // Popover Filter states
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterClient, setFilterClient] = useState<string>('all');
   const [filterResponsible, setFilterResponsible] = useState<string>('all');
 
   const handleQuickFilterChange = (val: 'all' | 'my' | 'pending') => {
@@ -125,18 +129,42 @@ export const RemindersView: React.FC<Props> = ({
     }
   };
 
+  const handleSortColumnChange = (colId: string) => {
+    setSortColumn(colId);
+    if (onSortChange) {
+      onSortChange({ field: colId, direction: sortDirection });
+    }
+  };
+
+  const handleToggleSortDirection = () => {
+    const newDir = sortDirection === 'asc' ? 'desc' : 'asc';
+    setSortDirection(newDir);
+    if (onSortChange) {
+      onSortChange({ field: sortColumn, direction: newDir });
+    }
+  };
+
   const activeFilterCount =
     (quickFilter === 'pending' ? 1 : 0) +
     (filterStatus !== 'all' ? 1 : 0) +
-    (filterResponsible !== 'all' ? 1 : 0);
+    (filterClient !== 'all' ? 1 : 0) +
+    (filterResponsible !== 'all' ? 1 : 0) +
+    (sortColumn !== 'title' || sortDirection !== 'asc' ? 1 : 0);
 
   const clearFilters = () => {
     setQuickFilter('all');
     setFilterStatus('all');
+    setFilterClient('all');
     setFilterResponsible('all');
+    setSortColumn('title');
+    setSortDirection('asc');
+    if (onSortChange) {
+      onSortChange({ field: 'title', direction: 'asc' });
+    }
   };
 
   // Form states
+  const [title, setTitle] = useState<string>('');
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [projectName, setProjectName] = useState<string>('');
   const [selectedClientId, setSelectedClientId] = useState<string>('');
@@ -154,6 +182,7 @@ export const RemindersView: React.FC<Props> = ({
   };
 
   const columnDefs: ColumnDef[] = [
+    { id: 'title', label: t('colTitle') },
     { id: 'project', label: t('colProject') },
     { id: 'client', label: t('colClient') },
     { id: 'responsible', label: t('colResponsible') },
@@ -163,6 +192,7 @@ export const RemindersView: React.FC<Props> = ({
 
   const handleOpenNew = () => {
     setEditingReminder(null);
+    setTitle('');
     setSelectedProjectId('');
     setProjectName('');
     setSelectedClientId('');
@@ -177,6 +207,7 @@ export const RemindersView: React.FC<Props> = ({
 
   const handleOpenEdit = (rem: Reminder) => {
     setEditingReminder(rem);
+    setTitle(rem.title || rem.projectName || '');
     setSelectedProjectId(rem.projectId || '');
     setProjectName(rem.projectName || '');
     setSelectedClientId(rem.clientId || '');
@@ -194,6 +225,9 @@ export const RemindersView: React.FC<Props> = ({
     if (!projId) return;
     const proj = projects.find((p) => p.id === projId);
     if (proj) {
+      if (!title) {
+        setTitle(proj.name);
+      }
       setProjectName(proj.name);
       if (proj.clientId) {
         setSelectedClientId(proj.clientId);
@@ -227,17 +261,19 @@ export const RemindersView: React.FC<Props> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!projectName.trim() || !clientName.trim()) {
-      alert(t('alertProjectAndClientRequired'));
+    const finalTitle = title.trim() || projectName.trim();
+    if (!finalTitle) {
+      alert(t('alertReminderTitleRequired'));
       return;
     }
 
     onSaveReminder({
       id: editingReminder?.id,
+      title: finalTitle,
       projectId: selectedProjectId || null,
-      projectName,
+      projectName: projectName.trim() || null,
       clientId: selectedClientId || null,
-      clientName,
+      clientName: clientName.trim() || null,
       responsibleId: selectedResponsibleId || null,
       responsible: responsible || null,
       status,
@@ -247,6 +283,10 @@ export const RemindersView: React.FC<Props> = ({
 
     setIsOpen(false);
   };
+
+  const uniqueClients = Array.from(
+    new Set(reminders.map((r) => r.clientName).filter(Boolean) as string[])
+  ).sort((a, b) => a.localeCompare(b));
 
   const otherResponsibles = Array.from(
     new Set(reminders.map((r) => r.responsible).filter(Boolean) as string[])
@@ -267,6 +307,7 @@ export const RemindersView: React.FC<Props> = ({
     if (quickFilter === 'pending' && rem.status.toLowerCase() === 'completed') return false;
 
     if (filterStatus !== 'all' && rem.status !== filterStatus) return false;
+    if (filterClient !== 'all' && rem.clientName !== filterClient) return false;
     if (filterResponsible !== 'all' && rem.responsible !== filterResponsible) return false;
     return true;
   });
@@ -276,8 +317,9 @@ export const RemindersView: React.FC<Props> = ({
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
-      rem.projectName.toLowerCase().includes(q) ||
-      rem.clientName.toLowerCase().includes(q) ||
+      (rem.title && rem.title.toLowerCase().includes(q)) ||
+      (rem.projectName && rem.projectName.toLowerCase().includes(q)) ||
+      (rem.clientName && rem.clientName.toLowerCase().includes(q)) ||
       (rem.responsible && rem.responsible.toLowerCase().includes(q)) ||
       (rem.status && rem.status.toLowerCase().includes(q)) ||
       (rem.notes && rem.notes.toLowerCase().includes(q))
@@ -288,11 +330,14 @@ export const RemindersView: React.FC<Props> = ({
   const sortedReminders = [...searchedReminders].sort((a, b) => {
     let res = 0;
     switch (sortColumn) {
+      case 'title':
+        res = (a.title || a.projectName || '').localeCompare(b.title || b.projectName || '');
+        break;
       case 'project':
-        res = a.projectName.localeCompare(b.projectName);
+        res = (a.projectName || '').localeCompare(b.projectName || '');
         break;
       case 'client':
-        res = a.clientName.localeCompare(b.clientName);
+        res = (a.clientName || '').localeCompare(b.clientName || '');
         break;
       case 'responsible':
         res = (a.responsible || '').localeCompare(b.responsible || '');
@@ -302,6 +347,12 @@ export const RemindersView: React.FC<Props> = ({
         break;
       case 'notes':
         res = (a.notes || '').localeCompare(b.notes || '');
+        break;
+      case 'dueDate':
+        res = (a.dueDate ? new Date(a.dueDate).getTime() : 0) - (b.dueDate ? new Date(b.dueDate).getTime() : 0);
+        break;
+      case 'createdAt':
+        res = (a.createdAt ? new Date(a.createdAt).getTime() : 0) - (b.createdAt ? new Date(b.createdAt).getTime() : 0);
         break;
       default:
         res = 0;
@@ -314,7 +365,7 @@ export const RemindersView: React.FC<Props> = ({
 
   useEffect(() => {
     setPage(0);
-  }, [searchQuery, quickFilter, filterStatus, filterResponsible]);
+  }, [searchQuery, quickFilter, filterStatus, filterClient, filterResponsible]);
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
@@ -428,43 +479,93 @@ export const RemindersView: React.FC<Props> = ({
             </ToggleButtonGroup>
 
             {/* ADVANCED FILTER SELECTOR */}
-            <TableFilterSelector activeCount={activeFilterCount} onClear={clearFilters}>
-              <FormControl fullWidth size="small">
-                <InputLabel>{t('colStatus')}</InputLabel>
-                <Select
-                  value={filterStatus}
-                  label={t('colStatus')}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                >
-                  <MenuItem value="all">{t('filterAll')}</MenuItem>
-                  <MenuItem value="Pending">{t('statusPending')}</MenuItem>
-                  <MenuItem value="In Progress">{t('statusInProgress')}</MenuItem>
-                  <MenuItem value="Completed">{t('statusCompleted')}</MenuItem>
-                  <MenuItem value="Overdue">{t('statusOverdue')}</MenuItem>
-                </Select>
-              </FormControl>
+            <TableFilterSelector
+              activeCount={activeFilterCount}
+              onClear={clearFilters}
+              sortingContent={
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>{t('lblSortBy')}</InputLabel>
+                    <Select
+                      value={sortColumn}
+                      label={t('lblSortBy')}
+                      onChange={(e) => handleSortColumnChange(e.target.value)}
+                    >
+                      <MenuItem value="title">{t('colTitle')}</MenuItem>
+                      <MenuItem value="project">{t('colProject')}</MenuItem>
+                      <MenuItem value="client">{t('colClient')}</MenuItem>
+                      <MenuItem value="responsible">{t('colResponsible')}</MenuItem>
+                      <MenuItem value="status">{t('colStatus')}</MenuItem>
+                      <MenuItem value="dueDate">{t('lblDueDate')}</MenuItem>
+                      <MenuItem value="createdAt">{t('lblCreatedDate')}</MenuItem>
+                    </Select>
+                  </FormControl>
+                  <IconButton
+                    size="small"
+                    onClick={handleToggleSortDirection}
+                    title={sortDirection === 'asc' ? t('sortAscending') : t('sortDescending')}
+                    sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0.75 }}
+                  >
+                    {sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />}
+                  </IconButton>
+                </Box>
+              }
+              filteringContent={
+                <>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>{t('colStatus')}</InputLabel>
+                    <Select
+                      value={filterStatus}
+                      label={t('colStatus')}
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                    >
+                      <MenuItem value="all">{t('filterAll')}</MenuItem>
+                      <MenuItem value="Pending">{t('statusPending')}</MenuItem>
+                      <MenuItem value="In Progress">{t('statusInProgress')}</MenuItem>
+                      <MenuItem value="Completed">{t('statusCompleted')}</MenuItem>
+                      <MenuItem value="Overdue">{t('statusOverdue')}</MenuItem>
+                    </Select>
+                  </FormControl>
 
-              <FormControl fullWidth size="small">
-                <InputLabel>{t('colResponsible')}</InputLabel>
-                <Select
-                  value={filterResponsible}
-                  label={t('colResponsible')}
-                  onChange={(e) => handleFilterResponsibleChange(e.target.value)}
-                >
-                  <MenuItem value="all">{t('filterAll')}</MenuItem>
-                  {currentUser?.name && (
-                    <MenuItem value={currentUser.name}>
-                      {t('lblMe')} ({currentUser.name})
-                    </MenuItem>
-                  )}
-                  {otherResponsibles.map((resp) => (
-                    <MenuItem key={resp} value={resp}>
-                      {resp}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </TableFilterSelector>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>{t('colClient')}</InputLabel>
+                    <Select
+                      value={filterClient}
+                      label={t('colClient')}
+                      onChange={(e) => setFilterClient(e.target.value)}
+                    >
+                      <MenuItem value="all">{t('filterAll')}</MenuItem>
+                      {uniqueClients.map((client) => (
+                        <MenuItem key={client} value={client}>
+                          {client}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <FormControl fullWidth size="small">
+                    <InputLabel>{t('colResponsible')}</InputLabel>
+                    <Select
+                      value={filterResponsible}
+                      label={t('colResponsible')}
+                      onChange={(e) => handleFilterResponsibleChange(e.target.value)}
+                    >
+                      <MenuItem value="all">{t('filterAll')}</MenuItem>
+                      {currentUser?.name && (
+                        <MenuItem value={currentUser.name}>
+                          {t('lblMe')} ({currentUser.name})
+                        </MenuItem>
+                      )}
+                      {otherResponsibles.map((resp) => (
+                        <MenuItem key={resp} value={resp}>
+                          {resp}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </>
+              }
+            />
 
             {/* COLUMN SELECTOR */}
             <ColumnSelector columns={columnDefs} visibleColumns={activeCols} onChange={setCols} />
@@ -475,6 +576,17 @@ export const RemindersView: React.FC<Props> = ({
           <Table stickyHeader sx={{ width: '100%', minWidth: 650 }}>
             <TableHead>
               <TableRow>
+                {activeCols.includes('title') && (
+                  <TableCell>
+                    <TableSortLabel
+                      active={sortColumn === 'title'}
+                      direction={sortColumn === 'title' ? sortDirection : 'asc'}
+                      onClick={() => handleSort('title')}
+                    >
+                      {t('colTitle')}
+                    </TableSortLabel>
+                  </TableCell>
+                )}
                 {activeCols.includes('project') && (
                   <TableCell>
                     <TableSortLabel
@@ -543,10 +655,10 @@ export const RemindersView: React.FC<Props> = ({
               ) : (
                 paginatedReminders.map((rem) => (
                   <TableRow key={rem.id} hover>
-                    {activeCols.includes('project') && (
+                    {activeCols.includes('title') && (
                       <TableCell>
                         <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                          {rem.projectName}
+                          {rem.title || rem.projectName || '—'}
                         </Typography>
                         {rem.dueDate && (
                           <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
@@ -555,7 +667,12 @@ export const RemindersView: React.FC<Props> = ({
                         )}
                       </TableCell>
                     )}
-                    {activeCols.includes('client') && <TableCell>{rem.clientName}</TableCell>}
+                    {activeCols.includes('project') && (
+                      <TableCell>
+                        {rem.projectName || '—'}
+                      </TableCell>
+                    )}
+                    {activeCols.includes('client') && <TableCell>{rem.clientName || '—'}</TableCell>}
                     {activeCols.includes('responsible') && <TableCell>{rem.responsible || '—'}</TableCell>}
                     {activeCols.includes('status') && <TableCell>{getStatusChip(rem.status)}</TableCell>}
                     {activeCols.includes('notes') && (
@@ -617,105 +734,156 @@ export const RemindersView: React.FC<Props> = ({
           <DialogTitle>{editingReminder ? t('modalEditReminder') : t('modalNewReminder')}</DialogTitle>
           <DialogContent dividers>
             <Grid container spacing={2} sx={{ pt: 1 }}>
-              {/* Project Selection / Custom Name */}
-              <Grid size={{ xs: 12 }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>{t('colProject')}</InputLabel>
-                  <Select
-                    value={selectedProjectId}
-                    label={t('colProject')}
-                    onChange={(e) => handleProjectSelect(e.target.value)}
-                  >
-                    <MenuItem value="">
-                      <em>-- Custom / Unlinked Project --</em>
-                    </MenuItem>
-                    {projects.map((p) => (
-                      <MenuItem key={p.id} value={p.id}>
-                        {p.name} ({p.clientName})
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-
+              {/* Reminder Title */}
               <Grid size={{ xs: 12 }}>
                 <TextField
                   fullWidth
                   size="small"
-                  label={t('colProject') + ' *'}
-                  value={projectName}
-                  onChange={(e) => setProjectName(e.target.value)}
+                  label={t('lblReminderTitle')}
+                  placeholder={t('phReminderTitle')}
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
                   required
+                  autoFocus
+                />
+              </Grid>
+
+              {/* Project Selection / Custom Name */}
+              <Grid size={{ xs: 12 }}>
+                <Autocomplete
+                  freeSolo
+                  size="small"
+                  options={projects}
+                  getOptionLabel={(option) => {
+                    if (typeof option === 'string') return option;
+                    return `${option.name} (${option.clientName})`;
+                  }}
+                  value={
+                    selectedProjectId
+                      ? projects.find((p) => p.id === selectedProjectId) || projectName
+                      : projectName
+                  }
+                  onChange={(_, newValue) => {
+                    if (typeof newValue === 'string') {
+                      setSelectedProjectId('');
+                      setProjectName(newValue);
+                    } else if (newValue) {
+                      handleProjectSelect(newValue.id);
+                    } else {
+                      setSelectedProjectId('');
+                      setProjectName('');
+                    }
+                  }}
+                  onInputChange={(_, newInputValue, reason) => {
+                    if (reason === 'input') {
+                      setSelectedProjectId('');
+                      setProjectName(newInputValue);
+                    }
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label={t('colProject')}
+                    />
+                  )}
                 />
               </Grid>
 
               {/* Client Selection / Custom Name */}
               <Grid size={{ xs: 12, sm: 6 }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>{t('colClient')}</InputLabel>
-                  <Select
-                    value={selectedClientId}
-                    label={t('colClient')}
-                    onChange={(e) => handleClientSelect(e.target.value)}
-                  >
-                    <MenuItem value="">
-                      <em>-- Custom Client --</em>
-                    </MenuItem>
-                    {clients.map((c) => (
-                      <MenuItem key={c.id} value={c.id}>
-                        {c.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  fullWidth
+                <Autocomplete
+                  freeSolo
                   size="small"
-                  label={t('colClient') + ' *'}
-                  value={clientName}
-                  onChange={(e) => setClientName(e.target.value)}
-                  required
+                  options={clients}
+                  getOptionLabel={(option) => {
+                    if (typeof option === 'string') return option;
+                    return option.name;
+                  }}
+                  value={
+                    selectedClientId
+                      ? clients.find((c) => c.id === selectedClientId) || clientName
+                      : clientName
+                  }
+                  onChange={(_, newValue) => {
+                    if (typeof newValue === 'string') {
+                      setSelectedClientId('');
+                      setClientName(newValue);
+                    } else if (newValue) {
+                      handleClientSelect(newValue.id);
+                    } else {
+                      setSelectedClientId('');
+                      setClientName('');
+                    }
+                  }}
+                  onInputChange={(_, newInputValue, reason) => {
+                    if (reason === 'input') {
+                      setSelectedClientId('');
+                      setClientName(newInputValue);
+                    }
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label={t('colClient')}
+                    />
+                  )}
                 />
               </Grid>
 
               {/* Responsible Selection / Custom Name */}
               {(() => {
                 const respLabel = getResponsibleLabel(selectedResponsibleId || responsible, users);
+                const selectableUsers = users.filter((u) => {
+                  const isSelected =
+                    (Boolean(selectedResponsibleId) && u.id === selectedResponsibleId) ||
+                    (Boolean(responsible) && u.name.trim().toLowerCase() === responsible.trim().toLowerCase());
+                  if (isSelected) return true;
+                  const isBlocked = u.status === 'BLOCKED' || u.status?.toLowerCase() === 'blocked' || (u.isApproved === false && u.status !== 'PENDING');
+                  if (isBlocked) return false;
+                  if (u.role === 'Administrator') return false;
+                  return true;
+                });
                 return (
-                  <>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel>{respLabel}</InputLabel>
-                        <Select
-                          value={selectedResponsibleId}
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <Autocomplete
+                      key={respLabel}
+                      freeSolo
+                      size="small"
+                      options={selectableUsers}
+                      getOptionLabel={(option) => {
+                        if (typeof option === 'string') return option;
+                        return option.name;
+                      }}
+                      value={
+                        selectedResponsibleId
+                          ? selectableUsers.find((u) => u.id === selectedResponsibleId) || responsible
+                          : responsible
+                      }
+                      onChange={(_, newValue) => {
+                        if (typeof newValue === 'string') {
+                          setSelectedResponsibleId('');
+                          setResponsible(newValue);
+                        } else if (newValue) {
+                          handleResponsibleSelect(newValue.id);
+                        } else {
+                          setSelectedResponsibleId('');
+                          setResponsible('');
+                        }
+                      }}
+                      onInputChange={(_, newInputValue, reason) => {
+                        if (reason === 'input') {
+                          setSelectedResponsibleId('');
+                          setResponsible(newInputValue);
+                        }
+                      }}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
                           label={respLabel}
-                          onChange={(e) => handleResponsibleSelect(e.target.value)}
-                        >
-                          <MenuItem value="">
-                            <em>-- Custom Person --</em>
-                          </MenuItem>
-                          {users.map((u) => (
-                            <MenuItem key={u.id} value={u.id}>
-                              {u.name}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Grid>
-
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        label={respLabel}
-                        value={responsible}
-                        onChange={(e) => setResponsible(e.target.value)}
-                      />
-                    </Grid>
-                  </>
+                        />
+                      )}
+                    />
+                  </Grid>
                 );
               })()}
 
