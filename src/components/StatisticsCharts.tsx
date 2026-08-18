@@ -191,12 +191,12 @@ export const StatisticsCharts: React.FC<Props> = ({
     const categoryCountMap = new Map<string, { label: string; count: number }>();
 
     filteredProjects.forEach((p) => {
-      const matchedService = services.find((s) => s.code === p.type);
+      const matchedService = services.find((s) => s.code === p.type || s.id === p.type);
       const grpCode = matchedService?.group || typeGroup[p.type] || 'other';
 
       let catName = '';
       if (grpCode === 'other') {
-        catName = getServiceLabel(p.type) || t('otherCategory');
+        catName = getServiceLabel(p.type, services) || t('otherCategory');
       } else {
         catName = getCategoryLabel(grpCode);
       }

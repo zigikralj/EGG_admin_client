@@ -27,7 +27,9 @@ import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import type { Project } from '../../types';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import type { Project, Service } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { ColumnSelector, type ColumnDef } from '../ColumnSelector';
@@ -35,6 +37,7 @@ import { TableFilterSelector } from '../TableFilterSelector';
 
 interface Props {
   projects: Project[];
+  services?: Service[];
   searchQuery: string;
   onSearchChange: (q: string) => void;
   onOpenNew: () => void;
@@ -73,6 +76,7 @@ function fmtDate(d: string | null): string {
 
 export const ProjectsView: React.FC<Props> = ({
   projects,
+  services = [],
   searchQuery,
   onSearchChange,
   onOpenNew,
@@ -87,13 +91,13 @@ export const ProjectsView: React.FC<Props> = ({
   const { canEditProject, currentUser } = useAuth();
   const [localColumns, setLocalColumns] = useState<string[]>(visibleColumns);
 
-  const [sortColumn, setSortColumn] = useState<string>(sortState?.field || 'name');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(sortState?.direction || 'asc');
+  const [sortColumn, setSortColumn] = useState<string>(sortState?.field || 'createdAt');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(sortState?.direction || 'desc');
 
   useEffect(() => {
     if (sortState) {
-      setSortColumn(sortState.field || 'name');
-      setSortDirection(sortState.direction || 'asc');
+      setSortColumn(sortState.field || 'createdAt');
+      setSortDirection(sortState.direction || 'desc');
     }
   }, [sortState]);
 
@@ -106,6 +110,21 @@ export const ProjectsView: React.FC<Props> = ({
     setSortDirection(newDir);
     if (onSortChange) {
       onSortChange({ field: colId, direction: newDir });
+    }
+  };
+
+  const handleSortColumnChange = (colId: string) => {
+    setSortColumn(colId);
+    if (onSortChange) {
+      onSortChange({ field: colId, direction: sortDirection });
+    }
+  };
+
+  const handleToggleSortDirection = () => {
+    const newDir = sortDirection === 'asc' ? 'desc' : 'asc';
+    setSortDirection(newDir);
+    if (onSortChange) {
+      onSortChange({ field: sortColumn, direction: newDir });
     }
   };
 
@@ -143,7 +162,8 @@ export const ProjectsView: React.FC<Props> = ({
     (filterCategory !== 'all' ? 1 : 0) +
     (filterClient !== 'all' ? 1 : 0) +
     (filterStatus !== 'all' ? 1 : 0) +
-    (filterResponsible !== 'all' ? 1 : 0);
+    (filterResponsible !== 'all' ? 1 : 0) +
+    (sortColumn !== 'createdAt' || sortDirection !== 'desc' ? 1 : 0);
 
   const clearFilters = () => {
     setQuickFilter('all');
@@ -151,6 +171,11 @@ export const ProjectsView: React.FC<Props> = ({
     setFilterClient('all');
     setFilterStatus('all');
     setFilterResponsible('all');
+    setSortColumn('createdAt');
+    setSortDirection('desc');
+    if (onSortChange) {
+      onSortChange({ field: 'createdAt', direction: 'desc' });
+    }
   };
 
   const activeCols = onVisibleColumnsChange ? visibleColumns : localColumns;
@@ -213,7 +238,7 @@ export const ProjectsView: React.FC<Props> = ({
       p.name.toLowerCase().includes(q) ||
       (p.clientName && p.clientName.toLowerCase().includes(q)) ||
       (p.responsible && p.responsible.toLowerCase().includes(q)) ||
-      getServiceLabel(p.type).toLowerCase().includes(q)
+      getServiceLabel(p.type, services).toLowerCase().includes(q)
     );
   });
 
@@ -228,7 +253,7 @@ export const ProjectsView: React.FC<Props> = ({
         res = (a.clientName || '').localeCompare(b.clientName || '');
         break;
       case 'category':
-        res = getServiceLabel(a.type).localeCompare(getServiceLabel(b.type));
+        res = getServiceLabel(a.type, services).localeCompare(getServiceLabel(b.type, services));
         break;
       case 'responsible':
         res = (a.responsible || '').localeCompare(b.responsible || '');
@@ -254,6 +279,11 @@ export const ProjectsView: React.FC<Props> = ({
         res = valA - valB;
         break;
       }
+      case 'createdAt':
+        res =
+          (a.createdAt ? new Date(a.createdAt).getTime() : 0) -
+          (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+        break;
       default:
         res = 0;
     }
@@ -265,7 +295,7 @@ export const ProjectsView: React.FC<Props> = ({
 
   useEffect(() => {
     setPage(0);
-  }, [searchQuery, quickFilter, filterCategory, filterStatus, filterResponsible]);
+  }, [searchQuery, quickFilter, filterCategory, filterStatus, filterResponsible, sortColumn, sortDirection]);
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
@@ -343,75 +373,111 @@ export const ProjectsView: React.FC<Props> = ({
             />
 
             {/* POPOVER FILTERS */}
-            <TableFilterSelector activeCount={activeFilterCount} onClear={clearFilters}>
-              <FormControl fullWidth size="small">
-                <InputLabel>{t('colCategory')}</InputLabel>
-                <Select
-                  value={filterCategory}
-                  label={t('colCategory')}
-                  onChange={(e) => setFilterCategory(e.target.value)}
-                >
-                  <MenuItem value="all">{t('filterAll')}</MenuItem>
-                  {uniqueCategories.map((cat) => (
-                    <MenuItem key={cat} value={cat}>
-                      {getServiceLabel(cat)}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+            <TableFilterSelector
+              activeCount={activeFilterCount}
+              onClear={clearFilters}
+              sortingContent={
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>{t('lblSortBy')}</InputLabel>
+                    <Select
+                      value={sortColumn}
+                      label={t('lblSortBy')}
+                      onChange={(e) => handleSortColumnChange(e.target.value)}
+                    >
+                      <MenuItem value="name">{t('colProject')}</MenuItem>
+                      <MenuItem value="client">{t('colClient')}</MenuItem>
+                      <MenuItem value="category">{t('colCategory')}</MenuItem>
+                      <MenuItem value="responsible">{t('colResponsible')}</MenuItem>
+                      <MenuItem value="progress">{t('progress')}</MenuItem>
+                      <MenuItem value="start">{t('start')}</MenuItem>
+                      <MenuItem value="deadline">{t('deadline')}</MenuItem>
+                      <MenuItem value="status">{t('colDeadlineStatus')}</MenuItem>
+                      <MenuItem value="createdAt">{t('lblCreatedDate')}</MenuItem>
+                    </Select>
+                  </FormControl>
+                  <IconButton
+                    size="small"
+                    onClick={handleToggleSortDirection}
+                    title={sortDirection === 'asc' ? t('sortAscending') : t('sortDescending')}
+                    sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0.75 }}
+                  >
+                    {sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />}
+                  </IconButton>
+                </Box>
+              }
+              filteringContent={
+                <>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>{t('colCategory')}</InputLabel>
+                    <Select
+                      value={filterCategory}
+                      label={t('colCategory')}
+                      onChange={(e) => setFilterCategory(e.target.value)}
+                    >
+                      <MenuItem value="all">{t('filterAll')}</MenuItem>
+                      {uniqueCategories.map((cat) => (
+                        <MenuItem key={cat} value={cat}>
+                          {getServiceLabel(cat, services)}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
 
-              <FormControl fullWidth size="small">
-                <InputLabel>{t('colClient')}</InputLabel>
-                <Select
-                  value={filterClient}
-                  label={t('colClient')}
-                  onChange={(e) => setFilterClient(e.target.value)}
-                >
-                  <MenuItem value="all">{t('filterAll')}</MenuItem>
-                  {uniqueClients.map((client) => (
-                    <MenuItem key={client} value={client}>
-                      {client}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>{t('colClient')}</InputLabel>
+                    <Select
+                      value={filterClient}
+                      label={t('colClient')}
+                      onChange={(e) => setFilterClient(e.target.value)}
+                    >
+                      <MenuItem value="all">{t('filterAll')}</MenuItem>
+                      {uniqueClients.map((client) => (
+                        <MenuItem key={client} value={client}>
+                          {client}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
 
-              <FormControl fullWidth size="small">
-                <InputLabel>{t('colResponsible')}</InputLabel>
-                <Select
-                  value={filterResponsible}
-                  label={t('colResponsible')}
-                  onChange={(e) => handleFilterResponsibleChange(e.target.value)}
-                >
-                  <MenuItem value="all">{t('filterAll')}</MenuItem>
-                  {currentUser?.name && (
-                    <MenuItem value={currentUser.name}>
-                      {t('lblMe')} ({currentUser.name})
-                    </MenuItem>
-                  )}
-                  {otherResponsibles.map((resp) => (
-                    <MenuItem key={resp} value={resp}>
-                      {resp}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>{t('colResponsible')}</InputLabel>
+                    <Select
+                      value={filterResponsible}
+                      label={t('colResponsible')}
+                      onChange={(e) => handleFilterResponsibleChange(e.target.value)}
+                    >
+                      <MenuItem value="all">{t('filterAll')}</MenuItem>
+                      {currentUser?.name && (
+                        <MenuItem value={currentUser.name}>
+                          {t('lblMe')} ({currentUser.name})
+                        </MenuItem>
+                      )}
+                      {otherResponsibles.map((resp) => (
+                        <MenuItem key={resp} value={resp}>
+                          {resp}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
 
-              <FormControl fullWidth size="small">
-                <InputLabel>{t('colDeadlineStatus')}</InputLabel>
-                <Select
-                  value={filterStatus}
-                  label={t('colDeadlineStatus')}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                >
-                  <MenuItem value="all">{t('filterAll')}</MenuItem>
-                  <MenuItem value="creation">{t('statInCreation')}</MenuItem>
-                  <MenuItem value="overdue">{t('statOverdueUrgent')}</MenuItem>
-                  <MenuItem value="stale">{t('statStale')}</MenuItem>
-                  <MenuItem value="done">{t('statDone')}</MenuItem>
-                </Select>
-              </FormControl>
-            </TableFilterSelector>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>{t('colDeadlineStatus')}</InputLabel>
+                    <Select
+                      value={filterStatus}
+                      label={t('colDeadlineStatus')}
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                    >
+                      <MenuItem value="all">{t('filterAll')}</MenuItem>
+                      <MenuItem value="creation">{t('statInCreation')}</MenuItem>
+                      <MenuItem value="overdue">{t('statOverdueUrgent')}</MenuItem>
+                      <MenuItem value="stale">{t('statStale')}</MenuItem>
+                      <MenuItem value="done">{t('statDone')}</MenuItem>
+                    </Select>
+                  </FormControl>
+                </>
+              }
+            />
 
             {/* COLUMN SELECTOR */}
             <ColumnSelector
@@ -544,7 +610,7 @@ export const ProjectsView: React.FC<Props> = ({
                       {activeCols.includes('category') && (
                         <TableCell>
                           <Chip
-                            label={getServiceLabel(p.type)}
+                            label={getServiceLabel(p.type, services)}
                             size="small"
                             color="primary"
                             variant="outlined"

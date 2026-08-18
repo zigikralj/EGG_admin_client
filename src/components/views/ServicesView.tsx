@@ -31,6 +31,8 @@ import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import LockIcon from '@mui/icons-material/Lock';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import type { Service, Category } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -88,16 +90,38 @@ export const ServicesView: React.FC<Props> = ({
     }
   };
 
+  const handleSortColumnChange = (colId: string) => {
+    setSortColumn(colId);
+    if (onSortChange) {
+      onSortChange({ field: colId, direction: sortDirection });
+    }
+  };
+
+  const handleToggleSortDirection = () => {
+    const newDir = sortDirection === 'asc' ? 'desc' : 'asc';
+    setSortDirection(newDir);
+    if (onSortChange) {
+      onSortChange({ field: sortColumn, direction: newDir });
+    }
+  };
+
   // Filter states
   const [filterGroup, setFilterGroup] = useState<string>('all');
   const [filterFrequency, setFilterFrequency] = useState<string>('all');
 
   const activeFilterCount =
-    (filterGroup !== 'all' ? 1 : 0) + (filterFrequency !== 'all' ? 1 : 0);
+    (filterGroup !== 'all' ? 1 : 0) +
+    (filterFrequency !== 'all' ? 1 : 0) +
+    (sortColumn !== 'name' || sortDirection !== 'asc' ? 1 : 0);
 
   const clearFilters = () => {
     setFilterGroup('all');
     setFilterFrequency('all');
+    setSortColumn('name');
+    setSortDirection('asc');
+    if (onSortChange) {
+      onSortChange({ field: 'name', direction: 'asc' });
+    }
   };
 
   const activeCols = onVisibleColumnsChange ? visibleColumns : localColumns;
@@ -231,6 +255,9 @@ export const ServicesView: React.FC<Props> = ({
       case 'description':
         res = (a.description || '').localeCompare(b.description || '');
         break;
+      case 'createdAt':
+        res = (a.createdAt ? new Date(a.createdAt).getTime() : 0) - (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+        break;
       default:
         res = 0;
     }
@@ -298,40 +325,72 @@ export const ServicesView: React.FC<Props> = ({
               sx={{ width: { xs: '100%', sm: 200 } }}
             />
 
-            <TableFilterSelector activeCount={activeFilterCount} onClear={clearFilters}>
-              <FormControl fullWidth size="small">
-                <InputLabel>{t('colCategory')}</InputLabel>
-                <Select
-                  value={filterGroup}
-                  label={t('colCategory')}
-                  onChange={(e) => setFilterGroup(e.target.value)}
-                >
-                  <MenuItem value="all">{t('filterAll')}</MenuItem>
-                  {categories.map((cat) => (
-                    <MenuItem key={cat.id} value={cat.code}>
-                      {cat.name}
-                    </MenuItem>
-                  ))}
-                  <MenuItem value="other">{t('other')}</MenuItem>
-                </Select>
-              </FormControl>
+            <TableFilterSelector
+              activeCount={activeFilterCount}
+              onClear={clearFilters}
+              sortingContent={
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>{t('lblSortBy')}</InputLabel>
+                    <Select
+                      value={sortColumn}
+                      label={t('lblSortBy')}
+                      onChange={(e) => handleSortColumnChange(e.target.value)}
+                    >
+                      <MenuItem value="name">{t('colServiceName')}</MenuItem>
+                      <MenuItem value="group">{t('colCategory')}</MenuItem>
+                      <MenuItem value="frequency">{t('colPeriodicSampling')}</MenuItem>
+                      <MenuItem value="description">{t('colDescription')}</MenuItem>
+                      <MenuItem value="createdAt">{t('lblCreatedDate')}</MenuItem>
+                    </Select>
+                  </FormControl>
+                  <IconButton
+                    size="small"
+                    onClick={handleToggleSortDirection}
+                    title={sortDirection === 'asc' ? t('sortAscending') : t('sortDescending')}
+                    sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0.75 }}
+                  >
+                    {sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />}
+                  </IconButton>
+                </Box>
+              }
+              filteringContent={
+                <>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>{t('colCategory')}</InputLabel>
+                    <Select
+                      value={filterGroup}
+                      label={t('colCategory')}
+                      onChange={(e) => setFilterGroup(e.target.value)}
+                    >
+                      <MenuItem value="all">{t('filterAll')}</MenuItem>
+                      {categories.map((cat) => (
+                        <MenuItem key={cat.id} value={cat.code}>
+                          {cat.name}
+                        </MenuItem>
+                      ))}
+                      <MenuItem value="other">{t('other')}</MenuItem>
+                    </Select>
+                  </FormControl>
 
-              <FormControl fullWidth size="small">
-                <InputLabel>{t('colPeriodicSampling')}</InputLabel>
-                <Select
-                  value={filterFrequency}
-                  label={t('colPeriodicSampling')}
-                  onChange={(e) => setFilterFrequency(e.target.value)}
-                >
-                  <MenuItem value="all">{t('filterAll')}</MenuItem>
-                  <MenuItem value="0">{t('freqNoReminder')}</MenuItem>
-                  <MenuItem value="3">{t('freqQuarterly')}</MenuItem>
-                  <MenuItem value="6">{t('freqSemiAnnually')}</MenuItem>
-                  <MenuItem value="12">{t('freqEveryXMonths', { freq: 12 })}</MenuItem>
-                  <MenuItem value="other">{t('other')}</MenuItem>
-                </Select>
-              </FormControl>
-            </TableFilterSelector>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>{t('colPeriodicSampling')}</InputLabel>
+                    <Select
+                      value={filterFrequency}
+                      label={t('colPeriodicSampling')}
+                      onChange={(e) => setFilterFrequency(e.target.value)}
+                    >
+                      <MenuItem value="all">{t('filterAll')}</MenuItem>
+                      <MenuItem value="0">{t('freqNoReminder')}</MenuItem>
+                      <MenuItem value="3">{t('freqQuarterly')}</MenuItem>
+                      <MenuItem value="6">{t('freqSemiAnnually')}</MenuItem>
+                      <MenuItem value="12">{t('freqEveryXMonths', { freq: 12 })}</MenuItem>
+                      <MenuItem value="other">{t('other')}</MenuItem>
+                    </Select>
+                  </FormControl>
+                </>
+              }
+            />
 
             <ColumnSelector
               columns={columnDefs}

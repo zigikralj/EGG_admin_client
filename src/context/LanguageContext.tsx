@@ -1,12 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { translations, serviceTypeTranslations } from '../i18n/translations';
 import type { Language, TranslationKeys } from '../i18n/translations';
+import type { Service } from '../types';
 
 interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
   t: (key: keyof TranslationKeys, params?: Record<string, string | number>) => string;
-  getServiceLabel: (typeCode: string) => string;
+  getServiceLabel: (typeCode: string, services?: Service[]) => string;
   getResponsibleLabel: (
     userOrGender?: string | { gender?: string | null } | null,
     usersList?: { id: string; name: string; gender?: string | null }[]
@@ -48,7 +49,21 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return text;
   };
 
-  const getServiceLabel = (typeCode: string): string => {
+  const getServiceLabel = (typeCode: string, services?: Service[]): string => {
+    if (!typeCode) return '';
+
+    if (services && services.length > 0) {
+      const matched = services.find(
+        (s) => s.code === typeCode || s.id === typeCode || s.name === typeCode
+      );
+      if (matched) {
+        const langDict = serviceTypeTranslations[language] || serviceTypeTranslations['sr-Latn'] || serviceTypeTranslations['en'];
+        const translation = langDict[matched.code] || serviceTypeTranslations['sr-Latn']?.[matched.code] || serviceTypeTranslations['en']?.[matched.code];
+        if (translation) return translation;
+        if (matched.name) return matched.name;
+      }
+    }
+
     const langDict = serviceTypeTranslations[language] || serviceTypeTranslations['sr-Latn'] || serviceTypeTranslations['en'];
     return langDict[typeCode] || serviceTypeTranslations['sr-Latn']?.[typeCode] || serviceTypeTranslations['en']?.[typeCode] || typeCode;
   };

@@ -19,8 +19,11 @@ import {
   FormGroup,
   FormControlLabel,
   Checkbox,
+  IconButton,
 } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import type { Project, ProjectStats, Reminder, DashboardSubTab, User, Category, Service } from '../../types';
@@ -42,6 +45,8 @@ interface Props {
   onMarkSampled: (id: string) => void;
   onToggleDone: (id: string) => void;
   onSaveReminder?: (reminder: Partial<Reminder>) => void;
+  onDeleteReminder?: (id: string) => void;
+  onStatusChangeReminder?: (id: string, status: string) => void;
   onEditProject: (project: Project) => void;
   onDeleteProject: (id: string) => void;
   onNavigateToProjects: () => void;
@@ -59,6 +64,8 @@ export const DashboardView: React.FC<Props> = ({
   onMarkSampled,
   onToggleDone,
   onSaveReminder,
+  onDeleteReminder,
+  onStatusChangeReminder,
   onEditProject,
   onDeleteProject,
   onNavigateToProjects,
@@ -74,7 +81,8 @@ export const DashboardView: React.FC<Props> = ({
   const [filterClient, setFilterClient] = useState<string>('all');
   const [filterResponsible, setFilterResponsible] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [sortOption, setSortOption] = useState<'deadline' | 'name' | 'start' | 'progress'>('deadline');
+  const [sortOption, setSortOption] = useState<'deadline' | 'name' | 'start' | 'progress' | 'createdAt'>('deadline');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const handleToggleFilter = (filterKey: string, checked: boolean) => {
     if (checked) {
@@ -155,33 +163,45 @@ export const DashboardView: React.FC<Props> = ({
           const matchesName = p.name.toLowerCase().includes(q);
           const matchesClient = p.clientName && p.clientName.toLowerCase().includes(q);
           const matchesResp = p.responsible && p.responsible.toLowerCase().includes(q);
-          const matchesCat = getServiceLabel(p.type).toLowerCase().includes(q);
+          const matchesCat = getServiceLabel(p.type, services).toLowerCase().includes(q);
           if (!matchesName && !matchesClient && !matchesResp && !matchesCat) return false;
         }
 
         return true;
       })
       .sort((a, b) => {
+        let res = 0;
         switch (sortOption) {
           case 'name':
-            return a.name.localeCompare(b.name);
+            res = a.name.localeCompare(b.name);
+            break;
           case 'deadline': {
             const aTime = a.deadline ? new Date(a.deadline).getTime() : Infinity;
             const bTime = b.deadline ? new Date(b.deadline).getTime() : Infinity;
-            return aTime - bTime;
+            res = aTime - bTime;
+            break;
           }
           case 'start': {
             const aStart = a.start ? new Date(a.start).getTime() : 0;
             const bStart = b.start ? new Date(b.start).getTime() : 0;
-            return bStart - aStart;
+            res = aStart - bStart;
+            break;
           }
           case 'progress':
-            return b.progress - a.progress;
+            res = a.progress - b.progress;
+            break;
+          case 'createdAt': {
+            const aCreated = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const bCreated = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            res = aCreated - bCreated;
+            break;
+          }
           default:
-            return 0;
+            res = 0;
         }
+        return sortDirection === 'asc' ? res : -res;
       });
-  }, [projects, quickFilters, currentUser, filterCategory, filterClient, filterResponsible, filterStatus, searchQuery, getServiceLabel, sortOption]);
+  }, [projects, quickFilters, currentUser, filterCategory, filterClient, filterResponsible, filterStatus, searchQuery, getServiceLabel, sortOption, sortDirection]);
 
   const activeFilterCount =
     (filterCategory !== 'all' ? 1 : 0) +
@@ -350,6 +370,8 @@ export const DashboardView: React.FC<Props> = ({
       reminders={reminders}
       onMarkSampled={onMarkSampled}
       onSaveReminder={onSaveReminder}
+      onDeleteReminder={onDeleteReminder}
+      onStatusChangeReminder={onStatusChangeReminder}
       isFullHeight={isFullHeight}
       hideNotch={hideNotch}
     />
@@ -382,6 +404,7 @@ export const DashboardView: React.FC<Props> = ({
             <Grid size={{ xs: 12, sm: 6, md: 4 }} key={p.id}>
               <ProjectCard
                 project={p}
+                services={services}
                 onToggleDone={onToggleDone}
                 onMarkSampled={onMarkSampled}
                 onEdit={onEditProject}
@@ -415,6 +438,7 @@ export const DashboardView: React.FC<Props> = ({
             <Grid size={{ xs: 12, sm: 6, md: 4 }} key={p.id}>
               <ProjectCard
                 project={p}
+                services={services}
                 onToggleDone={onToggleDone}
                 onMarkSampled={onMarkSampled}
                 onEdit={onEditProject}
@@ -574,90 +598,107 @@ export const DashboardView: React.FC<Props> = ({
 
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
                 {/* POPOVER FILTERS */}
-                <TableFilterSelector activeCount={activeFilterCount} onClear={clearFilters}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>{t('colCategory')}</InputLabel>
-                    <Select
-                      value={filterCategory}
-                      label={t('colCategory')}
-                      onChange={(e) => setFilterCategory(e.target.value)}
-                    >
-                      <MenuItem value="all">{t('filterAll')}</MenuItem>
-                      {uniqueCategories.map((cat) => (
-                        <MenuItem key={cat} value={cat}>
-                          {getServiceLabel(cat)}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                <TableFilterSelector
+                  activeCount={activeFilterCount}
+                  onClear={clearFilters}
+                  sortingContent={
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>{t('lblSortBy')}</InputLabel>
+                        <Select
+                          value={sortOption}
+                          label={t('lblSortBy')}
+                          onChange={(e) => setSortOption(e.target.value as any)}
+                        >
+                          <MenuItem value="deadline">{t('deadline')}</MenuItem>
+                          <MenuItem value="name">{t('colProject')}</MenuItem>
+                          <MenuItem value="start">{t('start')}</MenuItem>
+                          <MenuItem value="progress">{t('progress')}</MenuItem>
+                          <MenuItem value="createdAt">{t('lblCreatedDate')}</MenuItem>
+                        </Select>
+                      </FormControl>
+                      <IconButton
+                        size="small"
+                        onClick={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                        title={sortDirection === 'asc' ? t('sortAscending') : t('sortDescending')}
+                        sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0.75 }}
+                      >
+                        {sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />}
+                      </IconButton>
+                    </Box>
+                  }
+                  filteringContent={
+                    <>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>{t('colCategory')}</InputLabel>
+                        <Select
+                          value={filterCategory}
+                          label={t('colCategory')}
+                          onChange={(e) => setFilterCategory(e.target.value)}
+                        >
+                          <MenuItem value="all">{t('filterAll')}</MenuItem>
+                          {uniqueCategories.map((cat) => (
+                            <MenuItem key={cat} value={cat}>
+                              {getServiceLabel(cat, services)}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
 
-                  <FormControl fullWidth size="small">
-                    <InputLabel>{t('colClient')}</InputLabel>
-                    <Select
-                      value={filterClient}
-                      label={t('colClient')}
-                      onChange={(e) => setFilterClient(e.target.value)}
-                    >
-                      <MenuItem value="all">{t('filterAll')}</MenuItem>
-                      {uniqueClients.map((client) => (
-                        <MenuItem key={client} value={client}>
-                          {client}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>{t('colClient')}</InputLabel>
+                        <Select
+                          value={filterClient}
+                          label={t('colClient')}
+                          onChange={(e) => setFilterClient(e.target.value)}
+                        >
+                          <MenuItem value="all">{t('filterAll')}</MenuItem>
+                          {uniqueClients.map((client) => (
+                            <MenuItem key={client} value={client}>
+                              {client}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
 
-                  <FormControl fullWidth size="small">
-                    <InputLabel>{t('colResponsible')}</InputLabel>
-                    <Select
-                      value={filterResponsible}
-                      label={t('colResponsible')}
-                      onChange={(e) => setFilterResponsible(e.target.value)}
-                    >
-                      <MenuItem value="all">{t('filterAll')}</MenuItem>
-                      {currentUser?.name && (
-                        <MenuItem value={currentUser.name}>
-                          {t('lblMe')} ({currentUser.name})
-                        </MenuItem>
-                      )}
-                      {otherResponsibles.map((resp) => (
-                        <MenuItem key={resp} value={resp}>
-                          {resp}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>{t('colResponsible')}</InputLabel>
+                        <Select
+                          value={filterResponsible}
+                          label={t('colResponsible')}
+                          onChange={(e) => setFilterResponsible(e.target.value)}
+                        >
+                          <MenuItem value="all">{t('filterAll')}</MenuItem>
+                          {currentUser?.name && (
+                            <MenuItem value={currentUser.name}>
+                              {t('lblMe')} ({currentUser.name})
+                            </MenuItem>
+                          )}
+                          {otherResponsibles.map((resp) => (
+                            <MenuItem key={resp} value={resp}>
+                              {resp}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
 
-                  <FormControl fullWidth size="small">
-                    <InputLabel>{t('colDeadlineStatus')}</InputLabel>
-                    <Select
-                      value={filterStatus}
-                      label={t('colDeadlineStatus')}
-                      onChange={(e) => setFilterStatus(e.target.value)}
-                    >
-                      <MenuItem value="all">{t('filterAll')}</MenuItem>
-                      <MenuItem value="creation">{t('statInCreation')}</MenuItem>
-                      <MenuItem value="overdue">{t('statOverdueUrgent')}</MenuItem>
-                      <MenuItem value="stale">{t('statStale')}</MenuItem>
-                      <MenuItem value="done">{t('statDone')}</MenuItem>
-                    </Select>
-                  </FormControl>
-                </TableFilterSelector>
-
-                {/* SORT SELECTOR */}
-                <FormControl size="small" sx={{ minWidth: 130 }}>
-                  <InputLabel>{t('lblSortBy')}</InputLabel>
-                  <Select
-                    value={sortOption}
-                    label={t('lblSortBy')}
-                    onChange={(e) => setSortOption(e.target.value as any)}
-                  >
-                    <MenuItem value="deadline">{t('deadline')}</MenuItem>
-                    <MenuItem value="name">{t('colProject')}</MenuItem>
-                    <MenuItem value="start">{t('start')}</MenuItem>
-                    <MenuItem value="progress">{t('progress')}</MenuItem>
-                  </Select>
-                </FormControl>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>{t('colDeadlineStatus')}</InputLabel>
+                        <Select
+                          value={filterStatus}
+                          label={t('colDeadlineStatus')}
+                          onChange={(e) => setFilterStatus(e.target.value)}
+                        >
+                          <MenuItem value="all">{t('filterAll')}</MenuItem>
+                          <MenuItem value="creation">{t('statInCreation')}</MenuItem>
+                          <MenuItem value="overdue">{t('statOverdueUrgent')}</MenuItem>
+                          <MenuItem value="stale">{t('statStale')}</MenuItem>
+                          <MenuItem value="done">{t('statDone')}</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </>
+                  }
+                />
               </Box>
             </Box>
           </Card>
@@ -669,6 +710,7 @@ export const DashboardView: React.FC<Props> = ({
                 <Grid size={{ xs: 12, sm: 6, md: 4 }} key={p.id}>
                   <ProjectCard
                     project={p}
+                    services={services}
                     onToggleDone={onToggleDone}
                     onMarkSampled={onMarkSampled}
                     onEdit={onEditProject}

@@ -3,12 +3,6 @@ import {
   Card,
   CardContent,
   Typography,
-  TableContainer,
-  Table,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableCell,
   TablePagination,
   IconButton,
   Tooltip,
@@ -23,9 +17,15 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Box,
+  Chip,
+  Paper,
 } from '@mui/material';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import CheckIcon from '@mui/icons-material/Check';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import type { Project, Reminder, Client, User } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
@@ -37,12 +37,15 @@ interface Props {
   users?: User[];
   onMarkSampled?: (id: string) => void;
   onSaveReminder?: (reminder: Partial<Reminder>) => void;
+  onDeleteReminder?: (id: string) => void;
+  onStatusChangeReminder?: (id: string, status: string) => void;
   isFullHeight?: boolean;
   hideNotch?: boolean;
 }
 
 interface ReminderItem {
   id: string;
+  title?: string | null;
   projectName: string;
   clientName: string;
   responsible: string;
@@ -67,6 +70,8 @@ export const ReminderPanel: React.FC<Props> = ({
   projects = [],
   reminders = [],
   onSaveReminder,
+  onDeleteReminder,
+  onStatusChangeReminder,
   isFullHeight = false,
   hideNotch = false,
 }) => {
@@ -74,10 +79,11 @@ export const ReminderPanel: React.FC<Props> = ({
   const { currentUser, isAdmin, isManager } = useAuth();
 
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(15);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [selectedReminder, setSelectedReminder] = useState<ReminderItem | null>(null);
 
   // Form states for details / edit dialog
+  const [title, setTitle] = useState('');
   const [projectName, setProjectName] = useState('');
   const [clientName, setClientName] = useState('');
   const [responsible, setResponsible] = useState('');
@@ -89,8 +95,9 @@ export const ReminderPanel: React.FC<Props> = ({
     if (reminders && reminders.length > 0) {
       return reminders.map((r) => ({
         id: r.id,
-        projectName: r.projectName,
-        clientName: r.clientName,
+        title: r.title || null,
+        projectName: r.projectName || '',
+        clientName: r.clientName || '',
         responsible: r.responsible || '—',
         dueDate: r.dueDate || null,
         status: r.status,
@@ -102,6 +109,7 @@ export const ReminderPanel: React.FC<Props> = ({
       .filter((p) => p.nextSample && !p.done)
       .map((p) => ({
         id: p.id,
+        title: p.name,
         projectName: p.name,
         clientName: p.clientName,
         responsible: p.responsible || '—',
@@ -114,6 +122,11 @@ export const ReminderPanel: React.FC<Props> = ({
 
   const sortedItems = useMemo(() => {
     return [...items].sort((a, b) => {
+      const aDone = a.status?.toLowerCase() === 'completed' || a.status === 'Završeno' || a.status === 'Завршено';
+      const bDone = b.status?.toLowerCase() === 'completed' || b.status === 'Završeno' || b.status === 'Завршено';
+      if (aDone && !bDone) return 1;
+      if (!aDone && bDone) return -1;
+
       if (!a.dueDate && !b.dueDate) return 0;
       if (!a.dueDate) return 1;
       if (!b.dueDate) return -1;
@@ -132,6 +145,7 @@ export const ReminderPanel: React.FC<Props> = ({
 
   const handleOpenDetails = (item: ReminderItem) => {
     setSelectedReminder(item);
+    setTitle(item.title || item.projectName || '');
     setProjectName(item.projectName);
     setClientName(item.clientName);
     setResponsible(item.responsible === '—' ? '' : item.responsible);
@@ -147,16 +161,18 @@ export const ReminderPanel: React.FC<Props> = ({
   const handleSubmitDetails = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canEdit) return;
-    if (!projectName.trim() || !clientName.trim()) {
-      alert(t('alertProjectAndClientRequired'));
+    const finalTitle = title.trim() || projectName.trim();
+    if (!finalTitle) {
+      alert(t('alertReminderTitleRequired'));
       return;
     }
     if (onSaveReminder && selectedReminder) {
       onSaveReminder({
         id: selectedReminder.id,
+        title: finalTitle,
         projectId: selectedReminder.projectId || null,
-        projectName,
-        clientName,
+        projectName: projectName.trim() || null,
+        clientName: clientName.trim() || null,
         responsible: responsible || null,
         status,
         dueDate: dueDate || null,
@@ -173,6 +189,29 @@ export const ReminderPanel: React.FC<Props> = ({
   const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
+  };
+
+  const getStatusChip = (st?: string) => {
+    if (!st) return null;
+    switch (st.toLowerCase()) {
+      case 'completed':
+      case 'završeno':
+      case 'завршено':
+        return <Chip label={t('statusCompleted')} color="success" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 600 }} />;
+      case 'in progress':
+      case 'u toku':
+      case 'у току':
+        return <Chip label={t('statusInProgress')} color="info" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 600 }} />;
+      case 'overdue':
+      case 'prekoračeno':
+      case 'прекорачено':
+        return <Chip label={t('statusOverdue')} color="error" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 600 }} />;
+      case 'pending':
+      case 'na čekanju':
+      case 'на чекању':
+      default:
+        return <Chip label={t('statusPending')} color="warning" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 600 }} />;
+    }
   };
 
   const paginatedItems = sortedItems.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
@@ -219,71 +258,157 @@ export const ReminderPanel: React.FC<Props> = ({
           </Typography>
         )}
 
-        <CardContent sx={{ p: 2, pt: 2, pb: '4px !important', flex: 1, display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box' }}>
-          <TableContainer sx={{ maxHeight: isFullHeight ? 'none' : 240, overflowY: isFullHeight ? 'visible' : 'auto', overflowX: 'auto', width: '100%', maxWidth: '100%', minWidth: 0, flex: 1, display: 'block', pb: 1.5 }}>
-            <Table stickyHeader size="small" sx={{ minWidth: 480, width: '100%' }}>
-              <TableHead>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 700, bgcolor: 'background.paper' }}>{t('colProject')}</TableCell>
-                  <TableCell sx={{ fontWeight: 700, bgcolor: 'background.paper' }}>{t('colClient')}</TableCell>
-                  <TableCell sx={{ fontWeight: 700, bgcolor: 'background.paper' }}>{t('colResponsible')}</TableCell>
-                  <TableCell sx={{ fontWeight: 700, bgcolor: 'background.paper' }}>{t('lblDueDate')}</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700, bgcolor: 'background.paper' }}>
-                    {t('colActions')}
-                  </TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {sortedItems.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} align="center" sx={{ py: 3, color: 'text.secondary' }}>
-                      {t('emptyReminders')}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  paginatedItems.map((item) => {
-                    const itemCanEdit =
-                      isAdmin ||
-                      isManager ||
-                      (currentUser &&
-                        item.responsible &&
-                        item.responsible.trim().toLowerCase() === (currentUser.name || '').trim().toLowerCase());
+        <CardContent sx={{ p: 2, pt: hideNotch ? 2 : 2.25, pb: '4px !important', flex: 1, display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box' }}>
+          <Box
+            sx={{
+              maxHeight: isFullHeight ? 'none' : 320,
+              overflowY: isFullHeight ? 'visible' : 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1,
+              width: '100%',
+              flex: 1,
+              pb: 1,
+            }}
+          >
+            {sortedItems.length === 0 ? (
+              <Paper variant="outlined" sx={{ p: 3, textAlign: 'center' }}>
+                <Typography variant="body2" color="text.secondary">
+                  {t('emptyReminders')}
+                </Typography>
+              </Paper>
+            ) : (
+              paginatedItems.map((item) => {
+                const isCompleted =
+                  item.status?.toLowerCase() === 'completed' || item.status === 'Završeno' || item.status === 'Завршено';
 
-                    return (
-                      <TableRow key={item.id} hover>
-                        <TableCell sx={{ fontWeight: 600 }}>{item.projectName}</TableCell>
-                        <TableCell>{item.clientName}</TableCell>
-                        <TableCell>{item.responsible}</TableCell>
-                        <TableCell>{fmtDate(item.dueDate)}</TableCell>
-                        <TableCell align="right">
-                          <Tooltip title={itemCanEdit ? t('btnEdit') : t('btnDetails')}>
-                            <IconButton
-                              size="small"
-                              color="primary"
-                              onClick={() => handleOpenDetails(item)}
-                            >
-                              {itemCanEdit ? <EditIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
-                            </IconButton>
-                          </Tooltip>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                const itemCanEdit =
+                  isAdmin ||
+                  isManager ||
+                  (currentUser &&
+                    item.responsible &&
+                    item.responsible.trim().toLowerCase() === (currentUser.name || '').trim().toLowerCase());
 
-          <TablePagination
-            rowsPerPageOptions={[15, 25, 50]}
-            component="div"
-            count={sortedItems.length}
-            rowsPerPage={rowsPerPage}
-            page={page}
-            onPageChange={handleChangePage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-            sx={{ borderTop: 1, borderColor: 'divider', mt: 0.5, flexShrink: 0 }}
-          />
+                return (
+                  <Box
+                    key={item.id}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      p: 1.25,
+                      px: 1.5,
+                      bgcolor: 'background.paper',
+                      borderRadius: 1.5,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      opacity: isCompleted ? 0.75 : 1,
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        bgcolor: 'action.hover',
+                      },
+                    }}
+                  >
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25, flexWrap: 'wrap' }}>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontWeight: 600,
+                            textDecoration: isCompleted ? 'line-through' : 'none',
+                            color: isCompleted ? 'text.secondary' : 'text.primary',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {item.title || item.projectName || '—'}
+                        </Typography>
+                        {item.clientName && (
+                          <Chip
+                            label={item.clientName}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                            sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600 }}
+                          />
+                        )}
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', color: 'text.secondary', fontSize: '0.75rem' }}>
+                        {item.dueDate && (
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                          >
+                            <CalendarTodayIcon sx={{ fontSize: '0.8rem' }} />
+                            {fmtDate(item.dueDate)}
+                          </Typography>
+                        )}
+                        {item.responsible && item.responsible !== '—' && (
+                          <Typography variant="caption" color="text.secondary">
+                            • {item.responsible}
+                          </Typography>
+                        )}
+                        {getStatusChip(item.status)}
+                      </Box>
+                    </Box>
+
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 1, flexShrink: 0 }}>
+                      <Tooltip title={isCompleted ? t('statusPending') : t('statusCompleted')}>
+                        <IconButton
+                          size="small"
+                          color={isCompleted ? 'default' : 'success'}
+                          onClick={() => {
+                            if (onStatusChangeReminder) {
+                              onStatusChangeReminder(item.id, isCompleted ? 'Pending' : 'Completed');
+                            } else if (onSaveReminder) {
+                              onSaveReminder({ id: item.id, status: isCompleted ? 'Pending' : 'Completed' });
+                            }
+                          }}
+                        >
+                          <CheckIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title={itemCanEdit ? t('btnEdit') : t('btnDetails')}>
+                        <IconButton
+                          size="small"
+                          color="primary"
+                          onClick={() => handleOpenDetails(item)}
+                        >
+                          {itemCanEdit ? <EditIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+                        </IconButton>
+                      </Tooltip>
+                      {onDeleteReminder && itemCanEdit && (
+                        <Tooltip title={t('btnDelete')}>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => onDeleteReminder(item.id)}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </Box>
+                  </Box>
+                );
+              })
+            )}
+          </Box>
+
+          {sortedItems.length > 0 && (
+            <TablePagination
+              rowsPerPageOptions={[10, 20, 50]}
+              component="div"
+              count={sortedItems.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+              sx={{ borderTop: 1, borderColor: 'divider', mt: 0.5, flexShrink: 0 }}
+            />
+          )}
         </CardContent>
       </Card>
 
@@ -295,16 +420,30 @@ export const ReminderPanel: React.FC<Props> = ({
           </DialogTitle>
           <DialogContent dividers>
             <Grid container spacing={2} sx={{ pt: 1 }}>
+              {/* Reminder Title */}
+              <Grid size={{ xs: 12 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label={t('lblReminderTitle')}
+                  placeholder={t('phReminderTitle')}
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  disabled={!canEdit}
+                  required
+                  autoFocus
+                />
+              </Grid>
+
               {/* Project Name */}
               <Grid size={{ xs: 12 }}>
                 <TextField
                   fullWidth
                   size="small"
-                  label={t('colProject') + ' *'}
+                  label={t('colProject')}
                   value={projectName}
                   onChange={(e) => setProjectName(e.target.value)}
                   disabled={!canEdit}
-                  required
                 />
               </Grid>
 
@@ -313,11 +452,10 @@ export const ReminderPanel: React.FC<Props> = ({
                 <TextField
                   fullWidth
                   size="small"
-                  label={t('colClient') + ' *'}
+                  label={t('colClient')}
                   value={clientName}
                   onChange={(e) => setClientName(e.target.value)}
                   disabled={!canEdit}
-                  required
                 />
               </Grid>
 
@@ -395,4 +533,3 @@ export const ReminderPanel: React.FC<Props> = ({
     </>
   );
 };
-

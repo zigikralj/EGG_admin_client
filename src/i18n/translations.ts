@@ -86,6 +86,9 @@ export interface TranslationKeys {
     remindersTitle: string;
     remindersAllTitle: string;
     emptyReminders: string;
+    lblReminderTitle: string;
+    phReminderTitle: string;
+    colTitle: string;
     colProject: string;
     colClient: string;
     colResponsible: string;
@@ -106,6 +109,7 @@ export interface TranslationKeys {
     statusOverdue: string;
     confirmDeleteReminder: string;
     alertProjectAndClientRequired: string;
+    alertReminderTitleRequired: string;
     modalReminderDetails: string;
     btnDetails: string;
     btnClose: string;
@@ -224,6 +228,13 @@ export interface TranslationKeys {
   lblService: string;
   periodicReminderHint: string;
   reminderBoxTitle: string;
+  btnAddReminder: string;
+  btnLinkExistingReminder: string;
+  btnCreateNewReminder: string;
+  phSelectExistingReminder: string;
+  noProjectReminders: string;
+  btnLink: string;
+  newProjectRemindersHint: string;
   lblNextSamplingDate: string;
   lblStartDate: string;
   lblDeadlineDate: string;
@@ -280,7 +291,12 @@ export interface TranslationKeys {
   themeSystem: string;
   btnFilters: string;
   lblFilterOptions: string;
+  lblSortingOptions: string;
+  lblFilteringOptions: string;
   lblSortBy: string;
+  lblCreatedDate: string;
+  sortAscending: string;
+  sortDescending: string;
   lblMe: string;
   btnClearFilters: string;
   filterAll: string;
@@ -437,6 +453,9 @@ export const translations: Record<Language, TranslationKeys> = {
     remindersTitle: 'Approaching Reminders',
     remindersAllTitle: 'All Reminders',
     emptyReminders: 'No reminders found.',
+    lblReminderTitle: 'Reminder Title',
+    phReminderTitle: 'Enter reminder title...',
+    colTitle: 'Title',
     colProject: 'Project',
     colClient: 'Client',
     colResponsible: 'Responsible Person',
@@ -457,6 +476,7 @@ export const translations: Record<Language, TranslationKeys> = {
     statusOverdue: 'Overdue',
     confirmDeleteReminder: 'Are you sure you want to delete this reminder?',
     alertProjectAndClientRequired: 'Project name and Client name are required.',
+    alertReminderTitleRequired: 'Reminder title is required.',
     modalReminderDetails: 'Reminder Details',
     btnDetails: 'Details',
     btnClose: 'Close',
@@ -574,7 +594,14 @@ export const translations: Record<Language, TranslationKeys> = {
     phResponsiblePerson: 'e.g. Aleksandar Stanković',
     lblService: 'Service',
     periodicReminderHint: 'Periodic reminder (every {freq} months).',
-    reminderBoxTitle: 'Reminder for Next Sampling / Measurement',
+    reminderBoxTitle: 'Project Reminders',
+    btnAddReminder: 'Add Reminder',
+    btnLinkExistingReminder: 'Link Existing Reminder',
+    btnCreateNewReminder: 'Create New Reminder',
+    phSelectExistingReminder: 'Search and select existing reminder...',
+    noProjectReminders: 'No reminders for this project yet.',
+    btnLink: 'Link',
+    newProjectRemindersHint: 'You can add and manage reminders after saving the project.',
     lblNextSamplingDate: 'Next Sampling Date',
     lblStartDate: 'Start Date',
     lblDeadlineDate: 'Deadline',
@@ -615,9 +642,14 @@ export const translations: Record<Language, TranslationKeys> = {
     themeLight: 'Light',
     themeDark: 'Dark',
     themeSystem: 'System',
-    btnFilters: 'Filters',
+    btnFilters: 'Filter & Sorting',
     lblFilterOptions: 'Filter Options',
+    lblSortingOptions: 'Sorting options',
+    lblFilteringOptions: 'Filtering options',
     lblSortBy: 'Sort by',
+    lblCreatedDate: 'Created Date',
+    sortAscending: 'Ascending',
+    sortDescending: 'Descending',
     lblMe: 'Me',
     btnClearFilters: 'Clear Filters',
     filterAll: 'All',
@@ -787,6 +819,9 @@ export const translations: Record<Language, TranslationKeys> = {
     remindersTitle: 'Predstojeći podsetnici',
     remindersAllTitle: 'Svi podsetnici',
     emptyReminders: 'Nema pronađenih podsetnika.',
+    lblReminderTitle: 'Naziv podsetnika',
+    phReminderTitle: 'Unesite naziv podsetnika...',
+    colTitle: 'Naziv',
     colProject: 'Projekat',
     colClient: 'Klijent',
     colResponsible: 'Odgovorna osoba',
@@ -807,6 +842,7 @@ export const translations: Record<Language, TranslationKeys> = {
     statusOverdue: 'Prekoračeno',
     confirmDeleteReminder: 'Da li ste sigurni da želite da obrišete ovaj podsetnik?',
     alertProjectAndClientRequired: 'Naziv projekta i klijenta su obavezni.',
+    alertReminderTitleRequired: 'Naziv podsetnika je obavezan.',
     modalReminderDetails: 'Detalji podsetnika',
     btnDetails: 'Detalji',
     btnClose: 'Zatvori',
@@ -924,7 +960,14 @@ export const translations: Record<Language, TranslationKeys> = {
     phResponsiblePerson: 'npr. Aleksandar Stanković',
     lblService: 'Usluga',
     periodicReminderHint: 'Periodični podsetnik (na svakih {freq} meseci).',
-    reminderBoxTitle: 'Podsetnik za sledeće uzorkovanje / merenje',
+    reminderBoxTitle: 'Podsetnici projekta',
+    btnAddReminder: 'Dodaj podsetnik',
+    btnLinkExistingReminder: 'Poveži postojeći podsetnik',
+    btnCreateNewReminder: 'Kreiraj novi podsetnik',
+    phSelectExistingReminder: 'Pretraži i izaberi postojeći podsetnik...',
+    noProjectReminders: 'Nema podsetnika za ovaj projekat.',
+    btnLink: 'Poveži',
+    newProjectRemindersHint: 'Podsetnike možete dodavati i uređivati nakon čuvanja projekta.',
     lblNextSamplingDate: 'Sledeći datum uzorkovanja',
     lblStartDate: 'Datum početka',
     lblDeadlineDate: 'Rok',
@@ -965,9 +1008,14 @@ export const translations: Record<Language, TranslationKeys> = {
     themeLight: 'Svetla',
     themeDark: 'Tamna',
     themeSystem: 'Sistemska',
-    btnFilters: 'Filteri',
+    btnFilters: 'Filteri i sortiranje',
     lblFilterOptions: 'Opcije filtriranja',
+    lblSortingOptions: 'Opcije sortiranja',
+    lblFilteringOptions: 'Opcije filtriranja',
     lblSortBy: 'Sortiraj po',
+    lblCreatedDate: 'Datum kreiranja',
+    sortAscending: 'Rastuće',
+    sortDescending: 'Opadajuće',
     lblMe: 'Ja',
     btnClearFilters: 'Očisti filtere',
     filterAll: 'Sve',
@@ -1137,6 +1185,9 @@ export const translations: Record<Language, TranslationKeys> = {
     remindersTitle: 'Предстојећи подсетници',
     remindersAllTitle: 'Сви подсетници',
     emptyReminders: 'Нема пронађених подсетника.',
+    lblReminderTitle: 'Назив подсетника',
+    phReminderTitle: 'Унесите назив подсетника...',
+    colTitle: 'Назив',
     colProject: 'Пројекат',
     colClient: 'Клијент',
     colResponsible: 'Одговорна особа',
@@ -1157,6 +1208,7 @@ export const translations: Record<Language, TranslationKeys> = {
     statusOverdue: 'Прекорачено',
     confirmDeleteReminder: 'Да ли сте сигурни да желите да обришете овај подсетник?',
     alertProjectAndClientRequired: 'Назив пројекта и клијента су обавезни.',
+    alertReminderTitleRequired: 'Назив подсетника је обавезан.',
     modalReminderDetails: 'Детаљи подсетника',
     btnDetails: 'Детаљи',
     btnClose: 'Затвори',
@@ -1274,7 +1326,14 @@ export const translations: Record<Language, TranslationKeys> = {
     phResponsiblePerson: 'нпр. Александар Станковић',
     lblService: 'Услуга',
     periodicReminderHint: 'Периодични подсетник (на сваких {freq} месеци).',
-    reminderBoxTitle: 'Подсетник за следеће узорковање / мерење',
+    reminderBoxTitle: 'Подсетници пројекта',
+    btnAddReminder: 'Додај подсетник',
+    btnLinkExistingReminder: 'Повежи постојећи подсетник',
+    btnCreateNewReminder: 'Креирај нови подсетник',
+    phSelectExistingReminder: 'Претражи и изабери постојећи подсетник...',
+    noProjectReminders: 'Нема подсетника за овај пројекат.',
+    btnLink: 'Повежи',
+    newProjectRemindersHint: 'Подсетнике можете додавати и уређивати након чувања пројекта.',
     lblNextSamplingDate: 'Следећи датум узорковања',
     lblStartDate: 'Датум почетка',
     lblDeadlineDate: 'Рок',
@@ -1315,9 +1374,14 @@ export const translations: Record<Language, TranslationKeys> = {
     themeLight: 'Светла',
     themeDark: 'Тамна',
     themeSystem: 'Системска',
-    btnFilters: 'Филтери',
+    btnFilters: 'Филтери и сортирање',
     lblFilterOptions: 'Опције филтрирања',
+    lblSortingOptions: 'Опције сортирања',
+    lblFilteringOptions: 'Опције филтрирања',
     lblSortBy: 'Сортирај по',
+    lblCreatedDate: 'Датум креирања',
+    sortAscending: 'Растуће',
+    sortDescending: 'Опадајуће',
     lblMe: 'Ја',
     btnClearFilters: 'Очисти филтере',
     filterAll: 'Све',

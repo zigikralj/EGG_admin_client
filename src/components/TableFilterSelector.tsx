@@ -8,18 +8,23 @@ import {
   Badge,
 } from '@mui/material';
 import FilterListIcon from '@mui/icons-material/FilterList';
+import SortIcon from '@mui/icons-material/Sort';
 import FilterListOffIcon from '@mui/icons-material/FilterListOff';
 import { useLanguage } from '../context/LanguageContext';
 
 interface Props {
   activeCount: number;
   onClear: () => void;
-  children: React.ReactNode;
+  sortingContent?: React.ReactNode;
+  filteringContent?: React.ReactNode;
+  children?: React.ReactNode;
 }
 
 export const TableFilterSelector: React.FC<Props> = ({
   activeCount,
   onClear,
+  sortingContent,
+  filteringContent,
   children,
 }) => {
   const { t } = useLanguage();
@@ -36,6 +41,8 @@ export const TableFilterSelector: React.FC<Props> = ({
   const open = Boolean(anchorEl);
   const id = open ? 'table-filter-popover' : undefined;
 
+  const hasSections = Boolean(sortingContent || filteringContent);
+
   return (
     <>
       <Badge badgeContent={activeCount} color="primary" sx={{ '& .MuiBadge-badge': { top: 4, right: 4 } }}>
@@ -44,6 +51,7 @@ export const TableFilterSelector: React.FC<Props> = ({
           variant={activeCount > 0 ? 'contained' : 'outlined'}
           size="small"
           startIcon={<FilterListIcon />}
+          endIcon={<SortIcon />}
           onClick={handleClick}
           color={activeCount > 0 ? 'primary' : 'inherit'}
           sx={{ borderRadius: 2 }}
@@ -65,28 +73,63 @@ export const TableFilterSelector: React.FC<Props> = ({
           horizontal: 'right',
         }}
         slotProps={{
-          paper: { sx: { width: 280, p: 2 } },
+          paper: { sx: { width: 300, p: 2 } },
         }}
       >
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
-          <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>
-            {t('lblFilterOptions')}
-          </Typography>
-          {activeCount > 0 && (
-            <Button
-              size="small"
-              color="error"
-              onClick={onClear}
-              startIcon={<FilterListOffIcon fontSize="small" />}
-              sx={{ fontSize: '0.75rem', py: 0 }}
-            >
-              {t('btnClearFilters')}
-            </Button>
-          )}
-        </Box>
-        <Divider sx={{ mb: 2 }} />
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {children}
+          {hasSections ? (
+            <>
+              {sortingContent && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                  <Typography variant="overline" color="primary.main" sx={{ fontWeight: 700, letterSpacing: 0.5, lineHeight: 1 }}>
+                    {t('lblSortingOptions')}
+                  </Typography>
+                  {sortingContent}
+                </Box>
+              )}
+              {sortingContent && filteringContent && <Divider sx={{ my: 0.5 }} />}
+              {filteringContent && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: 24 }}>
+                    <Typography variant="overline" color="primary.main" sx={{ fontWeight: 700, letterSpacing: 0.5, lineHeight: 1 }}>
+                      {t('lblFilteringOptions')}
+                    </Typography>
+                    {activeCount > 0 && (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="error"
+                        onClick={onClear}
+                        startIcon={<FilterListOffIcon fontSize="small" />}
+                        sx={{ fontSize: '0.7rem', py: 0.2, px: 1, textTransform: 'none', borderRadius: 1 }}
+                      >
+                        {t('btnClearFilters')}
+                      </Button>
+                    )}
+                  </Box>
+                  {filteringContent}
+                </Box>
+              )}
+            </>
+          ) : (
+            <>
+              {activeCount > 0 && (
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="error"
+                    onClick={onClear}
+                    startIcon={<FilterListOffIcon fontSize="small" />}
+                    sx={{ fontSize: '0.7rem', py: 0.2, px: 1, textTransform: 'none', borderRadius: 1 }}
+                  >
+                    {t('btnClearFilters')}
+                  </Button>
+                </Box>
+              )}
+              {children}
+            </>
+          )}
         </Box>
       </Popover>
     </>

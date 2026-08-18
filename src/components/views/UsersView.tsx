@@ -38,6 +38,8 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import LockIcon from '@mui/icons-material/Lock';
 import HowToRegIcon from '@mui/icons-material/HowToReg';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import BlockIcon from '@mui/icons-material/Block';
@@ -110,6 +112,21 @@ export const UsersView: React.FC<Props> = ({
     }
   };
 
+  const handleSortColumnChange = (colId: string) => {
+    setSortColumn(colId);
+    if (onSortChange) {
+      onSortChange({ field: colId, direction: sortDirection });
+    }
+  };
+
+  const handleToggleSortDirection = () => {
+    const newDir = sortDirection === 'asc' ? 'desc' : 'asc';
+    setSortDirection(newDir);
+    if (onSortChange) {
+      onSortChange({ field: sortColumn, direction: newDir });
+    }
+  };
+
   // Filter state
   const [filterRole, setFilterRole] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>(initialFilterStatus);
@@ -120,10 +137,19 @@ export const UsersView: React.FC<Props> = ({
     }
   }, [initialFilterStatus]);
 
-  const activeFilterCount = (filterRole !== 'all' ? 1 : 0) + (filterStatus !== 'all' ? 1 : 0);
+  const activeFilterCount =
+    (filterRole !== 'all' ? 1 : 0) +
+    (filterStatus !== 'all' ? 1 : 0) +
+    (sortColumn !== 'name' || sortDirection !== 'asc' ? 1 : 0);
+
   const clearFilters = () => {
     setFilterRole('all');
     setFilterStatus('all');
+    setSortColumn('name');
+    setSortDirection('asc');
+    if (onSortChange) {
+      onSortChange({ field: 'name', direction: 'asc' });
+    }
   };
 
   const activeCols = onVisibleColumnsChange ? visibleColumns : localColumns;
@@ -299,6 +325,9 @@ export const UsersView: React.FC<Props> = ({
       case 'phone':
         res = (a.phone || '').localeCompare(b.phone || '');
         break;
+      case 'createdAt':
+        res = (a.createdAt ? new Date(a.createdAt).getTime() : 0) - (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+        break;
       default:
         res = 0;
     }
@@ -417,37 +446,70 @@ export const UsersView: React.FC<Props> = ({
               sx={{ width: { xs: '100%', sm: 200 } }}
             />
 
-            <TableFilterSelector activeCount={activeFilterCount} onClear={clearFilters}>
-              <FormControl fullWidth size="small" sx={{ mb: 1.5 }}>
-                <InputLabel>{t('colRole')}</InputLabel>
-                <Select
-                  value={filterRole}
-                  label={t('colRole')}
-                  onChange={(e) => setFilterRole(e.target.value)}
-                >
-                  <MenuItem value="all">{t('filterAll')}</MenuItem>
-                  {uniqueRoles.map((r) => (
-                    <MenuItem key={r} value={r}>
-                      {getRoleLabel(r)}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+            <TableFilterSelector
+              activeCount={activeFilterCount}
+              onClear={clearFilters}
+              sortingContent={
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>{t('lblSortBy')}</InputLabel>
+                    <Select
+                      value={sortColumn}
+                      label={t('lblSortBy')}
+                      onChange={(e) => handleSortColumnChange(e.target.value)}
+                    >
+                      <MenuItem value="name">{t('colFullName')}</MenuItem>
+                      <MenuItem value="role">{t('colRole')}</MenuItem>
+                      <MenuItem value="status">{t('colApprovalStatus')}</MenuItem>
+                      <MenuItem value="email">{t('colEmail')}</MenuItem>
+                      <MenuItem value="phone">{t('colPhone')}</MenuItem>
+                      <MenuItem value="createdAt">{t('lblCreatedDate')}</MenuItem>
+                    </Select>
+                  </FormControl>
+                  <IconButton
+                    size="small"
+                    onClick={handleToggleSortDirection}
+                    title={sortDirection === 'asc' ? t('sortAscending') : t('sortDescending')}
+                    sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0.75 }}
+                  >
+                    {sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />}
+                  </IconButton>
+                </Box>
+              }
+              filteringContent={
+                <>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>{t('colRole')}</InputLabel>
+                    <Select
+                      value={filterRole}
+                      label={t('colRole')}
+                      onChange={(e) => setFilterRole(e.target.value)}
+                    >
+                      <MenuItem value="all">{t('filterAll')}</MenuItem>
+                      {uniqueRoles.map((r) => (
+                        <MenuItem key={r} value={r}>
+                          {getRoleLabel(r)}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
 
-              <FormControl fullWidth size="small">
-                <InputLabel>{t('colApprovalStatus')}</InputLabel>
-                <Select
-                  value={filterStatus}
-                  label={t('colApprovalStatus')}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                >
-                  <MenuItem value="all">{t('filterAll')}</MenuItem>
-                  <MenuItem value="approved">{t('statusApproved')}</MenuItem>
-                  <MenuItem value="pending">{t('statusPending')}</MenuItem>
-                  <MenuItem value="blocked">{t('statusBlocked')}</MenuItem>
-                </Select>
-              </FormControl>
-            </TableFilterSelector>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>{t('colApprovalStatus')}</InputLabel>
+                    <Select
+                      value={filterStatus}
+                      label={t('colApprovalStatus')}
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                    >
+                      <MenuItem value="all">{t('filterAll')}</MenuItem>
+                      <MenuItem value="approved">{t('statusApproved')}</MenuItem>
+                      <MenuItem value="pending">{t('statusPending')}</MenuItem>
+                      <MenuItem value="blocked">{t('statusBlocked')}</MenuItem>
+                    </Select>
+                  </FormControl>
+                </>
+              }
+            />
 
             <ColumnSelector
               columns={columnDefs}
@@ -598,20 +660,15 @@ export const UsersView: React.FC<Props> = ({
                       {canManageUsers && (
                         <TableCell align="right">
                           {isPending ? (
-                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-                              <Button
-                                size="small"
-                                variant="contained"
-                                color="success"
-                                startIcon={<HowToRegIcon />}
-                                onClick={() => openApproveModal(u)}
-                                sx={{ textTransform: 'none', fontWeight: 600 }}
-                              >
-                                {t('btnApproveAndAssignRole')}
-                              </Button>
+                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+                              <Tooltip title={t('btnApproveAndAssignRole')}>
+                                <IconButton size="small" color="success" onClick={() => openApproveModal(u)}>
+                                  <HowToRegIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
                               <Tooltip title={t('btnRejectRegistration')}>
                                 <IconButton size="small" color="error" onClick={() => handleConfirmReject(u)}>
-                                  <HighlightOffIcon />
+                                  <HighlightOffIcon fontSize="small" />
                                 </IconButton>
                               </Tooltip>
                             </Box>
