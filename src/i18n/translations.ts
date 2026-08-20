@@ -254,7 +254,14 @@ export interface TranslationKeys {
   confirmCompleteTitle: string;
   confirmCompleteProject: string;
   btnConfirm: string;
+  errorDialogTitle: string;
+  btnContinueEditing: string;
   errorSavingProject: string;
+  errorSavingService: string;
+  errorSavingCategory: string;
+  errorSavingClient: string;
+  errorSavingUser: string;
+  errorSavingReminder: string;
   hqLocation: string;
   other: string;
   btnBackToList: string;
@@ -622,7 +629,14 @@ export const translations: Record<Language, TranslationKeys> = {
     confirmCompleteTitle: 'Confirm Completion',
     confirmCompleteProject: 'Are you sure you want to mark this project as completed?',
     btnConfirm: 'Confirm',
+    errorDialogTitle: 'Unable to Save',
+    btnContinueEditing: 'Continue Editing',
     errorSavingProject: 'Error saving project',
+    errorSavingService: 'Error saving service',
+    errorSavingCategory: 'Error saving category',
+    errorSavingClient: 'Error saving client',
+    errorSavingUser: 'Error saving user',
+    errorSavingReminder: 'Error saving reminder',
     hqLocation: 'Headquarters',
     other: 'Other',
     btnBackToList: 'Back to List',
@@ -989,7 +1003,14 @@ export const translations: Record<Language, TranslationKeys> = {
     confirmCompleteTitle: 'Potvrda završetka',
     confirmCompleteProject: 'Da li ste sigurni da želite da označite projekat kao završen?',
     btnConfirm: 'Potvrdi',
+    errorDialogTitle: 'Nije moguće sačuvati',
+    btnContinueEditing: 'Nastavi sa unosom',
     errorSavingProject: 'Greška pri čuvanju projekta',
+    errorSavingService: 'Greška pri čuvanju usluge',
+    errorSavingCategory: 'Greška pri čuvanju kategorije',
+    errorSavingClient: 'Greška pri čuvanju klijenta',
+    errorSavingUser: 'Greška pri čuvanju korisnika',
+    errorSavingReminder: 'Greška pri čuvanju podsetnika',
     hqLocation: 'Sedište',
     other: 'Ostalo',
     btnBackToList: 'Nazad na listu',
@@ -1356,7 +1377,14 @@ export const translations: Record<Language, TranslationKeys> = {
     confirmCompleteTitle: 'Потврда завршетка',
     confirmCompleteProject: 'Да ли сте сигурни да желите да означите пројекат као завршен?',
     btnConfirm: 'Потврди',
+    errorDialogTitle: 'Није могуће сачувати',
+    btnContinueEditing: 'Настави са уносом',
     errorSavingProject: 'Грешка при чувању пројекта',
+    errorSavingService: 'Грешка при чувању услуге',
+    errorSavingCategory: 'Грешка при чувању категорије',
+    errorSavingClient: 'Грешка при чувању клијента',
+    errorSavingUser: 'Грешка при чувању корисника',
+    errorSavingReminder: 'Грешка при чувању подсетника',
     hqLocation: 'Седиште',
     other: 'Остало',
     btnBackToList: 'Назад на листу',
@@ -1575,4 +1603,216 @@ export const serviceTypeTranslations: Record<Language, Record<string, string>> =
     'savetnik-hemikalije': 'Саветник за хемикалије',
   },
 };
+
+// Localized Error Messages
+export const errorMessageTranslations: Record<Language, Record<string, string>> = {
+  en: {
+    // Services
+    'a service with this code already exists': 'A service with this code already exists. Please choose a different code.',
+    'code and name are required': 'Service code and name are required.',
+    'failed to create service': 'Failed to create service.',
+    'failed to update service': 'Failed to update service.',
+    'service not found': 'Service not found.',
+    'permission denied. only administrators and managers can manage services.': 'Permission denied. Only Administrators and Managers can manage services.',
+
+    // Categories
+    'category code already exists': 'A category with this code already exists. Please choose a different code.',
+    'category name and code are required': 'Category code and name are required.',
+    'failed to create category': 'Failed to create category.',
+    'failed to update category': 'Failed to update category.',
+    'category not found': 'Category not found.',
+    'permission denied. only administrators and managers can manage categories.': 'Permission denied. Only Administrators and Managers can manage categories.',
+
+    // Clients
+    'client name is required': 'Client company name is required.',
+    'a client with this name already exists': 'A client with this name already exists.',
+    'failed to create client': 'Failed to create client.',
+    'failed to update client': 'Failed to update client.',
+    'failed to delete client': 'Failed to delete client.',
+    'permission denied. only administrators and managers can manage clients.': 'Permission denied. Only Administrators and Managers can manage clients.',
+
+    // Users & Auth
+    'a user with this name or email already exists': 'A user with this name or email already exists.',
+    'a user with this name or email already exists.': 'A user with this name or email already exists.',
+    'full name is required': 'Full name is required.',
+    'full name is required.': 'Full name is required.',
+    'email is required': 'Email is required.',
+    'email is required.': 'Email is required.',
+    'password must be at least 6 characters long': 'Password must be at least 6 characters long.',
+    'password must be at least 6 characters long.': 'Password must be at least 6 characters long.',
+    'email/username and password are required': 'Email/username and password are required.',
+    'email/username and password are required.': 'Email/username and password are required.',
+    'invalid email/username or password': 'Invalid email/username or password.',
+    'invalid email/username or password.': 'Invalid email/username or password.',
+    'invalid_credentials': 'Invalid email/username or password.',
+    'failed to process login': 'Failed to process login.',
+    'failed to process login.': 'Failed to process login.',
+    'permission denied. only administrators and managers can manage users.': 'Permission denied. Only Administrators and Managers can manage users.',
+    'failed to approve user': 'Failed to approve user.',
+    'failed to approve user.': 'Failed to approve user.',
+    'failed to reject user': 'Failed to reject user.',
+    'failed to reject user.': 'Failed to reject user.',
+
+    // Projects
+    'name, client, and type are required': 'Project name, client, and service type are required.',
+    'project not found': 'Project not found.',
+    'permission denied. standard users can only edit their own projects.': 'Permission denied. Standard Users can only edit their own projects.',
+    'permission denied. standard users can only delete their own projects.': 'Permission denied. Standard Users can only delete their own projects.',
+    'failed to create project': 'Failed to create project.',
+    'failed to update project': 'Failed to update project.',
+    'failed to delete project': 'Failed to delete project.',
+
+    // Reminders
+    'reminder title or project name is required': 'Reminder title or project name is required.',
+    'reminder not found': 'Reminder not found.',
+    'failed to create reminder': 'Failed to create reminder.',
+    'failed to update reminder': 'Failed to update reminder.',
+    'failed to delete reminder': 'Failed to delete reminder.',
+    'failed to update reminder status': 'Failed to update reminder status.',
+
+    // Generic
+    'authentication required. please log in.': 'Authentication required. Please log in.',
+    'unauthorized': 'Authentication required. Please log in.',
+    'network error occurred': 'Network error occurred. Please check your connection.',
+  },
+  'sr-Latn': {
+    // Services
+    'a service with this code already exists': 'Usluga sa ovom šifrom već postoji. Molimo unesite drugu šifru.',
+    'code and name are required': 'Šifra i naziv usluge su obavezna polja.',
+    'failed to create service': 'Kreiranje usluge nije uspelo.',
+    'failed to update service': 'Ažuriranje usluge nije uspelo.',
+    'service not found': 'Usluga nije pronađena.',
+    'permission denied. only administrators and managers can manage services.': 'Pristup odbijen. Samo administratori i menadžeri mogu upravljati uslugama.',
+
+    // Categories
+    'category code already exists': 'Kategorija sa ovom šifrom već postoji. Molimo unesite drugu šifru.',
+    'category name and code are required': 'Šifra i naziv kategorije su obavezna polja.',
+    'failed to create category': 'Kreiranje kategorije nije uspelo.',
+    'failed to update category': 'Ažuriranje kategorije nije uspelo.',
+    'category not found': 'Kategorija nije pronađena.',
+    'permission denied. only administrators and managers can manage categories.': 'Pristup odbijen. Samo administratori i menadžeri mogu upravljati kategorijama.',
+
+    // Clients
+    'client name is required': 'Naziv klijenta je obavezno polje.',
+    'a client with this name already exists': 'Klijent sa ovim nazivom već postoji.',
+    'failed to create client': 'Kreiranje klijenta nije uspelo.',
+    'failed to update client': 'Ažuriranje klijenta nije uspelo.',
+    'failed to delete client': 'Brisanje klijenta nije uspelo.',
+    'permission denied. only administrators and managers can manage clients.': 'Pristup odbijen. Samo administratori i menadžeri mogu upravljati klijentima.',
+
+    // Users & Auth
+    'a user with this name or email already exists': 'Korisnik sa ovim imenom ili email adresom već postoji.',
+    'a user with this name or email already exists.': 'Korisnik sa ovim imenom ili email adresom već postoji.',
+    'full name is required': 'Ime i prezime je obavezno polje.',
+    'full name is required.': 'Ime i prezime je obavezno polje.',
+    'email is required': 'Email adresa je obavezno polje.',
+    'email is required.': 'Email adresa je obavezno polje.',
+    'password must be at least 6 characters long': 'Lozinka mora imati najmanje 6 karaktera.',
+    'password must be at least 6 characters long.': 'Lozinka mora imati najmanje 6 karaktera.',
+    'email/username and password are required': 'Korisničko ime/email i lozinka su obavezni.',
+    'email/username and password are required.': 'Korisničko ime/email i lozinka su obavezni.',
+    'invalid email/username or password': 'Pogrešan email/korisničko ime ili lozinka.',
+    'invalid email/username or password.': 'Pogrešan email/korisničko ime ili lozinka.',
+    'invalid_credentials': 'Pogrešan email/korisničko ime ili lozinka.',
+    'failed to process login': 'Neuspešno prijavljivanje na sistem.',
+    'failed to process login.': 'Neuspešno prijavljivanje na sistem.',
+    'permission denied. only administrators and managers can manage users.': 'Pristup odbijen. Samo administratori i menadžeri mogu upravljati korisnicima.',
+    'failed to approve user': 'Odobravanje korisnika nije uspelo.',
+    'failed to approve user.': 'Odobravanje korisnika nije uspelo.',
+    'failed to reject user': 'Odbijanje korisnika nije uspelo.',
+    'failed to reject user.': 'Odbijanje korisnika nije uspelo.',
+
+    // Projects
+    'name, client, and type are required': 'Naziv projekta, klijent i vrsta usluge su obavezni.',
+    'project not found': 'Projekat nije pronađen.',
+    'permission denied. standard users can only edit their own projects.': 'Pristup odbijen. Standardni korisnici mogu menjati samo svoje projekte.',
+    'permission denied. standard users can only delete their own projects.': 'Pristup odbijen. Standardni korisnici mogu brisati samo svoje projekte.',
+    'failed to create project': 'Kreiranje projekta nije uspelo.',
+    'failed to update project': 'Ažuriranje projekta nije uspelo.',
+    'failed to delete project': 'Brisanje projekta nije uspelo.',
+
+    // Reminders
+    'reminder title or project name is required': 'Naziv podsetnika ili projekta je obavezan.',
+    'reminder not found': 'Podsetnik nije pronađen.',
+    'failed to create reminder': 'Kreiranje podsetnika nije uspelo.',
+    'failed to update reminder': 'Ažuriranje podsetnika nije uspelo.',
+    'failed to delete reminder': 'Brisanje podsetnika nije uspelo.',
+    'failed to update reminder status': 'Ažuriranje statusa podsetnika nije uspelo.',
+
+    // Generic
+    'authentication required. please log in.': 'Autentifikacija je obavezna. Molimo prijavite se.',
+    'unauthorized': 'Autentifikacija je obavezna. Molimo prijavite se.',
+    'network error occurred': 'Došlo je do greške u mreži. Molimo proverite vašu internet vezu.',
+  },
+  'sr-Cyrl': {
+    // Services
+    'a service with this code already exists': 'Услуга са овом шифром већ постоји. Молимо унесите другу шифру.',
+    'code and name are required': 'Шифра и назив услуге су обавезна поља.',
+    'failed to create service': 'Креирање услуге није успело.',
+    'failed to update service': 'Ажурирање услуге није успело.',
+    'service not found': 'Услуга није пронађена.',
+    'permission denied. only administrators and managers can manage services.': 'Приступ одбијен. Само администратори и менаџери могу управљати услугама.',
+
+    // Categories
+    'category code already exists': 'Категорија са овом шифром већ постоји. Молимо унесите другу шифру.',
+    'category name and code are required': 'Шифра и назив категорије су обавезна поља.',
+    'failed to create category': 'Креирање категорије није успело.',
+    'failed to update category': 'Ажурирање категорије није успело.',
+    'category not found': 'Категорија није пронађена.',
+    'permission denied. only administrators and managers can manage categories.': 'Приступ одбијен. Само администратори и менаџери могу управљати категоријама.',
+
+    // Clients
+    'client name is required': 'Назив клијента је обавезно поље.',
+    'a client with this name already exists': 'Клијент са овим називом већ постоји.',
+    'failed to create client': 'Креирање клијента није успело.',
+    'failed to update client': 'Ажурирање клијента није успело.',
+    'failed to delete client': 'Брисање клијента није успело.',
+    'permission denied. only administrators and managers can manage clients.': 'Приступ одбијен. Само администратори и менаџери могу управљати клијентима.',
+
+    // Users & Auth
+    'a user with this name or email already exists': 'Корисник са овим именом или имејл адресом већ постоји.',
+    'a user with this name or email already exists.': 'Корисник са овим именом или имејл адресом већ постоји.',
+    'full name is required': 'Име и презиме је обавезно поље.',
+    'full name is required.': 'Име и презиме је обавезно поље.',
+    'email is required': 'Имејл адреса је обавезно поље.',
+    'email is required.': 'Имејл адреса је обавезно поље.',
+    'password must be at least 6 characters long': 'Лозинка мора имати најмање 6 карактера.',
+    'password must be at least 6 characters long.': 'Лозинка мора имати најмање 6 карактера.',
+    'email/username and password are required': 'Корисничко име/имејл и лозинка су обавезни.',
+    'email/username and password are required.': 'Корисничко име/имејл и лозинка су обавезни.',
+    'invalid email/username or password': 'Погрешан имејл/корисничко име или лозинка.',
+    'invalid email/username or password.': 'Погрешан имејл/корисничко име или лозинка.',
+    'invalid_credentials': 'Погрешан имејл/корисничко име или лозинка.',
+    'failed to process login': 'Неуспешно пријављивање на систем.',
+    'failed to process login.': 'Неуспешно пријављивање на систем.',
+    'permission denied. only administrators and managers can manage users.': 'Приступ одбијен. Само администратори и менаџери могу управљати корисницима.',
+    'failed to approve user': 'Одобравање корисника није успело.',
+    'failed to approve user.': 'Одобравање корисника није успело.',
+    'failed to reject user': 'Одбијање корисника није успело.',
+    'failed to reject user.': 'Одбијање корисника није успело.',
+
+    // Projects
+    'name, client, and type are required': 'Назив пројекта, клијент и врста услуге су обавезни.',
+    'project not found': 'Пројекат није пронађен.',
+    'permission denied. standard users can only edit their own projects.': 'Приступ одбијен. Стандардни корисници могу мењати само своје пројекте.',
+    'permission denied. standard users can only delete their own projects.': 'Приступ одбијен. Стандардни корисници могу брисати само своје пројекте.',
+    'failed to create project': 'Креирање пројекта није успело.',
+    'failed to update project': 'Ажурирање пројекта није успело.',
+    'failed to delete project': 'Брисање пројекта није успело.',
+
+    // Reminders
+    'reminder title or project name is required': 'Назив подсетника или пројекта је обавезан.',
+    'reminder not found': 'Подсетник није пронађен.',
+    'failed to create reminder': 'Креирање подсетника није успело.',
+    'failed to update reminder': 'Ажурирање подсетника није успело.',
+    'failed to delete reminder': 'Брисање подсетника није успело.',
+    'failed to update reminder status': 'Ажурирање статуса подсетника није успело.',
+
+    // Generic
+    'authentication required. please log in.': 'Аутентификација је обавезна. Молимо пријавите се.',
+    'unauthorized': 'Аутентификација је обавезна. Молимо пријавите се.',
+    'network error occurred': 'Дошло је до грешке у мрежи. Молимо проверите вашу интернет везу.',
+  },
+};
+
 

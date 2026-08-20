@@ -9,6 +9,7 @@ import type {
   ProjectStats,
   ActiveTab,
   DashboardSubTab,
+  SaveResult,
 } from './types';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -255,7 +256,7 @@ function MainApp() {
     });
   };
 
-  const handleSaveProject = async (data: Partial<Project>) => {
+  const handleSaveProject = async (data: Partial<Project>): Promise<SaveResult> => {
     try {
       let res;
       const headers = {
@@ -263,8 +264,8 @@ function MainApp() {
         ...authHeaders(),
       };
 
-      if (editingProject) {
-        res = await apiFetch(`/api/projects/${editingProject.id}`, {
+      if (data.id) {
+        res = await apiFetch(`/api/projects/${data.id}`, {
           method: 'PUT',
           headers,
           body: JSON.stringify(data),
@@ -281,17 +282,19 @@ function MainApp() {
         setIsProjectModalOpen(false);
         setEditingProject(null);
         fetchAllData();
+        return { success: true };
       } else {
-        const err = await res.json();
-        alert(`${t('errorSavingProject')}: ${err.error || 'Failed to save project'}`);
+        const err = await res.json().catch(() => ({}));
+        return { success: false, error: err.error || err.message || t('errorSavingProject') };
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      return { success: false, error: e?.message || t('errorSavingProject') };
     }
   };
 
   // CLIENT ACTIONS
-  const handleSaveClient = async (data: Partial<Client>) => {
+  const handleSaveClient = async (data: Partial<Client>): Promise<SaveResult> => {
     try {
       let res;
       const headers = {
@@ -315,12 +318,14 @@ function MainApp() {
 
       if (res.ok) {
         fetchAllData();
+        return { success: true };
       } else {
-        const err = await res.json();
-        alert(err.error || t('permissionDeniedClients'));
+        const err = await res.json().catch(() => ({}));
+        return { success: false, error: err.error || err.message || t('errorSavingClient') };
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      return { success: false, error: e?.message || t('errorSavingClient') };
     }
   };
 
@@ -344,7 +349,7 @@ function MainApp() {
   };
 
   // USER ACTIONS
-  const handleSaveUser = async (data: Partial<User>) => {
+  const handleSaveUser = async (data: Partial<User>): Promise<SaveResult> => {
     try {
       let res;
       const headers = {
@@ -368,12 +373,14 @@ function MainApp() {
 
       if (res.ok) {
         fetchAllData();
+        return { success: true };
       } else {
-        const err = await res.json();
-        alert(err.error || t('permissionDeniedUsers'));
+        const err = await res.json().catch(() => ({}));
+        return { success: false, error: err.error || err.message || t('errorSavingUser') };
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      return { success: false, error: e?.message || t('errorSavingUser') };
     }
   };
 
@@ -435,7 +442,7 @@ function MainApp() {
   };
 
   // SERVICE ACTIONS
-  const handleSaveService = async (data: Partial<Service>) => {
+  const handleSaveService = async (data: Partial<Service>): Promise<SaveResult> => {
     try {
       let res;
       const headers = {
@@ -459,12 +466,14 @@ function MainApp() {
 
       if (res.ok) {
         fetchAllData();
+        return { success: true };
       } else {
-        const err = await res.json();
-        alert(err.error || t('permissionDeniedServices'));
+        const err = await res.json().catch(() => ({}));
+        return { success: false, error: err.error || err.message || t('errorSavingService') };
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      return { success: false, error: e?.message || t('errorSavingService') };
     }
   };
 
@@ -488,7 +497,7 @@ function MainApp() {
   };
 
   // CATEGORY ACTIONS
-  const handleSaveCategory = async (data: Partial<Category>) => {
+  const handleSaveCategory = async (data: Partial<Category>): Promise<SaveResult> => {
     try {
       let res;
       const headers = {
@@ -512,12 +521,14 @@ function MainApp() {
 
       if (res.ok) {
         fetchAllData();
+        return { success: true };
       } else {
-        const err = await res.json();
-        alert(err.error || t('permissionDeniedCategories'));
+        const err = await res.json().catch(() => ({}));
+        return { success: false, error: err.error || err.message || t('errorSavingCategory') };
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      return { success: false, error: e?.message || t('errorSavingCategory') };
     }
   };
 
@@ -541,7 +552,7 @@ function MainApp() {
   };
 
   // REMINDER ACTIONS
-  const handleSaveReminder = async (data: Partial<Reminder>) => {
+  const handleSaveReminder = async (data: Partial<Reminder>): Promise<SaveResult> => {
     try {
       let res;
       const headers = {
@@ -565,12 +576,14 @@ function MainApp() {
 
       if (res.ok) {
         fetchAllData();
+        return { success: true };
       } else {
-        const err = await res.json();
-        alert(err.error || 'Failed to save reminder');
+        const err = await res.json().catch(() => ({}));
+        return { success: false, error: err.error || err.message || t('errorSavingReminder') };
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      return { success: false, error: e?.message || t('errorSavingReminder') };
     }
   };
 

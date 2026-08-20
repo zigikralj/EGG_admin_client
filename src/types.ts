@@ -125,3 +125,9 @@ export const typeGroup: Record<string, string> = {
   'savetnik-adr': 'grp-advisory',
   'savetnik-hemikalije': 'grp-advisory',
 };
+
+export interface SaveResult {
+  success: boolean;
+  error?: string;
+}
+

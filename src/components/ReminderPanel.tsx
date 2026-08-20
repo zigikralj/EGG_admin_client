@@ -34,10 +34,11 @@ import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
-import type { Project, Reminder, Client, User } from '../types';
+import type { Project, Reminder, Client, User, SaveResult } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { TableFilterSelector } from './TableFilterSelector';
+import { ErrorDialog } from './ErrorDialog';
 
 interface Props {
   projects?: Project[];
@@ -45,7 +46,7 @@ interface Props {
   clients?: Client[];
   users?: User[];
   onMarkSampled?: (id: string) => void;
-  onSaveReminder?: (reminder: Partial<Reminder>) => void;
+  onSaveReminder?: (reminder: Partial<Reminder>) => Promise<SaveResult | void> | void;
   onDeleteReminder?: (id: string) => void;
   onStatusChangeReminder?: (id: string, status: string) => void;
   isFullHeight?: boolean;
@@ -135,6 +136,11 @@ export const ReminderPanel: React.FC<Props> = ({
   // Modal / Dialog state
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedReminder, setSelectedReminder] = useState<ReminderItem | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorDialogState, setErrorDialogState] = useState<{ open: boolean; message: string }>({
+    open: false,
+    message: '',
+  });
 
   // Form states for create / edit dialog
   const [title, setTitle] = useState('');
@@ -405,30 +411,57 @@ export const ReminderPanel: React.FC<Props> = ({
     }
   };
 
-  const handleSubmitDetails = (e: React.FormEvent) => {
+  const handleSubmitDetails = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canEditSelected) return;
     const finalTitle = title.trim() || projectName.trim();
     if (!finalTitle) {
-      alert(t('alertReminderTitleRequired'));
+      setErrorDialogState({
+        open: true,
+        message: t('alertReminderTitleRequired'),
+      });
       return;
     }
     if (onSaveReminder) {
-      onSaveReminder({
-        id: selectedReminder?.id,
-        title: finalTitle,
-        projectId: selectedProjectId || null,
-        projectName: projectName.trim() || null,
-        clientId: selectedClientId || null,
-        clientName: clientName.trim() || null,
-        responsibleId: selectedResponsibleId || null,
-        responsible: responsible || null,
-        status,
-        dueDate: dueDate || null,
-        notes: notes || null,
-      });
+      setIsSaving(true);
+      try {
+        const res = await onSaveReminder({
+          id: selectedReminder?.id,
+          title: finalTitle,
+          projectId: selectedProjectId || null,
+          projectName: projectName.trim() || null,
+          clientId: selectedClientId || null,
+          clientName: clientName.trim() || null,
+          responsibleId: selectedResponsibleId || null,
+          responsible: responsible || null,
+          status,
+          dueDate: dueDate || null,
+          notes: notes || null,
+        });
+
+        if (res && typeof res === 'object' && 'success' in res) {
+          if (res.success) {
+            handleCloseDialog();
+          } else {
+            setErrorDialogState({
+              open: true,
+              message: res.error || t('errorSavingReminder'),
+            });
+          }
+        } else {
+          handleCloseDialog();
+        }
+      } catch (err: any) {
+        setErrorDialogState({
+          open: true,
+          message: err?.message || t('errorSavingReminder'),
+        });
+      } finally {
+        setIsSaving(false);
+      }
+    } else {
+      handleCloseDialog();
     }
-    handleCloseDialog();
   };
 
   const handleChangePage = (_: unknown, newPage: number) => {
@@ -1029,11 +1062,11 @@ export const ReminderPanel: React.FC<Props> = ({
           <DialogActions>
             {canEditSelected ? (
               <>
-                <Button onClick={handleCloseDialog} color="inherit">
+                <Button onClick={handleCloseDialog} color="inherit" disabled={isSaving}>
                   {t('btnCancel')}
                 </Button>
-                <Button type="submit" variant="contained" color="primary">
-                  {t('btnSave')}
+                <Button type="submit" variant="contained" color="primary" disabled={isSaving}>
+                  {isSaving ? '...' : t('btnSave')}
                 </Button>
               </>
             ) : (
@@ -1044,6 +1077,12 @@ export const ReminderPanel: React.FC<Props> = ({
           </DialogActions>
         </form>
       </Dialog>
+
+      <ErrorDialog
+        open={errorDialogState.open}
+        message={errorDialogState.message}
+        onClose={() => setErrorDialogState((prev) => ({ ...prev, open: false }))}
+      />
     </>
   );
 };

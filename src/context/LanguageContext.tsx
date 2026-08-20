@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { translations, serviceTypeTranslations } from '../i18n/translations';
+import { translations, serviceTypeTranslations, errorMessageTranslations } from '../i18n/translations';
 import type { Language, TranslationKeys } from '../i18n/translations';
 import type { Service } from '../types';
 
@@ -12,6 +12,7 @@ interface LanguageContextType {
     userOrGender?: string | { gender?: string | null } | null,
     usersList?: { id: string; name: string; gender?: string | null }[]
   ) => string;
+  getErrorMessage: (rawError?: string | null) => string;
 }
 
 const STORAGE_KEY = 'app_language';
@@ -92,8 +93,28 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return t('responsible');
   };
 
+  const getErrorMessage = (rawError?: string | null): string => {
+    if (!rawError) return '';
+    const clean = rawError.trim().toLowerCase();
+    const withoutDot = clean.endsWith('.') ? clean.slice(0, -1) : clean;
+
+    const langDict =
+      errorMessageTranslations[language] ||
+      errorMessageTranslations['sr-Latn'] ||
+      errorMessageTranslations['en'];
+
+    if (langDict && langDict[clean]) return langDict[clean];
+    if (langDict && langDict[withoutDot]) return langDict[withoutDot];
+
+    const fallbackDict = errorMessageTranslations['en'];
+    if (fallbackDict && fallbackDict[clean]) return fallbackDict[clean];
+    if (fallbackDict && fallbackDict[withoutDot]) return fallbackDict[withoutDot];
+
+    return rawError;
+  };
+
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t, getServiceLabel, getResponsibleLabel }}>
+    <LanguageContext.Provider value={{ language, setLanguage, t, getServiceLabel, getResponsibleLabel, getErrorMessage }}>
       {children}
     </LanguageContext.Provider>
   );
