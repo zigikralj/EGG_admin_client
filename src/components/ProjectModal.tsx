@@ -31,9 +31,10 @@ import EditIcon from '@mui/icons-material/Edit';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-import type { Project, Client, User, Service, Reminder } from '../types';
+import type { Project, Client, User, Service, Reminder, SaveResult } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
+import { ErrorDialog } from './ErrorDialog';
 
 interface Props {
   isOpen: boolean;
@@ -43,10 +44,10 @@ interface Props {
   services: Service[];
   reminders?: Reminder[];
   onClose: () => void;
-  onSave: (data: Partial<Project>) => void;
+  onSave: (data: Partial<Project>) => Promise<SaveResult | void> | void;
   onDelete?: (id: string) => void;
   onToggleDone?: (id: string) => void;
-  onSaveReminder?: (reminder: Partial<Reminder>) => void;
+  onSaveReminder?: (reminder: Partial<Reminder>) => Promise<SaveResult | void> | void;
   onDeleteReminder?: (id: string) => void;
   onStatusChangeReminder?: (id: string, status: string) => void;
 }
@@ -66,7 +67,12 @@ export const ProjectModal: React.FC<Props> = ({
   onStatusChangeReminder,
 }) => {
   const { t, getServiceLabel, getResponsibleLabel } = useLanguage();
-  const { currentUser, isUser, canEditProject } = useAuth();
+  const { currentUser, canEditProject, isUser } = useAuth();
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorDialogState, setErrorDialogState] = useState<{ open: boolean; message: string }>({
+    open: false,
+    message: '',
+  });
   const todayStr = new Date().toISOString().slice(0, 10);
 
   const [name, setName] = useState('');
@@ -181,7 +187,10 @@ export const ProjectModal: React.FC<Props> = ({
 
   const handleCreateProjectReminder = () => {
     if (!newReminderTitle.trim()) {
-      alert(t('alertReminderTitleRequired'));
+      setErrorDialogState({
+        open: true,
+        message: t('alertReminderTitleRequired'),
+      });
       return;
     }
     if (onSaveReminder && projectToEdit) {
@@ -230,7 +239,10 @@ export const ProjectModal: React.FC<Props> = ({
 
   const handleSaveEditedReminder = () => {
     if (!editReminderTitle.trim()) {
-      alert(t('alertReminderTitleRequired'));
+      setErrorDialogState({
+        open: true,
+        message: t('alertReminderTitleRequired'),
+      });
       return;
     }
     if (onSaveReminder && editingProjectReminder && projectToEdit) {
@@ -273,30 +285,54 @@ export const ProjectModal: React.FC<Props> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || (!clientName.trim() && !clientId)) {
-      alert(t('alertProjectValidation'));
+      setErrorDialogState({
+        open: true,
+        message: t('alertProjectValidation'),
+      });
       return;
     }
 
     const finalResponsible = isUser ? (currentUser?.name || responsible) : responsible;
     const finalProgress = done ? 100 : Math.max(0, Math.min(100, Number(progress) || 0));
 
-    onSave({
-      ...(projectToEdit ? { id: projectToEdit.id } : {}),
-      name: name.trim(),
-      clientId: clientId || null,
-      clientName: clientName.trim(),
-      responsible: finalResponsible.trim() || null,
-      type,
-      start: start || null,
-      deadline: deadline || null,
-      progress: finalProgress,
-      done,
-    });
+    setIsSaving(true);
+    try {
+      const res = await onSave({
+        ...(projectToEdit ? { id: projectToEdit.id } : {}),
+        name: name.trim(),
+        clientId: clientId || null,
+        clientName: clientName.trim(),
+        responsible: finalResponsible.trim() || null,
+        type,
+        start: start || null,
+        deadline: deadline || null,
+        progress: finalProgress,
+        done,
+      });
 
-    onClose();
+      if (res && typeof res === 'object' && 'success' in res) {
+        if (res.success) {
+          onClose();
+        } else {
+          setErrorDialogState({
+            open: true,
+            message: res.error || t('errorSavingProject'),
+          });
+        }
+      } else {
+        onClose();
+      }
+    } catch (err: any) {
+      setErrorDialogState({
+        open: true,
+        message: err?.message || t('errorSavingProject'),
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -825,11 +861,11 @@ export const ProjectModal: React.FC<Props> = ({
           </DialogContent>
 
           <DialogActions sx={{ p: 2 }}>
-            <Button onClick={onClose} variant="outlined" color="inherit">
+            <Button onClick={onClose} variant="outlined" color="inherit" disabled={isSaving}>
               {t('btnCancel')}
             </Button>
-            <Button type="submit" variant="contained" color="primary" startIcon={<SaveIcon />}>
-              {t('btnSave')}
+            <Button type="submit" variant="contained" color="primary" startIcon={<SaveIcon />} disabled={isSaving}>
+              {isSaving ? '...' : t('btnSave')}
             </Button>
           </DialogActions>
         </form>
@@ -944,6 +980,12 @@ export const ProjectModal: React.FC<Props> = ({
           </DialogActions>
         </Dialog>
       )}
+
+      <ErrorDialog
+        open={errorDialogState.open}
+        message={errorDialogState.message}
+        onClose={() => setErrorDialogState((prev) => ({ ...prev, open: false }))}
+      />
     </>
   );
 };

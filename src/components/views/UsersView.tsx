@@ -46,15 +46,16 @@ import BlockIcon from '@mui/icons-material/Block';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
-import type { User } from '../../types';
+import type { User, SaveResult } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { ColumnSelector, type ColumnDef } from '../ColumnSelector';
 import { TableFilterSelector } from '../TableFilterSelector';
+import { ErrorDialog } from '../ErrorDialog';
 
 interface Props {
   users: User[];
-  onSaveUser: (user: Partial<User>) => void;
+  onSaveUser: (user: Partial<User>) => Promise<SaveResult | void> | void;
   onDeleteUser: (id: string) => void;
   onApproveUser?: (userId: string, role: string) => Promise<void>;
   onRejectUser?: (userId: string) => Promise<void>;
@@ -84,6 +85,11 @@ export const UsersView: React.FC<Props> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [localColumns, setLocalColumns] = useState<string[]>(visibleColumns);
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorDialogState, setErrorDialogState] = useState<{ open: boolean; message: string }>({
+    open: false,
+    message: '',
+  });
 
   // Approve dialog state
   const [approveUserTarget, setApproveUserTarget] = useState<User | null>(null);
@@ -255,25 +261,50 @@ export const UsersView: React.FC<Props> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canManageUsers) return;
     if (!name.trim()) {
-      alert(t('alertUserNameRequired'));
+      setErrorDialogState({
+        open: true,
+        message: t('alertUserNameRequired'),
+      });
       return;
     }
-    onSaveUser({
-      id: editingUser?.id,
-      name: name.trim(),
-      email: email.trim() || null,
-      role: role.trim() || 'User',
-      phone: phone.trim() || null,
-      gender: gender || null,
-      status,
-      isApproved: status === 'APPROVED',
-      ...(password.trim() ? { password: password.trim() } : {}),
-    });
-    setIsOpen(false);
+    setIsSaving(true);
+    try {
+      const res = await onSaveUser({
+        id: editingUser?.id,
+        name: name.trim(),
+        email: email.trim() || null,
+        role: role.trim() || 'User',
+        phone: phone.trim() || null,
+        gender: gender || null,
+        status,
+        isApproved: status === 'APPROVED',
+        ...(password.trim() ? { password: password.trim() } : {}),
+      });
+
+      if (res && typeof res === 'object' && 'success' in res) {
+        if (res.success) {
+          setIsOpen(false);
+        } else {
+          setErrorDialogState({
+            open: true,
+            message: res.error || t('errorSavingUser'),
+          });
+        }
+      } else {
+        setIsOpen(false);
+      }
+    } catch (err: any) {
+      setErrorDialogState({
+        open: true,
+        message: err?.message || t('errorSavingUser'),
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const pendingUsers = users.filter((u) => u.status === 'PENDING');
@@ -910,15 +941,21 @@ export const UsersView: React.FC<Props> = ({
             </Grid>
           </DialogContent>
           <DialogActions sx={{ p: 2 }}>
-            <Button onClick={() => setIsOpen(false)} variant="outlined">
+            <Button onClick={() => setIsOpen(false)} variant="outlined" disabled={isSaving}>
               {t('btnCancel')}
             </Button>
-            <Button type="submit" variant="contained" color="primary">
-              {t('btnSave')}
+            <Button type="submit" variant="contained" color="primary" disabled={isSaving}>
+              {isSaving ? '...' : t('btnSave')}
             </Button>
           </DialogActions>
         </form>
       </Dialog>
+
+      <ErrorDialog
+        open={errorDialogState.open}
+        message={errorDialogState.message}
+        onClose={() => setErrorDialogState((prev) => ({ ...prev, open: false }))}
+      />
     </Box>
   );
 };

@@ -37,18 +37,19 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import CheckIcon from '@mui/icons-material/Check';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
-import type { Reminder, Project, Client, User } from '../../types';
+import type { Reminder, Project, Client, User, SaveResult } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { ColumnSelector, type ColumnDef } from '../ColumnSelector';
 import { TableFilterSelector } from '../TableFilterSelector';
+import { ErrorDialog } from '../ErrorDialog';
 
 interface Props {
   reminders: Reminder[];
   projects: Project[];
   clients: Client[];
   users: User[];
-  onSaveReminder: (reminder: Partial<Reminder>) => void;
+  onSaveReminder: (reminder: Partial<Reminder>) => Promise<SaveResult | void> | void;
   onDeleteReminder: (id: string) => void;
   onStatusChange?: (id: string, status: string) => void;
   visibleColumns?: string[];
@@ -77,6 +78,11 @@ export const RemindersView: React.FC<Props> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [localColumns, setLocalColumns] = useState<string[]>(visibleColumns);
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorDialogState, setErrorDialogState] = useState<{ open: boolean; message: string }>({
+    open: false,
+    message: '',
+  });
   const [searchQuery, setSearchQuery] = useState('');
 
   const [sortColumn, setSortColumn] = useState<string>(sortState?.field || 'title');
@@ -259,29 +265,53 @@ export const RemindersView: React.FC<Props> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const finalTitle = title.trim() || projectName.trim();
     if (!finalTitle) {
-      alert(t('alertReminderTitleRequired'));
+      setErrorDialogState({
+        open: true,
+        message: t('alertReminderTitleRequired'),
+      });
       return;
     }
 
-    onSaveReminder({
-      id: editingReminder?.id,
-      title: finalTitle,
-      projectId: selectedProjectId || null,
-      projectName: projectName.trim() || null,
-      clientId: selectedClientId || null,
-      clientName: clientName.trim() || null,
-      responsibleId: selectedResponsibleId || null,
-      responsible: responsible || null,
-      status,
-      notes: notes || null,
-      dueDate: dueDate || null,
-    });
+    setIsSaving(true);
+    try {
+      const res = await onSaveReminder({
+        id: editingReminder?.id,
+        title: finalTitle,
+        projectId: selectedProjectId || null,
+        projectName: projectName.trim() || null,
+        clientId: selectedClientId || null,
+        clientName: clientName.trim() || null,
+        responsibleId: selectedResponsibleId || null,
+        responsible: responsible || null,
+        status,
+        notes: notes || null,
+        dueDate: dueDate || null,
+      });
 
-    setIsOpen(false);
+      if (res && typeof res === 'object' && 'success' in res) {
+        if (res.success) {
+          setIsOpen(false);
+        } else {
+          setErrorDialogState({
+            open: true,
+            message: res.error || t('errorSavingReminder'),
+          });
+        }
+      } else {
+        setIsOpen(false);
+      }
+    } catch (err: any) {
+      setErrorDialogState({
+        open: true,
+        message: err?.message || t('errorSavingReminder'),
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const uniqueClients = Array.from(
@@ -927,15 +957,21 @@ export const RemindersView: React.FC<Props> = ({
             </Grid>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setIsOpen(false)} color="inherit">
-              Cancel
+            <Button onClick={() => setIsOpen(false)} color="inherit" disabled={isSaving}>
+              {t('btnCancel')}
             </Button>
-            <Button type="submit" variant="contained" color="primary">
-              Save
+            <Button type="submit" variant="contained" color="primary" disabled={isSaving}>
+              {isSaving ? '...' : t('btnSave')}
             </Button>
           </DialogActions>
         </form>
       </Dialog>
+
+      <ErrorDialog
+        open={errorDialogState.open}
+        message={errorDialogState.message}
+        onClose={() => setErrorDialogState((prev) => ({ ...prev, open: false }))}
+      />
     </Box>
   );
 };

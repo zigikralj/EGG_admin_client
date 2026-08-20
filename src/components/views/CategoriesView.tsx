@@ -32,15 +32,16 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import LockIcon from '@mui/icons-material/Lock';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
-import type { Category } from '../../types';
+import type { Category, SaveResult } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { ColumnSelector, type ColumnDef } from '../ColumnSelector';
 import { TableFilterSelector } from '../TableFilterSelector';
+import { ErrorDialog } from '../ErrorDialog';
 
 interface Props {
   categories: Category[];
-  onSaveCategory: (category: Partial<Category>) => void;
+  onSaveCategory: (category: Partial<Category>) => Promise<SaveResult | void> | void;
   onDeleteCategory: (id: string) => void;
   visibleColumns?: string[];
   onVisibleColumnsChange?: (cols: string[]) => void;
@@ -64,6 +65,11 @@ export const CategoriesView: React.FC<Props> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [localColumns, setLocalColumns] = useState<string[]>(visibleColumns);
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorDialogState, setErrorDialogState] = useState<{ open: boolean; message: string }>({
+    open: false,
+    message: '',
+  });
 
   const [sortColumn, setSortColumn] = useState<string>(sortState?.field || 'name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(sortState?.direction || 'asc');
@@ -145,20 +151,45 @@ export const CategoriesView: React.FC<Props> = ({
     setIsOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canManageServices) return;
     if (!code.trim() || !name.trim()) {
-      alert(t('alertCategoryRequired'));
+      setErrorDialogState({
+        open: true,
+        message: t('alertCategoryRequired'),
+      });
       return;
     }
-    onSaveCategory({
-      id: editingCategory?.id,
-      code: code.trim().toLowerCase().replace(/\s+/g, '-'),
-      name: name.trim(),
-      description: description.trim() || null,
-    });
-    setIsOpen(false);
+    setIsSaving(true);
+    try {
+      const res = await onSaveCategory({
+        id: editingCategory?.id,
+        code: code.trim().toLowerCase().replace(/\s+/g, '-'),
+        name: name.trim(),
+        description: description.trim() || null,
+      });
+
+      if (res && typeof res === 'object' && 'success' in res) {
+        if (res.success) {
+          setIsOpen(false);
+        } else {
+          setErrorDialogState({
+            open: true,
+            message: res.error || t('errorSavingCategory'),
+          });
+        }
+      } else {
+        setIsOpen(false);
+      }
+    } catch (err: any) {
+      setErrorDialogState({
+        open: true,
+        message: err?.message || t('errorSavingCategory'),
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // 1. Search filter
@@ -454,15 +485,21 @@ export const CategoriesView: React.FC<Props> = ({
             </Grid>
           </DialogContent>
           <DialogActions sx={{ p: 2 }}>
-            <Button onClick={() => setIsOpen(false)} variant="outlined">
+            <Button onClick={() => setIsOpen(false)} variant="outlined" disabled={isSaving}>
               {t('btnCancel')}
             </Button>
-            <Button type="submit" variant="contained" color="primary">
-              {t('btnSave')}
+            <Button type="submit" variant="contained" color="primary" disabled={isSaving}>
+              {isSaving ? '...' : t('btnSave')}
             </Button>
           </DialogActions>
         </form>
       </Dialog>
+
+      <ErrorDialog
+        open={errorDialogState.open}
+        message={errorDialogState.message}
+        onClose={() => setErrorDialogState((prev) => ({ ...prev, open: false }))}
+      />
     </Box>
   );
 };
