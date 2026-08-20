@@ -4,6 +4,7 @@ import FolderIcon from '@mui/icons-material/Folder';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import ErrorIcon from '@mui/icons-material/Error';
 import type { ProjectStats } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -33,6 +34,15 @@ export const HeaderStats: React.FC<Props> = ({ stats }) => {
           variant="outlined"
           sx={{ fontWeight: 600 }}
         />
+        {typeof stats.overdue === 'number' && (
+          <Chip
+            icon={<ErrorIcon />}
+            label={`${t('statUrgentProjects').replaceAll('\n', ' ')}: ${stats.overdue}`}
+            color="error"
+            variant="outlined"
+            sx={{ fontWeight: 600 }}
+          />
+        )}
         <Chip
           icon={<CheckCircleOutlinedIcon />}
           label={`${t('statDone')}: ${stats.done}`}
@@ -42,17 +52,16 @@ export const HeaderStats: React.FC<Props> = ({ stats }) => {
         />
         <Chip
           icon={<WarningAmberIcon />}
-          label={`${t('statStale')}: ${stats.stale}`}
+          label={`${t('statStale').replaceAll('\n', ' ')}: ${stats.stale}`}
           color="warning"
           variant="outlined"
           sx={{ fontWeight: 600 }}
         />
         <Chip
-          icon={<AccessTimeIcon />}
-          label={`${t('statMonitorSoon')}: ${stats.monitor}`}
-          color="secondary"
+          icon={<AccessTimeIcon sx={{ color: '#ff9800 !important' }} />}
+          label={`${t('statMonitorSoon').replaceAll('\n', ' ')}: ${stats.monitor}`}
           variant="outlined"
-          sx={{ fontWeight: 600 }}
+          sx={{ fontWeight: 600, color: '#ff9800', borderColor: '#ff9800' }}
         />
       </Stack>
     </Box>
