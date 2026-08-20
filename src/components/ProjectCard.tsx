@@ -78,7 +78,15 @@ export const ProjectCard: React.FC<Props> = ({
         },
       }}
     >
-      <CardContent sx={{ flexGrow: 1, p: 2 }}>
+      <CardContent
+        sx={{
+          flexGrow: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          p: 2,
+          '&:last-child': { pb: 2 },
+        }}
+      >
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, minHeight: 28 }}>
           <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
             {late && (
@@ -160,41 +168,44 @@ export const ProjectCard: React.FC<Props> = ({
           />
         </Stack>
 
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          {getResponsibleLabel(p.responsible, users)}: <strong>{p.responsible || '—'}</strong>
-        </Typography>
+        {/* BOTTOM SECTION: Responsible person, progress and dates aligned to bottom */}
+        <Box sx={{ mt: 'auto', pt: 1 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            {getResponsibleLabel(p.responsible, users)}: <strong>{p.responsible || '—'}</strong>
+          </Typography>
 
-        <Box sx={{ mb: 2 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-              {t('progress') || 'Progress'}
-            </Typography>
-            <Typography variant="caption" sx={{ fontWeight: 700 }}>
-              {p.progress}%
-            </Typography>
+          <Box sx={{ mb: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                {t('progress') || 'Progress'}
+              </Typography>
+              <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                {p.progress}%
+              </Typography>
+            </Box>
+            <LinearProgress
+              variant="determinate"
+              value={p.progress}
+              color={p.done ? 'info' : late ? 'error' : p.progress > 75 ? 'success' : 'primary'}
+              sx={{ height: 8, borderRadius: 4 }}
+            />
           </Box>
-          <LinearProgress
-            variant="determinate"
-            value={p.progress}
-            color={p.done ? 'info' : late ? 'error' : p.progress > 75 ? 'success' : 'primary'}
-            sx={{ height: 8, borderRadius: 4 }}
-          />
-        </Box>
 
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', mb: 0.5, color: 'text.secondary' }}>
-          <span>{t('start')}: {fmtDate(p.start)}</span>
-          <span style={{ fontSize: late ? '0.875rem' : 'inherit' }}>
-            {t('deadline')}:{' '}
-            <strong
-              style={{
-                color: late ? '#d32f2f' : 'inherit',
-                fontWeight: late ? 800 : 700,
-                fontSize: late ? '0.925rem' : 'inherit',
-              }}
-            >
-              {fmtDate(p.deadline)}
-            </strong>
-          </span>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: 'text.secondary' }}>
+            <span>{t('start')}: {fmtDate(p.start)}</span>
+            <span style={{ fontSize: late ? '0.875rem' : 'inherit' }}>
+              {t('deadline')}:{' '}
+              <strong
+                style={{
+                  color: late ? '#d32f2f' : 'inherit',
+                  fontWeight: late ? 800 : 700,
+                  fontSize: late ? '0.925rem' : 'inherit',
+                }}
+              >
+                {fmtDate(p.deadline)}
+              </strong>
+            </span>
+          </Box>
         </Box>
       </CardContent>
     </Card>

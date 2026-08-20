@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -20,15 +20,24 @@ import {
   Box,
   Chip,
   Paper,
+  InputAdornment,
+  FormControlLabel,
+  Checkbox,
+  Autocomplete,
 } from '@mui/material';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CheckIcon from '@mui/icons-material/Check';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import SearchIcon from '@mui/icons-material/Search';
+import AddIcon from '@mui/icons-material/Add';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import type { Project, Reminder, Client, User } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
+import { TableFilterSelector } from './TableFilterSelector';
 
 interface Props {
   projects?: Project[];
@@ -53,6 +62,9 @@ interface ReminderItem {
   status?: string;
   notes?: string | null;
   projectId?: string | null;
+  clientId?: string | null;
+  responsibleId?: string | null;
+  createdAt?: string;
 }
 
 function fmtDate(d: string | null): string {
@@ -66,9 +78,38 @@ function fmtDate(d: string | null): string {
   return d;
 }
 
+const isCompletedStatus = (status?: string): boolean => {
+  if (!status) return false;
+  const s = status.toLowerCase();
+  return s === 'completed' || s === 'završeno' || s === 'завршено';
+};
+
+const isOverdueItem = (item: ReminderItem): boolean => {
+  if (isCompletedStatus(item.status)) return false;
+  if (!item.status) return false;
+  const s = item.status.toLowerCase();
+  if (s === 'overdue' || s === 'prekoračeno' || s === 'прекорачено') return true;
+  if (!item.dueDate) return false;
+  const due = new Date(item.dueDate.split('T')[0]);
+  const today = new Date(new Date().toDateString());
+  return due < today;
+};
+
+const isApproachingItem = (item: ReminderItem): boolean => {
+  if (isCompletedStatus(item.status) || isOverdueItem(item)) return false;
+  if (!item.dueDate) return false;
+  const due = new Date(item.dueDate.split('T')[0]);
+  const today = new Date(new Date().toDateString());
+  const diffTime = due.getTime() - today.getTime();
+  const diffDays = diffTime / (1000 * 60 * 60 * 24);
+  return diffDays >= 0 && diffDays <= 10;
+};
+
 export const ReminderPanel: React.FC<Props> = ({
   projects = [],
   reminders = [],
+  clients = [],
+  users = [],
   onSaveReminder,
   onDeleteReminder,
   onStatusChangeReminder,
@@ -78,20 +119,51 @@ export const ReminderPanel: React.FC<Props> = ({
   const { t } = useLanguage();
   const { currentUser, isAdmin, isManager } = useAuth();
 
+  // Filters and sorting state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [myRemindersOnly, setMyRemindersOnly] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterClient, setFilterClient] = useState<string>('all');
+  const [filterResponsible, setFilterResponsible] = useState<string>('all');
+  const [sortOption, setSortOption] = useState<'dueDate' | 'title' | 'project' | 'client' | 'responsible' | 'status' | 'createdAt'>('dueDate');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  // Pagination state
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  // Modal / Dialog state
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedReminder, setSelectedReminder] = useState<ReminderItem | null>(null);
 
-  // Form states for details / edit dialog
+  // Form states for create / edit dialog
   const [title, setTitle] = useState('');
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [projectName, setProjectName] = useState('');
+  const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [clientName, setClientName] = useState('');
+  const [selectedResponsibleId, setSelectedResponsibleId] = useState<string>('');
   const [responsible, setResponsible] = useState('');
   const [status, setStatus] = useState('Pending');
   const [dueDate, setDueDate] = useState('');
   const [notes, setNotes] = useState('');
 
-  const items: ReminderItem[] = useMemo(() => {
+  // Reset pagination when filters change
+  useEffect(() => {
+    setPage(0);
+  }, [searchQuery, myRemindersOnly, filterStatus, filterClient, filterResponsible, sortOption, sortDirection]);
+
+  const handleClearAllFilters = () => {
+    setMyRemindersOnly(false);
+    setFilterStatus('all');
+    setFilterClient('all');
+    setFilterResponsible('all');
+    setSearchQuery('');
+    setSortOption('dueDate');
+    setSortDirection('asc');
+  };
+
+  const rawItems: ReminderItem[] = useMemo(() => {
     if (reminders && reminders.length > 0) {
       return reminders.map((r) => ({
         id: r.id,
@@ -100,9 +172,12 @@ export const ReminderPanel: React.FC<Props> = ({
         clientName: r.clientName || '',
         responsible: r.responsible || '—',
         dueDate: r.dueDate || null,
-        status: r.status,
+        status: r.status || 'Pending',
         notes: r.notes || null,
-        projectId: r.projectId,
+        projectId: r.projectId || null,
+        clientId: r.clientId || null,
+        responsibleId: r.responsibleId || null,
+        createdAt: r.createdAt,
       }));
     }
     return projects
@@ -117,25 +192,154 @@ export const ReminderPanel: React.FC<Props> = ({
         status: 'Pending',
         notes: null,
         projectId: p.id,
+        clientId: p.clientId || null,
+        responsibleId: (p as any).responsibleId || null,
+        createdAt: p.createdAt,
       }));
   }, [reminders, projects]);
 
-  const sortedItems = useMemo(() => {
-    return [...items].sort((a, b) => {
-      const aDone = a.status?.toLowerCase() === 'completed' || a.status === 'Završeno' || a.status === 'Завршено';
-      const bDone = b.status?.toLowerCase() === 'completed' || b.status === 'Završeno' || b.status === 'Завршено';
-      if (aDone && !bDone) return 1;
-      if (!aDone && bDone) return -1;
-
-      if (!a.dueDate && !b.dueDate) return 0;
-      if (!a.dueDate) return 1;
-      if (!b.dueDate) return -1;
-      return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+  const uniqueClients = useMemo(() => {
+    const set = new Set<string>();
+    rawItems.forEach((r) => {
+      if (r.clientName && r.clientName.trim()) set.add(r.clientName.trim());
     });
-  }, [items]);
+    clients.forEach((c) => {
+      if (c.name && c.name.trim()) set.add(c.name.trim());
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [rawItems, clients]);
 
-  const canEdit = useMemo(() => {
-    if (!selectedReminder) return false;
+  const otherResponsibles = useMemo(() => {
+    const currentName = currentUser?.name?.trim().toLowerCase();
+    const set = new Set<string>();
+    rawItems.forEach((r) => {
+      if (r.responsible && r.responsible !== '—' && r.responsible.trim()) {
+        set.add(r.responsible.trim());
+      }
+    });
+    users.forEach((u) => {
+      if (u.name && u.name.trim()) set.add(u.name.trim());
+    });
+    return Array.from(set)
+      .filter((r) => !currentName || r.trim().toLowerCase() !== currentName)
+      .sort((a, b) => a.localeCompare(b));
+  }, [rawItems, users, currentUser]);
+
+  const responsibleOptions = useMemo(() => {
+    const list: string[] = [];
+    if (currentUser?.name) {
+      list.push(currentUser.name);
+    }
+    otherResponsibles.forEach((r) => {
+      if (!list.includes(r)) list.push(r);
+    });
+    return list;
+  }, [currentUser, otherResponsibles]);
+
+  const filteredAndSortedItems = useMemo(() => {
+    return rawItems
+      .filter((item) => {
+        // Exclude completed reminders completely
+        if (isCompletedStatus(item.status)) return false;
+
+        // Quick filter: My Reminders
+        if (myRemindersOnly && currentUser) {
+          const isMyName =
+            item.responsible &&
+            item.responsible !== '—' &&
+            currentUser.name &&
+            item.responsible.trim().toLowerCase() === currentUser.name.trim().toLowerCase();
+          const isMyId = item.responsibleId && item.responsibleId === currentUser.id;
+          if (!isMyName && !isMyId) return false;
+        }
+
+        const isLate = isOverdueItem(item);
+
+        // Popover dropdown filters
+        if (filterStatus !== 'all') {
+          if (filterStatus === 'Overdue' && !isLate) return false;
+          if (filterStatus === 'Pending' && item.status?.toLowerCase() !== 'pending' && item.status !== 'Na čekanju' && item.status !== 'На чекању') {
+            return false;
+          }
+          if (filterStatus === 'In Progress' && item.status?.toLowerCase() !== 'in progress' && item.status !== 'U toku' && item.status !== 'У току') {
+            return false;
+          }
+        }
+
+        if (filterClient !== 'all' && item.clientName !== filterClient) return false;
+        if (filterResponsible !== 'all' && item.responsible !== filterResponsible) return false;
+
+        // Search query
+        if (searchQuery.trim()) {
+          const q = searchQuery.toLowerCase();
+          const matchesTitle = item.title && item.title.toLowerCase().includes(q);
+          const matchesProject = item.projectName && item.projectName.toLowerCase().includes(q);
+          const matchesClient = item.clientName && item.clientName.toLowerCase().includes(q);
+          const matchesResp = item.responsible && item.responsible.toLowerCase().includes(q);
+          const matchesNotes = item.notes && item.notes.toLowerCase().includes(q);
+          const matchesStatus = item.status && item.status.toLowerCase().includes(q);
+          if (!matchesTitle && !matchesProject && !matchesClient && !matchesResp && !matchesNotes && !matchesStatus) {
+            return false;
+          }
+        }
+
+        return true;
+      })
+      .sort((a, b) => {
+        let res = 0;
+        switch (sortOption) {
+          case 'dueDate': {
+            const aTime = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+            const bTime = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+            res = aTime - bTime;
+            break;
+          }
+          case 'title': {
+            const aTitle = a.title || a.projectName || '';
+            const bTitle = b.title || b.projectName || '';
+            res = aTitle.localeCompare(bTitle);
+            break;
+          }
+          case 'project': {
+            res = (a.projectName || '').localeCompare(b.projectName || '');
+            break;
+          }
+          case 'client': {
+            res = (a.clientName || '').localeCompare(b.clientName || '');
+            break;
+          }
+          case 'responsible': {
+            const aResp = a.responsible === '—' ? '' : a.responsible;
+            const bResp = b.responsible === '—' ? '' : b.responsible;
+            res = aResp.localeCompare(bResp);
+            break;
+          }
+          case 'status': {
+            res = (a.status || '').localeCompare(b.status || '');
+            break;
+          }
+          case 'createdAt': {
+            const aCreated = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const bCreated = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            res = aCreated - bCreated;
+            break;
+          }
+          default:
+            res = 0;
+        }
+        return sortDirection === 'asc' ? res : -res;
+      });
+  }, [rawItems, myRemindersOnly, filterStatus, filterClient, filterResponsible, searchQuery, sortOption, sortDirection, currentUser]);
+
+  const activeFilterCount =
+    (myRemindersOnly ? 1 : 0) +
+    (filterStatus !== 'all' ? 1 : 0) +
+    (filterClient !== 'all' ? 1 : 0) +
+    (filterResponsible !== 'all' ? 1 : 0) +
+    (sortOption !== 'dueDate' || sortDirection !== 'asc' ? 1 : 0);
+
+  const canEditSelected = useMemo(() => {
+    if (!selectedReminder) return true; // new reminder
     if (isAdmin || isManager) return true;
     if (!currentUser) return false;
     const respName = (selectedReminder.responsible || '').trim().toLowerCase();
@@ -143,43 +347,88 @@ export const ReminderPanel: React.FC<Props> = ({
     return respName !== '' && respName === curName;
   }, [isAdmin, isManager, currentUser, selectedReminder]);
 
+  const handleOpenNew = () => {
+    setSelectedReminder(null);
+    setTitle('');
+    setSelectedProjectId('');
+    setProjectName('');
+    setSelectedClientId('');
+    setClientName('');
+    setSelectedResponsibleId(currentUser?.id || '');
+    setResponsible(currentUser?.name || '');
+    setStatus('Pending');
+    setDueDate('');
+    setNotes('');
+    setIsDialogOpen(true);
+  };
+
   const handleOpenDetails = (item: ReminderItem) => {
     setSelectedReminder(item);
     setTitle(item.title || item.projectName || '');
+    setSelectedProjectId(item.projectId || '');
     setProjectName(item.projectName);
+    setSelectedClientId(item.clientId || '');
     setClientName(item.clientName);
+    setSelectedResponsibleId(item.responsibleId || '');
     setResponsible(item.responsible === '—' ? '' : item.responsible);
     setStatus(item.status || 'Pending');
     setDueDate(item.dueDate ? item.dueDate.split('T')[0] : '');
     setNotes(item.notes || '');
+    setIsDialogOpen(true);
   };
 
-  const handleCloseDetails = () => {
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
     setSelectedReminder(null);
+  };
+
+  const handleProjectSelect = (projId: string) => {
+    setSelectedProjectId(projId);
+    if (!projId) return;
+    const proj = projects.find((p) => p.id === projId);
+    if (proj) {
+      if (!title) {
+        setTitle(proj.name);
+      }
+      setProjectName(proj.name);
+      if (proj.clientId) {
+        setSelectedClientId(proj.clientId);
+        setClientName(proj.clientName);
+      } else {
+        setClientName(proj.clientName || '');
+      }
+      if (proj.responsible) {
+        setResponsible(proj.responsible);
+        const usr = users.find((u) => u.name === proj.responsible);
+        if (usr) setSelectedResponsibleId(usr.id);
+      }
+    }
   };
 
   const handleSubmitDetails = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canEdit) return;
+    if (!canEditSelected) return;
     const finalTitle = title.trim() || projectName.trim();
     if (!finalTitle) {
       alert(t('alertReminderTitleRequired'));
       return;
     }
-    if (onSaveReminder && selectedReminder) {
+    if (onSaveReminder) {
       onSaveReminder({
-        id: selectedReminder.id,
+        id: selectedReminder?.id,
         title: finalTitle,
-        projectId: selectedReminder.projectId || null,
+        projectId: selectedProjectId || null,
         projectName: projectName.trim() || null,
+        clientId: selectedClientId || null,
         clientName: clientName.trim() || null,
+        responsibleId: selectedResponsibleId || null,
         responsible: responsible || null,
         status,
         dueDate: dueDate || null,
         notes: notes || null,
       });
     }
-    handleCloseDetails();
+    handleCloseDialog();
   };
 
   const handleChangePage = (_: unknown, newPage: number) => {
@@ -214,7 +463,7 @@ export const ReminderPanel: React.FC<Props> = ({
     }
   };
 
-  const paginatedItems = sortedItems.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  const paginatedItems = filteredAndSortedItems.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   return (
     <>
@@ -259,6 +508,161 @@ export const ReminderPanel: React.FC<Props> = ({
         )}
 
         <CardContent sx={{ p: 2, pt: hideNotch ? 2 : 2.25, pb: '4px !important', flex: 1, display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box' }}>
+          {/* TOOLBAR: SEARCH, MY REMINDERS & POPOVER FILTER & NEW BUTTON */}
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: { xs: 'column', sm: 'row' },
+              alignItems: { xs: 'stretch', sm: 'center' },
+              justifyContent: 'space-between',
+              gap: 1.5,
+              mb: 1.5,
+              pb: 1.5,
+              borderBottom: '1px solid',
+              borderColor: 'divider',
+            }}
+          >
+            {/* SEARCH FIELD */}
+            <TextField
+              size="small"
+              placeholder={t('searchPlaceholder')}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" color="action" />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+              sx={{ width: { xs: '100%', sm: 220 } }}
+            />
+
+            {/* RIGHT CONTROLS: MY REMINDERS + FILTER POPOVER + CREATE BUTTON */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, justifyContent: { xs: 'space-between', sm: 'flex-end' }, flexWrap: 'wrap' }}>
+              {/* MY REMINDERS FILTER */}
+              {currentUser && (
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      size="small"
+                      checked={myRemindersOnly}
+                      onChange={(e) => setMyRemindersOnly(e.target.checked)}
+                      color="primary"
+                    />
+                  }
+                  label={
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {t('quickFilterMyReminders')}
+                    </Typography>
+                  }
+                  sx={{ mr: 0 }}
+                />
+              )}
+              <TableFilterSelector
+                activeCount={activeFilterCount}
+                onClear={handleClearAllFilters}
+                sortingContent={
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>{t('lblSortBy')}</InputLabel>
+                      <Select
+                        value={sortOption}
+                        label={t('lblSortBy')}
+                        onChange={(e) => setSortOption(e.target.value as any)}
+                      >
+                        <MenuItem value="dueDate">{t('lblDueDate')}</MenuItem>
+                        <MenuItem value="title">{t('colTitle')}</MenuItem>
+                        <MenuItem value="project">{t('colProject')}</MenuItem>
+                        <MenuItem value="client">{t('colClient')}</MenuItem>
+                        <MenuItem value="responsible">{t('colResponsible')}</MenuItem>
+                        <MenuItem value="status">{t('colStatus')}</MenuItem>
+                        <MenuItem value="createdAt">{t('lblCreatedDate')}</MenuItem>
+                      </Select>
+                    </FormControl>
+                    <IconButton
+                      size="small"
+                      onClick={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                      title={sortDirection === 'asc' ? t('sortAscending') : t('sortDescending')}
+                      sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0.75 }}
+                    >
+                      {sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />}
+                    </IconButton>
+                  </Box>
+                }
+                filteringContent={
+                  <>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>{t('colStatus')}</InputLabel>
+                      <Select
+                        value={filterStatus}
+                        label={t('colStatus')}
+                        onChange={(e) => setFilterStatus(e.target.value)}
+                      >
+                        <MenuItem value="all">{t('filterAll')}</MenuItem>
+                        <MenuItem value="Pending">{t('statusPending')}</MenuItem>
+                        <MenuItem value="In Progress">{t('statusInProgress')}</MenuItem>
+                        <MenuItem value="Overdue">{t('statusOverdue')}</MenuItem>
+                      </Select>
+                    </FormControl>
+
+                    <Autocomplete
+                      size="small"
+                      fullWidth
+                      disablePortal
+                      options={uniqueClients}
+                      value={filterClient === 'all' ? null : filterClient}
+                      onChange={(_, newValue) => setFilterClient(newValue || 'all')}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label={t('colClient')}
+                        />
+                      )}
+                    />
+
+                    <Autocomplete
+                      size="small"
+                      fullWidth
+                      disablePortal
+                      options={responsibleOptions}
+                      getOptionLabel={(option) => {
+                        if (currentUser?.name && option === currentUser.name) {
+                          return `${t('lblMe')} (${currentUser.name})`;
+                        }
+                        return option;
+                      }}
+                      value={filterResponsible === 'all' ? null : filterResponsible}
+                      onChange={(_, newValue) => setFilterResponsible(newValue || 'all')}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label={t('colResponsible')}
+                        />
+                      )}
+                    />
+                  </>
+                }
+              />
+
+              {onSaveReminder && (
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="primary"
+                  startIcon={<AddIcon />}
+                  onClick={handleOpenNew}
+                  sx={{ borderRadius: 1.5, textTransform: 'none', fontWeight: 600 }}
+                >
+                  {t('btnNewReminder')}
+                </Button>
+              )}
+            </Box>
+          </Box>
+
+          {/* LIST OF REMINDERS */}
           <Box
             sx={{
               maxHeight: isFullHeight ? 'none' : 320,
@@ -271,7 +675,7 @@ export const ReminderPanel: React.FC<Props> = ({
               pb: 1,
             }}
           >
-            {sortedItems.length === 0 ? (
+            {filteredAndSortedItems.length === 0 ? (
               <Paper variant="outlined" sx={{ p: 3, textAlign: 'center' }}>
                 <Typography variant="body2" color="text.secondary">
                   {t('emptyReminders')}
@@ -279,8 +683,9 @@ export const ReminderPanel: React.FC<Props> = ({
               </Paper>
             ) : (
               paginatedItems.map((item) => {
-                const isCompleted =
-                  item.status?.toLowerCase() === 'completed' || item.status === 'Završeno' || item.status === 'Завршено';
+                const isCompleted = isCompletedStatus(item.status);
+                const isLate = isOverdueItem(item);
+                const isApproaching = isApproachingItem(item);
 
                 const itemCanEdit =
                   isAdmin ||
@@ -298,14 +703,14 @@ export const ReminderPanel: React.FC<Props> = ({
                       justifyContent: 'space-between',
                       p: 1.25,
                       px: 1.5,
-                      bgcolor: 'background.paper',
+                      bgcolor: isLate ? 'error.lighter' : isApproaching ? 'warning.lighter' : 'background.paper',
                       borderRadius: 1.5,
                       border: '1px solid',
-                      borderColor: 'divider',
+                      borderColor: isLate ? 'error.light' : isApproaching ? '#ff9800' : 'divider',
                       opacity: isCompleted ? 0.75 : 1,
                       transition: 'all 0.2s ease',
                       '&:hover': {
-                        bgcolor: 'action.hover',
+                        bgcolor: isLate ? 'error.lighter' : isApproaching ? 'warning.lighter' : 'action.hover',
                       },
                     }}
                   >
@@ -333,13 +738,26 @@ export const ReminderPanel: React.FC<Props> = ({
                             sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600 }}
                           />
                         )}
+                        {item.projectName && item.projectName !== item.title && (
+                          <Chip
+                            label={item.projectName}
+                            size="small"
+                            variant="outlined"
+                            sx={{ height: 18, fontSize: '0.65rem' }}
+                          />
+                        )}
                       </Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', color: 'text.secondary', fontSize: '0.75rem' }}>
                         {item.dueDate && (
                           <Typography
                             variant="caption"
-                            color="text.secondary"
-                            sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 0.5,
+                              color: isLate ? 'error.main' : isApproaching ? '#ed6c02' : 'text.secondary',
+                              fontWeight: isLate || isApproaching ? 700 : 400,
+                            }}
                           >
                             <CalendarTodayIcon sx={{ fontSize: '0.8rem' }} />
                             {fmtDate(item.dueDate)}
@@ -350,7 +768,7 @@ export const ReminderPanel: React.FC<Props> = ({
                             • {item.responsible}
                           </Typography>
                         )}
-                        {getStatusChip(item.status)}
+                        {getStatusChip(isLate && !isCompleted ? 'Overdue' : item.status)}
                       </Box>
                     </Box>
 
@@ -397,11 +815,11 @@ export const ReminderPanel: React.FC<Props> = ({
             )}
           </Box>
 
-          {sortedItems.length > 0 && (
+          {filteredAndSortedItems.length > 0 && (
             <TablePagination
               rowsPerPageOptions={[10, 20, 50]}
               component="div"
-              count={sortedItems.length}
+              count={filteredAndSortedItems.length}
               rowsPerPage={rowsPerPage}
               page={page}
               onPageChange={handleChangePage}
@@ -412,11 +830,15 @@ export const ReminderPanel: React.FC<Props> = ({
         </CardContent>
       </Card>
 
-      {/* REMINDER DETAILS / EDIT DIALOG */}
-      <Dialog open={Boolean(selectedReminder)} onClose={handleCloseDetails} maxWidth="sm" fullWidth>
+      {/* REMINDER DETAILS / EDIT / CREATE DIALOG */}
+      <Dialog open={isDialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <form onSubmit={handleSubmitDetails}>
           <DialogTitle sx={{ fontWeight: 700 }}>
-            {canEdit ? t('modalEditReminder') : t('modalReminderDetails')}
+            {selectedReminder
+              ? canEditSelected
+                ? t('modalEditReminder')
+                : t('modalReminderDetails')
+              : t('modalNewReminder')}
           </DialogTitle>
           <DialogContent dividers>
             <Grid container spacing={2} sx={{ pt: 1 }}>
@@ -429,51 +851,143 @@ export const ReminderPanel: React.FC<Props> = ({
                   placeholder={t('phReminderTitle')}
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  disabled={!canEdit}
+                  disabled={!canEditSelected}
                   required
                   autoFocus
                 />
               </Grid>
 
-              {/* Project Name */}
+              {/* Project Selection / Custom Name */}
               <Grid size={{ xs: 12 }}>
-                <TextField
-                  fullWidth
+                <Autocomplete
+                  freeSolo
                   size="small"
-                  label={t('colProject')}
-                  value={projectName}
-                  onChange={(e) => setProjectName(e.target.value)}
-                  disabled={!canEdit}
+                  disabled={!canEditSelected}
+                  options={projects}
+                  getOptionLabel={(option) => {
+                    if (typeof option === 'string') return option;
+                    return `${option.name} (${option.clientName})`;
+                  }}
+                  value={
+                    selectedProjectId
+                      ? projects.find((p) => p.id === selectedProjectId) || projectName
+                      : projectName
+                  }
+                  onChange={(_, newValue) => {
+                    if (typeof newValue === 'string') {
+                      setSelectedProjectId('');
+                      setProjectName(newValue);
+                    } else if (newValue) {
+                      handleProjectSelect(newValue.id);
+                    } else {
+                      setSelectedProjectId('');
+                      setProjectName('');
+                    }
+                  }}
+                  onInputChange={(_, newInputValue, reason) => {
+                    if (reason === 'input') {
+                      setSelectedProjectId('');
+                      setProjectName(newInputValue);
+                    }
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label={t('colProject')}
+                    />
+                  )}
                 />
               </Grid>
 
-              {/* Client Name */}
+              {/* Client Selection / Custom Name */}
               <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  fullWidth
+                <Autocomplete
+                  freeSolo
                   size="small"
-                  label={t('colClient')}
-                  value={clientName}
-                  onChange={(e) => setClientName(e.target.value)}
-                  disabled={!canEdit}
+                  disabled={!canEditSelected}
+                  options={clients}
+                  getOptionLabel={(option) => {
+                    if (typeof option === 'string') return option;
+                    return option.name;
+                  }}
+                  value={
+                    selectedClientId
+                      ? clients.find((c) => c.id === selectedClientId) || clientName
+                      : clientName
+                  }
+                  onChange={(_, newValue) => {
+                    if (typeof newValue === 'string') {
+                      setSelectedClientId('');
+                      setClientName(newValue);
+                    } else if (newValue) {
+                      setSelectedClientId(newValue.id);
+                      setClientName(newValue.name);
+                    } else {
+                      setSelectedClientId('');
+                      setClientName('');
+                    }
+                  }}
+                  onInputChange={(_, newInputValue, reason) => {
+                    if (reason === 'input') {
+                      setSelectedClientId('');
+                      setClientName(newInputValue);
+                    }
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label={t('colClient')}
+                    />
+                  )}
                 />
               </Grid>
 
               {/* Responsible Person */}
               <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  fullWidth
+                <Autocomplete
+                  freeSolo
                   size="small"
-                  label={t('colResponsible')}
-                  value={responsible}
-                  onChange={(e) => setResponsible(e.target.value)}
-                  disabled={!canEdit}
+                  disabled={!canEditSelected}
+                  options={users}
+                  getOptionLabel={(option) => {
+                    if (typeof option === 'string') return option;
+                    return option.name;
+                  }}
+                  value={
+                    selectedResponsibleId
+                      ? users.find((u) => u.id === selectedResponsibleId) || responsible
+                      : responsible
+                  }
+                  onChange={(_, newValue) => {
+                    if (typeof newValue === 'string') {
+                      setSelectedResponsibleId('');
+                      setResponsible(newValue);
+                    } else if (newValue) {
+                      setSelectedResponsibleId(newValue.id);
+                      setResponsible(newValue.name);
+                    } else {
+                      setSelectedResponsibleId('');
+                      setResponsible('');
+                    }
+                  }}
+                  onInputChange={(_, newInputValue, reason) => {
+                    if (reason === 'input') {
+                      setSelectedResponsibleId('');
+                      setResponsible(newInputValue);
+                    }
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label={t('colResponsible')}
+                    />
+                  )}
                 />
               </Grid>
 
               {/* Status & Due Date */}
               <Grid size={{ xs: 12, sm: 6 }}>
-                <FormControl fullWidth size="small" disabled={!canEdit}>
+                <FormControl fullWidth size="small" disabled={!canEditSelected}>
                   <InputLabel>{t('lblStatus')}</InputLabel>
                   <Select value={status} label={t('lblStatus')} onChange={(e) => setStatus(e.target.value)}>
                     <MenuItem value="Pending">{t('statusPending')}</MenuItem>
@@ -493,7 +1007,7 @@ export const ReminderPanel: React.FC<Props> = ({
                   slotProps={{ inputLabel: { shrink: true } }}
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
-                  disabled={!canEdit}
+                  disabled={!canEditSelected}
                 />
               </Grid>
 
@@ -507,15 +1021,15 @@ export const ReminderPanel: React.FC<Props> = ({
                   label={t('lblNotes')}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  disabled={!canEdit}
+                  disabled={!canEditSelected}
                 />
               </Grid>
             </Grid>
           </DialogContent>
           <DialogActions>
-            {canEdit ? (
+            {canEditSelected ? (
               <>
-                <Button onClick={handleCloseDetails} color="inherit">
+                <Button onClick={handleCloseDialog} color="inherit">
                   {t('btnCancel')}
                 </Button>
                 <Button type="submit" variant="contained" color="primary">
@@ -523,7 +1037,7 @@ export const ReminderPanel: React.FC<Props> = ({
                 </Button>
               </>
             ) : (
-              <Button onClick={handleCloseDetails} color="primary" variant="contained">
+              <Button onClick={handleCloseDialog} color="primary" variant="contained">
                 {t('btnClose')}
               </Button>
             )}

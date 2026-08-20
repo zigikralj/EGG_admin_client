@@ -64,6 +64,8 @@ export const TableFilterSelector: React.FC<Props> = ({
         open={open}
         anchorEl={anchorEl}
         onClose={handleClose}
+        disableEnforceFocus
+        disableAutoFocus
         anchorOrigin={{
           vertical: 'bottom',
           horizontal: 'right',
@@ -73,7 +75,7 @@ export const TableFilterSelector: React.FC<Props> = ({
           horizontal: 'right',
         }}
         slotProps={{
-          paper: { sx: { width: 300, p: 2 } },
+          paper: { sx: { width: 300, p: 2, overflow: 'visible' } },
         }}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

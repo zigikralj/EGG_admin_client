@@ -26,7 +26,7 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
-import type { Project, ProjectStats, Reminder, DashboardSubTab, User, Category, Service } from '../../types';
+import type { Project, ProjectStats, Reminder, DashboardSubTab, User, Category, Service, Client } from '../../types';
 import { ReminderPanel } from '../ReminderPanel';
 import { ProjectCard } from '../ProjectCard';
 import { StatisticsCharts } from '../StatisticsCharts';
@@ -38,6 +38,7 @@ interface Props {
   dashboardSubTab?: DashboardSubTab;
   stats: ProjectStats;
   projects: Project[];
+  clients?: Client[];
   users?: User[];
   categories?: Category[];
   services?: Service[];
@@ -57,6 +58,7 @@ export const DashboardView: React.FC<Props> = ({
   dashboardSubTab = 'default',
   stats,
   projects,
+  clients = [],
   users = [],
   categories = [],
   services = [],
@@ -368,6 +370,8 @@ export const DashboardView: React.FC<Props> = ({
     <ReminderPanel
       projects={projects}
       reminders={reminders}
+      clients={clients}
+      users={users}
       onMarkSampled={onMarkSampled}
       onSaveReminder={onSaveReminder}
       onDeleteReminder={onDeleteReminder}
