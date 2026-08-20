@@ -631,6 +631,7 @@ function MainApp() {
             dashboardSubTab={dashboardSubTab}
             stats={stats}
             projects={projects}
+            clients={clients}
             users={users}
             categories={categories}
             services={services}
