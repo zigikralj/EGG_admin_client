@@ -133,7 +133,11 @@ function MainApp() {
         apiFetch('/api/projects/stats', { headers }),
       ]);
 
-      if (pRes.ok) setProjects(await pRes.json());
+      let fetchedProjects: Project[] = [];
+      if (pRes.ok) {
+        fetchedProjects = await pRes.json();
+        setProjects(fetchedProjects);
+      }
       if (cRes.ok) setClients(await cRes.json());
       if (uRes.ok) {
         const fetchedUsers: User[] = await uRes.json();
@@ -150,8 +154,26 @@ function MainApp() {
       }
       if (sRes.ok) setServices(await sRes.json());
       if (catRes.ok) setCategories(await catRes.json());
-      if (remRes.ok) setReminders(await remRes.json());
-      if (stRes.ok) setStats(await stRes.json());
+      let fetchedReminders: Reminder[] = [];
+      if (remRes.ok) {
+        fetchedReminders = await remRes.json();
+        setReminders(fetchedReminders);
+      }
+      if (stRes.ok) {
+        const fetchedStats: ProjectStats = await stRes.json();
+        const today = new Date(new Date().toDateString());
+        const approachingCount = fetchedReminders.filter((r) => {
+          const s = (r.status || '').toLowerCase();
+          if (s === 'completed' || s === 'završeno' || s === 'завршено') return false;
+          if (!r.dueDate) return false;
+          const due = new Date(r.dueDate.split('T')[0]);
+          const diffDays = (due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
+          return diffDays >= 0 && diffDays <= 10;
+        }).length;
+        fetchedStats.monitor = approachingCount;
+        fetchedStats.overdue = fetchedProjects.filter((p) => !p.done && p.deadline && new Date(p.deadline) < today).length;
+        setStats(fetchedStats);
+      }
     } catch (error) {
       console.error('Error fetching data from API:', error);
     }

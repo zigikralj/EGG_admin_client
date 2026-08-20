@@ -271,11 +271,37 @@ export const DashboardView: React.FC<Props> = ({
     };
   }, [projects, currentUser, isAdmin, isManager]);
 
+  const approachingRemindersCount = useMemo(() => {
+    const today = new Date(new Date().toDateString());
+    if (reminders && reminders.length > 0) {
+      return reminders.filter((r) => {
+        const s = (r.status || '').toLowerCase();
+        if (s === 'completed' || s === 'završeno' || s === 'завршено') return false;
+        if (!r.dueDate) return false;
+        const due = new Date(r.dueDate.split('T')[0]);
+        const diffDays = (due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
+        return diffDays >= 0 && diffDays <= 10;
+      }).length;
+    }
+    return projects.filter((p) => {
+      if (p.done || !p.nextSample) return false;
+      const due = new Date(p.nextSample.split('T')[0]);
+      const diffDays = (due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
+      return diffDays >= 0 && diffDays <= 10;
+    }).length;
+  }, [reminders, projects]);
+
+  const urgentProjectsCount = useMemo(() => {
+    const today = new Date(new Date().toDateString());
+    return projects.filter((p) => !p.done && p.deadline && new Date(p.deadline) < today).length;
+  }, [projects]);
+
   const kpis = [
     { title: t('statInCreation'), value: stats.active, color: 'primary.main' },
+    { title: t('statUrgentProjects'), value: urgentProjectsCount, color: 'error.main' },
     { title: t('statDone'), value: stats.done, color: 'info.main' },
     { title: t('statStale'), value: stats.stale, color: 'warning.main' },
-    { title: t('statMonitorSoon'), value: stats.monitor, color: 'secondary.main' },
+    { title: t('statMonitorSoon'), value: approachingRemindersCount, color: '#ff9800' },
   ];
 
   const renderStatisticsCard = (isFullWidth = false, showNotch = true) => (
@@ -345,7 +371,16 @@ export const DashboardView: React.FC<Props> = ({
                 px: isFullWidth ? 2 : 0,
               }}
             >
-              <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600, textAlign: 'left' }}>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{
+                  fontWeight: 600,
+                  textAlign: 'left',
+                  whiteSpace: 'pre-line',
+                  lineHeight: 1.25,
+                }}
+              >
                 {kpi.title}:
               </Typography>
               <Typography

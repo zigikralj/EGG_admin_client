@@ -26,6 +26,7 @@ export interface TranslationKeys {
   statDone: string;
   statStale: string;
   statOverdueUrgent: string;
+  statUrgentProjects: string;
   statMonitorSoon: string;
   chartProjectsByUser: string;
   chartProjectsByCategory: string;
@@ -391,9 +392,10 @@ export const translations: Record<Language, TranslationKeys> = {
     projectsStatistic: 'Projects statistic',
     statInCreation: 'In Progress',
     statDone: 'Completed',
-    statStale: 'Takes >2 mos.',
+    statStale: 'Takes more than\n2 months',
     statOverdueUrgent: 'Late - Urgent!',
-    statMonitorSoon: 'Sampling Soon',
+    statUrgentProjects: 'Urgent',
+    statMonitorSoon: 'Reminders in\nnext 10 days',
     chartProjectsByUser: 'Projects per User',
     chartProjectsByCategory: 'Projects per Category',
     chartFilterAll: 'All Projects',
@@ -757,9 +759,10 @@ export const translations: Record<Language, TranslationKeys> = {
     projectsStatistic: 'Statistika projekata',
     statInCreation: 'U izradi',
     statDone: 'Završeno',
-    statStale: 'Traje >2mes.',
+    statStale: 'Traje duže od\n2 meseca',
     statOverdueUrgent: 'Kasni - Hitno!',
-    statMonitorSoon: 'Uzorkovanje uskoro',
+    statUrgentProjects: 'Hitno',
+    statMonitorSoon: 'Podsetnici u\nnarednih 10 dana',
     chartProjectsByUser: 'Projekti po korisniku',
     chartProjectsByCategory: 'Projekti po kategoriji',
     chartFilterAll: 'Svi projekti',
@@ -1123,9 +1126,10 @@ export const translations: Record<Language, TranslationKeys> = {
     projectsStatistic: 'Statistika пројеката',
     statInCreation: 'У изради',
     statDone: 'Завршено',
-    statStale: 'Траје >2мес.',
+    statStale: 'Траје дуже од\n2 месеца',
     statOverdueUrgent: 'Касни - Хитно!',
-    statMonitorSoon: 'Узорковање ускоро',
+    statUrgentProjects: 'Хитно',
+    statMonitorSoon: 'Подсетници у\nнаредних 10 дана',
     chartProjectsByUser: 'Пројекти по кориснику',
     chartProjectsByCategory: 'Пројекти по категорији',
     chartFilterAll: 'Сви пројекти',
