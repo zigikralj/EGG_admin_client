@@ -37,7 +37,7 @@ export const HeaderStats: React.FC<Props> = ({ stats }) => {
         {typeof stats.overdue === 'number' && (
           <Chip
             icon={<ErrorIcon />}
-            label={`${t('statUrgentProjects').replace('\n', ' ')}: ${stats.overdue}`}
+            label={`${t('statUrgentProjects').replaceAll('\n', ' ')}: ${stats.overdue}`}
             color="error"
             variant="outlined"
             sx={{ fontWeight: 600 }}
@@ -52,14 +52,14 @@ export const HeaderStats: React.FC<Props> = ({ stats }) => {
         />
         <Chip
           icon={<WarningAmberIcon />}
-          label={`${t('statStale').replace('\n', ' ')}: ${stats.stale}`}
+          label={`${t('statStale').replaceAll('\n', ' ')}: ${stats.stale}`}
           color="warning"
           variant="outlined"
           sx={{ fontWeight: 600 }}
         />
         <Chip
           icon={<AccessTimeIcon sx={{ color: '#ff9800 !important' }} />}
-          label={`${t('statMonitorSoon').replace('\n', ' ')}: ${stats.monitor}`}
+          label={`${t('statMonitorSoon').replaceAll('\n', ' ')}: ${stats.monitor}`}
           variant="outlined"
           sx={{ fontWeight: 600, color: '#ff9800', borderColor: '#ff9800' }}
         />
