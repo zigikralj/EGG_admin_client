@@ -64,6 +64,8 @@ interface Props {
   sortState?: { field: string; direction: 'asc' | 'desc' };
   onSortChange?: (sort: { field: string; direction: 'asc' | 'desc' }) => void;
   initialFilterStatus?: string;
+  quickFilter?: 'all' | 'pending';
+  onQuickFilterChange?: (val: 'all' | 'pending') => void;
 }
 
 const DEFAULT_COLUMNS = ['name', 'role', 'status', 'gender', 'email', 'phone'];
@@ -79,6 +81,8 @@ export const UsersView: React.FC<Props> = ({
   sortState,
   onSortChange,
   initialFilterStatus = 'all',
+  quickFilter: quickFilterProp,
+  onQuickFilterChange,
 }) => {
   const { t } = useLanguage();
   const { canManageUsers, canEditUser, isAdmin } = useAuth();
@@ -135,13 +139,17 @@ export const UsersView: React.FC<Props> = ({
 
   // Filter state
   const [filterRole, setFilterRole] = useState<string>('all');
-  const [filterStatus, setFilterStatus] = useState<string>(initialFilterStatus);
+  const [filterStatus, setFilterStatus] = useState<string>(
+    initialFilterStatus !== 'all' ? initialFilterStatus : (quickFilterProp || 'all')
+  );
 
   useEffect(() => {
-    if (initialFilterStatus) {
+    if (initialFilterStatus && initialFilterStatus !== 'all') {
       setFilterStatus(initialFilterStatus);
+    } else if (quickFilterProp !== undefined) {
+      setFilterStatus(quickFilterProp);
     }
-  }, [initialFilterStatus]);
+  }, [initialFilterStatus, quickFilterProp]);
 
   const activeFilterCount =
     (filterRole !== 'all' ? 1 : 0) +
@@ -151,6 +159,7 @@ export const UsersView: React.FC<Props> = ({
   const clearFilters = () => {
     setFilterRole('all');
     setFilterStatus('all');
+    onQuickFilterChange?.('all');
     setSortColumn('name');
     setSortDirection('asc');
     if (onSortChange) {
@@ -447,7 +456,12 @@ export const UsersView: React.FC<Props> = ({
             <ToggleButtonGroup
               value={filterStatus === 'pending' ? 'pending' : 'all'}
               exclusive
-              onChange={(_, val) => val && setFilterStatus(val)}
+              onChange={(_, val) => {
+                if (val) {
+                  setFilterStatus(val);
+                  onQuickFilterChange?.(val);
+                }
+              }}
               size="small"
               color="primary"
               sx={{ width: { xs: '100%', sm: 'auto' } }}

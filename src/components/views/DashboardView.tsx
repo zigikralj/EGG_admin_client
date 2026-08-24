@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   Grid,
   Card,
@@ -52,6 +52,10 @@ interface Props {
   onDeleteProject: (id: string) => void;
   onNavigateToProjects: () => void;
   onOpenNewProject?: () => void;
+  quickFilters?: string[];
+  onQuickFiltersChange?: (filters: string[]) => void;
+  quickFilterDashboardReminders?: boolean;
+  onQuickFilterDashboardRemindersChange?: (val: boolean) => void;
 }
 
 export const DashboardView: React.FC<Props> = ({
@@ -72,13 +76,26 @@ export const DashboardView: React.FC<Props> = ({
   onDeleteProject,
   onNavigateToProjects,
   onOpenNewProject,
+  quickFilters: quickFiltersProp,
+  onQuickFiltersChange,
+  quickFilterDashboardReminders,
+  onQuickFilterDashboardRemindersChange,
 }) => {
   const { t, getServiceLabel } = useLanguage();
   const { currentUser, isAdmin, isManager } = useAuth();
 
   // Projects subtab state & filtering
   const [searchQuery, setSearchQuery] = useState('');
-  const [quickFilters, setQuickFilters] = useState<string[]>(['my', 'active']);
+  const [quickFilters, setQuickFilters] = useState<string[]>(
+    quickFiltersProp !== undefined ? quickFiltersProp : ['my', 'active']
+  );
+
+  useEffect(() => {
+    if (quickFiltersProp !== undefined) {
+      setQuickFilters(quickFiltersProp);
+    }
+  }, [quickFiltersProp]);
+
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterClient, setFilterClient] = useState<string>('all');
   const [filterResponsible, setFilterResponsible] = useState<string>('all');
@@ -87,15 +104,16 @@ export const DashboardView: React.FC<Props> = ({
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const handleToggleFilter = (filterKey: string, checked: boolean) => {
-    if (checked) {
-      setQuickFilters((prev) => [...prev, filterKey]);
-    } else {
-      setQuickFilters((prev) => prev.filter((k) => k !== filterKey));
-    }
+    const updated = checked
+      ? [...quickFilters, filterKey]
+      : quickFilters.filter((k) => k !== filterKey);
+    setQuickFilters(updated);
+    onQuickFiltersChange?.(updated);
   };
 
   const handleClearAllFilters = () => {
     setQuickFilters([]);
+    onQuickFiltersChange?.([]);
     setFilterCategory('all');
     setFilterClient('all');
     setFilterResponsible('all');
@@ -413,6 +431,8 @@ export const DashboardView: React.FC<Props> = ({
       onStatusChangeReminder={onStatusChangeReminder}
       isFullHeight={isFullHeight}
       hideNotch={hideNotch}
+      myRemindersOnly={quickFilterDashboardReminders}
+      onMyRemindersOnlyChange={onQuickFilterDashboardRemindersChange}
     />
   );
 

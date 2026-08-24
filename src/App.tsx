@@ -689,6 +689,10 @@ function MainApp() {
               setEditingProject(null);
               setIsProjectModalOpen(true);
             }}
+            quickFilters={userPreferences.quick_filter_dashboard_projects}
+            onQuickFiltersChange={(filters) => updatePreference('quick_filter_dashboard_projects', filters)}
+            quickFilterDashboardReminders={userPreferences.quick_filter_dashboard_reminders}
+            onQuickFilterDashboardRemindersChange={(val) => updatePreference('quick_filter_dashboard_reminders', val)}
           />
         )}
 
@@ -713,6 +717,8 @@ function MainApp() {
             onVisibleColumnsChange={(cols) => updatePreference('cols_projects', cols)}
             sortState={userPreferences.sort_projects}
             onSortChange={(sort) => updatePreference('sort_projects', sort)}
+            quickFilter={userPreferences.quick_filter_projects || 'all'}
+            onQuickFilterChange={(val) => updatePreference('quick_filter_projects', val)}
           />
         )}
 
@@ -761,6 +767,8 @@ function MainApp() {
             sortState={userPreferences.sort_users}
             onSortChange={(sort) => updatePreference('sort_users', sort)}
             initialFilterStatus={usersFilterStatus}
+            quickFilter={userPreferences.quick_filter_users || 'all'}
+            onQuickFilterChange={(val) => updatePreference('quick_filter_users', val)}
           />
         )}
 
@@ -802,6 +810,8 @@ function MainApp() {
             onVisibleColumnsChange={(cols) => updatePreference('cols_reminders', cols)}
             sortState={userPreferences.sort_reminders}
             onSortChange={(sort) => updatePreference('sort_reminders', sort)}
+            quickFilter={userPreferences.quick_filter_reminders || 'all'}
+            onQuickFilterChange={(val) => updatePreference('quick_filter_reminders', val)}
           />
         )}
         <ConfirmDeleteDialog

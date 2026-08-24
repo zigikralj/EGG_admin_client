@@ -56,6 +56,8 @@ interface Props {
   onVisibleColumnsChange?: (cols: string[]) => void;
   sortState?: { field: string; direction: 'asc' | 'desc' };
   onSortChange?: (sort: { field: string; direction: 'asc' | 'desc' }) => void;
+  quickFilter?: 'all' | 'my' | 'pending';
+  onQuickFilterChange?: (val: 'all' | 'my' | 'pending') => void;
 }
 
 const DEFAULT_COLUMNS = ['title', 'project', 'client', 'responsible', 'status', 'notes'];
@@ -72,6 +74,8 @@ export const RemindersView: React.FC<Props> = ({
   onVisibleColumnsChange,
   sortState,
   onSortChange,
+  quickFilter: quickFilterProp,
+  onQuickFilterChange,
 }) => {
   const { t, getResponsibleLabel } = useLanguage();
   const { currentUser } = useAuth();
@@ -108,15 +112,27 @@ export const RemindersView: React.FC<Props> = ({
   };
 
   // Quick Filter state ('all' | 'my' | 'pending')
-  const [quickFilter, setQuickFilter] = useState<'all' | 'my' | 'pending'>('all');
+  const [quickFilter, setQuickFilter] = useState<'all' | 'my' | 'pending'>(
+    quickFilterProp || 'all'
+  );
 
   // Popover Filter states
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterClient, setFilterClient] = useState<string>('all');
   const [filterResponsible, setFilterResponsible] = useState<string>('all');
 
+  useEffect(() => {
+    if (quickFilterProp !== undefined) {
+      setQuickFilter(quickFilterProp);
+      if (quickFilterProp === 'my' && currentUser?.name) {
+        setFilterResponsible(currentUser.name);
+      }
+    }
+  }, [quickFilterProp, currentUser?.name]);
+
   const handleQuickFilterChange = (val: 'all' | 'my' | 'pending') => {
     setQuickFilter(val);
+    onQuickFilterChange?.(val);
     if (val === 'my' && currentUser?.name) {
       setFilterResponsible(currentUser.name);
     } else if (val !== 'my' && currentUser?.name && filterResponsible === currentUser.name) {
@@ -129,9 +145,11 @@ export const RemindersView: React.FC<Props> = ({
     if (currentUser?.name && val === currentUser.name) {
       if (quickFilter !== 'pending') {
         setQuickFilter('my');
+        onQuickFilterChange?.('my');
       }
     } else if (quickFilter === 'my') {
       setQuickFilter('all');
+      onQuickFilterChange?.('all');
     }
   };
 
@@ -159,6 +177,7 @@ export const RemindersView: React.FC<Props> = ({
 
   const clearFilters = () => {
     setQuickFilter('all');
+    onQuickFilterChange?.('all');
     setFilterStatus('all');
     setFilterClient('all');
     setFilterResponsible('all');

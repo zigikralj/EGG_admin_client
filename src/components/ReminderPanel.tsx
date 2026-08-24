@@ -51,6 +51,8 @@ interface Props {
   onStatusChangeReminder?: (id: string, status: string) => void;
   isFullHeight?: boolean;
   hideNotch?: boolean;
+  myRemindersOnly?: boolean;
+  onMyRemindersOnlyChange?: (val: boolean) => void;
 }
 
 interface ReminderItem {
@@ -116,13 +118,22 @@ export const ReminderPanel: React.FC<Props> = ({
   onStatusChangeReminder,
   isFullHeight = false,
   hideNotch = false,
+  myRemindersOnly: myRemindersOnlyProp = false,
+  onMyRemindersOnlyChange,
 }) => {
   const { t } = useLanguage();
   const { currentUser, isAdmin, isManager } = useAuth();
 
   // Filters and sorting state
   const [searchQuery, setSearchQuery] = useState('');
-  const [myRemindersOnly, setMyRemindersOnly] = useState(false);
+  const [myRemindersOnly, setMyRemindersOnly] = useState(myRemindersOnlyProp);
+
+  useEffect(() => {
+    if (myRemindersOnlyProp !== undefined) {
+      setMyRemindersOnly(myRemindersOnlyProp);
+    }
+  }, [myRemindersOnlyProp]);
+
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterClient, setFilterClient] = useState<string>('all');
   const [filterResponsible, setFilterResponsible] = useState<string>('all');
@@ -161,6 +172,7 @@ export const ReminderPanel: React.FC<Props> = ({
 
   const handleClearAllFilters = () => {
     setMyRemindersOnly(false);
+    onMyRemindersOnlyChange?.(false);
     setFilterStatus('all');
     setFilterClient('all');
     setFilterResponsible('all');
@@ -582,7 +594,11 @@ export const ReminderPanel: React.FC<Props> = ({
                     <Checkbox
                       size="small"
                       checked={myRemindersOnly}
-                      onChange={(e) => setMyRemindersOnly(e.target.checked)}
+                      onChange={(e) => {
+                        const val = e.target.checked;
+                        setMyRemindersOnly(val);
+                        onMyRemindersOnlyChange?.(val);
+                      }}
                       color="primary"
                     />
                   }
