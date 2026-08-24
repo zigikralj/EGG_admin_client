@@ -49,6 +49,8 @@ interface Props {
   onVisibleColumnsChange?: (cols: string[]) => void;
   sortState?: { field: string; direction: 'asc' | 'desc' };
   onSortChange?: (sort: { field: string; direction: 'asc' | 'desc' }) => void;
+  quickFilter?: 'all' | 'my' | 'active' | 'overdue';
+  onQuickFilterChange?: (val: 'all' | 'my' | 'active' | 'overdue') => void;
 }
 
 const DEFAULT_COLUMNS = ['name', 'client', 'category', 'responsible', 'start', 'deadline', 'progress', 'status'];
@@ -86,6 +88,8 @@ export const ProjectsView: React.FC<Props> = ({
   onVisibleColumnsChange,
   sortState,
   onSortChange,
+  quickFilter: quickFilterProp,
+  onQuickFilterChange,
 }) => {
   const { t, getServiceLabel } = useLanguage();
   const { canEditProject, currentUser } = useAuth();
@@ -129,7 +133,9 @@ export const ProjectsView: React.FC<Props> = ({
   };
 
   // Quick Filter state ('all' | 'my' | 'active' | 'overdue')
-  const [quickFilter, setQuickFilter] = useState<'all' | 'my' | 'active' | 'overdue'>('all');
+  const [quickFilter, setQuickFilter] = useState<'all' | 'my' | 'active' | 'overdue'>(
+    quickFilterProp || 'all'
+  );
 
   // Popover Filter states
   const [filterCategory, setFilterCategory] = useState<string>('all');
@@ -137,8 +143,18 @@ export const ProjectsView: React.FC<Props> = ({
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterResponsible, setFilterResponsible] = useState<string>('all');
 
+  useEffect(() => {
+    if (quickFilterProp !== undefined) {
+      setQuickFilter(quickFilterProp);
+      if (quickFilterProp === 'my' && currentUser?.name) {
+        setFilterResponsible(currentUser.name);
+      }
+    }
+  }, [quickFilterProp, currentUser?.name]);
+
   const handleQuickFilterChange = (val: 'all' | 'my' | 'active' | 'overdue') => {
     setQuickFilter(val);
+    onQuickFilterChange?.(val);
     if (val === 'my' && currentUser?.name) {
       setFilterResponsible(currentUser.name);
     } else if (val !== 'my' && currentUser?.name && filterResponsible === currentUser.name) {
@@ -151,9 +167,11 @@ export const ProjectsView: React.FC<Props> = ({
     if (currentUser?.name && val === currentUser.name) {
       if (quickFilter !== 'active' && quickFilter !== 'overdue') {
         setQuickFilter('my');
+        onQuickFilterChange?.('my');
       }
     } else if (quickFilter === 'my') {
       setQuickFilter('all');
+      onQuickFilterChange?.('all');
     }
   };
 
@@ -167,6 +185,7 @@ export const ProjectsView: React.FC<Props> = ({
 
   const clearFilters = () => {
     setQuickFilter('all');
+    onQuickFilterChange?.('all');
     setFilterCategory('all');
     setFilterClient('all');
     setFilterStatus('all');

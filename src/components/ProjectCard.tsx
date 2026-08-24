@@ -36,7 +36,28 @@ function fmtDate(d: string | null): string {
 
 function isLate(p: Project): boolean {
   if (p.done || !p.deadline) return false;
-  return new Date(p.deadline) < new Date(new Date().toDateString());
+  const clean = p.deadline.split('T')[0];
+  const parts = clean.split('-').map(Number);
+  if (parts.length !== 3) return false;
+  const [y, m, d] = parts;
+  const deadlineDate = new Date(y, m - 1, d);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return deadlineDate < today;
+}
+
+function isNearDeadline(p: Project, days = 14): boolean {
+  if (p.done || !p.deadline) return false;
+  const clean = p.deadline.split('T')[0];
+  const parts = clean.split('-').map(Number);
+  if (parts.length !== 3) return false;
+  const [y, m, d] = parts;
+  const deadlineDate = new Date(y, m - 1, d);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffTime = deadlineDate.getTime() - today.getTime();
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays >= 0 && diffDays <= days;
 }
 
 function isStale(p: Project): boolean {
@@ -58,6 +79,7 @@ export const ProjectCard: React.FC<Props> = ({
 
   const canEdit = canEditProject(p);
   const late = isLate(p);
+  const nearDeadline = !late && isNearDeadline(p);
   const stale = isStale(p);
 
   return (
@@ -67,14 +89,30 @@ export const ProjectCard: React.FC<Props> = ({
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        borderColor: late ? 'error.main' : (stale ? 'warning.main' : 'divider'),
-        borderWidth: late ? 2 : 1,
+        borderColor: late
+          ? 'error.main'
+          : nearDeadline
+          ? '#ff9800'
+          : stale
+          ? 'warning.main'
+          : 'divider',
+        borderWidth: late || nearDeadline ? 2 : 1,
         borderStyle: 'solid',
-        bgcolor: late ? 'rgba(211, 47, 47, 0.03)' : (stale ? 'warning.50' : 'background.paper'),
+        bgcolor: late
+          ? 'rgba(211, 47, 47, 0.03)'
+          : nearDeadline
+          ? 'rgba(255, 152, 0, 0.04)'
+          : stale
+          ? 'warning.50'
+          : 'background.paper',
         position: 'relative',
         transition: 'all 0.2s ease-in-out',
         '&:hover': {
-          boxShadow: late ? '0 4px 14px rgba(211, 47, 47, 0.2)' : '0 4px 12px rgba(0,0,0,0.08)',
+          boxShadow: late
+            ? '0 4px 14px rgba(211, 47, 47, 0.2)'
+            : nearDeadline
+            ? '0 4px 14px rgba(255, 152, 0, 0.2)'
+            : '0 4px 12px rgba(0,0,0,0.08)',
         },
       }}
     >
@@ -197,8 +235,8 @@ export const ProjectCard: React.FC<Props> = ({
               {t('deadline')}:{' '}
               <strong
                 style={{
-                  color: late ? '#d32f2f' : 'inherit',
-                  fontWeight: late ? 800 : 700,
+                  color: late ? '#d32f2f' : nearDeadline ? '#ed6c02' : 'inherit',
+                  fontWeight: late || nearDeadline ? 800 : 700,
                   fontSize: late ? '0.925rem' : 'inherit',
                 }}
               >
