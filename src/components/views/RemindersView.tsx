@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Card,
   Table,
@@ -126,6 +126,15 @@ export const RemindersView: React.FC<Props> = ({
       setQuickFilter(quickFilterProp);
       if (quickFilterProp === 'my' && currentUser?.name) {
         setFilterResponsible(currentUser.name);
+      } else if (quickFilterProp === 'pending') {
+        setFilterStatus('Pending');
+      } else if (quickFilterProp === 'all') {
+        if (currentUser?.name && filterResponsible === currentUser.name) {
+          setFilterResponsible('all');
+        }
+        if (filterStatus === 'Pending') {
+          setFilterStatus('all');
+        }
       }
     }
   }, [quickFilterProp, currentUser?.name]);
@@ -133,10 +142,15 @@ export const RemindersView: React.FC<Props> = ({
   const handleQuickFilterChange = (val: 'all' | 'my' | 'pending') => {
     setQuickFilter(val);
     onQuickFilterChange?.(val);
-    if (val === 'my' && currentUser?.name) {
-      setFilterResponsible(currentUser.name);
-    } else if (val !== 'my' && currentUser?.name && filterResponsible === currentUser.name) {
-      setFilterResponsible('all');
+    if (val === 'my') {
+      if (currentUser?.name) setFilterResponsible(currentUser.name);
+      if (filterStatus === 'Pending') setFilterStatus('all');
+    } else if (val === 'pending') {
+      setFilterStatus('Pending');
+      if (currentUser?.name && filterResponsible === currentUser.name) setFilterResponsible('all');
+    } else if (val === 'all') {
+      if (currentUser?.name && filterResponsible === currentUser.name) setFilterResponsible('all');
+      if (filterStatus === 'Pending') setFilterStatus('all');
     }
   };
 
@@ -148,6 +162,17 @@ export const RemindersView: React.FC<Props> = ({
         onQuickFilterChange?.('my');
       }
     } else if (quickFilter === 'my') {
+      setQuickFilter('all');
+      onQuickFilterChange?.('all');
+    }
+  };
+
+  const handleFilterStatusChange = (val: string) => {
+    setFilterStatus(val);
+    if (val === 'Pending') {
+      setQuickFilter('pending');
+      onQuickFilterChange?.('pending');
+    } else if (quickFilter === 'pending') {
       setQuickFilter('all');
       onQuickFilterChange?.('all');
     }
@@ -357,7 +382,14 @@ export const RemindersView: React.FC<Props> = ({
 
     if (filterStatus !== 'all' && rem.status !== filterStatus) return false;
     if (filterClient !== 'all' && rem.clientName !== filterClient) return false;
-    if (filterResponsible !== 'all' && rem.responsible !== filterResponsible) return false;
+    if (filterResponsible !== 'all') {
+      const isMyName =
+        currentUser?.name &&
+        filterResponsible === currentUser.name &&
+        ((rem.responsible && rem.responsible.trim().toLowerCase() === currentUser.name.trim().toLowerCase()) ||
+          (rem.responsibleId && rem.responsibleId === currentUser.id));
+      if (!isMyName && rem.responsible !== filterResponsible) return false;
+    }
     return true;
   });
 
@@ -449,6 +481,30 @@ export const RemindersView: React.FC<Props> = ({
     }
   };
 
+  const responsibleOptions = useMemo(() => {
+    const list: string[] = [];
+    if (currentUser?.name) list.push(currentUser.name);
+    list.push(...otherResponsibles);
+    return list;
+  }, [currentUser?.name, otherResponsibles]);
+
+  const sortOptions = useMemo(() => [
+    { value: 'title', label: t('colTitle') },
+    { value: 'project', label: t('colProject') },
+    { value: 'client', label: t('colClient') },
+    { value: 'responsible', label: t('colResponsible') },
+    { value: 'status', label: t('colStatus') },
+    { value: 'dueDate', label: t('lblDueDate') },
+    { value: 'createdAt', label: t('lblCreatedDate') },
+  ], [t]);
+
+  const statusOptions = useMemo(() => [
+    { value: 'Pending', label: t('statusPending') },
+    { value: 'In Progress', label: t('statusInProgress') },
+    { value: 'Completed', label: t('statusCompleted') },
+    { value: 'Overdue', label: t('statusOverdue') },
+  ], [t]);
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%', flex: 1, minHeight: 0 }}>
       {/* TOP ACTION BAR */}
@@ -533,22 +589,20 @@ export const RemindersView: React.FC<Props> = ({
               onClear={clearFilters}
               sortingContent={
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>{t('lblSortBy')}</InputLabel>
-                    <Select
-                      value={sortColumn}
-                      label={t('lblSortBy')}
-                      onChange={(e) => handleSortColumnChange(e.target.value)}
-                    >
-                      <MenuItem value="title">{t('colTitle')}</MenuItem>
-                      <MenuItem value="project">{t('colProject')}</MenuItem>
-                      <MenuItem value="client">{t('colClient')}</MenuItem>
-                      <MenuItem value="responsible">{t('colResponsible')}</MenuItem>
-                      <MenuItem value="status">{t('colStatus')}</MenuItem>
-                      <MenuItem value="dueDate">{t('lblDueDate')}</MenuItem>
-                      <MenuItem value="createdAt">{t('lblCreatedDate')}</MenuItem>
-                    </Select>
-                  </FormControl>
+                  <Autocomplete
+                    size="small"
+                    fullWidth
+                    disablePortal
+                    disableClearable
+                    options={sortOptions}
+                    getOptionLabel={(option) => option.label}
+                    isOptionEqualToValue={(option, val) => option.value === val.value}
+                    value={sortOptions.find((o) => o.value === sortColumn) || sortOptions[0]}
+                    onChange={(_, newValue) => {
+                      if (newValue) handleSortColumnChange(newValue.value as any);
+                    }}
+                    renderInput={(params) => <TextField {...params} label={t('lblSortBy')} size="small" />}
+                  />
                   <IconButton
                     size="small"
                     onClick={handleToggleSortDirection}
@@ -561,57 +615,43 @@ export const RemindersView: React.FC<Props> = ({
               }
               filteringContent={
                 <>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>{t('colStatus')}</InputLabel>
-                    <Select
-                      value={filterStatus}
-                      label={t('colStatus')}
-                      onChange={(e) => setFilterStatus(e.target.value)}
-                    >
-                      <MenuItem value="all">{t('filterAll')}</MenuItem>
-                      <MenuItem value="Pending">{t('statusPending')}</MenuItem>
-                      <MenuItem value="In Progress">{t('statusInProgress')}</MenuItem>
-                      <MenuItem value="Completed">{t('statusCompleted')}</MenuItem>
-                      <MenuItem value="Overdue">{t('statusOverdue')}</MenuItem>
-                    </Select>
-                  </FormControl>
+                  <Autocomplete
+                    size="small"
+                    fullWidth
+                    disablePortal
+                    options={statusOptions}
+                    getOptionLabel={(option) => option.label}
+                    isOptionEqualToValue={(option, val) => option.value === val.value}
+                    value={statusOptions.find((o) => o.value === filterStatus) || null}
+                    onChange={(_, newValue) => handleFilterStatusChange(newValue ? newValue.value : 'all')}
+                    renderInput={(params) => <TextField {...params} label={t('colStatus')} size="small" />}
+                  />
 
-                  <FormControl fullWidth size="small">
-                    <InputLabel>{t('colClient')}</InputLabel>
-                    <Select
-                      value={filterClient}
-                      label={t('colClient')}
-                      onChange={(e) => setFilterClient(e.target.value)}
-                    >
-                      <MenuItem value="all">{t('filterAll')}</MenuItem>
-                      {uniqueClients.map((client) => (
-                        <MenuItem key={client} value={client}>
-                          {client}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <Autocomplete
+                    size="small"
+                    fullWidth
+                    disablePortal
+                    options={uniqueClients}
+                    value={filterClient === 'all' ? null : filterClient}
+                    onChange={(_, newValue) => setFilterClient(newValue || 'all')}
+                    renderInput={(params) => <TextField {...params} label={t('colClient')} size="small" />}
+                  />
 
-                  <FormControl fullWidth size="small">
-                    <InputLabel>{t('colResponsible')}</InputLabel>
-                    <Select
-                      value={filterResponsible}
-                      label={t('colResponsible')}
-                      onChange={(e) => handleFilterResponsibleChange(e.target.value)}
-                    >
-                      <MenuItem value="all">{t('filterAll')}</MenuItem>
-                      {currentUser?.name && (
-                        <MenuItem value={currentUser.name}>
-                          {t('lblMe')} ({currentUser.name})
-                        </MenuItem>
-                      )}
-                      {otherResponsibles.map((resp) => (
-                        <MenuItem key={resp} value={resp}>
-                          {resp}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <Autocomplete
+                    size="small"
+                    fullWidth
+                    disablePortal
+                    options={responsibleOptions}
+                    getOptionLabel={(option) => {
+                      if (currentUser?.name && option === currentUser.name) {
+                        return `${t('lblMe')} (${currentUser.name})`;
+                      }
+                      return option;
+                    }}
+                    value={filterResponsible === 'all' ? null : filterResponsible}
+                    onChange={(_, newValue) => handleFilterResponsibleChange(newValue || 'all')}
+                    renderInput={(params) => <TextField {...params} label={t('colResponsible')} size="small" />}
+                  />
                 </>
               }
             />

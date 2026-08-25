@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Card,
   Table,
@@ -30,6 +30,7 @@ import {
   Paper,
   ToggleButton,
   ToggleButtonGroup,
+  Autocomplete,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
@@ -150,6 +151,11 @@ export const UsersView: React.FC<Props> = ({
       setFilterStatus(quickFilterProp);
     }
   }, [initialFilterStatus, quickFilterProp]);
+
+  const handleFilterStatusChange = (val: string) => {
+    setFilterStatus(val);
+    onQuickFilterChange?.(val === 'pending' ? 'pending' : 'all');
+  };
 
   const activeFilterCount =
     (filterRole !== 'all' ? 1 : 0) +
@@ -392,10 +398,25 @@ export const UsersView: React.FC<Props> = ({
 
   const paginatedUsers = sortedUsers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
+  const sortOptions = useMemo(() => [
+    { value: 'name', label: t('colFullName') },
+    { value: 'role', label: t('colRole') },
+    { value: 'status', label: t('colApprovalStatus') },
+    { value: 'email', label: t('colEmail') },
+    { value: 'phone', label: t('colPhone') },
+    { value: 'createdAt', label: t('lblCreatedDate') },
+  ], [t]);
+
+  const statusOptions = useMemo(() => [
+    { value: 'approved', label: t('statusApproved') },
+    { value: 'pending', label: t('statusPending') },
+    { value: 'blocked', label: t('statusBlocked') },
+  ], [t]);
+
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, height: '100%', flex: 1, minHeight: 0 }}>
-      {/* PENDING APPROVALS ALERT BANNER */}
-      {canManageUsers && pendingUsers.length > 0 && (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%', flex: 1, minHeight: 0 }}>
+      {/* PENDING USERS BANNER */}
+      {pendingUsers.length > 0 && (
         <Alert
           severity="warning"
           icon={<HourglassEmptyIcon />}
@@ -409,7 +430,7 @@ export const UsersView: React.FC<Props> = ({
               {filterStatus === 'pending' ? t('filterAll') : t('badgePendingUsers', { count: pendingUsers.length })}
             </Button>
           }
-          sx={{ borderRadius: 2.5, boxShadow: 1 }}
+          sx={{ borderRadius: 2 }}
         >
           <Typography variant="body2" sx={{ fontWeight: 600 }}>
             {t('msgPendingUsersBanner', { count: pendingUsers.length })}
@@ -496,21 +517,20 @@ export const UsersView: React.FC<Props> = ({
               onClear={clearFilters}
               sortingContent={
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>{t('lblSortBy')}</InputLabel>
-                    <Select
-                      value={sortColumn}
-                      label={t('lblSortBy')}
-                      onChange={(e) => handleSortColumnChange(e.target.value)}
-                    >
-                      <MenuItem value="name">{t('colFullName')}</MenuItem>
-                      <MenuItem value="role">{t('colRole')}</MenuItem>
-                      <MenuItem value="status">{t('colApprovalStatus')}</MenuItem>
-                      <MenuItem value="email">{t('colEmail')}</MenuItem>
-                      <MenuItem value="phone">{t('colPhone')}</MenuItem>
-                      <MenuItem value="createdAt">{t('lblCreatedDate')}</MenuItem>
-                    </Select>
-                  </FormControl>
+                  <Autocomplete
+                    size="small"
+                    fullWidth
+                    disablePortal
+                    disableClearable
+                    options={sortOptions}
+                    getOptionLabel={(option) => option.label}
+                    isOptionEqualToValue={(option, val) => option.value === val.value}
+                    value={sortOptions.find((o) => o.value === sortColumn) || sortOptions[0]}
+                    onChange={(_, newValue) => {
+                      if (newValue) handleSortColumnChange(newValue.value as any);
+                    }}
+                    renderInput={(params) => <TextField {...params} label={t('lblSortBy')} size="small" />}
+                  />
                   <IconButton
                     size="small"
                     onClick={handleToggleSortDirection}
@@ -523,35 +543,28 @@ export const UsersView: React.FC<Props> = ({
               }
               filteringContent={
                 <>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>{t('colRole')}</InputLabel>
-                    <Select
-                      value={filterRole}
-                      label={t('colRole')}
-                      onChange={(e) => setFilterRole(e.target.value)}
-                    >
-                      <MenuItem value="all">{t('filterAll')}</MenuItem>
-                      {uniqueRoles.map((r) => (
-                        <MenuItem key={r} value={r}>
-                          {getRoleLabel(r)}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <Autocomplete
+                    size="small"
+                    fullWidth
+                    disablePortal
+                    options={uniqueRoles}
+                    getOptionLabel={(r) => getRoleLabel(r)}
+                    value={filterRole === 'all' ? null : filterRole}
+                    onChange={(_, newValue) => setFilterRole(newValue || 'all')}
+                    renderInput={(params) => <TextField {...params} label={t('colRole')} size="small" />}
+                  />
 
-                  <FormControl fullWidth size="small">
-                    <InputLabel>{t('colApprovalStatus')}</InputLabel>
-                    <Select
-                      value={filterStatus}
-                      label={t('colApprovalStatus')}
-                      onChange={(e) => setFilterStatus(e.target.value)}
-                    >
-                      <MenuItem value="all">{t('filterAll')}</MenuItem>
-                      <MenuItem value="approved">{t('statusApproved')}</MenuItem>
-                      <MenuItem value="pending">{t('statusPending')}</MenuItem>
-                      <MenuItem value="blocked">{t('statusBlocked')}</MenuItem>
-                    </Select>
-                  </FormControl>
+                  <Autocomplete
+                    size="small"
+                    fullWidth
+                    disablePortal
+                    options={statusOptions}
+                    getOptionLabel={(option) => option.label}
+                    isOptionEqualToValue={(option, val) => option.value === val.value}
+                    value={statusOptions.find((o) => o.value === filterStatus) || null}
+                    onChange={(_, newValue) => handleFilterStatusChange(newValue ? newValue.value : 'all')}
+                    renderInput={(params) => <TextField {...params} label={t('colApprovalStatus')} size="small" />}
+                  />
                 </>
               }
             />

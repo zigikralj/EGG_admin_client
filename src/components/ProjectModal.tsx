@@ -31,10 +31,12 @@ import EditIcon from '@mui/icons-material/Edit';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import NotesIcon from '@mui/icons-material/Notes';
 import type { Project, Client, User, Service, Reminder, SaveResult } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { ErrorDialog } from './ErrorDialog';
+import { RichTextEditor } from './RichTextEditor';
 
 interface Props {
   isOpen: boolean;
@@ -84,6 +86,7 @@ export const ProjectModal: React.FC<Props> = ({
   const [deadline, setDeadline] = useState('');
   const [progress, setProgress] = useState(0);
   const [done, setDone] = useState(false);
+  const [notes, setNotes] = useState('');
 
   // Project Reminders management state
   const [isAddingReminder, setIsAddingReminder] = useState(false);
@@ -113,6 +116,7 @@ export const ProjectModal: React.FC<Props> = ({
       setDeadline(projectToEdit.deadline || '');
       setProgress(projectToEdit.progress);
       setDone(projectToEdit.done || false);
+      setNotes(projectToEdit.notes || '');
       setIsAddingReminder(false);
       setEditingProjectReminder(null);
     } else {
@@ -129,10 +133,11 @@ export const ProjectModal: React.FC<Props> = ({
       setDeadline('');
       setProgress(0);
       setDone(false);
+      setNotes('');
       setIsAddingReminder(false);
       setEditingProjectReminder(null);
     }
-  }, [projectToEdit, isOpen, clients, users, services, currentUser, isUser]);
+  }, [projectToEdit, isOpen, clients, users, services, currentUser, isUser, todayStr]);
 
   const handleClientSelectChange = (id: string) => {
     setClientId(id);
@@ -311,6 +316,7 @@ export const ProjectModal: React.FC<Props> = ({
         deadline: deadline || null,
         progress: finalProgress,
         done,
+        notes: notes.trim() || null,
       });
 
       if (res && typeof res === 'object' && 'success' in res) {
@@ -489,6 +495,24 @@ export const ProjectModal: React.FC<Props> = ({
                     />
                   )}
                 />
+              </Grid>
+
+              {/* PROJECT NOTES RICH TEXT EDITOR */}
+              <Grid size={{ xs: 12 }}>
+                <Paper variant="outlined" sx={{ p: 2, bgcolor: 'background.default', borderRadius: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                    <NotesIcon color="primary" fontSize="small" />
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                      {t('lblProjectNotes')}
+                    </Typography>
+                  </Box>
+                  <RichTextEditor
+                    value={notes}
+                    onChange={setNotes}
+                    placeholder={t('phProjectNotes')}
+                    minHeight={150}
+                  />
+                </Paper>
               </Grid>
 
               {/* REMINDERS SECTION */}

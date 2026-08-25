@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Card,
   Table,
@@ -20,10 +20,7 @@ import {
   DialogContent,
   DialogActions,
   Grid,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
+  Autocomplete,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
@@ -243,6 +240,13 @@ export const CategoriesView: React.FC<Props> = ({
 
   const paginatedCategories = sortedCategories.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
+  const sortOptions = useMemo(() => [
+    { value: 'name', label: t('colCategoryName') },
+    { value: 'code', label: t('lblCategoryCode') },
+    { value: 'description', label: t('colDescription') },
+    { value: 'createdAt', label: t('lblCreatedDate') },
+  ], [t]);
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%', flex: 1, minHeight: 0 }}>
       {/* TOP ACTION BAR */}
@@ -302,19 +306,20 @@ export const CategoriesView: React.FC<Props> = ({
               onClear={clearFilters}
               sortingContent={
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>{t('lblSortBy')}</InputLabel>
-                    <Select
-                      value={sortColumn}
-                      label={t('lblSortBy')}
-                      onChange={(e) => handleSortColumnChange(e.target.value)}
-                    >
-                      <MenuItem value="name">{t('colCategoryName')}</MenuItem>
-                      <MenuItem value="code">{t('lblCategoryCode')}</MenuItem>
-                      <MenuItem value="description">{t('colDescription')}</MenuItem>
-                      <MenuItem value="createdAt">{t('lblCreatedDate')}</MenuItem>
-                    </Select>
-                  </FormControl>
+                  <Autocomplete
+                    size="small"
+                    fullWidth
+                    disablePortal
+                    disableClearable
+                    options={sortOptions}
+                    getOptionLabel={(option) => option.label}
+                    isOptionEqualToValue={(option, val) => option.value === val.value}
+                    value={sortOptions.find((o) => o.value === sortColumn) || sortOptions[0]}
+                    onChange={(_, newValue) => {
+                      if (newValue) handleSortColumnChange(newValue.value as any);
+                    }}
+                    renderInput={(params) => <TextField {...params} label={t('lblSortBy')} size="small" />}
+                  />
                   <IconButton
                     size="small"
                     onClick={handleToggleSortDirection}

@@ -10,6 +10,7 @@ export interface Project {
   progress: number;
   done: boolean;
   nextSample: string | null;
+  notes?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }

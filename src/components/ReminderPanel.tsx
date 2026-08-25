@@ -131,8 +131,11 @@ export const ReminderPanel: React.FC<Props> = ({
   useEffect(() => {
     if (myRemindersOnlyProp !== undefined) {
       setMyRemindersOnly(myRemindersOnlyProp);
+      if (myRemindersOnlyProp && currentUser?.name) {
+        setFilterResponsible(currentUser.name);
+      }
     }
-  }, [myRemindersOnlyProp]);
+  }, [myRemindersOnlyProp, currentUser?.name]);
 
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterClient, setFilterClient] = useState<string>('all');
@@ -169,6 +172,27 @@ export const ReminderPanel: React.FC<Props> = ({
   useEffect(() => {
     setPage(0);
   }, [searchQuery, myRemindersOnly, filterStatus, filterClient, filterResponsible, sortOption, sortDirection]);
+
+  const handleToggleMyReminders = (val: boolean) => {
+    setMyRemindersOnly(val);
+    onMyRemindersOnlyChange?.(val);
+    if (val && currentUser?.name) {
+      setFilterResponsible(currentUser.name);
+    } else if (!val && currentUser?.name && filterResponsible === currentUser.name) {
+      setFilterResponsible('all');
+    }
+  };
+
+  const handleFilterResponsibleChange = (val: string) => {
+    setFilterResponsible(val);
+    if (currentUser?.name && val === currentUser.name) {
+      setMyRemindersOnly(true);
+      onMyRemindersOnlyChange?.(true);
+    } else if (myRemindersOnly) {
+      setMyRemindersOnly(false);
+      onMyRemindersOnlyChange?.(false);
+    }
+  };
 
   const handleClearAllFilters = () => {
     setMyRemindersOnly(false);
@@ -254,6 +278,22 @@ export const ReminderPanel: React.FC<Props> = ({
     return list;
   }, [currentUser, otherResponsibles]);
 
+  const sortOptions = useMemo(() => [
+    { value: 'dueDate', label: t('lblDueDate') },
+    { value: 'title', label: t('colTitle') },
+    { value: 'project', label: t('colProject') },
+    { value: 'client', label: t('colClient') },
+    { value: 'responsible', label: t('colResponsible') },
+    { value: 'status', label: t('colStatus') },
+    { value: 'createdAt', label: t('lblCreatedDate') },
+  ], [t]);
+
+  const statusOptions = useMemo(() => [
+    { value: 'Pending', label: t('statusPending') },
+    { value: 'In Progress', label: t('statusInProgress') },
+    { value: 'Overdue', label: t('statusOverdue') },
+  ], [t]);
+
   const filteredAndSortedItems = useMemo(() => {
     return rawItems
       .filter((item) => {
@@ -285,7 +325,17 @@ export const ReminderPanel: React.FC<Props> = ({
         }
 
         if (filterClient !== 'all' && item.clientName !== filterClient) return false;
-        if (filterResponsible !== 'all' && item.responsible !== filterResponsible) return false;
+        if (filterResponsible !== 'all') {
+          const isMyName =
+            currentUser?.name &&
+            filterResponsible === currentUser.name &&
+            ((item.responsible &&
+              item.responsible !== '—' &&
+              currentUser.name &&
+              item.responsible.trim().toLowerCase() === currentUser.name.trim().toLowerCase()) ||
+              (item.responsibleId && item.responsibleId === currentUser.id));
+          if (!isMyName && item.responsible !== filterResponsible) return false;
+        }
 
         // Search query
         if (searchQuery.trim()) {
@@ -594,11 +644,7 @@ export const ReminderPanel: React.FC<Props> = ({
                     <Checkbox
                       size="small"
                       checked={myRemindersOnly}
-                      onChange={(e) => {
-                        const val = e.target.checked;
-                        setMyRemindersOnly(val);
-                        onMyRemindersOnlyChange?.(val);
-                      }}
+                      onChange={(e) => handleToggleMyReminders(e.target.checked)}
                       color="primary"
                     />
                   }
@@ -615,22 +661,20 @@ export const ReminderPanel: React.FC<Props> = ({
                 onClear={handleClearAllFilters}
                 sortingContent={
                   <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                    <FormControl fullWidth size="small">
-                      <InputLabel>{t('lblSortBy')}</InputLabel>
-                      <Select
-                        value={sortOption}
-                        label={t('lblSortBy')}
-                        onChange={(e) => setSortOption(e.target.value as any)}
-                      >
-                        <MenuItem value="dueDate">{t('lblDueDate')}</MenuItem>
-                        <MenuItem value="title">{t('colTitle')}</MenuItem>
-                        <MenuItem value="project">{t('colProject')}</MenuItem>
-                        <MenuItem value="client">{t('colClient')}</MenuItem>
-                        <MenuItem value="responsible">{t('colResponsible')}</MenuItem>
-                        <MenuItem value="status">{t('colStatus')}</MenuItem>
-                        <MenuItem value="createdAt">{t('lblCreatedDate')}</MenuItem>
-                      </Select>
-                    </FormControl>
+                    <Autocomplete
+                      size="small"
+                      fullWidth
+                      disablePortal
+                      disableClearable
+                      options={sortOptions}
+                      getOptionLabel={(option) => option.label}
+                      isOptionEqualToValue={(option, val) => option.value === val.value}
+                      value={sortOptions.find((o) => o.value === sortOption) || sortOptions[0]}
+                      onChange={(_, newValue) => {
+                        if (newValue) setSortOption(newValue.value as any);
+                      }}
+                      renderInput={(params) => <TextField {...params} label={t('lblSortBy')} size="small" />}
+                    />
                     <IconButton
                       size="small"
                       onClick={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
@@ -643,19 +687,17 @@ export const ReminderPanel: React.FC<Props> = ({
                 }
                 filteringContent={
                   <>
-                    <FormControl fullWidth size="small">
-                      <InputLabel>{t('colStatus')}</InputLabel>
-                      <Select
-                        value={filterStatus}
-                        label={t('colStatus')}
-                        onChange={(e) => setFilterStatus(e.target.value)}
-                      >
-                        <MenuItem value="all">{t('filterAll')}</MenuItem>
-                        <MenuItem value="Pending">{t('statusPending')}</MenuItem>
-                        <MenuItem value="In Progress">{t('statusInProgress')}</MenuItem>
-                        <MenuItem value="Overdue">{t('statusOverdue')}</MenuItem>
-                      </Select>
-                    </FormControl>
+                    <Autocomplete
+                      size="small"
+                      fullWidth
+                      disablePortal
+                      options={statusOptions}
+                      getOptionLabel={(option) => option.label}
+                      isOptionEqualToValue={(option, val) => option.value === val.value}
+                      value={statusOptions.find((o) => o.value === filterStatus) || null}
+                      onChange={(_, newValue) => setFilterStatus(newValue ? newValue.value : 'all')}
+                      renderInput={(params) => <TextField {...params} label={t('colStatus')} size="small" />}
+                    />
 
                     <Autocomplete
                       size="small"
@@ -684,7 +726,7 @@ export const ReminderPanel: React.FC<Props> = ({
                         return option;
                       }}
                       value={filterResponsible === 'all' ? null : filterResponsible}
-                      onChange={(_, newValue) => setFilterResponsible(newValue || 'all')}
+                      onChange={(_, newValue) => handleFilterResponsibleChange(newValue || 'all')}
                       renderInput={(params) => (
                         <TextField
                           {...params}

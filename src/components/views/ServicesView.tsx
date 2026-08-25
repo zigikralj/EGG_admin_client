@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Card,
   Table,
@@ -25,6 +25,7 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  Autocomplete,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
@@ -313,6 +314,27 @@ export const ServicesView: React.FC<Props> = ({
 
   const paginatedServices = sortedServices.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
+  const sortOptions = useMemo(() => [
+    { value: 'name', label: t('colServiceName') },
+    { value: 'group', label: t('colCategory') },
+    { value: 'frequency', label: t('colPeriodicSampling') },
+    { value: 'description', label: t('colDescription') },
+    { value: 'createdAt', label: t('lblCreatedDate') },
+  ], [t]);
+
+  const groupOptions = useMemo(() => [
+    ...(categories || []).map((cat) => ({ value: cat.code, label: cat.name })),
+    { value: 'other', label: t('other') },
+  ], [categories, t]);
+
+  const frequencyOptions = useMemo(() => [
+    { value: '0', label: t('freqNoReminder') },
+    { value: '3', label: t('freqQuarterly') },
+    { value: '6', label: t('freqSemiAnnually') },
+    { value: '12', label: t('freqEveryXMonths', { freq: 12 }) },
+    { value: 'other', label: t('other') },
+  ], [t]);
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%', flex: 1, minHeight: 0 }}>
       {/* TOP ACTION BAR */}
@@ -361,20 +383,20 @@ export const ServicesView: React.FC<Props> = ({
               onClear={clearFilters}
               sortingContent={
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>{t('lblSortBy')}</InputLabel>
-                    <Select
-                      value={sortColumn}
-                      label={t('lblSortBy')}
-                      onChange={(e) => handleSortColumnChange(e.target.value)}
-                    >
-                      <MenuItem value="name">{t('colServiceName')}</MenuItem>
-                      <MenuItem value="group">{t('colCategory')}</MenuItem>
-                      <MenuItem value="frequency">{t('colPeriodicSampling')}</MenuItem>
-                      <MenuItem value="description">{t('colDescription')}</MenuItem>
-                      <MenuItem value="createdAt">{t('lblCreatedDate')}</MenuItem>
-                    </Select>
-                  </FormControl>
+                  <Autocomplete
+                    size="small"
+                    fullWidth
+                    disablePortal
+                    disableClearable
+                    options={sortOptions}
+                    getOptionLabel={(option) => option.label}
+                    isOptionEqualToValue={(option, val) => option.value === val.value}
+                    value={sortOptions.find((o) => o.value === sortColumn) || sortOptions[0]}
+                    onChange={(_, newValue) => {
+                      if (newValue) handleSortColumnChange(newValue.value as any);
+                    }}
+                    renderInput={(params) => <TextField {...params} label={t('lblSortBy')} size="small" />}
+                  />
                   <IconButton
                     size="small"
                     onClick={handleToggleSortDirection}
@@ -387,38 +409,29 @@ export const ServicesView: React.FC<Props> = ({
               }
               filteringContent={
                 <>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>{t('colCategory')}</InputLabel>
-                    <Select
-                      value={filterGroup}
-                      label={t('colCategory')}
-                      onChange={(e) => setFilterGroup(e.target.value)}
-                    >
-                      <MenuItem value="all">{t('filterAll')}</MenuItem>
-                      {categories.map((cat) => (
-                        <MenuItem key={cat.id} value={cat.code}>
-                          {cat.name}
-                        </MenuItem>
-                      ))}
-                      <MenuItem value="other">{t('other')}</MenuItem>
-                    </Select>
-                  </FormControl>
+                  <Autocomplete
+                    size="small"
+                    fullWidth
+                    disablePortal
+                    options={groupOptions}
+                    getOptionLabel={(option) => option.label}
+                    isOptionEqualToValue={(option, val) => option.value === val.value}
+                    value={groupOptions.find((o) => o.value === filterGroup) || null}
+                    onChange={(_, newValue) => setFilterGroup(newValue ? newValue.value : 'all')}
+                    renderInput={(params) => <TextField {...params} label={t('colCategory')} size="small" />}
+                  />
 
-                  <FormControl fullWidth size="small">
-                    <InputLabel>{t('colPeriodicSampling')}</InputLabel>
-                    <Select
-                      value={filterFrequency}
-                      label={t('colPeriodicSampling')}
-                      onChange={(e) => setFilterFrequency(e.target.value)}
-                    >
-                      <MenuItem value="all">{t('filterAll')}</MenuItem>
-                      <MenuItem value="0">{t('freqNoReminder')}</MenuItem>
-                      <MenuItem value="3">{t('freqQuarterly')}</MenuItem>
-                      <MenuItem value="6">{t('freqSemiAnnually')}</MenuItem>
-                      <MenuItem value="12">{t('freqEveryXMonths', { freq: 12 })}</MenuItem>
-                      <MenuItem value="other">{t('other')}</MenuItem>
-                    </Select>
-                  </FormControl>
+                  <Autocomplete
+                    size="small"
+                    fullWidth
+                    disablePortal
+                    options={frequencyOptions}
+                    getOptionLabel={(option) => option.label}
+                    isOptionEqualToValue={(option, val) => option.value === val.value}
+                    value={frequencyOptions.find((o) => o.value === filterFrequency) || null}
+                    onChange={(_, newValue) => setFilterFrequency(newValue ? newValue.value : 'all')}
+                    renderInput={(params) => <TextField {...params} label={t('colPeriodicSampling')} size="small" />}
+                  />
                 </>
               }
             />

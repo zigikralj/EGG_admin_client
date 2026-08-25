@@ -240,6 +240,23 @@ export interface TranslationKeys {
   lblStartDate: string;
   lblDeadlineDate: string;
   lblProgressPct: string;
+  lblProjectNotes: string;
+  phProjectNotes: string;
+  projectNotesTitle: string;
+  noProjectNotes: string;
+  viewProjectNotes: string;
+  editorBold: string;
+  editorItalic: string;
+  editorUnderline: string;
+  editorStrikethrough: string;
+  editorBulletList: string;
+  editorNumberedList: string;
+  editorHeading: string;
+  editorParagraph: string;
+  editorQuote: string;
+  editorClearFormat: string;
+  editorUndo: string;
+  editorRedo: string;
   btnCancel: string;
   btnSave: string;
   alertProjectValidation: string;
@@ -615,6 +632,23 @@ export const translations: Record<Language, TranslationKeys> = {
     lblStartDate: 'Start Date',
     lblDeadlineDate: 'Deadline',
     lblProgressPct: 'Progress (%)',
+    lblProjectNotes: 'Project Notes',
+    phProjectNotes: 'Write project notes, tasks, details, bullet points...',
+    projectNotesTitle: 'Project Notes',
+    noProjectNotes: 'No notes for this project.',
+    viewProjectNotes: 'View Notes',
+    editorBold: 'Bold',
+    editorItalic: 'Italic',
+    editorUnderline: 'Underline',
+    editorStrikethrough: 'Strikethrough',
+    editorBulletList: 'Bulleted List',
+    editorNumberedList: 'Numbered List',
+    editorHeading: 'Heading',
+    editorParagraph: 'Normal Text',
+    editorQuote: 'Quote',
+    editorClearFormat: 'Clear Formatting',
+    editorUndo: 'Undo',
+    editorRedo: 'Redo',
     btnCancel: 'Cancel',
     btnSave: 'Save',
     alertProjectValidation: 'Please enter a project name and select or enter a client.',
@@ -989,6 +1023,23 @@ export const translations: Record<Language, TranslationKeys> = {
     lblStartDate: 'Datum početka',
     lblDeadlineDate: 'Rok',
     lblProgressPct: 'Napredak (%)',
+    lblProjectNotes: 'Beleške projekta',
+    phProjectNotes: 'Unesite beleške o projektu, stavke, detalje, nabrajanja...',
+    projectNotesTitle: 'Beleške projekta',
+    noProjectNotes: 'Nema unetih beleški za ovaj projekat.',
+    viewProjectNotes: 'Pogledaj beleške',
+    editorBold: 'Podebljano (Bold)',
+    editorItalic: 'Kurziv (Italic)',
+    editorUnderline: 'Podvučeno',
+    editorStrikethrough: 'Precrtano',
+    editorBulletList: 'Lista sa tačkama (Bulleted)',
+    editorNumberedList: 'Numerisana lista',
+    editorHeading: 'Naslov',
+    editorParagraph: 'Običan tekst',
+    editorQuote: 'Citat',
+    editorClearFormat: 'Ukloni formatiranje',
+    editorUndo: 'Poništi',
+    editorRedo: 'Ponovi',
     btnCancel: 'Otkaži',
     btnSave: 'Sačuvaj',
     alertProjectValidation: 'Molimo unesite naziv projekta i izaberite klijenta.',
@@ -1363,6 +1414,23 @@ export const translations: Record<Language, TranslationKeys> = {
     lblStartDate: 'Датум почетка',
     lblDeadlineDate: 'Рок',
     lblProgressPct: 'Напредак (%)',
+    lblProjectNotes: 'Белешке пројекта',
+    phProjectNotes: 'Унесите белешке о пројекту, ставке, детаље, набрајања...',
+    projectNotesTitle: 'Белешке пројекта',
+    noProjectNotes: 'Нема унетих белешки за овај пројекат.',
+    viewProjectNotes: 'Погледај белешке',
+    editorBold: 'Подебљано (Bold)',
+    editorItalic: 'Курзив (Italic)',
+    editorUnderline: 'Подвучено',
+    editorStrikethrough: 'Прецртано',
+    editorBulletList: 'Листа са тачкама (Bulleted)',
+    editorNumberedList: 'Нумерисана листа',
+    editorHeading: 'Наслов',
+    editorParagraph: 'Обичан текст',
+    editorQuote: 'Цитат',
+    editorClearFormat: 'Уклони форматирање',
+    editorUndo: 'Поништи',
+    editorRedo: 'Понови',
     btnCancel: 'Откажи',
     btnSave: 'Сачувај',
     alertProjectValidation: 'Молимо унесите назив пројекта и изаберите клијента.',
