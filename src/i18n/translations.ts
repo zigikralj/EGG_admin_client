@@ -148,6 +148,16 @@ export interface TranslationKeys {
   colFullName: string;
   colRole: string;
   colGender: string;
+  colOnlineStatus: string;
+  statusOnline: string;
+  statusOffline: string;
+  btnForceLogout: string;
+  confirmForceLogoutTitle: string;
+  confirmForceLogoutMessage: string;
+  msgForceLogoutSuccess: string;
+  quickFilterOnline: string;
+  onlineUsersCount: string;
+  cantForceLogoutSelf: string;
   emptyUsers: string;
 
   // User Modal
@@ -540,6 +550,16 @@ export const translations: Record<Language, TranslationKeys> = {
     colFullName: 'Full Name',
     colRole: 'Role / Position',
     colGender: 'Gender',
+    colOnlineStatus: 'Activity Status',
+    statusOnline: 'Online',
+    statusOffline: 'Offline',
+    btnForceLogout: 'Force Logout',
+    confirmForceLogoutTitle: 'Confirm Force Logout',
+    confirmForceLogoutMessage: 'Are you sure you want to force log out {name}? Their current session will be terminated immediately.',
+    msgForceLogoutSuccess: 'User {name} has been forced to log out.',
+    quickFilterOnline: 'Online',
+    onlineUsersCount: '{count} online',
+    cantForceLogoutSelf: 'You cannot force log out your own active account.',
     emptyUsers: 'No registered users. Click "New User".',
 
     // User Modal
@@ -931,6 +951,16 @@ export const translations: Record<Language, TranslationKeys> = {
     colFullName: 'Ime i prezime',
     colRole: 'Uloga / Pozicija',
     colGender: 'Pol',
+    colOnlineStatus: 'Status aktivnosti',
+    statusOnline: 'Na mreži',
+    statusOffline: 'Van mreže',
+    btnForceLogout: 'Prisilna odjava',
+    confirmForceLogoutTitle: 'Potvrda prisilne odjave',
+    confirmForceLogoutMessage: 'Da li ste sigurni da želite da prisilno odjavite korisnika {name}? Njegova aktivna sesija će biti odmah prekinuta.',
+    msgForceLogoutSuccess: 'Korisnik {name} je uspešno odjavljen.',
+    quickFilterOnline: 'Na mreži',
+    onlineUsersCount: '{count} na mreži',
+    cantForceLogoutSelf: 'Ne možete prisilno odjaviti svoj nalog.',
     emptyUsers: 'Nema registrovanih korisnika. Kliknite na "Novi korisnik".',
 
     // User Modal
@@ -1322,6 +1352,16 @@ export const translations: Record<Language, TranslationKeys> = {
     colFullName: 'Име и презиме',
     colRole: 'Улога / Позиција',
     colGender: 'Пол',
+    colOnlineStatus: 'Статус активности',
+    statusOnline: 'На мрежи',
+    statusOffline: 'Ван мреже',
+    btnForceLogout: 'Присилна одјава',
+    confirmForceLogoutTitle: 'Потврда присилне одјаве',
+    confirmForceLogoutMessage: 'Да ли сте сигурни да желите да присилно одјавите корисника {name}? Његова активна сесија ће бити одмах прекинута.',
+    msgForceLogoutSuccess: 'Корисник {name} је успешно одјављен.',
+    quickFilterOnline: 'На мрежи',
+    onlineUsersCount: '{count} на мрежи',
+    cantForceLogoutSelf: 'Не можете присилно одјавити свој налог.',
     emptyUsers: 'Нема регистрованих корисника. Кликните на "Нови корисник".',
 
     // User Modal

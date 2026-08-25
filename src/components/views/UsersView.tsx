@@ -47,6 +47,7 @@ import BlockIcon from '@mui/icons-material/Block';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
+import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import type { User, SaveResult } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -60,16 +61,17 @@ interface Props {
   onDeleteUser: (id: string) => void;
   onApproveUser?: (userId: string, role: string) => Promise<void>;
   onRejectUser?: (userId: string) => Promise<void>;
+  onForceLogoutUser?: (userId: string) => Promise<void>;
   visibleColumns?: string[];
   onVisibleColumnsChange?: (cols: string[]) => void;
   sortState?: { field: string; direction: 'asc' | 'desc' };
   onSortChange?: (sort: { field: string; direction: 'asc' | 'desc' }) => void;
   initialFilterStatus?: string;
-  quickFilter?: 'all' | 'pending';
-  onQuickFilterChange?: (val: 'all' | 'pending') => void;
+  quickFilter?: 'all' | 'pending' | 'online';
+  onQuickFilterChange?: (val: 'all' | 'pending' | 'online') => void;
 }
 
-const DEFAULT_COLUMNS = ['name', 'role', 'status', 'gender', 'email', 'phone'];
+const DEFAULT_COLUMNS = ['name', 'role', 'status', 'online', 'gender', 'email', 'phone'];
 
 export const UsersView: React.FC<Props> = ({
   users,
@@ -77,6 +79,7 @@ export const UsersView: React.FC<Props> = ({
   onDeleteUser,
   onApproveUser,
   onRejectUser,
+  onForceLogoutUser,
   visibleColumns = DEFAULT_COLUMNS,
   onVisibleColumnsChange,
   sortState,
@@ -86,7 +89,7 @@ export const UsersView: React.FC<Props> = ({
   onQuickFilterChange,
 }) => {
   const { t } = useLanguage();
-  const { canManageUsers, canEditUser, isAdmin } = useAuth();
+  const { canManageUsers, canEditUser, isAdmin, currentUser } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [localColumns, setLocalColumns] = useState<string[]>(visibleColumns);
@@ -100,6 +103,10 @@ export const UsersView: React.FC<Props> = ({
   const [approveUserTarget, setApproveUserTarget] = useState<User | null>(null);
   const [approveRole, setApproveRole] = useState<string>('User');
   const [isSubmittingApprove, setIsSubmittingApprove] = useState(false);
+
+  // Force logout dialog state
+  const [forceLogoutTarget, setForceLogoutTarget] = useState<User | null>(null);
+  const [isSubmittingForceLogout, setIsSubmittingForceLogout] = useState(false);
 
   const [sortColumn, setSortColumn] = useState<string>(sortState?.field || 'name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(sortState?.direction || 'asc');
@@ -183,6 +190,7 @@ export const UsersView: React.FC<Props> = ({
     { id: 'name', label: t('colFullName') },
     { id: 'role', label: t('colRole') },
     { id: 'status', label: t('colApprovalStatus') },
+    { id: 'online', label: t('colOnlineStatus') },
     { id: 'gender', label: t('colGender') },
     { id: 'email', label: t('colEmail') },
     { id: 'phone', label: t('colPhone') },
@@ -276,6 +284,17 @@ export const UsersView: React.FC<Props> = ({
     }
   };
 
+  const handleConfirmForceLogout = async () => {
+    if (!forceLogoutTarget || !onForceLogoutUser) return;
+    setIsSubmittingForceLogout(true);
+    try {
+      await onForceLogoutUser(forceLogoutTarget.id);
+      setForceLogoutTarget(null);
+    } finally {
+      setIsSubmittingForceLogout(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canManageUsers) return;
@@ -323,6 +342,7 @@ export const UsersView: React.FC<Props> = ({
   };
 
   const pendingUsers = users.filter((u) => u.status === 'PENDING');
+  const onlineUsers = users.filter((u) => u.isOnline);
 
   const uniqueRoles = Array.from(
     new Set(users.map((u) => u.role).filter(Boolean))
@@ -334,6 +354,7 @@ export const UsersView: React.FC<Props> = ({
     if (filterStatus === 'pending' && u.status !== 'PENDING') return false;
     if (filterStatus === 'approved' && u.status !== 'APPROVED') return false;
     if (filterStatus === 'blocked' && u.status !== 'BLOCKED') return false;
+    if (filterStatus === 'online' && !u.isOnline) return false;
     return true;
   });
 
@@ -364,6 +385,9 @@ export const UsersView: React.FC<Props> = ({
       }
       case 'status':
         res = (a.status || '').localeCompare(b.status || '');
+        break;
+      case 'online':
+        res = (a.isOnline ? 1 : 0) - (b.isOnline ? 1 : 0);
         break;
       case 'email':
         res = (a.email || '').localeCompare(b.email || '');
@@ -402,6 +426,7 @@ export const UsersView: React.FC<Props> = ({
     { value: 'name', label: t('colFullName') },
     { value: 'role', label: t('colRole') },
     { value: 'status', label: t('colApprovalStatus') },
+    { value: 'online', label: t('colOnlineStatus') },
     { value: 'email', label: t('colEmail') },
     { value: 'phone', label: t('colPhone') },
     { value: 'createdAt', label: t('lblCreatedDate') },
@@ -409,6 +434,7 @@ export const UsersView: React.FC<Props> = ({
 
   const statusOptions = useMemo(() => [
     { value: 'approved', label: t('statusApproved') },
+    { value: 'online', label: t('statusOnline') },
     { value: 'pending', label: t('statusPending') },
     { value: 'blocked', label: t('statusBlocked') },
   ], [t]);
@@ -475,12 +501,12 @@ export const UsersView: React.FC<Props> = ({
           <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, width: { xs: '100%', sm: 'auto' } }}>
             {/* QUICK FILTERS */}
             <ToggleButtonGroup
-              value={filterStatus === 'pending' ? 'pending' : 'all'}
+              value={filterStatus === 'pending' ? 'pending' : filterStatus === 'online' ? 'online' : 'all'}
               exclusive
               onChange={(_, val) => {
                 if (val) {
                   setFilterStatus(val);
-                  onQuickFilterChange?.(val);
+                  onQuickFilterChange?.(val as any);
                 }
               }}
               size="small"
@@ -490,8 +516,11 @@ export const UsersView: React.FC<Props> = ({
               <ToggleButton value="all" sx={{ flex: { xs: 1, sm: 'none' }, px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600 }}>
                 {t('quickFilterAll')}
               </ToggleButton>
+              <ToggleButton value="online" sx={{ flex: { xs: 1, sm: 'none' }, px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600, color: 'success.main' }}>
+                {t('quickFilterOnline')}{onlineUsers.length > 0 ? ` (${onlineUsers.length})` : ''}
+              </ToggleButton>
               <ToggleButton value="pending" sx={{ flex: { xs: 1, sm: 'none' }, px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600 }}>
-                {t('statusPending')}
+                {t('statusPending')}{pendingUsers.length > 0 ? ` (${pendingUsers.length})` : ''}
               </ToggleButton>
             </ToggleButtonGroup>
 
@@ -614,6 +643,17 @@ export const UsersView: React.FC<Props> = ({
                     </TableSortLabel>
                   </TableCell>
                 )}
+                {activeCols.includes('online') && (
+                  <TableCell>
+                    <TableSortLabel
+                      active={sortColumn === 'online'}
+                      direction={sortColumn === 'online' ? sortDirection : 'asc'}
+                      onClick={() => handleSort('online')}
+                    >
+                      {t('colOnlineStatus')}
+                    </TableSortLabel>
+                  </TableCell>
+                )}
                 {activeCols.includes('gender') && (
                   <TableCell>
                     <TableSortLabel
@@ -712,6 +752,44 @@ export const UsersView: React.FC<Props> = ({
                           )}
                         </TableCell>
                       )}
+                      {activeCols.includes('online') && (
+                        <TableCell>
+                          {u.isOnline ? (
+                            <Chip
+                              icon={
+                                <Box
+                                  component="span"
+                                  sx={{
+                                    width: 8,
+                                    height: 8,
+                                    borderRadius: '50%',
+                                    bgcolor: '#4caf50',
+                                    boxShadow: '0 0 0 2px rgba(76, 175, 80, 0.4)',
+                                    animation: 'pulse 1.5s infinite',
+                                    '@keyframes pulse': {
+                                      '0%': { transform: 'scale(0.95)', boxShadow: '0 0 0 0 rgba(76, 175, 80, 0.7)' },
+                                      '70%': { transform: 'scale(1.1)', boxShadow: '0 0 0 5px rgba(76, 175, 80, 0)' },
+                                      '100%': { transform: 'scale(0.95)', boxShadow: '0 0 0 0 rgba(76, 175, 80, 0)' },
+                                    },
+                                  }}
+                                />
+                              }
+                              label={t('statusOnline')}
+                              size="small"
+                              color="success"
+                              variant="outlined"
+                              sx={{ fontWeight: 700, height: 24, fontSize: '0.75rem' }}
+                            />
+                          ) : (
+                            <Chip
+                              label={t('statusOffline')}
+                              size="small"
+                              variant="outlined"
+                              sx={{ height: 22, fontSize: '0.7rem', color: 'text.secondary', borderColor: 'divider' }}
+                            />
+                          )}
+                        </TableCell>
+                      )}
                       {activeCols.includes('gender') && <TableCell>{getGenderLabel(u.gender)}</TableCell>}
                       {activeCols.includes('email') && <TableCell>{u.email || '—'}</TableCell>}
                       {activeCols.includes('phone') && <TableCell>{u.phone || '—'}</TableCell>}
@@ -731,7 +809,24 @@ export const UsersView: React.FC<Props> = ({
                               </Tooltip>
                             </Box>
                           ) : editable ? (
-                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.5 }}>
+                              {u.isOnline && onForceLogoutUser && u.id !== currentUser?.id && (
+                                <Tooltip title={t('btnForceLogout')}>
+                                  <IconButton
+                                    size="small"
+                                    color="error"
+                                    onClick={() => setForceLogoutTarget(u)}
+                                    sx={{
+                                      border: '1px solid',
+                                      borderColor: 'error.light',
+                                      bgcolor: 'rgba(211, 47, 47, 0.04)',
+                                      '&:hover': { bgcolor: 'rgba(211, 47, 47, 0.12)' },
+                                    }}
+                                  >
+                                    <ExitToAppIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
                               <IconButton size="small" color="info" onClick={() => openEdit(u)}>
                                 <EditIcon fontSize="small" />
                               </IconButton>
@@ -976,6 +1071,43 @@ export const UsersView: React.FC<Props> = ({
             </Button>
           </DialogActions>
         </form>
+      </Dialog>
+
+      {/* FORCE LOGOUT CONFIRMATION DIALOG */}
+      <Dialog
+        open={Boolean(forceLogoutTarget)}
+        onClose={() => setForceLogoutTarget(null)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 700, pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <ExitToAppIcon color="error" />
+          {t('confirmForceLogoutTitle')}
+        </DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" sx={{ pt: 1 }}>
+            {t('confirmForceLogoutMessage', { name: forceLogoutTarget?.name || '' })}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button
+            onClick={() => setForceLogoutTarget(null)}
+            variant="outlined"
+            color="inherit"
+            disabled={isSubmittingForceLogout}
+          >
+            {t('btnCancel')}
+          </Button>
+          <Button
+            onClick={handleConfirmForceLogout}
+            variant="contained"
+            color="error"
+            startIcon={<ExitToAppIcon />}
+            disabled={isSubmittingForceLogout}
+          >
+            {isSubmittingForceLogout ? '...' : t('btnForceLogout')}
+          </Button>
+        </DialogActions>
       </Dialog>
 
       <ErrorDialog
