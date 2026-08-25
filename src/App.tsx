@@ -441,6 +441,23 @@ function MainApp() {
     }
   };
 
+  const handleForceLogoutUser = async (userId: string) => {
+    try {
+      const res = await apiFetch(`/api/users/${userId}/force-logout`, {
+        method: 'POST',
+        headers: authHeaders(),
+      });
+      if (res.ok) {
+        fetchAllData();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || err.message || 'Failed to force log out user');
+      }
+    } catch (e) {
+      console.error('Error force logging out user:', e);
+    }
+  };
+
   // SERVICE ACTIONS
   const handleSaveService = async (data: Partial<Service>): Promise<SaveResult> => {
     try {
@@ -762,6 +779,7 @@ function MainApp() {
             onDeleteUser={handleDeleteUser}
             onApproveUser={handleApproveUser}
             onRejectUser={handleRejectUser}
+            onForceLogoutUser={handleForceLogoutUser}
             visibleColumns={userPreferences.cols_users}
             onVisibleColumnsChange={(cols) => updatePreference('cols_users', cols)}
             sortState={userPreferences.sort_users}

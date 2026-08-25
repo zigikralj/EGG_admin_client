@@ -38,6 +38,8 @@ export interface User {
   gender?: string | null;
   isApproved?: boolean;
   status?: string;
+  isOnline?: boolean;
+  lastActiveAt?: string | null;
   createdAt?: string;
 }
 
