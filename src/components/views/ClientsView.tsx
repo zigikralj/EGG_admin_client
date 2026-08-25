@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Card,
   Table,
@@ -21,10 +21,7 @@ import {
   DialogContent,
   DialogActions,
   Grid,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
+  Autocomplete,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
@@ -305,6 +302,24 @@ export const ClientsView: React.FC<Props> = ({
 
   const paginatedClients = sortedClients.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
+  const sortOptions = useMemo(() => [
+    { value: 'name', label: t('colClientName') },
+    { value: 'city', label: t('colCity') },
+    { value: 'contactPerson', label: t('colContactPerson') },
+    { value: 'email', label: t('colEmail') },
+    { value: 'phone', label: t('colPhone') },
+    { value: 'projectCount', label: t('colProjectCount') },
+    { value: 'createdAt', label: t('lblCreatedDate') },
+  ], [t]);
+
+  const operatorOptions = useMemo(() => [
+    { value: 'gt', label: '>' },
+    { value: 'gte', label: '≥' },
+    { value: 'eq', label: '=' },
+    { value: 'lte', label: '≤' },
+    { value: 'lt', label: '<' },
+  ], []);
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%', flex: 1, minHeight: 0 }}>
       {/* TOP ACTION BAR */}
@@ -355,22 +370,20 @@ export const ClientsView: React.FC<Props> = ({
               onClear={clearFilters}
               sortingContent={
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>{t('lblSortBy')}</InputLabel>
-                    <Select
-                      value={sortColumn}
-                      label={t('lblSortBy')}
-                      onChange={(e) => handleSortColumnChange(e.target.value)}
-                    >
-                      <MenuItem value="name">{t('colClientName')}</MenuItem>
-                      <MenuItem value="city">{t('colCity')}</MenuItem>
-                      <MenuItem value="contactPerson">{t('colContactPerson')}</MenuItem>
-                      <MenuItem value="email">{t('colEmail')}</MenuItem>
-                      <MenuItem value="phone">{t('colPhone')}</MenuItem>
-                      <MenuItem value="projectCount">{t('colProjectCount')}</MenuItem>
-                      <MenuItem value="createdAt">{t('lblCreatedDate')}</MenuItem>
-                    </Select>
-                  </FormControl>
+                  <Autocomplete
+                    size="small"
+                    fullWidth
+                    disablePortal
+                    disableClearable
+                    options={sortOptions}
+                    getOptionLabel={(option) => option.label}
+                    isOptionEqualToValue={(option, val) => option.value === val.value}
+                    value={sortOptions.find((o) => o.value === sortColumn) || sortOptions[0]}
+                    onChange={(_, newValue) => {
+                      if (newValue) handleSortColumnChange(newValue.value as any);
+                    }}
+                    renderInput={(params) => <TextField {...params} label={t('lblSortBy')} size="small" />}
+                  />
                   <IconButton
                     size="small"
                     onClick={handleToggleSortDirection}
@@ -383,38 +396,30 @@ export const ClientsView: React.FC<Props> = ({
               }
               filteringContent={
                 <>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>{t('colCity')}</InputLabel>
-                    <Select
-                      value={filterCity}
-                      label={t('colCity')}
-                      onChange={(e) => setFilterCity(e.target.value)}
-                    >
-                      <MenuItem value="all">{t('filterAll')}</MenuItem>
-                      {uniqueCities.map((c) => (
-                        <MenuItem key={c} value={c}>
-                          {c}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <Autocomplete
+                    size="small"
+                    fullWidth
+                    disablePortal
+                    options={uniqueCities}
+                    value={filterCity === 'all' ? null : filterCity}
+                    onChange={(_, newValue) => setFilterCity(newValue || 'all')}
+                    renderInput={(params) => <TextField {...params} label={t('colCity')} size="small" />}
+                  />
 
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <FormControl size="small" sx={{ minWidth: 110 }}>
-                      <InputLabel>{t('colProjectCount')}</InputLabel>
-                      <Select
-                        value={filterProjectCountOp}
-                        label={t('colProjectCount')}
-                        onChange={(e) => setFilterProjectCountOp(e.target.value)}
-                      >
-                        <MenuItem value="all">{t('filterAll')}</MenuItem>
-                        <MenuItem value="gt">&gt;</MenuItem>
-                        <MenuItem value="gte">&ge;</MenuItem>
-                        <MenuItem value="eq">=</MenuItem>
-                        <MenuItem value="lte">&le;</MenuItem>
-                        <MenuItem value="lt">&lt;</MenuItem>
-                      </Select>
-                    </FormControl>
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                    <Autocomplete
+                      size="small"
+                      disablePortal
+                      options={operatorOptions}
+                      getOptionLabel={(option) => option.label}
+                      isOptionEqualToValue={(option, val) => option.value === val.value}
+                      value={operatorOptions.find((o) => o.value === filterProjectCountOp) || null}
+                      onChange={(_, newValue) => {
+                        setFilterProjectCountOp(newValue ? newValue.value : 'all');
+                      }}
+                      sx={{ width: 110 }}
+                      renderInput={(params) => <TextField {...params} label={t('colProjectCount')} size="small" />}
+                    />
                     <TextField
                       size="small"
                       type="number"

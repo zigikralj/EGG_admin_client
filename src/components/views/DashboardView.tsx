@@ -12,10 +12,7 @@ import {
   Divider,
   TextField,
   InputAdornment,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
+  Autocomplete,
   FormGroup,
   FormControlLabel,
   Checkbox,
@@ -93,8 +90,18 @@ export const DashboardView: React.FC<Props> = ({
   useEffect(() => {
     if (quickFiltersProp !== undefined) {
       setQuickFilters(quickFiltersProp);
+      if (quickFiltersProp.includes('my') && currentUser?.name) {
+        setFilterResponsible(currentUser.name);
+      }
+      if (quickFiltersProp.includes('overdue')) {
+        setFilterStatus('overdue');
+      } else if (quickFiltersProp.includes('stale')) {
+        setFilterStatus('stale');
+      } else if (quickFiltersProp.includes('done')) {
+        setFilterStatus('done');
+      }
     }
-  }, [quickFiltersProp]);
+  }, [quickFiltersProp, currentUser?.name]);
 
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterClient, setFilterClient] = useState<string>('all');
@@ -107,6 +114,58 @@ export const DashboardView: React.FC<Props> = ({
     const updated = checked
       ? [...quickFilters, filterKey]
       : quickFilters.filter((k) => k !== filterKey);
+    setQuickFilters(updated);
+    onQuickFiltersChange?.(updated);
+
+    if (filterKey === 'my') {
+      if (checked && currentUser?.name) {
+        setFilterResponsible(currentUser.name);
+      } else if (!checked && currentUser?.name && filterResponsible === currentUser.name) {
+        setFilterResponsible('all');
+      }
+    } else if (filterKey === 'overdue') {
+      if (checked) {
+        setFilterStatus('overdue');
+      } else if (!checked && filterStatus === 'overdue') {
+        setFilterStatus('all');
+      }
+    } else if (filterKey === 'stale') {
+      if (checked) {
+        setFilterStatus('stale');
+      } else if (!checked && filterStatus === 'stale') {
+        setFilterStatus('all');
+      }
+    } else if (filterKey === 'done') {
+      if (checked) {
+        setFilterStatus('done');
+      } else if (!checked && filterStatus === 'done') {
+        setFilterStatus('all');
+      }
+    }
+  };
+
+  const handleFilterResponsibleChange = (val: string) => {
+    setFilterResponsible(val);
+    if (currentUser?.name && val === currentUser.name) {
+      if (!quickFilters.includes('my')) {
+        const updated = [...quickFilters, 'my'];
+        setQuickFilters(updated);
+        onQuickFiltersChange?.(updated);
+      }
+    } else if (quickFilters.includes('my')) {
+      const updated = quickFilters.filter((k) => k !== 'my');
+      setQuickFilters(updated);
+      onQuickFiltersChange?.(updated);
+    }
+  };
+
+  const handleFilterStatusChange = (val: string) => {
+    setFilterStatus(val);
+    const statusKeys = ['overdue', 'stale', 'done'];
+    const updated = quickFilters.filter((k) => !statusKeys.includes(k));
+    if (statusKeys.includes(val)) {
+      updated.push(val);
+    }
     setQuickFilters(updated);
     onQuickFiltersChange?.(updated);
   };
@@ -136,6 +195,28 @@ export const DashboardView: React.FC<Props> = ({
       .filter((r) => !currentName || r.trim().toLowerCase() !== currentName)
       .sort((a, b) => a.localeCompare(b));
   }, [projects, currentUser]);
+
+  const responsibleOptions = useMemo(() => {
+    const list: string[] = [];
+    if (currentUser?.name) list.push(currentUser.name);
+    list.push(...otherResponsibles);
+    return list;
+  }, [currentUser?.name, otherResponsibles]);
+
+  const sortOptions = useMemo(() => [
+    { value: 'deadline', label: t('deadline') },
+    { value: 'name', label: t('colProject') },
+    { value: 'start', label: t('start') },
+    { value: 'progress', label: t('progress') },
+    { value: 'createdAt', label: t('lblCreatedDate') },
+  ], [t]);
+
+  const statusOptions = useMemo(() => [
+    { value: 'creation', label: t('statInCreation') },
+    { value: 'overdue', label: t('statOverdueUrgent') },
+    { value: 'stale', label: t('statStale') },
+    { value: 'done', label: t('statDone') },
+  ], [t]);
 
   const filteredDashboardProjects = useMemo(() => {
     const isStaleProject = (p: Project): boolean => {
@@ -168,7 +249,16 @@ export const DashboardView: React.FC<Props> = ({
 
         if (filterCategory !== 'all' && p.type !== filterCategory) return false;
         if (filterClient !== 'all' && p.clientName !== filterClient) return false;
-        if (filterResponsible !== 'all' && p.responsible !== filterResponsible) return false;
+        if (filterResponsible !== 'all') {
+          const isMyName =
+            currentUser?.name &&
+            filterResponsible === currentUser.name &&
+            ((p.responsible &&
+              currentUser.name &&
+              p.responsible.trim().toLowerCase() === currentUser.name.trim().toLowerCase()) ||
+              ((p as any).responsibleId && (p as any).responsibleId === currentUser.id));
+          if (!isMyName && p.responsible !== filterResponsible) return false;
+        }
         if (filterStatus !== 'all') {
           const stale = isStaleProject(p);
           const late = isLateProject(p);
@@ -662,20 +752,20 @@ export const DashboardView: React.FC<Props> = ({
                   onClear={clearFilters}
                   sortingContent={
                     <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel>{t('lblSortBy')}</InputLabel>
-                        <Select
-                          value={sortOption}
-                          label={t('lblSortBy')}
-                          onChange={(e) => setSortOption(e.target.value as any)}
-                        >
-                          <MenuItem value="deadline">{t('deadline')}</MenuItem>
-                          <MenuItem value="name">{t('colProject')}</MenuItem>
-                          <MenuItem value="start">{t('start')}</MenuItem>
-                          <MenuItem value="progress">{t('progress')}</MenuItem>
-                          <MenuItem value="createdAt">{t('lblCreatedDate')}</MenuItem>
-                        </Select>
-                      </FormControl>
+                      <Autocomplete
+                        size="small"
+                        fullWidth
+                        disablePortal
+                        disableClearable
+                        options={sortOptions}
+                        getOptionLabel={(option) => option.label}
+                        isOptionEqualToValue={(option, val) => option.value === val.value}
+                        value={sortOptions.find((o) => o.value === sortOption) || sortOptions[0]}
+                        onChange={(_, newValue) => {
+                          if (newValue) setSortOption(newValue.value as any);
+                        }}
+                        renderInput={(params) => <TextField {...params} label={t('lblSortBy')} size="small" />}
+                      />
                       <IconButton
                         size="small"
                         onClick={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
@@ -688,73 +778,54 @@ export const DashboardView: React.FC<Props> = ({
                   }
                   filteringContent={
                     <>
-                      <FormControl fullWidth size="small">
-                        <InputLabel>{t('colCategory')}</InputLabel>
-                        <Select
-                          value={filterCategory}
-                          label={t('colCategory')}
-                          onChange={(e) => setFilterCategory(e.target.value)}
-                        >
-                          <MenuItem value="all">{t('filterAll')}</MenuItem>
-                          {uniqueCategories.map((cat) => (
-                            <MenuItem key={cat} value={cat}>
-                              {getServiceLabel(cat, services)}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
+                      <Autocomplete
+                        size="small"
+                        fullWidth
+                        disablePortal
+                        options={uniqueCategories}
+                        getOptionLabel={(cat) => getServiceLabel(cat, services)}
+                        value={filterCategory === 'all' ? null : filterCategory}
+                        onChange={(_, newValue) => setFilterCategory(newValue || 'all')}
+                        renderInput={(params) => <TextField {...params} label={t('colCategory')} size="small" />}
+                      />
 
-                      <FormControl fullWidth size="small">
-                        <InputLabel>{t('colClient')}</InputLabel>
-                        <Select
-                          value={filterClient}
-                          label={t('colClient')}
-                          onChange={(e) => setFilterClient(e.target.value)}
-                        >
-                          <MenuItem value="all">{t('filterAll')}</MenuItem>
-                          {uniqueClients.map((client) => (
-                            <MenuItem key={client} value={client}>
-                              {client}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
+                      <Autocomplete
+                        size="small"
+                        fullWidth
+                        disablePortal
+                        options={uniqueClients}
+                        value={filterClient === 'all' ? null : filterClient}
+                        onChange={(_, newValue) => setFilterClient(newValue || 'all')}
+                        renderInput={(params) => <TextField {...params} label={t('colClient')} size="small" />}
+                      />
 
-                      <FormControl fullWidth size="small">
-                        <InputLabel>{t('colResponsible')}</InputLabel>
-                        <Select
-                          value={filterResponsible}
-                          label={t('colResponsible')}
-                          onChange={(e) => setFilterResponsible(e.target.value)}
-                        >
-                          <MenuItem value="all">{t('filterAll')}</MenuItem>
-                          {currentUser?.name && (
-                            <MenuItem value={currentUser.name}>
-                              {t('lblMe')} ({currentUser.name})
-                            </MenuItem>
-                          )}
-                          {otherResponsibles.map((resp) => (
-                            <MenuItem key={resp} value={resp}>
-                              {resp}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
+                      <Autocomplete
+                        size="small"
+                        fullWidth
+                        disablePortal
+                        options={responsibleOptions}
+                        getOptionLabel={(option) => {
+                          if (currentUser?.name && option === currentUser.name) {
+                            return `${t('lblMe')} (${currentUser.name})`;
+                          }
+                          return option;
+                        }}
+                        value={filterResponsible === 'all' ? null : filterResponsible}
+                        onChange={(_, newValue) => handleFilterResponsibleChange(newValue || 'all')}
+                        renderInput={(params) => <TextField {...params} label={t('colResponsible')} size="small" />}
+                      />
 
-                      <FormControl fullWidth size="small">
-                        <InputLabel>{t('colDeadlineStatus')}</InputLabel>
-                        <Select
-                          value={filterStatus}
-                          label={t('colDeadlineStatus')}
-                          onChange={(e) => setFilterStatus(e.target.value)}
-                        >
-                          <MenuItem value="all">{t('filterAll')}</MenuItem>
-                          <MenuItem value="creation">{t('statInCreation')}</MenuItem>
-                          <MenuItem value="overdue">{t('statOverdueUrgent')}</MenuItem>
-                          <MenuItem value="stale">{t('statStale')}</MenuItem>
-                          <MenuItem value="done">{t('statDone')}</MenuItem>
-                        </Select>
-                      </FormControl>
+                      <Autocomplete
+                        size="small"
+                        fullWidth
+                        disablePortal
+                        options={statusOptions}
+                        getOptionLabel={(option) => option.label}
+                        isOptionEqualToValue={(option, val) => option.value === val.value}
+                        value={statusOptions.find((o) => o.value === filterStatus) || null}
+                        onChange={(_, newValue) => handleFilterStatusChange(newValue ? newValue.value : 'all')}
+                        renderInput={(params) => <TextField {...params} label={t('colDeadlineStatus')} size="small" />}
+                      />
                     </>
                   }
                 />

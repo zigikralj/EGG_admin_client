@@ -15,6 +15,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import LockIcon from '@mui/icons-material/Lock';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import ErrorIcon from '@mui/icons-material/Error';
+import NotesIcon from '@mui/icons-material/Notes';
 import type { Project, Service } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
@@ -197,13 +198,51 @@ export const ProjectCard: React.FC<Props> = ({
           {p.name}
         </Typography>
 
-        <Stack direction="row" spacing={1} sx={{ mb: 1.5 }}>
+        <Stack direction="row" spacing={1} sx={{ mb: 1.5, flexWrap: 'wrap', gap: 0.5 }}>
           <Chip
             label={getServiceLabel(p.type, services)}
             size="small"
             color={p.done ? 'default' : 'primary'}
             variant={p.done ? 'outlined' : 'filled'}
           />
+          {p.notes && (
+            <Tooltip
+              title={
+                <Box
+                  sx={{
+                    p: 0.5,
+                    maxHeight: 250,
+                    maxWidth: 300,
+                    overflowY: 'auto',
+                    fontSize: '0.8rem',
+                    '& p': { m: 0, mb: 0.5 },
+                    '& ul, & ol': { m: 0, pl: 2 },
+                    '& blockquote': { m: 0, pl: 1, borderLeft: '2px solid white' },
+                  }}
+                  dangerouslySetInnerHTML={{ __html: p.notes }}
+                />
+              }
+              arrow
+            >
+              <Chip
+                icon={<NotesIcon sx={{ fontSize: '0.9rem !important' }} />}
+                label={t('lblProjectNotes')}
+                size="small"
+                variant="outlined"
+                onClick={() => onEdit(p)}
+                sx={{
+                  height: 24,
+                  fontSize: '0.75rem',
+                  cursor: 'pointer',
+                  borderColor: 'primary.light',
+                  color: 'primary.main',
+                  '&:hover': {
+                    bgcolor: 'action.hover',
+                  },
+                }}
+              />
+            </Tooltip>
+          )}
         </Stack>
 
         {/* BOTTOM SECTION: Responsible person, progress and dates aligned to bottom */}

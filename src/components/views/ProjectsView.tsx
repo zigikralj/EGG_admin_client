@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Card,
   Table,
@@ -16,12 +16,10 @@ import {
   Box,
   Typography,
   InputAdornment,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
+  Autocomplete,
   ToggleButtonGroup,
   ToggleButton,
+  Tooltip,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
@@ -29,6 +27,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import NotesIcon from '@mui/icons-material/Notes';
 import type { Project, Service } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -148,6 +147,15 @@ export const ProjectsView: React.FC<Props> = ({
       setQuickFilter(quickFilterProp);
       if (quickFilterProp === 'my' && currentUser?.name) {
         setFilterResponsible(currentUser.name);
+      } else if (quickFilterProp === 'overdue') {
+        setFilterStatus('overdue');
+      } else if (quickFilterProp === 'all') {
+        if (currentUser?.name && filterResponsible === currentUser.name) {
+          setFilterResponsible('all');
+        }
+        if (filterStatus === 'overdue') {
+          setFilterStatus('all');
+        }
       }
     }
   }, [quickFilterProp, currentUser?.name]);
@@ -155,10 +163,18 @@ export const ProjectsView: React.FC<Props> = ({
   const handleQuickFilterChange = (val: 'all' | 'my' | 'active' | 'overdue') => {
     setQuickFilter(val);
     onQuickFilterChange?.(val);
-    if (val === 'my' && currentUser?.name) {
-      setFilterResponsible(currentUser.name);
-    } else if (val !== 'my' && currentUser?.name && filterResponsible === currentUser.name) {
-      setFilterResponsible('all');
+    if (val === 'my') {
+      if (currentUser?.name) setFilterResponsible(currentUser.name);
+      if (filterStatus === 'overdue') setFilterStatus('all');
+    } else if (val === 'overdue') {
+      setFilterStatus('overdue');
+      if (currentUser?.name && filterResponsible === currentUser.name) setFilterResponsible('all');
+    } else if (val === 'all') {
+      if (currentUser?.name && filterResponsible === currentUser.name) setFilterResponsible('all');
+      if (filterStatus === 'overdue') setFilterStatus('all');
+    } else if (val === 'active') {
+      if (currentUser?.name && filterResponsible === currentUser.name) setFilterResponsible('all');
+      if (filterStatus === 'overdue') setFilterStatus('all');
     }
   };
 
@@ -175,8 +191,19 @@ export const ProjectsView: React.FC<Props> = ({
     }
   };
 
+  const handleFilterStatusChange = (val: string) => {
+    setFilterStatus(val);
+    if (val === 'overdue') {
+      setQuickFilter('overdue');
+      onQuickFilterChange?.('overdue');
+    } else if (quickFilter === 'overdue') {
+      setQuickFilter('all');
+      onQuickFilterChange?.('all');
+    }
+  };
+
   const activeFilterCount =
-    (quickFilter === 'active' || quickFilter === 'overdue' ? 1 : 0) +
+    (quickFilter === 'active' ? 1 : 0) +
     (filterCategory !== 'all' ? 1 : 0) +
     (filterClient !== 'all' ? 1 : 0) +
     (filterStatus !== 'all' ? 1 : 0) +
@@ -212,6 +239,7 @@ export const ProjectsView: React.FC<Props> = ({
     { id: 'deadline', label: t('deadline') },
     { id: 'progress', label: t('progress') },
     { id: 'status', label: t('colDeadlineStatus') },
+    { id: 'notes', label: t('lblProjectNotes') },
   ];
 
   const uniqueCategories = Array.from(new Set(projects.map((p) => p.type).filter(Boolean)));
@@ -237,7 +265,14 @@ export const ProjectsView: React.FC<Props> = ({
 
     if (filterCategory !== 'all' && p.type !== filterCategory) return false;
     if (filterClient !== 'all' && p.clientName !== filterClient) return false;
-    if (filterResponsible !== 'all' && p.responsible !== filterResponsible) return false;
+    if (filterResponsible !== 'all') {
+      const isMyName =
+        currentUser?.name &&
+        filterResponsible === currentUser.name &&
+        ((p.responsible && currentUser.name && p.responsible.trim().toLowerCase() === currentUser.name.trim().toLowerCase()) ||
+          ((p as any).responsibleId && (p as any).responsibleId === currentUser.id));
+      if (!isMyName && p.responsible !== filterResponsible) return false;
+    }
     if (filterStatus !== 'all') {
       const stale = isStale(p.start, p.done);
       const late = isLate(p.deadline, p.done);
@@ -327,6 +362,32 @@ export const ProjectsView: React.FC<Props> = ({
 
   const paginatedProjects = sortedProjects.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
+  const responsibleOptions = useMemo(() => {
+    const list: string[] = [];
+    if (currentUser?.name) list.push(currentUser.name);
+    list.push(...otherResponsibles);
+    return list;
+  }, [currentUser?.name, otherResponsibles]);
+
+  const sortOptions = useMemo(() => [
+    { value: 'name', label: t('colProject') },
+    { value: 'client', label: t('colClient') },
+    { value: 'category', label: t('colCategory') },
+    { value: 'responsible', label: t('colResponsible') },
+    { value: 'progress', label: t('progress') },
+    { value: 'start', label: t('start') },
+    { value: 'deadline', label: t('deadline') },
+    { value: 'status', label: t('colDeadlineStatus') },
+    { value: 'createdAt', label: t('lblCreatedDate') },
+  ], [t]);
+
+  const statusOptions = useMemo(() => [
+    { value: 'creation', label: t('statInCreation') },
+    { value: 'overdue', label: t('statOverdueUrgent') },
+    { value: 'stale', label: t('statStale') },
+    { value: 'done', label: t('statDone') },
+  ], [t]);
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%', flex: 1, minHeight: 0 }}>
       {/* TOP ACTION BAR */}
@@ -397,24 +458,20 @@ export const ProjectsView: React.FC<Props> = ({
               onClear={clearFilters}
               sortingContent={
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>{t('lblSortBy')}</InputLabel>
-                    <Select
-                      value={sortColumn}
-                      label={t('lblSortBy')}
-                      onChange={(e) => handleSortColumnChange(e.target.value)}
-                    >
-                      <MenuItem value="name">{t('colProject')}</MenuItem>
-                      <MenuItem value="client">{t('colClient')}</MenuItem>
-                      <MenuItem value="category">{t('colCategory')}</MenuItem>
-                      <MenuItem value="responsible">{t('colResponsible')}</MenuItem>
-                      <MenuItem value="progress">{t('progress')}</MenuItem>
-                      <MenuItem value="start">{t('start')}</MenuItem>
-                      <MenuItem value="deadline">{t('deadline')}</MenuItem>
-                      <MenuItem value="status">{t('colDeadlineStatus')}</MenuItem>
-                      <MenuItem value="createdAt">{t('lblCreatedDate')}</MenuItem>
-                    </Select>
-                  </FormControl>
+                  <Autocomplete
+                    size="small"
+                    fullWidth
+                    disablePortal
+                    disableClearable
+                    options={sortOptions}
+                    getOptionLabel={(option) => option.label}
+                    isOptionEqualToValue={(option, val) => option.value === val.value}
+                    value={sortOptions.find((o) => o.value === sortColumn) || sortOptions[0]}
+                    onChange={(_, newValue) => {
+                      if (newValue) handleSortColumnChange(newValue.value as any);
+                    }}
+                    renderInput={(params) => <TextField {...params} label={t('lblSortBy')} size="small" />}
+                  />
                   <IconButton
                     size="small"
                     onClick={handleToggleSortDirection}
@@ -427,73 +484,54 @@ export const ProjectsView: React.FC<Props> = ({
               }
               filteringContent={
                 <>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>{t('colCategory')}</InputLabel>
-                    <Select
-                      value={filterCategory}
-                      label={t('colCategory')}
-                      onChange={(e) => setFilterCategory(e.target.value)}
-                    >
-                      <MenuItem value="all">{t('filterAll')}</MenuItem>
-                      {uniqueCategories.map((cat) => (
-                        <MenuItem key={cat} value={cat}>
-                          {getServiceLabel(cat, services)}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <Autocomplete
+                    size="small"
+                    fullWidth
+                    disablePortal
+                    options={uniqueCategories}
+                    getOptionLabel={(cat) => getServiceLabel(cat, services)}
+                    value={filterCategory === 'all' ? null : filterCategory}
+                    onChange={(_, newValue) => setFilterCategory(newValue || 'all')}
+                    renderInput={(params) => <TextField {...params} label={t('colCategory')} size="small" />}
+                  />
 
-                  <FormControl fullWidth size="small">
-                    <InputLabel>{t('colClient')}</InputLabel>
-                    <Select
-                      value={filterClient}
-                      label={t('colClient')}
-                      onChange={(e) => setFilterClient(e.target.value)}
-                    >
-                      <MenuItem value="all">{t('filterAll')}</MenuItem>
-                      {uniqueClients.map((client) => (
-                        <MenuItem key={client} value={client}>
-                          {client}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <Autocomplete
+                    size="small"
+                    fullWidth
+                    disablePortal
+                    options={uniqueClients}
+                    value={filterClient === 'all' ? null : filterClient}
+                    onChange={(_, newValue) => setFilterClient(newValue || 'all')}
+                    renderInput={(params) => <TextField {...params} label={t('colClient')} size="small" />}
+                  />
 
-                  <FormControl fullWidth size="small">
-                    <InputLabel>{t('colResponsible')}</InputLabel>
-                    <Select
-                      value={filterResponsible}
-                      label={t('colResponsible')}
-                      onChange={(e) => handleFilterResponsibleChange(e.target.value)}
-                    >
-                      <MenuItem value="all">{t('filterAll')}</MenuItem>
-                      {currentUser?.name && (
-                        <MenuItem value={currentUser.name}>
-                          {t('lblMe')} ({currentUser.name})
-                        </MenuItem>
-                      )}
-                      {otherResponsibles.map((resp) => (
-                        <MenuItem key={resp} value={resp}>
-                          {resp}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <Autocomplete
+                    size="small"
+                    fullWidth
+                    disablePortal
+                    options={responsibleOptions}
+                    getOptionLabel={(option) => {
+                      if (currentUser?.name && option === currentUser.name) {
+                        return `${t('lblMe')} (${currentUser.name})`;
+                      }
+                      return option;
+                    }}
+                    value={filterResponsible === 'all' ? null : filterResponsible}
+                    onChange={(_, newValue) => handleFilterResponsibleChange(newValue || 'all')}
+                    renderInput={(params) => <TextField {...params} label={t('colResponsible')} size="small" />}
+                  />
 
-                  <FormControl fullWidth size="small">
-                    <InputLabel>{t('colDeadlineStatus')}</InputLabel>
-                    <Select
-                      value={filterStatus}
-                      label={t('colDeadlineStatus')}
-                      onChange={(e) => setFilterStatus(e.target.value)}
-                    >
-                      <MenuItem value="all">{t('filterAll')}</MenuItem>
-                      <MenuItem value="creation">{t('statInCreation')}</MenuItem>
-                      <MenuItem value="overdue">{t('statOverdueUrgent')}</MenuItem>
-                      <MenuItem value="stale">{t('statStale')}</MenuItem>
-                      <MenuItem value="done">{t('statDone')}</MenuItem>
-                    </Select>
-                  </FormControl>
+                  <Autocomplete
+                    size="small"
+                    fullWidth
+                    disablePortal
+                    options={statusOptions}
+                    getOptionLabel={(option) => option.label}
+                    isOptionEqualToValue={(option, val) => option.value === val.value}
+                    value={statusOptions.find((o) => o.value === filterStatus) || null}
+                    onChange={(_, newValue) => handleFilterStatusChange(newValue ? newValue.value : 'all')}
+                    renderInput={(params) => <TextField {...params} label={t('colDeadlineStatus')} size="small" />}
+                  />
                 </>
               }
             />
@@ -599,6 +637,9 @@ export const ProjectsView: React.FC<Props> = ({
                     </TableSortLabel>
                   </TableCell>
                 )}
+                {activeCols.includes('notes') && (
+                  <TableCell>{t('lblProjectNotes')}</TableCell>
+                )}
                 <TableCell align="right">{t('colActions')}</TableCell>
               </TableRow>
             </TableHead>
@@ -669,6 +710,60 @@ export const ProjectsView: React.FC<Props> = ({
                             <Chip label={t('staleFlag')} size="small" color="warning" />
                           ) : (
                             <Chip label={t('statInCreation')} size="small" color="success" variant="outlined" />
+                          )}
+                        </TableCell>
+                      )}
+                      {activeCols.includes('notes') && (
+                        <TableCell sx={{ maxWidth: 220 }}>
+                          {p.notes ? (
+                            <Tooltip
+                              title={
+                                <Box
+                                  sx={{
+                                    p: 0.5,
+                                    maxHeight: 250,
+                                    maxWidth: 320,
+                                    overflowY: 'auto',
+                                    fontSize: '0.8rem',
+                                    '& p': { m: 0, mb: 0.5 },
+                                    '& ul, & ol': { m: 0, pl: 2 },
+                                    '& blockquote': { m: 0, pl: 1, borderLeft: '2px solid white' },
+                                  }}
+                                  dangerouslySetInnerHTML={{ __html: p.notes }}
+                                />
+                              }
+                              arrow
+                            >
+                              <Box
+                                sx={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: 0.75,
+                                  cursor: 'pointer',
+                                  color: 'primary.main',
+                                  fontWeight: 500,
+                                }}
+                                onClick={() => onEdit(p)}
+                              >
+                                <NotesIcon fontSize="small" sx={{ flexShrink: 0 }} />
+                                <Typography
+                                  variant="caption"
+                                  sx={{
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    maxWidth: 160,
+                                    color: 'text.primary',
+                                  }}
+                                >
+                                  {p.notes.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim() || t('viewProjectNotes')}
+                                </Typography>
+                              </Box>
+                            </Tooltip>
+                          ) : (
+                            <Typography variant="caption" color="text.secondary">
+                              —
+                            </Typography>
                           )}
                         </TableCell>
                       )}
