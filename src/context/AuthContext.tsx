@@ -31,6 +31,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [users, setUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     try {
+      const expiresAt = localStorage.getItem('auth_session_expires_at');
+      if (expiresAt && Date.now() >= Number(expiresAt)) {
+        localStorage.removeItem('auth_user');
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_session_expires_at');
+        return null;
+      }
       const stored = localStorage.getItem('auth_user');
       if (stored) {
         const parsed = JSON.parse(stored);
@@ -59,6 +66,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = React.useCallback(() => {
     localStorage.removeItem('auth_user');
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_session_expires_at');
     setCurrentUser(null);
   }, []);
 
@@ -110,6 +119,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => clearInterval(interval);
   }, [currentUser, logout]);
 
+  useEffect(() => {
+    const checkSession = () => {
+      const expiresAt = localStorage.getItem('auth_session_expires_at');
+      if (expiresAt && Date.now() >= Number(expiresAt)) {
+        logout();
+      }
+    };
+
+    const onAuthExpired = () => {
+      logout();
+    };
+
+    window.addEventListener('auth:expired', onAuthExpired);
+    const interval = setInterval(checkSession, 15000); // Check every 15 seconds
+
+    return () => {
+      window.removeEventListener('auth:expired', onAuthExpired);
+      clearInterval(interval);
+    };
+  }, [logout]);
+
   const login = React.useCallback(async (emailOrName: string, password: string) => {
     try {
       const res = await apiFetch('/api/auth/login', {
@@ -130,6 +160,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (data.user) {
         setCurrentUser(data.user);
         localStorage.setItem('auth_user', JSON.stringify(data.user));
+        if (data.token) {
+          localStorage.setItem('auth_token', data.token);
+        }
+        const expiresInMs = (data.expiresIn || 9 * 3600) * 1000;
+        localStorage.setItem('auth_session_expires_at', (Date.now() + expiresInMs).toString());
         return { success: true };
       }
       return { success: false, message: 'Invalid response from server.' };
