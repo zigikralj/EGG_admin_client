@@ -25,6 +25,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import NotesIcon from '@mui/icons-material/Notes';
@@ -42,6 +43,7 @@ interface Props {
   onOpenNew: () => void;
   onToggleDone?: (id: string) => void;
   onMarkSampled?: (id: string) => void;
+  onView?: (project: Project) => void;
   onEdit: (project: Project) => void;
   onDelete: (id: string) => void;
   visibleColumns?: string[];
@@ -81,6 +83,7 @@ export const ProjectsView: React.FC<Props> = ({
   searchQuery,
   onSearchChange,
   onOpenNew,
+  onView,
   onEdit,
   onDelete,
   visibleColumns = DEFAULT_COLUMNS,
@@ -233,7 +236,7 @@ export const ProjectsView: React.FC<Props> = ({
   const columnDefs: ColumnDef[] = [
     { id: 'name', label: t('colProject') },
     { id: 'client', label: t('colClient') },
-    { id: 'category', label: t('colCategory') },
+    { id: 'category', label: t('colService') },
     { id: 'responsible', label: t('colResponsible') },
     { id: 'start', label: t('start') },
     { id: 'deadline', label: t('deadline') },
@@ -372,7 +375,7 @@ export const ProjectsView: React.FC<Props> = ({
   const sortOptions = useMemo(() => [
     { value: 'name', label: t('colProject') },
     { value: 'client', label: t('colClient') },
-    { value: 'category', label: t('colCategory') },
+    { value: 'category', label: t('colService') },
     { value: 'responsible', label: t('colResponsible') },
     { value: 'progress', label: t('progress') },
     { value: 'start', label: t('start') },
@@ -492,7 +495,7 @@ export const ProjectsView: React.FC<Props> = ({
                     getOptionLabel={(cat) => getServiceLabel(cat, services)}
                     value={filterCategory === 'all' ? null : filterCategory}
                     onChange={(_, newValue) => setFilterCategory(newValue || 'all')}
-                    renderInput={(params) => <TextField {...params} label={t('colCategory')} size="small" />}
+                    renderInput={(params) => <TextField {...params} label={t('colService')} size="small" />}
                   />
 
                   <Autocomplete
@@ -578,7 +581,7 @@ export const ProjectsView: React.FC<Props> = ({
                       direction={sortColumn === 'category' ? sortDirection : 'asc'}
                       onClick={() => handleSort('category')}
                     >
-                      {t('colCategory')}
+                      {t('colService')}
                     </TableSortLabel>
                   </TableCell>
                 )}
@@ -659,7 +662,20 @@ export const ProjectsView: React.FC<Props> = ({
                     <TableRow key={p.id} hover>
                       {activeCols.includes('name') && (
                         <TableCell>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                          <Typography
+                            variant="subtitle2"
+                            onClick={() => (onView ? onView(p) : onEdit(p))}
+                            sx={{
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              color: 'text.primary',
+                              transition: 'color 0.15s ease',
+                              '&:hover': {
+                                color: 'primary.main',
+                                textDecoration: 'underline',
+                              },
+                            }}
+                          >
                             {p.name}
                           </Typography>
                         </TableCell>
@@ -668,14 +684,7 @@ export const ProjectsView: React.FC<Props> = ({
                         <TableCell>{p.clientName || '—'}</TableCell>
                       )}
                       {activeCols.includes('category') && (
-                        <TableCell>
-                          <Chip
-                            label={getServiceLabel(p.type, services)}
-                            size="small"
-                            color="primary"
-                            variant="outlined"
-                          />
-                        </TableCell>
+                        <TableCell>{getServiceLabel(p.type, services)}</TableCell>
                       )}
                       {activeCols.includes('responsible') && (
                         <TableCell>{p.responsible || '—'}</TableCell>
@@ -743,7 +752,7 @@ export const ProjectsView: React.FC<Props> = ({
                                   color: 'primary.main',
                                   fontWeight: 500,
                                 }}
-                                onClick={() => onEdit(p)}
+                                onClick={() => (onView ? onView(p) : onEdit(p))}
                               >
                                 <NotesIcon fontSize="small" sx={{ flexShrink: 0 }} />
                                 <Typography
@@ -768,16 +777,27 @@ export const ProjectsView: React.FC<Props> = ({
                         </TableCell>
                       )}
                       <TableCell align="right">
-                        {editable && (
-                          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
-                            <IconButton size="small" color="info" onClick={() => onEdit(p)}>
-                              <EditIcon fontSize="small" />
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+                          <Tooltip title={t('btnView')}>
+                            <IconButton size="small" color="primary" onClick={() => (onView ? onView(p) : onEdit(p))}>
+                              <VisibilityIcon fontSize="small" />
                             </IconButton>
-                            <IconButton size="small" color="error" onClick={() => onDelete(p.id)}>
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Box>
-                        )}
+                          </Tooltip>
+                          {editable && (
+                            <>
+                              <Tooltip title={t('btnEdit')}>
+                                <IconButton size="small" color="info" onClick={() => onEdit(p)}>
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title={t('btnDelete')}>
+                                <IconButton size="small" color="error" onClick={() => onDelete(p.id)}>
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </>
+                          )}
+                        </Box>
                       </TableCell>
                     </TableRow>
                   );

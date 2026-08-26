@@ -472,6 +472,8 @@ export const RemindersView: React.FC<Props> = ({
       case 'overdue':
       case 'prekoračeno':
       case 'прекорачено':
+      case 'kasni':
+      case 'касни':
         return <Chip label={t('statusOverdue')} color="error" size="small" sx={{ fontWeight: 600 }} />;
       case 'pending':
       case 'na čekanju':

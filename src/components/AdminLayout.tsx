@@ -67,6 +67,7 @@ import ViewQuiltIcon from '@mui/icons-material/ViewQuilt';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import MenuIcon from '@mui/icons-material/Menu';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import type { ActiveTab, DashboardSubTab, ProjectStats } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { useThemeContext } from '../context/ThemeContext';
@@ -88,7 +89,7 @@ interface Props {
   children: React.ReactNode;
 }
 
-type EntityType = 'projects' | 'clients' | 'users' | 'services' | 'categories' | 'reminders';
+type EntityType = 'projects' | 'clients' | 'users' | 'services' | 'categories' | 'reminders' | 'invoices';
 
 const tabTranslationKeys: Record<ActiveTab, keyof TranslationKeys> = {
   dashboard: 'tabDashboard',
@@ -98,6 +99,7 @@ const tabTranslationKeys: Record<ActiveTab, keyof TranslationKeys> = {
   services: 'tabServices',
   categories: 'tabCategories',
   reminders: 'tabReminders',
+  invoices: 'tabInvoices',
 };
 
 const DRAWER_WIDTH = 250;
@@ -327,7 +329,7 @@ export const AdminLayout: React.FC<Props> = ({
         return [
           { id: 'name', label: t('colProject') },
           { id: 'client', label: t('colClient') },
-          { id: 'category', label: t('colCategory') },
+          { id: 'category', label: t('colService') },
           { id: 'responsible', label: t('colResponsible') },
           { id: 'start', label: t('start') },
           { id: 'deadline', label: t('deadline') },
@@ -372,6 +374,17 @@ export const AdminLayout: React.FC<Props> = ({
           { id: 'status', label: t('colStatus') },
           { id: 'notes', label: t('colNotes') },
         ];
+      case 'invoices':
+        return [
+          { id: 'invoiceNumber', label: t('colInvoiceNumber') },
+          { id: 'client', label: t('lblClient') },
+          { id: 'project', label: t('tabProjects') },
+          { id: 'dateCreated', label: t('colDateCreated') },
+          { id: 'dueDate', label: t('colDueDate') },
+          { id: 'paymentDate', label: t('colPaymentDate') },
+          { id: 'totalAmount', label: t('colTotalAmount') },
+          { id: 'status', label: t('lblInvoiceStatus') },
+        ];
       default:
         return [];
     }
@@ -395,6 +408,8 @@ export const AdminLayout: React.FC<Props> = ({
         return ['name', 'description'];
       case 'reminders':
         return ['project', 'client', 'responsible', 'status', 'notes'];
+      case 'invoices':
+        return ['invoiceNumber', 'client', 'project', 'dateCreated', 'dueDate', 'totalAmount', 'status'];
     }
   };
 
@@ -413,6 +428,7 @@ export const AdminLayout: React.FC<Props> = ({
     { id: 'services' as ActiveTab, label: t('tabServices'), icon: <BuildIcon />, count: 0, show: !isUser },
     { id: 'categories' as ActiveTab, label: t('tabCategories'), icon: <CategoryIcon />, count: stats.categoriesCount || 0, show: !isUser },
     { id: 'reminders' as ActiveTab, label: t('tabReminders'), icon: <NotificationsActiveIcon />, count: stats.monitor, show: !isUser, color: 'error' },
+    { id: 'invoices' as ActiveTab, label: t('tabInvoices'), icon: <ReceiptLongIcon />, count: stats.invoicesCount || 0, show: !isUser },
   ];
 
   return (
@@ -1112,6 +1128,7 @@ export const AdminLayout: React.FC<Props> = ({
                     <MenuItem value="services">{t('tabServices')}</MenuItem>
                     <MenuItem value="categories">{t('tabCategories')}</MenuItem>
                     <MenuItem value="reminders">{t('tabReminders')}</MenuItem>
+                    <MenuItem value="invoices">{t('tabInvoices')}</MenuItem>
                   </Select>
                 </FormControl>
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import type {
   Project,
   Client,
@@ -6,6 +6,7 @@ import type {
   Service,
   Category,
   Reminder,
+  Invoice,
   ProjectStats,
   ActiveTab,
   DashboardSubTab,
@@ -22,7 +23,9 @@ import { UsersView } from './components/views/UsersView';
 import { ServicesView } from './components/views/ServicesView';
 import { CategoriesView } from './components/views/CategoriesView';
 import { RemindersView } from './components/views/RemindersView';
+import { InvoicesView } from './components/views/InvoicesView';
 import { ProjectModal } from './components/ProjectModal';
+import { ProjectViewModal } from './components/ProjectViewModal';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { ConfirmDeleteDialog } from './components/ConfirmDeleteDialog';
 import { LoginView } from './components/auth/LoginView';
@@ -41,6 +44,7 @@ function MainApp() {
   const [services, setServices] = useState<Service[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [stats, setStats] = useState<ProjectStats>({
     active: 0,
     done: 0,
@@ -55,6 +59,25 @@ function MainApp() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [isProjectViewModalOpen, setIsProjectViewModalOpen] = useState(false);
+  const [viewingProject, setViewingProject] = useState<Project | null>(null);
+
+  const currentViewingProject = useMemo(() => {
+    if (!viewingProject) return null;
+    return projects.find((p) => p.id === viewingProject.id) || viewingProject;
+  }, [projects, viewingProject]);
+
+  const handleViewProject = (p: Project) => {
+    setViewingProject(p);
+    setIsProjectViewModalOpen(true);
+  };
+
+  const handleEditProject = (p: Project | null) => {
+    setIsProjectViewModalOpen(false);
+    setViewingProject(null);
+    setEditingProject(p);
+    setIsProjectModalOpen(true);
+  };
 
   const [deleteConfirmState, setDeleteConfirmState] = useState<{
     open: boolean;
@@ -124,13 +147,14 @@ function MainApp() {
       const q = searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : '';
       const headers = authHeaders();
 
-      const [pRes, cRes, uRes, sRes, catRes, remRes, stRes] = await Promise.all([
+      const [pRes, cRes, uRes, sRes, catRes, remRes, invRes, stRes] = await Promise.all([
         apiFetch(`/api/projects${q}`, { headers }),
         apiFetch('/api/clients', { headers }),
         apiFetch('/api/users', { headers }),
         apiFetch('/api/services', { headers }),
         apiFetch('/api/categories', { headers }),
         apiFetch('/api/reminders', { headers }),
+        apiFetch('/api/invoices', { headers }),
         apiFetch('/api/projects/stats', { headers }),
       ]);
 
@@ -159,6 +183,9 @@ function MainApp() {
       if (remRes.ok) {
         fetchedReminders = await remRes.json();
         setReminders(fetchedReminders);
+      }
+      if (invRes.ok) {
+        setInvoices(await invRes.json());
       }
       if (stRes.ok) {
         const fetchedStats: ProjectStats = await stRes.json();
@@ -279,8 +306,10 @@ function MainApp() {
       }
 
       if (res.ok) {
-        setIsProjectModalOpen(false);
-        setEditingProject(null);
+        if (isProjectModalOpen) {
+          setIsProjectModalOpen(false);
+          setEditingProject(null);
+        }
         fetchAllData();
         return { success: true };
       } else {
@@ -644,6 +673,80 @@ function MainApp() {
     }
   };
 
+
+  // INVOICE ACTIONS
+  const handleSaveInvoice = async (data: Partial<Invoice>): Promise<SaveResult> => {
+    try {
+      let res;
+      const headers = {
+        'Content-Type': 'application/json',
+        ...authHeaders(),
+      };
+
+      if (data.id) {
+        res = await apiFetch(`/api/invoices/${data.id}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify(data),
+        });
+      } else {
+        res = await apiFetch('/api/invoices', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(data),
+        });
+      }
+
+      if (res.ok) {
+        fetchAllData();
+        return { success: true };
+      } else {
+        const err = await res.json().catch(() => ({}));
+        return { success: false, error: err.error || err.message || 'Error saving invoice' };
+      }
+    } catch (e: any) {
+      console.error(e);
+      return { success: false, error: e?.message || 'Error saving invoice' };
+    }
+  };
+
+  const handleDeleteInvoice = (id: string) => {
+    askDeleteConfirm(t('confirmDeleteInvoice'), async () => {
+      try {
+        const res = await apiFetch(`/api/invoices/${id}`, {
+          method: 'DELETE',
+          headers: authHeaders(),
+        });
+        if (res.ok) {
+          fetchAllData();
+        } else {
+          const err = await res.json();
+          alert(err.error || 'Failed to delete invoice');
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    });
+  };
+
+  const handleUpdateInvoiceStatus = async (id: string, status: string, paymentDate?: string) => {
+    try {
+      const res = await apiFetch(`/api/invoices/${id}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders(),
+        },
+        body: JSON.stringify({ status, paymentDate }),
+      });
+      if (res.ok) {
+        fetchAllData();
+      }
+    } catch (e) {
+      console.error('Error updating invoice status:', e);
+    }
+  };
+
   if (!currentUser) {
     return (
       <CustomThemeProvider
@@ -688,23 +791,21 @@ function MainApp() {
             categories={categories}
             services={services}
             reminders={reminders}
+            invoices={invoices}
             onMarkSampled={handleMarkSampled}
             onToggleDone={handleToggleDone}
             onSaveReminder={handleSaveReminder}
             onDeleteReminder={handleDeleteReminder}
             onStatusChangeReminder={handleStatusChangeReminder}
-            onEditProject={(p) => {
-              setEditingProject(p);
-              setIsProjectModalOpen(true);
-            }}
+            onViewProject={handleViewProject}
+            onEditProject={handleEditProject}
             onDeleteProject={handleDeleteProject}
             onNavigateToProjects={() => {
               setActiveTab('dashboard');
               setDashboardSubTab('projects');
             }}
             onOpenNewProject={() => {
-              setEditingProject(null);
-              setIsProjectModalOpen(true);
+              handleEditProject(null);
             }}
             quickFilters={userPreferences.quick_filter_dashboard_projects}
             onQuickFiltersChange={(filters) => updatePreference('quick_filter_dashboard_projects', filters)}
@@ -720,15 +821,12 @@ function MainApp() {
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             onOpenNew={() => {
-              setEditingProject(null);
-              setIsProjectModalOpen(true);
+              handleEditProject(null);
             }}
             onToggleDone={handleToggleDone}
             onMarkSampled={handleMarkSampled}
-            onEdit={(p) => {
-              setEditingProject(p);
-              setIsProjectModalOpen(true);
-            }}
+            onView={handleViewProject}
+            onEdit={handleEditProject}
             onDelete={handleDeleteProject}
             visibleColumns={userPreferences.cols_projects}
             onVisibleColumnsChange={(cols) => updatePreference('cols_projects', cols)}
@@ -736,6 +834,31 @@ function MainApp() {
             onSortChange={(sort) => updatePreference('sort_projects', sort)}
             quickFilter={userPreferences.quick_filter_projects || 'all'}
             onQuickFilterChange={(val) => updatePreference('quick_filter_projects', val)}
+          />
+        )}
+
+        {isProjectViewModalOpen && currentViewingProject && (
+          <ProjectViewModal
+            isOpen={isProjectViewModalOpen}
+            project={currentViewingProject}
+            clients={clients}
+            users={users}
+            services={services}
+            reminders={reminders}
+            invoices={invoices}
+            onClose={() => {
+              setIsProjectViewModalOpen(false);
+              setViewingProject(null);
+            }}
+            onEdit={handleEditProject}
+            onSave={handleSaveProject}
+            onToggleDone={handleToggleDone}
+            onSaveReminder={handleSaveReminder}
+            onDeleteReminder={handleDeleteReminder}
+            onStatusChangeReminder={handleStatusChangeReminder}
+            onSaveInvoice={handleSaveInvoice}
+            onDeleteInvoice={handleDeleteInvoice}
+            onStatusChangeInvoice={handleUpdateInvoiceStatus}
           />
         )}
 
@@ -747,6 +870,7 @@ function MainApp() {
             users={users}
             services={services}
             reminders={reminders}
+            invoices={invoices}
             onClose={() => {
               setIsProjectModalOpen(false);
               setEditingProject(null);
@@ -757,6 +881,9 @@ function MainApp() {
             onSaveReminder={handleSaveReminder}
             onDeleteReminder={handleDeleteReminder}
             onStatusChangeReminder={handleStatusChangeReminder}
+            onSaveInvoice={handleSaveInvoice}
+            onDeleteInvoice={handleDeleteInvoice}
+            onStatusChangeInvoice={handleUpdateInvoiceStatus}
           />
         )}
 
@@ -815,6 +942,21 @@ function MainApp() {
           />
         )}
 
+
+        {activeTab === 'invoices' && (
+          <InvoicesView
+            invoices={invoices}
+            clients={clients}
+            projects={projects}
+            onSaveInvoice={handleSaveInvoice}
+            onDeleteInvoice={handleDeleteInvoice}
+            onUpdateStatus={handleUpdateInvoiceStatus}
+            visibleColumns={userPreferences.cols_invoices}
+            onVisibleColumnsChange={(cols) => updatePreference('cols_invoices', cols)}
+            sortState={userPreferences.sort_invoices}
+            onSortChange={(sort) => updatePreference('sort_invoices', sort)}
+          />
+        )}
         {activeTab === 'reminders' && (
           <RemindersView
             reminders={reminders}
