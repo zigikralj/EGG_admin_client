@@ -76,7 +76,8 @@ export const InvoicesView: React.FC<Props> = ({
   onSortChange,
 }) => {
   const { t } = useLanguage();
-  const { isUser } = useAuth();
+  const { isUser, canManageInvoices } = useAuth();
+  const canManage = canManageInvoices || !isUser;
   const [isOpen, setIsOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [localColumns, setLocalColumns] = useState<string[]>(visibleColumns);
@@ -333,6 +334,14 @@ export const InvoicesView: React.FC<Props> = ({
       setErrorDialogState({ open: true, message: t('alertInvoiceNumberRequired') });
       return;
     }
+    if (!formData.dueDate || !formData.dueDate.trim()) {
+      setErrorDialogState({ open: true, message: t('alertDueDateRequired') });
+      return;
+    }
+    if (!formData.clientId && !formData.clientName) {
+      setErrorDialogState({ open: true, message: t('alertClientRequired') });
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -476,7 +485,7 @@ export const InvoicesView: React.FC<Props> = ({
           <Chip label={filteredInvoices.length} size="small" color="primary" sx={{ fontWeight: 700 }} />
         </Box>
 
-        {!isUser && (
+        {canManage && (
           <Button
             variant="contained"
             color="primary"
@@ -705,7 +714,7 @@ export const InvoicesView: React.FC<Props> = ({
                     </TableSortLabel>
                   </TableCell>
                 )}
-                {!isUser && (
+                {canManage && (
                   <TableCell align="right">
                     <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                       {t('colAction')}
@@ -830,7 +839,7 @@ export const InvoicesView: React.FC<Props> = ({
                             </TableCell>
                           )}
 
-                          {!isUser && (
+                          {canManage && (
                             <TableCell align="right">
                               <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
                                 {inv.status !== 'Paid' && onUpdateStatus && (
@@ -1041,7 +1050,7 @@ export const InvoicesView: React.FC<Props> = ({
                     });
                   }}
                   renderInput={(params) => (
-                    <TextField {...params} size="small" label={t('lblClient')} placeholder={t('phClient')} />
+                    <TextField {...params} size="small" label={t('lblClient')} placeholder={t('phClient')} required />
                   )}
                 />
               </Grid>
@@ -1087,6 +1096,7 @@ export const InvoicesView: React.FC<Props> = ({
                   size="small"
                   type="date"
                   label={t('lblDueDate')}
+                  required
                   value={formData.dueDate}
                   onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
                   slotProps={{ inputLabel: { shrink: true } }}

@@ -120,7 +120,7 @@ export const AdminLayout: React.FC<Props> = ({
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const { themeMode, setThemeMode } = useThemeContext();
-  const { currentUser, users, pendingUsersCount, setCurrentUser, logout, role, isUser, canManageUsers, canToggleEntityWorkMode, workOnEntities, setWorkOnEntities } = useAuth();
+  const { currentUser, users, pendingUsersCount, setCurrentUser, logout, role, isAdmin, isUser, isAccountant, canManageInvoices, canManageUsers, canManageClients, canManageServices, canToggleEntityWorkMode, workOnEntities, setWorkOnEntities } = useAuth();
 
   React.useEffect(() => {
     if (userPreferences && typeof userPreferences.work_on_entities === 'boolean') {
@@ -161,25 +161,31 @@ export const AdminLayout: React.FC<Props> = ({
   const isMenuOpen = Boolean(anchorEl);
 
   React.useEffect(() => {
-    if (isUser && activeTab !== 'dashboard') {
+    if (isAccountant) {
+      if (activeTab !== 'dashboard' && activeTab !== 'invoices') {
+        onTabChange('dashboard');
+      }
+    } else if (isUser && activeTab !== 'dashboard') {
       onTabChange('dashboard');
     }
-  }, [isUser, activeTab, onTabChange]);
+  }, [isUser, isAccountant, activeTab, onTabChange]);
 
   const getRoleBadgeLabel = (r: string) => {
     switch (r) {
       case 'Administrator': return t('roleAdministrator');
       case 'Manager': return t('roleManager');
       case 'User': return t('roleUser');
+      case 'Accountant': return t('roleAccountant');
       default: return r;
     }
   };
 
-  const getRoleColor = (r: string): 'secondary' | 'primary' | 'success' | 'default' => {
+  const getRoleColor = (r: string): 'secondary' | 'primary' | 'success' | 'info' | 'default' => {
     switch (r) {
       case 'Administrator': return 'secondary';
       case 'Manager': return 'primary';
       case 'User': return 'success';
+      case 'Accountant': return 'info';
       default: return 'default';
     }
   };
@@ -415,20 +421,20 @@ export const AdminLayout: React.FC<Props> = ({
 
   const navItems = [
     { id: 'dashboard' as ActiveTab, label: t('tabDashboard'), icon: <DashboardIcon />, count: 0, show: true },
-    { id: 'projects' as ActiveTab, label: t('tabProjects'), icon: <FolderIcon />, count: stats.active, show: !isUser },
-    { id: 'clients' as ActiveTab, label: t('tabClients'), icon: <BusinessIcon />, count: stats.clientsCount, show: !isUser },
+    { id: 'projects' as ActiveTab, label: t('tabProjects'), icon: <FolderIcon />, count: stats.active, show: !isUser && !isAccountant },
+    { id: 'clients' as ActiveTab, label: t('tabClients'), icon: <BusinessIcon />, count: stats.clientsCount, show: canManageClients },
     {
       id: 'users' as ActiveTab,
       label: t('tabUsers'),
       icon: <PeopleIcon />,
       count: canManageUsers && pendingUsersCount > 0 ? pendingUsersCount : stats.usersCount,
       color: canManageUsers && pendingUsersCount > 0 ? ('warning' as const) : undefined,
-      show: !isUser,
+      show: canManageUsers,
     },
-    { id: 'services' as ActiveTab, label: t('tabServices'), icon: <BuildIcon />, count: 0, show: !isUser },
-    { id: 'categories' as ActiveTab, label: t('tabCategories'), icon: <CategoryIcon />, count: stats.categoriesCount || 0, show: !isUser },
-    { id: 'reminders' as ActiveTab, label: t('tabReminders'), icon: <NotificationsActiveIcon />, count: stats.monitor, show: !isUser, color: 'error' },
-    { id: 'invoices' as ActiveTab, label: t('tabInvoices'), icon: <ReceiptLongIcon />, count: stats.invoicesCount || 0, show: !isUser },
+    { id: 'services' as ActiveTab, label: t('tabServices'), icon: <BuildIcon />, count: 0, show: canManageServices },
+    { id: 'categories' as ActiveTab, label: t('tabCategories'), icon: <CategoryIcon />, count: stats.categoriesCount || 0, show: canManageServices },
+    { id: 'reminders' as ActiveTab, label: t('tabReminders'), icon: <NotificationsActiveIcon />, count: stats.monitor, show: !isUser && !isAccountant, color: 'error' },
+    { id: 'invoices' as ActiveTab, label: t('tabInvoices'), icon: <ReceiptLongIcon />, count: stats.invoicesCount || 0, show: isAccountant || (!isUser && canManageInvoices) },
   ];
 
   return (
@@ -498,32 +504,34 @@ export const AdminLayout: React.FC<Props> = ({
 
           {/* RIGHT SIDE CONTROLS */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 } }}>
-            {/* USER SWITCHER (DESKTOP ONLY) */}
-            <FormControl size="small" sx={{ minWidth: { xs: 100, sm: 160 }, display: { xs: 'none', md: 'flex' } }}>
-              <Select
-                value={currentUser?.id || ''}
-                onChange={(e) => {
-                  const target = users.find((u) => u.id === e.target.value);
-                  if (target) setCurrentUser(target);
-                }}
-                startAdornment={<PersonIcon fontSize="small" sx={{ mr: 0.5, color: 'rgba(255, 255, 255, 0.7)' }} />}
-                sx={{
-                  borderRadius: 2,
-                  fontSize: '0.8125rem',
-                  color: '#ffffff',
-                  '.MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.23)' },
-                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.5)' },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' },
-                  '.MuiSvgIcon-root': { color: '#ffffff' },
-                }}
-              >
-                {users.map((u) => (
-                  <MenuItem key={u.id} value={u.id} sx={{ fontSize: '0.8125rem' }}>
-                    {u.name} ({getRoleBadgeLabel(u.role)})
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            {/* USER SWITCHER (DESKTOP ONLY - ADMIN ONLY) */}
+            {isAdmin && (
+              <FormControl size="small" sx={{ minWidth: { xs: 100, sm: 160 }, display: { xs: 'none', md: 'flex' } }}>
+                <Select
+                  value={currentUser?.id || ''}
+                  onChange={(e) => {
+                    const target = users.find((u) => u.id === e.target.value);
+                    if (target) setCurrentUser(target);
+                  }}
+                  startAdornment={<PersonIcon fontSize="small" sx={{ mr: 0.5, color: 'rgba(255, 255, 255, 0.7)' }} />}
+                  sx={{
+                    borderRadius: 2,
+                    fontSize: '0.8125rem',
+                    color: '#ffffff',
+                    '.MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.23)' },
+                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.5)' },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' },
+                    '.MuiSvgIcon-root': { color: '#ffffff' },
+                  }}
+                >
+                  {users.map((u) => (
+                    <MenuItem key={u.id} value={u.id} sx={{ fontSize: '0.8125rem' }}>
+                      {u.name} ({getRoleBadgeLabel(u.role)})
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
 
             {/* ENTITY WORK MODE SWITCH FOR MANAGER / ADMIN (DESKTOP ONLY) */}
             {canToggleEntityWorkMode && (
@@ -1171,50 +1179,54 @@ export const AdminLayout: React.FC<Props> = ({
         <Box sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1, overflow: 'hidden' }}>
           <Box sx={{ overflowY: 'auto', flexGrow: 1, p: 1.5 }}>
           {/* MOBILE USER SWITCHER & WORK MODE SWITCH */}
-          <Box sx={{ mb: 2, pb: 1.5, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-            <Box>
-              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', mb: 0.5 }}>
-                {t('tabUsers')}
-              </Typography>
-              <FormControl fullWidth size="small">
-                <Select
-                  value={currentUser?.id || ''}
-                  onChange={(e) => {
-                    const target = users.find((u) => u.id === e.target.value);
-                    if (target) setCurrentUser(target);
-                  }}
-                  startAdornment={<PersonIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />}
-                  sx={{ borderRadius: 2, fontSize: '0.875rem' }}
-                >
-                  {users.map((u) => (
-                    <MenuItem key={u.id} value={u.id} sx={{ fontSize: '0.875rem' }}>
-                      {u.name} ({getRoleBadgeLabel(u.role)})
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Box>
+          {(isAdmin || canToggleEntityWorkMode) && (
+            <Box sx={{ mb: 2, pb: 1.5, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              {isAdmin && (
+                <Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', mb: 0.5 }}>
+                    {t('tabUsers')}
+                  </Typography>
+                  <FormControl fullWidth size="small">
+                    <Select
+                      value={currentUser?.id || ''}
+                      onChange={(e) => {
+                        const target = users.find((u) => u.id === e.target.value);
+                        if (target) setCurrentUser(target);
+                      }}
+                      startAdornment={<PersonIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />}
+                      sx={{ borderRadius: 2, fontSize: '0.875rem' }}
+                    >
+                      {users.map((u) => (
+                        <MenuItem key={u.id} value={u.id} sx={{ fontSize: '0.875rem' }}>
+                          {u.name} ({getRoleBadgeLabel(u.role)})
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Box>
+              )}
 
-            {canToggleEntityWorkMode && (
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: 'action.hover', p: 1, px: 1.5, borderRadius: 2 }}>
-                <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8125rem' }}>
-                  {t('switchWorkOnEntities')}
-                </Typography>
-                <Switch
-                  checked={workOnEntities}
-                  onChange={(e) => {
-                    const nextVal = e.target.checked;
-                    setWorkOnEntities(nextVal);
-                    if (onPreferenceChange) {
-                      onPreferenceChange('work_on_entities', nextVal);
-                    }
-                  }}
-                  color="primary"
-                  size="small"
-                />
-              </Box>
-            )}
-          </Box>
+              {canToggleEntityWorkMode && (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: 'action.hover', p: 1, px: 1.5, borderRadius: 2 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8125rem' }}>
+                    {t('switchWorkOnEntities')}
+                  </Typography>
+                  <Switch
+                    checked={workOnEntities}
+                    onChange={(e) => {
+                      const nextVal = e.target.checked;
+                      setWorkOnEntities(nextVal);
+                      if (onPreferenceChange) {
+                        onPreferenceChange('work_on_entities', nextVal);
+                      }
+                    }}
+                    color="primary"
+                    size="small"
+                  />
+                </Box>
+              )}
+            </Box>
+          )}
 
           <List component="nav" disablePadding sx={{ gap: 0.5, display: 'flex', flexDirection: 'column' }}>
             {navItems
@@ -1225,9 +1237,26 @@ export const AdminLayout: React.FC<Props> = ({
                   const dashboardSubItems: { id: DashboardSubTab; label: string; icon: React.ReactNode }[] = [
                     { id: 'default', label: t('subTabDefault'), icon: <ViewQuiltIcon fontSize="small" /> },
                     { id: 'statistic', label: t('subTabStatistic'), icon: <BarChartIcon fontSize="small" /> },
-                    { id: 'reminders', label: t('subTabReminders'), icon: <NotificationsActiveIcon fontSize="small" /> },
-                    { id: 'projects', label: t('subTabProjects'), icon: <FolderIcon fontSize="small" /> },
                   ];
+
+                  if (canToggleEntityWorkMode || role === 'Administrator' || role === 'Manager') {
+                    dashboardSubItems.push(
+                      { id: 'reminders', label: t('subTabReminders'), icon: <NotificationsActiveIcon fontSize="small" /> },
+                      { id: 'invoices', label: t('tabInvoices'), icon: <ReceiptLongIcon fontSize="small" /> }
+                    );
+                  } else if (isAccountant) {
+                    dashboardSubItems.push(
+                      { id: 'invoices', label: t('tabInvoices'), icon: <ReceiptLongIcon fontSize="small" /> }
+                    );
+                  } else {
+                    dashboardSubItems.push(
+                      { id: 'reminders', label: t('subTabReminders'), icon: <NotificationsActiveIcon fontSize="small" /> }
+                    );
+                  }
+
+                  dashboardSubItems.push(
+                    { id: 'projects', label: t('subTabProjects'), icon: <FolderIcon fontSize="small" /> }
+                  );
 
                   return (
                     <React.Fragment key="dashboard-menu-group-mobile">
@@ -1459,9 +1488,26 @@ export const AdminLayout: React.FC<Props> = ({
                   const dashboardSubItems: { id: DashboardSubTab; label: string; icon: React.ReactNode }[] = [
                     { id: 'default', label: t('subTabDefault'), icon: <ViewQuiltIcon fontSize="small" /> },
                     { id: 'statistic', label: t('subTabStatistic'), icon: <BarChartIcon fontSize="small" /> },
-                    { id: 'reminders', label: t('subTabReminders'), icon: <NotificationsActiveIcon fontSize="small" /> },
-                    { id: 'projects', label: t('subTabProjects'), icon: <FolderIcon fontSize="small" /> },
                   ];
+
+                  if (canToggleEntityWorkMode || role === 'Administrator' || role === 'Manager') {
+                    dashboardSubItems.push(
+                      { id: 'reminders', label: t('subTabReminders'), icon: <NotificationsActiveIcon fontSize="small" /> },
+                      { id: 'invoices', label: t('tabInvoices'), icon: <ReceiptLongIcon fontSize="small" /> }
+                    );
+                  } else if (isAccountant) {
+                    dashboardSubItems.push(
+                      { id: 'invoices', label: t('tabInvoices'), icon: <ReceiptLongIcon fontSize="small" /> }
+                    );
+                  } else {
+                    dashboardSubItems.push(
+                      { id: 'reminders', label: t('subTabReminders'), icon: <NotificationsActiveIcon fontSize="small" /> }
+                    );
+                  }
+
+                  dashboardSubItems.push(
+                    { id: 'projects', label: t('subTabProjects'), icon: <FolderIcon fontSize="small" /> }
+                  );
 
                   return (
                     <React.Fragment key="dashboard-menu-group-desktop">

@@ -29,7 +29,7 @@ export interface Client {
   createdAt?: string;
 }
 
-export type UserRole = 'Administrator' | 'Manager' | 'User';
+export type UserRole = 'Administrator' | 'Manager' | 'User' | 'Accountant';
 
 export interface User {
   id: string;
@@ -131,7 +131,7 @@ export interface ProjectStats {
 
 export type ActiveTab = 'dashboard' | 'projects' | 'clients' | 'users' | 'services' | 'categories' | 'reminders' | 'invoices';
 
-export type DashboardSubTab = 'default' | 'statistic' | 'reminders' | 'projects';
+export type DashboardSubTab = 'default' | 'statistic' | 'reminders' | 'invoices' | 'projects';
 
 export const typeGroup: Record<string, string> = {
   // English codes

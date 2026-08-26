@@ -211,6 +211,7 @@ export const UsersView: React.FC<Props> = ({
       case 'Administrator': return t('roleAdministrator');
       case 'Manager': return t('roleManager');
       case 'User': return t('roleUser');
+      case 'Accountant': return t('roleAccountant');
       default: return r;
     }
   };
@@ -224,11 +225,12 @@ export const UsersView: React.FC<Props> = ({
     }
   };
 
-  const getRoleColor = (r: string): 'secondary' | 'primary' | 'success' | 'default' => {
+  const getRoleColor = (r: string): 'secondary' | 'primary' | 'success' | 'info' | 'default' => {
     switch (r) {
       case 'Administrator': return 'secondary';
       case 'Manager': return 'primary';
       case 'User': return 'success';
+      case 'Accountant': return 'info';
       default: return 'default';
     }
   };
@@ -896,6 +898,7 @@ export const UsersView: React.FC<Props> = ({
                 {isAdmin && <MenuItem value="Administrator">{t('roleAdministrator')}</MenuItem>}
                 <MenuItem value="Manager">{t('roleManager')}</MenuItem>
                 <MenuItem value="User">{t('roleUser')}</MenuItem>
+                <MenuItem value="Accountant">{t('roleAccountant')}</MenuItem>
               </Select>
             </FormControl>
           </Box>
@@ -962,6 +965,7 @@ export const UsersView: React.FC<Props> = ({
                     {isAdmin && <MenuItem value="Administrator">{t('roleAdministrator')}</MenuItem>}
                     <MenuItem value="Manager">{t('roleManager')}</MenuItem>
                     <MenuItem value="User">{t('roleUser')}</MenuItem>
+                    <MenuItem value="Accountant">{t('roleAccountant')}</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>

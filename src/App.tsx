@@ -804,9 +804,13 @@ function MainApp() {
               setActiveTab('dashboard');
               setDashboardSubTab('projects');
             }}
+            onNavigateToInvoices={() => {
+              setActiveTab('invoices');
+            }}
             onOpenNewProject={() => {
               handleEditProject(null);
             }}
+            onStatusChangeInvoice={handleUpdateInvoiceStatus}
             quickFilters={userPreferences.quick_filter_dashboard_projects}
             onQuickFiltersChange={(filters) => updatePreference('quick_filter_dashboard_projects', filters)}
             quickFilterDashboardReminders={userPreferences.quick_filter_dashboard_reminders}
