@@ -11,6 +11,8 @@ export interface Project {
   done: boolean;
   nextSample: string | null;
   notes?: string | null;
+  reminders?: Reminder[];
+  invoices?: Invoice[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -23,6 +25,7 @@ export interface Client {
   phone?: string | null;
   city?: string | null;
   projects?: Project[];
+  invoices?: Invoice[];
   createdAt?: string;
 }
 
@@ -78,6 +81,41 @@ export interface Reminder {
   updatedAt?: string;
 }
 
+export type InvoiceCurrency = 'RSD' | '€' | string;
+export type InvoiceStatus = 'Draft' | 'Sent' | 'Paid' | 'Overdue' | 'Cancelled' | string;
+
+export interface InvoiceItem {
+  id?: string;
+  invoiceId?: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  currency: InvoiceCurrency;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  dateCreated?: string | null;
+  dueDate?: string | null;
+  paymentDate?: string | null;
+  clientId?: string | null;
+  clientName?: string | null;
+  projectId?: string | null;
+  projectName?: string | null;
+  status: InvoiceStatus;
+  notes?: string | null;
+  totalAmount?: number | null;
+  currency?: InvoiceCurrency | null;
+  items?: InvoiceItem[];
+  client?: Client | null;
+  project?: Project | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface ProjectStats {
   active: number;
   done: number;
@@ -88,9 +126,10 @@ export interface ProjectStats {
   usersCount: number;
   servicesCount: number;
   categoriesCount?: number;
+  invoicesCount?: number;
 }
 
-export type ActiveTab = 'dashboard' | 'projects' | 'clients' | 'users' | 'services' | 'categories' | 'reminders';
+export type ActiveTab = 'dashboard' | 'projects' | 'clients' | 'users' | 'services' | 'categories' | 'reminders' | 'invoices';
 
 export type DashboardSubTab = 'default' | 'statistic' | 'reminders' | 'projects';
 

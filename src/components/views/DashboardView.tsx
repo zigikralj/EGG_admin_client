@@ -23,7 +23,7 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
-import type { Project, ProjectStats, Reminder, DashboardSubTab, User, Category, Service, Client } from '../../types';
+import type { Project, ProjectStats, Reminder, Invoice, DashboardSubTab, User, Category, Service, Client } from '../../types';
 import { ReminderPanel } from '../ReminderPanel';
 import { ProjectCard } from '../ProjectCard';
 import { StatisticsCharts } from '../StatisticsCharts';
@@ -40,11 +40,13 @@ interface Props {
   categories?: Category[];
   services?: Service[];
   reminders?: Reminder[];
+  invoices?: Invoice[];
   onMarkSampled: (id: string) => void;
   onToggleDone: (id: string) => void;
   onSaveReminder?: (reminder: Partial<Reminder>) => void;
   onDeleteReminder?: (id: string) => void;
   onStatusChangeReminder?: (id: string, status: string) => void;
+  onViewProject?: (project: Project) => void;
   onEditProject: (project: Project) => void;
   onDeleteProject: (id: string) => void;
   onNavigateToProjects: () => void;
@@ -64,11 +66,13 @@ export const DashboardView: React.FC<Props> = ({
   categories = [],
   services = [],
   reminders,
+  invoices = [],
   onMarkSampled,
   onToggleDone,
   onSaveReminder,
   onDeleteReminder,
   onStatusChangeReminder,
+  onViewProject,
   onEditProject,
   onDeleteProject,
   onNavigateToProjects,
@@ -554,8 +558,11 @@ export const DashboardView: React.FC<Props> = ({
               <ProjectCard
                 project={p}
                 services={services}
+                reminders={reminders}
+                invoices={invoices}
                 onToggleDone={onToggleDone}
                 onMarkSampled={onMarkSampled}
+                onView={onViewProject || onEditProject}
                 onEdit={onEditProject}
                 onDelete={onDeleteProject}
               />
@@ -588,8 +595,11 @@ export const DashboardView: React.FC<Props> = ({
               <ProjectCard
                 project={p}
                 services={services}
+                reminders={reminders}
+                invoices={invoices}
                 onToggleDone={onToggleDone}
                 onMarkSampled={onMarkSampled}
+                onView={onViewProject || onEditProject}
                 onEdit={onEditProject}
                 onDelete={onDeleteProject}
               />
@@ -786,7 +796,7 @@ export const DashboardView: React.FC<Props> = ({
                         getOptionLabel={(cat) => getServiceLabel(cat, services)}
                         value={filterCategory === 'all' ? null : filterCategory}
                         onChange={(_, newValue) => setFilterCategory(newValue || 'all')}
-                        renderInput={(params) => <TextField {...params} label={t('colCategory')} size="small" />}
+                        renderInput={(params) => <TextField {...params} label={t('colService')} size="small" />}
                       />
 
                       <Autocomplete
@@ -841,8 +851,11 @@ export const DashboardView: React.FC<Props> = ({
                   <ProjectCard
                     project={p}
                     services={services}
+                    reminders={reminders}
+                    invoices={invoices}
                     onToggleDone={onToggleDone}
                     onMarkSampled={onMarkSampled}
+                    onView={onViewProject || onEditProject}
                     onEdit={onEditProject}
                     onDelete={onDeleteProject}
                   />

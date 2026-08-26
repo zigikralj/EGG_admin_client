@@ -19,6 +19,39 @@ export interface TranslationKeys {
   tabServices: string;
   tabCategories: string;
   tabReminders: string;
+  tabInvoices: string;
+  btnNewInvoice: string;
+  invoicesListTitle: string;
+  emptyInvoices: string;
+  colInvoiceNumber: string;
+  colDateCreated: string;
+  colDueDate: string;
+  colPaymentDate: string;
+  colTotalAmount: string;
+  colItemsCount: string;
+  modalNewInvoice: string;
+  modalEditInvoice: string;
+  lblInvoiceNumber: string;
+  phInvoiceNumber: string;
+  lblDateCreated: string;
+  lblPaymentDate: string;
+  lblInvoiceStatus: string;
+  lblCurrency: string;
+  invoiceItemsSection: string;
+  lblItemDescription: string;
+  lblItemQuantity: string;
+  lblItemUnitPrice: string;
+  lblItemTotal: string;
+  btnAddInvoiceItem: string;
+  btnRemoveInvoiceItem: string;
+  confirmDeleteInvoice: string;
+  alertInvoiceNumberRequired: string;
+  statusDraft: string;
+  statusSent: string;
+  statusPaid: string;
+  statusCancelled: string;
+  markAsPaid: string;
+  noItemsInInvoice: string;
 
   // Dashboard Stats
   projectsStatistic: string;
@@ -82,6 +115,11 @@ export interface TranslationKeys {
   samplingShortOverdue: string;
   samplingShortToday: string;
   samplingShortInDays: string;
+  lblRemindersChip: string;
+  lblInvoicesChip: string;
+  lblNoRemindersOnProject: string;
+  lblNoInvoicesOnProject: string;
+  lblTotalInvoiceSum: string;
 
     // Reminders
     remindersTitle: string;
@@ -200,6 +238,7 @@ export interface TranslationKeys {
   servicesListTitle: string;
   colCode: string;
   colServiceName: string;
+  colService: string;
   colCategory: string;
   colPeriodicSampling: string;
   emptyServices: string;
@@ -228,8 +267,19 @@ export interface TranslationKeys {
   groupStandards: string;
 
   // Project Modal
+  invoiceBoxTitle: string;
+  btnAddInvoice: string;
+  btnCreateNewInvoice: string;
+  btnLinkExistingInvoice: string;
+  phSelectExistingInvoice: string;
+  noProjectInvoices: string;
+  newProjectInvoicesHint: string;
+  btnUnlinkInvoice: string;
+  confirmUnlinkInvoice: string;
   modalNewProject: string;
   modalEditProject: string;
+  modalViewProject: string;
+  btnView: string;
   lblProjectName: string;
   phProjectName: string;
   lblClient: string;
@@ -421,6 +471,39 @@ export const translations: Record<Language, TranslationKeys> = {
     tabServices: 'Services',
     tabCategories: 'Categories',
     tabReminders: 'Reminders',
+    tabInvoices: "Invoices",
+    btnNewInvoice: "New Invoice",
+    invoicesListTitle: "Invoices List",
+    emptyInvoices: "No invoices found.",
+    colInvoiceNumber: "Invoice #",
+    colDateCreated: "Date Created",
+    colDueDate: "Due Date",
+    colPaymentDate: "Payment Date",
+    colTotalAmount: "Total Amount",
+    colItemsCount: "Items",
+    modalNewInvoice: "New Invoice",
+    modalEditInvoice: "Edit Invoice",
+    lblInvoiceNumber: "Invoice Number",
+    phInvoiceNumber: "e.g. INV-2026-001",
+    lblDateCreated: "Date Created",
+    lblPaymentDate: "Payment Date",
+    lblInvoiceStatus: "Status",
+    lblCurrency: "Currency",
+    invoiceItemsSection: "Invoice Items",
+    lblItemDescription: "Description",
+    lblItemQuantity: "Quantity",
+    lblItemUnitPrice: "Unit Price",
+    lblItemTotal: "Total",
+    btnAddInvoiceItem: "Add Item",
+    btnRemoveInvoiceItem: "Remove",
+    confirmDeleteInvoice: "Are you sure you want to delete this invoice?",
+    alertInvoiceNumberRequired: "Invoice number is required",
+    statusDraft: "Draft",
+    statusSent: "Sent",
+    statusPaid: "Paid",
+    statusCancelled: "Cancelled",
+    markAsPaid: "Mark as Paid",
+    noItemsInInvoice: "No items added yet.",
 
     // Dashboard Stats
     projectsStatistic: 'Projects statistic',
@@ -484,6 +567,11 @@ export const translations: Record<Language, TranslationKeys> = {
     samplingShortOverdue: 'Overdue {days} d.',
     samplingShortToday: 'Today',
     samplingShortInDays: 'In {days} d.',
+    lblRemindersChip: 'Reminders',
+    lblInvoicesChip: 'Invoices',
+    lblNoRemindersOnProject: 'No reminders for this project',
+    lblNoInvoicesOnProject: 'No invoices for this project',
+    lblTotalInvoiceSum: 'Total Sum',
 
     // Reminders
     remindersTitle: 'Approaching Reminders',
@@ -602,6 +690,7 @@ export const translations: Record<Language, TranslationKeys> = {
     servicesListTitle: 'Services List',
     colCode: 'Code (ID)',
     colServiceName: 'Service Name',
+    colService: 'Service',
     colCategory: 'Category',
     colPeriodicSampling: 'Periodic Sampling',
     emptyServices: 'No services added.',
@@ -630,8 +719,19 @@ export const translations: Record<Language, TranslationKeys> = {
     groupStandards: 'Standards & Certification',
 
     // Project Modal
+    invoiceBoxTitle: "Invoices",
+    btnAddInvoice: "Add Invoice",
+    btnCreateNewInvoice: "Create New Invoice",
+    btnLinkExistingInvoice: "Link Existing Invoice",
+    phSelectExistingInvoice: "Select invoice to link...",
+    noProjectInvoices: "No invoices linked to this project.",
+    newProjectInvoicesHint: "Save the project first to link invoices.",
+    btnUnlinkInvoice: "Unlink",
+    confirmUnlinkInvoice: "Are you sure you want to unlink this invoice from the project?",
     modalNewProject: 'New Project',
     modalEditProject: 'Edit Project',
+    modalViewProject: 'Project Details',
+    btnView: 'View',
     lblProjectName: 'Project Name',
     phProjectName: 'e.g. Waste Management Plan – Vrnjačka Banja Municipality',
     lblClient: 'Client',
@@ -822,6 +922,39 @@ export const translations: Record<Language, TranslationKeys> = {
     tabServices: 'Usluge',
     tabCategories: 'Kategorije',
     tabReminders: 'Podsetnici',
+    tabInvoices: "Fakture",
+    btnNewInvoice: "Nova faktura",
+    invoicesListTitle: "Lista faktura",
+    emptyInvoices: "Nema pronađenih faktura.",
+    colInvoiceNumber: "Broj fakture",
+    colDateCreated: "Datum kreiranja",
+    colDueDate: "Rok plaćanja",
+    colPaymentDate: "Datum uplate",
+    colTotalAmount: "Ukupan iznos",
+    colItemsCount: "Stavke",
+    modalNewInvoice: "Nova faktura",
+    modalEditInvoice: "Izmena fakture",
+    lblInvoiceNumber: "Broj fakture",
+    phInvoiceNumber: "npr. FAK-2026-001",
+    lblDateCreated: "Datum kreiranja",
+    lblPaymentDate: "Datum uplate",
+    lblInvoiceStatus: "Status",
+    lblCurrency: "Valuta",
+    invoiceItemsSection: "Stavke fakture",
+    lblItemDescription: "Opis",
+    lblItemQuantity: "Količina",
+    lblItemUnitPrice: "Jedinična cena",
+    lblItemTotal: "Ukupno",
+    btnAddInvoiceItem: "Dodaj stavku",
+    btnRemoveInvoiceItem: "Ukloni",
+    confirmDeleteInvoice: "Da li ste sigurni da želite da obrišete ovu fakturu?",
+    alertInvoiceNumberRequired: "Broj fakture je obavezan",
+    statusDraft: "Kreirano",
+    statusSent: "Poslato",
+    statusPaid: "Plaćeno",
+    statusCancelled: "Otkazano",
+    markAsPaid: "Označi kao plaćeno",
+    noItemsInInvoice: "Nema dodatih stavki.",
 
     // Dashboard Stats
     projectsStatistic: 'Statistika projekata',
@@ -885,6 +1018,11 @@ export const translations: Record<Language, TranslationKeys> = {
     samplingShortOverdue: 'Kasni {days} d.',
     samplingShortToday: 'Danas',
     samplingShortInDays: 'Za {days} d.',
+    lblRemindersChip: 'Podsetnici',
+    lblInvoicesChip: 'Fakture',
+    lblNoRemindersOnProject: 'Nema podsetnika za ovaj projekat',
+    lblNoInvoicesOnProject: 'Nema faktura za ovaj projekat',
+    lblTotalInvoiceSum: 'Ukupan iznos',
 
     // Reminders
     remindersTitle: 'Predstojeći podsetnici',
@@ -910,7 +1048,7 @@ export const translations: Record<Language, TranslationKeys> = {
     statusPending: 'Na čekanju',
     statusInProgress: 'U toku',
     statusCompleted: 'Završeno',
-    statusOverdue: 'Prekoračeno',
+    statusOverdue: 'Kasni',
     confirmDeleteReminder: 'Da li ste sigurni da želite da obrišete ovaj podsetnik?',
     alertProjectAndClientRequired: 'Naziv projekta i klijenta su obavezni.',
     alertReminderTitleRequired: 'Naziv podsetnika je obavezan.',
@@ -1003,6 +1141,7 @@ export const translations: Record<Language, TranslationKeys> = {
     servicesListTitle: 'Lista usluga',
     colCode: 'Šifra (ID)',
     colServiceName: 'Naziv usluge',
+    colService: 'Usluga',
     colCategory: 'Kategorija',
     colPeriodicSampling: 'Periodično uzorkovanje',
     emptyServices: 'Nema unetih usluga.',
@@ -1031,8 +1170,19 @@ export const translations: Record<Language, TranslationKeys> = {
     groupStandards: 'Standardi i sertifikacija',
 
     // Project Modal
+    invoiceBoxTitle: "Fakture",
+    btnAddInvoice: "Dodaj fakturu",
+    btnCreateNewInvoice: "Kreiraj novu fakturu",
+    btnLinkExistingInvoice: "Poveži postojeću fakturu",
+    phSelectExistingInvoice: "Izaberite fakturu za povezivanje...",
+    noProjectInvoices: "Nema faktura povezanih sa ovim projektom.",
+    newProjectInvoicesHint: "Prvo sačuvajte projekat da biste povezali fakture.",
+    btnUnlinkInvoice: "Rasformiraj vezu",
+    confirmUnlinkInvoice: "Da li ste sigurni da želite da uklonite vezu fakture sa ovim projektom?",
     modalNewProject: 'Novi projekat',
     modalEditProject: 'Izmeni projekat',
+    modalViewProject: 'Pregled projekta',
+    btnView: 'Pregled',
     lblProjectName: 'Naziv projekta',
     phProjectName: 'npr. Plan upravljanja otpadom – opština Vrnjačka Banja',
     lblClient: 'Klijent',
@@ -1223,6 +1373,39 @@ export const translations: Record<Language, TranslationKeys> = {
     tabServices: 'Услуге',
     tabCategories: 'Категорије',
     tabReminders: 'Подсетници',
+    tabInvoices: "Фактуре",
+    btnNewInvoice: "Нова фактура",
+    invoicesListTitle: "Листа фактура",
+    emptyInvoices: "Нема пронађених фактура.",
+    colInvoiceNumber: "Број фактуре",
+    colDateCreated: "Датум креирања",
+    colDueDate: "Рок плаћања",
+    colPaymentDate: "Датум уплате",
+    colTotalAmount: "Укупан износ",
+    colItemsCount: "Ставке",
+    modalNewInvoice: "Нова фактура",
+    modalEditInvoice: "Измена фактуре",
+    lblInvoiceNumber: "Број фактуре",
+    phInvoiceNumber: "нпр. ФАК-2026-001",
+    lblDateCreated: "Датум креирања",
+    lblPaymentDate: "Датум уплате",
+    lblInvoiceStatus: "Статус",
+    lblCurrency: "Валута",
+    invoiceItemsSection: "Ставке фактуре",
+    lblItemDescription: "Опис",
+    lblItemQuantity: "Количина",
+    lblItemUnitPrice: "Јединична цена",
+    lblItemTotal: "Укупно",
+    btnAddInvoiceItem: "Додај ставку",
+    btnRemoveInvoiceItem: "Уклони",
+    confirmDeleteInvoice: "Да ли сте сигурни да желите да обришете ову фактуру?",
+    alertInvoiceNumberRequired: "Број фактуре је обавезан",
+    statusDraft: "Креирано",
+    statusSent: "Послато",
+    statusPaid: "Плаћено",
+    statusCancelled: "Отказано",
+    markAsPaid: "Означи као плаћено",
+    noItemsInInvoice: "Нема додатих ставки.",
 
     // Dashboard Stats
     projectsStatistic: 'Statistika пројеката',
@@ -1286,6 +1469,11 @@ export const translations: Record<Language, TranslationKeys> = {
     samplingShortOverdue: 'Касни {days} д.',
     samplingShortToday: 'Данас',
     samplingShortInDays: 'За {days} д.',
+    lblRemindersChip: 'Подсетници',
+    lblInvoicesChip: 'Фактуре',
+    lblNoRemindersOnProject: 'Нема подсетника за овај пројекат',
+    lblNoInvoicesOnProject: 'Нема фактура за овај пројекат',
+    lblTotalInvoiceSum: 'Укупан износ',
 
     // Reminders
     remindersTitle: 'Предстојећи подсетници',
@@ -1311,7 +1499,7 @@ export const translations: Record<Language, TranslationKeys> = {
     statusPending: 'На чекању',
     statusInProgress: 'У току',
     statusCompleted: 'Завршено',
-    statusOverdue: 'Прекорачено',
+    statusOverdue: 'Касни',
     confirmDeleteReminder: 'Да ли сте сигурни да желите да обришете овај подсетник?',
     alertProjectAndClientRequired: 'Назив пројекта и клијента су обавезни.',
     alertReminderTitleRequired: 'Назив подсетника је обавезан.',
@@ -1404,6 +1592,7 @@ export const translations: Record<Language, TranslationKeys> = {
     servicesListTitle: 'Листа услуга',
     colCode: 'Шифра (ID)',
     colServiceName: 'Назив услуге',
+    colService: 'Услуга',
     colCategory: 'Категорија',
     colPeriodicSampling: 'Периодично узорковање',
     emptyServices: 'Нема унетих услуга.',
@@ -1432,8 +1621,19 @@ export const translations: Record<Language, TranslationKeys> = {
     groupStandards: 'Стандарди и сертификација',
 
     // Project Modal
+    invoiceBoxTitle: "Фактуре",
+    btnAddInvoice: "Додај фактуру",
+    btnCreateNewInvoice: "Креирај нову фактуру",
+    btnLinkExistingInvoice: "Повежи постојећу фактуру",
+    phSelectExistingInvoice: "Изаберите фактуру за повезивање...",
+    noProjectInvoices: "Нема фактура повезаних са овим пројектом.",
+    newProjectInvoicesHint: "Прво сачувајте пројекат да бисте повезали фактуре.",
+    btnUnlinkInvoice: "Расформирај везу",
+    confirmUnlinkInvoice: "Да ли сте сигурни да желите да уклоните везу фактуре са овим пројектом?",
     modalNewProject: 'Нови пројекат',
     modalEditProject: 'Измени пројекат',
+    modalViewProject: 'Преглед пројекта',
+    btnView: 'Преглед',
     lblProjectName: 'Назив пројекта',
     phProjectName: 'нпр. План управљања отпадом – општина Врњачка Бања',
     lblClient: 'Клијент',

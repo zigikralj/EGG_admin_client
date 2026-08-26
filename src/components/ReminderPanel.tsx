@@ -91,7 +91,7 @@ const isOverdueItem = (item: ReminderItem): boolean => {
   if (isCompletedStatus(item.status)) return false;
   if (!item.status) return false;
   const s = item.status.toLowerCase();
-  if (s === 'overdue' || s === 'prekoračeno' || s === 'прекорачено') return true;
+  if (s === 'overdue' || s === 'prekoračeno' || s === 'прекорачено' || s === 'kasni' || s === 'касни') return true;
   if (!item.dueDate) return false;
   const due = new Date(item.dueDate.split('T')[0]);
   const today = new Date(new Date().toDateString());
@@ -549,6 +549,8 @@ export const ReminderPanel: React.FC<Props> = ({
       case 'overdue':
       case 'prekoračeno':
       case 'прекорачено':
+      case 'kasni':
+      case 'касни':
         return <Chip label={t('statusOverdue')} color="error" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 600 }} />;
       case 'pending':
       case 'na čekanju':
