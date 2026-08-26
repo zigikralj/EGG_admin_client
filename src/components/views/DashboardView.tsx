@@ -734,6 +734,8 @@ export const DashboardView: React.FC<Props> = ({
           {renderStatisticsCard(true, false)}
           <StatisticsCharts
             projects={projects}
+            clients={clients}
+            invoices={invoices}
             users={users}
             categories={categories}
             services={services}

@@ -1440,7 +1440,7 @@ export const ProjectModal: React.FC<Props> = ({
                                   onChange={(e) => handleNewInvoiceItemChange(idx, "unitPrice", parseFloat(e.target.value) || 0)}
                                   sx={{ width: 100 }}
                                 />
-                                <Typography variant="caption" sx={{ minWidth: 70, fontWeight: 700, textAlign: "right" }}>
+                                <Typography variant="caption" sx={{ minWidth: 120, fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>
                                   {formatInvoiceAmount(item.quantity * item.unitPrice, item.currency || newInvoiceCurrency)}
                                 </Typography>
                                 {newInvoiceItems.length > 1 && (

@@ -79,6 +79,11 @@ export interface TranslationKeys {
   totalCompletedInPeriod: string;
   chartModeCumulative: string;
   chartModeMonthly: string;
+  chartTop10Clients: string;
+  chartTop10ClientsSubtitle: string;
+  axisTotalPaidAmount: string;
+  noPaidInvoicesData: string;
+  totalPaidAmountInPeriod: string;
 
   // Projects View
   projectsInProgress: string;
@@ -540,6 +545,11 @@ export const translations: Record<Language, TranslationKeys> = {
     totalCompletedInPeriod: 'Total completed: {count}',
     chartModeCumulative: 'Cumulative',
     chartModeMonthly: 'Monthly',
+    chartTop10Clients: 'Top 10 Clients',
+    chartTop10ClientsSubtitle: 'Top 10 clients by total amount of paid invoices',
+    axisTotalPaidAmount: 'Paid Amount',
+    noPaidInvoicesData: 'No paid invoices data available to display.',
+    totalPaidAmountInPeriod: 'Total Paid: {amount}',
 
     // Projects View
     projectsInProgress: 'Projects in Progress',
@@ -1000,6 +1010,11 @@ export const translations: Record<Language, TranslationKeys> = {
     totalCompletedInPeriod: 'Ukupno završeno: {count}',
     chartModeCumulative: 'Kumulativno',
     chartModeMonthly: 'Mesečno',
+    chartTop10Clients: 'Top 10 klijenata',
+    chartTop10ClientsSubtitle: 'Top 10 klijenata po ukupnom iznosu plaćenih faktura',
+    axisTotalPaidAmount: 'Plaćeni iznos',
+    noPaidInvoicesData: 'Nema podataka o plaćenim fakturama za prikaz.',
+    totalPaidAmountInPeriod: 'Ukupno plaćeno: {amount}',
 
     // Projects View
     projectsInProgress: 'Projekti u izradi',
@@ -1460,6 +1475,11 @@ export const translations: Record<Language, TranslationKeys> = {
     totalCompletedInPeriod: 'Укупно завршено: {count}',
     chartModeCumulative: 'Кумулативно',
     chartModeMonthly: 'Месечно',
+    chartTop10Clients: 'Топ 10 клијената',
+    chartTop10ClientsSubtitle: 'Топ 10 клијената по укупном износу плаћених фактура',
+    axisTotalPaidAmount: 'Плаћени износ',
+    noPaidInvoicesData: 'Нема података о плаћеним фактурама за приказ.',
+    totalPaidAmountInPeriod: 'Укупно плаћено: {amount}',
 
     // Projects View
     projectsInProgress: 'Пројекти у изради',
