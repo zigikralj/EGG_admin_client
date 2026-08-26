@@ -31,22 +31,23 @@ import {
   Divider,
   Collapse,
 } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
-import AddIcon from '@mui/icons-material/Add';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
-import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+
+
+
+
+
+
+
+
+
+
 import type { Invoice, Client, Project, SaveResult, InvoiceStatus, InvoiceCurrency } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { ColumnSelector, type ColumnDef } from '../ColumnSelector';
 import { TableFilterSelector } from '../TableFilterSelector';
 import { ErrorDialog } from '../ErrorDialog';
+import { SearchIcon, AddIcon, EditIcon, DeleteIcon, CheckCircleIcon, ArrowUpwardIcon, ArrowDownwardIcon, KeyboardArrowDownIcon, KeyboardArrowUpIcon, ReceiptLongIcon } from '../icons';
 
 interface Props {
   invoices: Invoice[];
@@ -63,7 +64,7 @@ interface Props {
 
 const DEFAULT_COLUMNS = ['invoiceNumber', 'client', 'project', 'dateCreated', 'dueDate', 'totalAmount', 'status'];
 
-export const InvoicesView: React.FC<Props> = ({
+const InvoicesView: React.FC<Props> = ({
   invoices,
   clients,
   projects,
@@ -893,7 +894,7 @@ export const InvoicesView: React.FC<Props> = ({
                                         <TableCell align="right" sx={{ fontWeight: 700 }}>
                                           {t('lblItemUnitPrice')}
                                         </TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 700 }}>
+                                        <TableCell align="right" sx={{ fontWeight: 700, whiteSpace: 'nowrap', minWidth: 120 }}>
                                           {t('lblItemTotal')}
                                         </TableCell>
                                       </TableRow>
@@ -903,10 +904,10 @@ export const InvoicesView: React.FC<Props> = ({
                                         <TableRow key={item.id || idx}>
                                           <TableCell>{item.description}</TableCell>
                                           <TableCell align="right">{item.quantity}</TableCell>
-                                          <TableCell align="right">
+                                          <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                                             {formatAmount(item.unitPrice, item.currency || inv.currency)}
                                           </TableCell>
-                                          <TableCell align="right" sx={{ fontWeight: 600 }}>
+                                          <TableCell align="right" sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
                                             {formatAmount(item.quantity * item.unitPrice, item.currency || inv.currency)}
                                           </TableCell>
                                         </TableRow>
@@ -1141,7 +1142,7 @@ export const InvoicesView: React.FC<Props> = ({
                     sx={{ p: 1.5, mb: 1.5, borderRadius: 2, bgcolor: 'background.paper' }}
                   >
                     <Grid container spacing={1.5} sx={{ alignItems: 'center' }}>
-                      <Grid size={{ xs: 12, sm: 5 }}>
+                      <Grid size={{ xs: 12, sm: 4.5 }}>
                         <TextField
                           fullWidth
                           size="small"
@@ -1151,7 +1152,7 @@ export const InvoicesView: React.FC<Props> = ({
                         />
                       </Grid>
 
-                      <Grid size={{ xs: 6, sm: 2 }}>
+                      <Grid size={{ xs: 4, sm: 1.75 }}>
                         <TextField
                           fullWidth
                           size="small"
@@ -1163,7 +1164,7 @@ export const InvoicesView: React.FC<Props> = ({
                         />
                       </Grid>
 
-                      <Grid size={{ xs: 6, sm: 2.5 }}>
+                      <Grid size={{ xs: 4, sm: 2.25 }}>
                         <TextField
                           fullWidth
                           size="small"
@@ -1175,13 +1176,13 @@ export const InvoicesView: React.FC<Props> = ({
                         />
                       </Grid>
 
-                      <Grid size={{ xs: 10, sm: 1.5 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 700, textAlign: 'right' }}>
+                      <Grid size={{ xs: 3, sm: 2.75 }} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+                        <Typography variant="body2" sx={{ fontWeight: 700, textAlign: 'right', whiteSpace: 'nowrap', minWidth: 120 }}>
                           {formatAmount(item.quantity * item.unitPrice, item.currency || formData.currency)}
                         </Typography>
                       </Grid>
 
-                      <Grid size={{ xs: 2, sm: 1 }} sx={{ textAlign: 'right' }}>
+                      <Grid size={{ xs: 1, sm: 0.75 }} sx={{ textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
                         {formData.items.length > 1 && (
                           <IconButton
                             size="small"
@@ -1254,3 +1255,5 @@ export const InvoicesView: React.FC<Props> = ({
     </Box>
   );
 };
+
+export default InvoicesView;

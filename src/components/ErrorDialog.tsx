@@ -9,9 +9,10 @@ import {
   Box,
   Typography,
 } from '@mui/material';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import HighlightOffIcon from '@mui/icons-material/HighlightOff';
+
+
 import { useLanguage } from '../context/LanguageContext';
+import { WarningAmberIcon, HighlightOffIcon } from './icons';
 
 export interface ErrorDialogProps {
   open: boolean;

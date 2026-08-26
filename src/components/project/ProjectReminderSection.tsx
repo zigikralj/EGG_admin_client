@@ -1,0 +1,608 @@
+import React from 'react';
+import {
+  Box,
+  Typography,
+  Button,
+  Paper,
+  ToggleButtonGroup,
+  ToggleButton,
+  Grid,
+  TextField,
+  Autocomplete,
+  Chip,
+  Tooltip,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+} from '@mui/material';
+
+
+
+
+
+
+
+import type { Reminder, User, Project } from '../../types';
+import { useLanguage } from '../../context/LanguageContext';
+import { NotificationsActiveIcon, AddIcon, CloseIcon, CalendarTodayIcon, CheckIcon, EditIcon, DeleteIcon } from '../icons';
+
+interface ProjectReminderSectionProps {
+  projectToEdit?: Project | null;
+  projectName: string;
+  clientId: string;
+  clientName: string;
+  responsible: string;
+  users: User[];
+  reminders: Reminder[];
+  onSaveReminder?: (reminder: Partial<Reminder>) => void;
+  onDeleteReminder?: (id: string) => void;
+  onStatusChangeReminder?: (id: string, status: string) => void;
+  setErrorDialogState: (state: { open: boolean; message: string }) => void;
+  reminderState: any; // return of useProjectForm().reminderState
+  disabled?: boolean;
+}
+
+export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
+  projectToEdit,
+  projectName,
+  clientId,
+  clientName,
+  responsible,
+  users,
+  reminders,
+  onSaveReminder,
+  onDeleteReminder,
+  onStatusChangeReminder,
+  setErrorDialogState,
+  reminderState,
+  disabled = false,
+}) => {
+  const { t, getResponsibleLabel } = useLanguage();
+
+  const {
+    isAddingReminder, setIsAddingReminder,
+    addReminderMode, setAddReminderMode,
+    newReminderTitle, setNewReminderTitle,
+    newReminderDate, setNewReminderDate,
+    newReminderResponsible, setNewReminderResponsible,
+    newReminderNotes, setNewReminderNotes,
+    selectedExistingReminderId, setSelectedExistingReminderId,
+    editingProjectReminder, setEditingProjectReminder,
+    editReminderTitle, setEditReminderTitle,
+    editReminderDate, setEditReminderDate,
+    editReminderStatus, setEditReminderStatus,
+    editReminderResponsible, setEditReminderResponsible,
+    editReminderNotes, setEditReminderNotes,
+    projectReminders,
+    availableExistingReminders,
+  } = reminderState;
+
+  const getStatusChip = (st?: string) => {
+    if (!st) return null;
+    switch (st.toLowerCase()) {
+      case 'completed':
+      case 'završeno':
+      case 'завршено':
+        return <Chip label={t('statusCompleted')} color="success" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, px: 0.25 }} />;
+      case 'in progress':
+      case 'u toku':
+      case 'у току':
+        return <Chip label={t('statusInProgress')} color="info" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, px: 0.25 }} />;
+      case 'overdue':
+      case 'prekoračeno':
+      case 'прекорачено':
+      case 'kasni':
+        return <Chip label={t('statusOverdue')} color="error" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, px: 0.25 }} />;
+      case 'pending':
+      case 'na čekanju':
+      case 'на чекању':
+        return <Chip label={t('statusPending')} color="default" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, px: 0.25 }} />;
+      case 'draft':
+      default:
+        return <Chip label={t('statusDraft')} color="warning" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, px: 0.25 }} />;
+    }
+  };
+
+  const handleCreateProjectReminder = () => {
+    if (!newReminderTitle.trim()) {
+      setErrorDialogState({ open: true, message: t('alertReminderTitleRequired') });
+      return;
+    }
+    if (onSaveReminder && projectToEdit) {
+      onSaveReminder({
+        title: newReminderTitle.trim(),
+        projectId: projectToEdit.id,
+        projectName: projectName.trim() || projectToEdit.name,
+        clientId: clientId || projectToEdit.clientId || null,
+        clientName: clientName.trim() || projectToEdit.clientName,
+        responsible: newReminderResponsible || responsible || null,
+        dueDate: newReminderDate || null,
+        notes: newReminderNotes || null,
+        status: 'Pending',
+      });
+      setIsAddingReminder(false);
+      setNewReminderTitle('');
+      setNewReminderDate('');
+      setNewReminderNotes('');
+    }
+  };
+
+  const handleLinkExistingReminder = () => {
+    if (!selectedExistingReminderId) return;
+    const existing = reminders.find((r) => r.id === selectedExistingReminderId);
+    if (existing && onSaveReminder && projectToEdit) {
+      onSaveReminder({
+        id: existing.id,
+        projectId: projectToEdit.id,
+        projectName: projectName.trim() || projectToEdit.name,
+        clientId: clientId || projectToEdit.clientId || existing.clientId || null,
+        clientName: clientName.trim() || projectToEdit.clientName || existing.clientName,
+      });
+      setIsAddingReminder(false);
+      setSelectedExistingReminderId('');
+    }
+  };
+
+  const handleStartEditReminder = (rem: Reminder) => {
+    setEditingProjectReminder(rem);
+    setEditReminderTitle(rem.title || rem.projectName || '');
+    setEditReminderDate(rem.dueDate || '');
+    setEditReminderStatus(rem.status || 'Pending');
+    setEditReminderResponsible(rem.responsible || '');
+    setEditReminderNotes(rem.notes || '');
+  };
+
+  const handleSaveEditedReminder = () => {
+    if (!editReminderTitle.trim()) {
+      setErrorDialogState({ open: true, message: t('alertReminderTitleRequired') });
+      return;
+    }
+    if (onSaveReminder && editingProjectReminder && projectToEdit) {
+      onSaveReminder({
+        id: editingProjectReminder.id,
+        title: editReminderTitle.trim(),
+        projectId: projectToEdit.id,
+        projectName: projectName.trim() || projectToEdit.name,
+        clientId: clientId || projectToEdit.clientId || null,
+        clientName: clientName.trim() || projectToEdit.clientName,
+        responsible: editReminderResponsible || null,
+        dueDate: editReminderDate || null,
+        status: editReminderStatus || 'Pending',
+        notes: editReminderNotes || null,
+      });
+      setEditingProjectReminder(null);
+    }
+  };
+
+  return (
+    <>
+      <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "background.default", borderRadius: 1.5 }}>
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1, gap: 1 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+            <NotificationsActiveIcon color="warning" sx={{ fontSize: 16 }} />
+            <Typography variant="body2" sx={{ fontWeight: 700, fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: 0.5, color: "text.secondary" }}>
+              {t("reminderBoxTitle")}
+            </Typography>
+          </Box>
+          {projectToEdit && !disabled && (
+            <Button
+              size="small"
+              variant={isAddingReminder ? "outlined" : "contained"}
+              color={isAddingReminder ? "inherit" : "primary"}
+              startIcon={isAddingReminder ? <CloseIcon sx={{ fontSize: 14 }} /> : <AddIcon sx={{ fontSize: 14 }} />}
+              onClick={() => {
+                setIsAddingReminder(!isAddingReminder);
+                setAddReminderMode("new");
+                setNewReminderTitle("");
+                setNewReminderDate("");
+                setNewReminderResponsible(responsible || "");
+                setNewReminderNotes("");
+                setSelectedExistingReminderId("");
+              }}
+              sx={{ textTransform: "none", fontWeight: 600, fontSize: "0.75rem", py: 0.25, px: 1, minHeight: 28, borderRadius: 1 }}
+            >
+              {isAddingReminder ? t("btnCancel") : t("btnAddReminder")}
+            </Button>
+          )}
+        </Box>
+
+        {/* ADD REMINDER PANEL */}
+        {isAddingReminder && !disabled && (
+          <Box sx={{ mb: 1.5, p: 1.5, bgcolor: "background.paper", borderRadius: 1.5, border: "1px solid", borderColor: "divider" }}>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5, flexWrap: "wrap", gap: 1 }}>
+              <ToggleButtonGroup
+                size="small"
+                value={addReminderMode}
+                exclusive
+                onChange={(_, val) => {
+                  if (val) setAddReminderMode(val);
+                }}
+                color="primary"
+              >
+                <ToggleButton value="new" sx={{ textTransform: "none", fontWeight: 600, px: 1.5, py: 0.25, fontSize: "0.75rem" }}>
+                  {t("btnCreateNewReminder")}
+                </ToggleButton>
+                <ToggleButton value="existing" sx={{ textTransform: "none", fontWeight: 600, px: 1.5, py: 0.25, fontSize: "0.75rem" }}>
+                  {t("btnLinkExistingReminder")}
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+
+            {addReminderMode === "new" ? (
+              <Grid container spacing={1.5}>
+                <Grid size={{ xs: 12 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label={t("lblReminderTitle")}
+                    placeholder={t("phReminderTitle")}
+                    value={newReminderTitle}
+                    onChange={(e) => setNewReminderTitle(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    type="date"
+                    label={t("lblDueDate")}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    value={newReminderDate}
+                    onChange={(e) => setNewReminderDate(e.target.value)}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  {(() => {
+                    const respLabel = getResponsibleLabel(newReminderResponsible, users);
+                    const selectableUsers = users.filter((u) => {
+                      const isSelected = Boolean(newReminderResponsible) && u.name.trim().toLowerCase() === newReminderResponsible.trim().toLowerCase();
+                      if (isSelected) return true;
+                      const isBlocked = u.status === "BLOCKED" || u.status?.toLowerCase() === "blocked" || (u.isApproved === false && u.status !== "PENDING");
+                      if (isBlocked) return false;
+                      if (u.role === "Administrator") return false;
+                      return true;
+                    });
+                    return (
+                      <Autocomplete
+                        freeSolo
+                        size="small"
+                        options={selectableUsers}
+                        getOptionLabel={(u) => (typeof u === "string" ? u : u.name)}
+                        value={newReminderResponsible}
+                        onChange={(_, val) => {
+                          if (typeof val === "string") setNewReminderResponsible(val);
+                          else if (val) setNewReminderResponsible(val.name);
+                          else setNewReminderResponsible("");
+                        }}
+                        onInputChange={(_, val, reason) => {
+                          if (reason === "input") setNewReminderResponsible(val);
+                        }}
+                        renderInput={(params) => <TextField {...params} label={respLabel} />}
+                      />
+                    );
+                  })()}
+                </Grid>
+                <Grid size={{ xs: 12 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label={t("lblNotes")}
+                    value={newReminderNotes}
+                    onChange={(e) => setNewReminderNotes(e.target.value)}
+                    multiline
+                    rows={2}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12 }} sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mt: 0.5 }}>
+                  <Button size="small" variant="outlined" color="inherit" onClick={() => setIsAddingReminder(false)}>
+                    {t("btnCancel")}
+                  </Button>
+                  <Button size="small" variant="contained" color="primary" onClick={handleCreateProjectReminder}>
+                    {t("btnAddReminder")}
+                  </Button>
+                </Grid>
+              </Grid>
+            ) : (
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                <Autocomplete
+                  size="small"
+                  options={availableExistingReminders}
+                  groupBy={(r: Reminder) => {
+                    const targetClientId = clientId || projectToEdit?.clientId;
+                    const targetClientName = (clientName || projectToEdit?.clientName || "").trim().toLowerCase();
+                    const isMatch =
+                      Boolean(targetClientId && r.clientId === targetClientId) ||
+                      Boolean(targetClientName && r.clientName && r.clientName.trim().toLowerCase() === targetClientName);
+                    return isMatch ? `${t("colClient")}: ${clientName || projectToEdit?.clientName || ""}` : t("other");
+                  }}
+                  getOptionLabel={(r: Reminder) =>
+                    `${r.title || r.projectName || t("tabReminders")}${r.dueDate ? ` (${r.dueDate})` : ""}${r.clientName ? ` - ${r.clientName}` : ""}`
+                  }
+                  value={availableExistingReminders.find((r: Reminder) => r.id === selectedExistingReminderId) || null}
+                  onChange={(_, val) => setSelectedExistingReminderId(val ? val.id : "")}
+                  renderOption={(props, r) => {
+                    const { key, ...otherProps } = props as any;
+                    const targetClientId = clientId || projectToEdit?.clientId;
+                    const targetClientName = (clientName || projectToEdit?.clientName || "").trim().toLowerCase();
+                    const isMatch =
+                      Boolean(targetClientId && r.clientId === targetClientId) ||
+                      Boolean(targetClientName && r.clientName && r.clientName.trim().toLowerCase() === targetClientName);
+
+                    return (
+                      <li key={key || r.id} {...otherProps}>
+                        <Box sx={{ display: "flex", flexDirection: "column", width: "100%", py: 0.5 }}>
+                          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+                            <Typography variant="body2" sx={{ fontWeight: isMatch ? 700 : 500 }}>
+                              {r.title || r.projectName || "—"}
+                            </Typography>
+                            {isMatch && (
+                              <Chip
+                                label={t("colClient")}
+                                size="small"
+                                color="primary"
+                                variant="outlined"
+                                sx={{ height: 18, fontSize: "0.65rem", fontWeight: 600 }}
+                              />
+                            )}
+                          </Box>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary", fontSize: "0.75rem", mt: 0.25 }}>
+                            {r.clientName && <span>{r.clientName}</span>}
+                            {r.dueDate && <span>• {r.dueDate}</span>}
+                            {r.status && <span>• {r.status}</span>}
+                          </Box>
+                        </Box>
+                      </li>
+                    );
+                  }}
+                  renderInput={(params) => (
+                    <TextField {...params} placeholder={t("phSelectExistingReminder")} label={t("tabReminders")} />
+                  )}
+                />
+                <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
+                  <Button size="small" variant="outlined" color="inherit" onClick={() => setIsAddingReminder(false)}>
+                    {t("btnCancel")}
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    color="primary"
+                    disabled={!selectedExistingReminderId}
+                    onClick={handleLinkExistingReminder}
+                  >
+                    {t("btnLink")}
+                  </Button>
+                </Box>
+              </Box>
+            )}
+          </Box>
+        )}
+
+        {/* LIST OF PROJECT REMINDERS */}
+        {projectToEdit ? (
+          projectReminders.length === 0 && !isAddingReminder ? (
+            <Typography variant="caption" color="text.secondary" sx={{ py: 0.5, display: "block", textAlign: "center" }}>
+              {t("noProjectReminders")}
+            </Typography>
+          ) : (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75 }}>
+              {projectReminders.map((rem: Reminder) => {
+                const isCompleted =
+                  rem.status?.toLowerCase() === "completed" || rem.status === "Završeno" || rem.status === "Завршено";
+                return (
+                  <Box
+                    key={rem.id}
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 1,
+                      py: 0.5,
+                      px: 1,
+                      bgcolor: "background.paper",
+                      borderRadius: 1,
+                      border: "1px solid",
+                      borderColor: "divider",
+                      opacity: isCompleted ? 0.75 : 1,
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0, flex: 1, overflow: "hidden" }}>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontWeight: 600,
+                          fontSize: "0.8125rem",
+                          textDecoration: isCompleted ? "line-through" : "none",
+                          color: isCompleted ? "text.secondary" : "text.primary",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          flexShrink: 1,
+                        }}
+                      >
+                        {rem.title || rem.projectName || "—"}
+                      </Typography>
+                      <Box sx={{ flexShrink: 0 }}>{getStatusChip(rem.status)}</Box>
+                      {rem.dueDate && (
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ display: "flex", alignItems: "center", gap: 0.25, flexShrink: 0, fontSize: "0.725rem" }}
+                        >
+                          <CalendarTodayIcon sx={{ fontSize: "0.75rem" }} />
+                          {rem.dueDate}
+                        </Typography>
+                      )}
+                      {rem.responsible && (
+                        <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, fontSize: "0.725rem" }}>
+                          • {rem.responsible}
+                        </Typography>
+                      )}
+                    </Box>
+
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.25, flexShrink: 0 }}>
+                      {!disabled && (
+                        <>
+                          <Tooltip title={isCompleted ? t("statusPending") : t("statusCompleted")}>
+                            <IconButton
+                              size="small"
+                              color={isCompleted ? "default" : "success"}
+                              onClick={() => {
+                                if (onStatusChangeReminder) {
+                                  onStatusChangeReminder(rem.id, isCompleted ? "Pending" : "Completed");
+                                } else if (onSaveReminder) {
+                                  onSaveReminder({ id: rem.id, status: isCompleted ? "Pending" : "Completed" });
+                                }
+                              }}
+                              sx={{ p: 0.25 }}
+                            >
+                              <CheckIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title={t("btnEdit")}>
+                            <IconButton size="small" color="primary" onClick={() => handleStartEditReminder(rem)} sx={{ p: 0.25 }}>
+                              <EditIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </Tooltip>
+                          {onDeleteReminder && (
+                            <Tooltip title={t("btnDelete")}>
+                              <IconButton size="small" color="error" onClick={() => onDeleteReminder(rem.id)} sx={{ p: 0.25 }}>
+                                <DeleteIcon sx={{ fontSize: 16 }} />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </>
+                      )}
+                    </Box>
+                  </Box>
+                );
+              })}
+            </Box>
+          )
+        ) : (
+          <Typography variant="caption" color="text.secondary" sx={{ py: 0.5, display: "block", textAlign: "center" }}>
+            {t("newProjectRemindersHint")}
+          </Typography>
+        )}
+      </Paper>
+
+      {/* EDIT REMINDER DIALOG */}
+      {editingProjectReminder && !disabled && (
+        <Dialog
+          open={Boolean(editingProjectReminder)}
+          onClose={() => setEditingProjectReminder(null)}
+          maxWidth="xs"
+          fullWidth
+        >
+          <DialogTitle sx={{ fontWeight: 700, pb: 1 }}>
+            {t('modalEditReminder')}
+          </DialogTitle>
+          <DialogContent dividers>
+            <Grid container spacing={2} sx={{ pt: 1 }}>
+              <Grid size={{ xs: 12 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label={t('lblReminderTitle')}
+                  value={editReminderTitle}
+                  onChange={(e) => setEditReminderTitle(e.target.value)}
+                  required
+                  autoFocus
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="date"
+                  label={t('lblDueDate')}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  value={editReminderDate}
+                  onChange={(e) => setEditReminderDate(e.target.value)}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>{t('lblStatus')}</InputLabel>
+                  <Select
+                    value={editReminderStatus}
+                    label={t('lblStatus')}
+                    onChange={(e) => setEditReminderStatus(e.target.value)}
+                  >
+                    <MenuItem value="Pending">{t('statusPending')}</MenuItem>
+                    <MenuItem value="In Progress">{t('statusInProgress')}</MenuItem>
+                    <MenuItem value="Completed">{t('statusCompleted')}</MenuItem>
+                    <MenuItem value="Overdue">{t('statusOverdue')}</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                {(() => {
+                  const respLabel = getResponsibleLabel(editReminderResponsible, users);
+                  const selectableUsers = users.filter((u) => {
+                    const isSelected =
+                      Boolean(editReminderResponsible) &&
+                      u.name.trim().toLowerCase() === editReminderResponsible.trim().toLowerCase();
+                    if (isSelected) return true;
+                    const isBlocked =
+                      u.status === 'BLOCKED' ||
+                      u.status?.toLowerCase() === 'blocked' ||
+                      (u.isApproved === false && u.status !== 'PENDING');
+                    if (isBlocked) return false;
+                    if (u.role === 'Administrator') return false;
+                    return true;
+                  });
+                  return (
+                    <Autocomplete
+                      freeSolo
+                      size="small"
+                      options={selectableUsers}
+                      getOptionLabel={(u) => (typeof u === 'string' ? u : u.name)}
+                      value={editReminderResponsible}
+                      onChange={(_, val) => {
+                        if (typeof val === 'string') setEditReminderResponsible(val);
+                        else if (val) setEditReminderResponsible(val.name);
+                        else setEditReminderResponsible('');
+                      }}
+                      onInputChange={(_, val, reason) => {
+                        if (reason === 'input') setEditReminderResponsible(val);
+                      }}
+                      renderInput={(params) => <TextField {...params} label={respLabel} />}
+                    />
+                  );
+                })()}
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label={t('lblNotes')}
+                  value={editReminderNotes}
+                  onChange={(e) => setEditReminderNotes(e.target.value)}
+                  multiline
+                  rows={2}
+                />
+              </Grid>
+            </Grid>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setEditingProjectReminder(null)} color="inherit">
+              {t('btnCancel')}
+            </Button>
+            <Button variant="contained" color="primary" onClick={handleSaveEditedReminder}>
+              {t('btnSave')}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
+    </>
+  );
+};

@@ -8,9 +8,10 @@ import {
   Button,
   Box,
 } from '@mui/material';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
+
+
 import { useLanguage } from '../context/LanguageContext';
+import { WarningAmberIcon, CheckCircleOutlinedIcon } from './icons';
 
 export interface ConfirmDialogProps {
   open: boolean;

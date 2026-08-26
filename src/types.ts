@@ -173,3 +173,30 @@ export interface SaveResult {
   error?: string;
 }
 
+export interface CompanyInfo {
+  id?: string;
+  name: string;
+  legalName: string;
+  registrationNumber: string;
+  municipality: string;
+  city: string;
+  streetAddress: string;
+  postalCode: string;
+  postOffice: string;
+  email: string;
+  taxId: string;
+  activityCode: string;
+  bankAccounts: string[];
+}
+
+
+export interface AppFetchers {
+  fetchProjects: () => Promise<void>;
+  fetchClients: () => Promise<void>;
+  fetchUsers: () => Promise<void>;
+  fetchServices: () => Promise<void>;
+  fetchCategories: () => Promise<void>;
+  fetchReminders: () => Promise<void>;
+  fetchInvoices: () => Promise<void>;
+  fetchStats: () => Promise<void>;
+}

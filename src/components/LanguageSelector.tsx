@@ -1,8 +1,9 @@
 import React from 'react';
 import { Select, MenuItem, FormControl } from '@mui/material';
-import LanguageIcon from '@mui/icons-material/Language';
+
 import { useLanguage } from '../context/LanguageContext';
 import type { Language } from '../i18n/translations';
+import { LanguageIcon } from './icons';
 
 export const LanguageSelector: React.FC = () => {
   const { language, setLanguage } = useLanguage();

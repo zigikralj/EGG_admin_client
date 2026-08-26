@@ -21,19 +21,20 @@ import {
   ToggleButton,
   Tooltip,
 } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
-import AddIcon from '@mui/icons-material/Add';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
-import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
-import NotesIcon from '@mui/icons-material/Notes';
+
+
+
+
+
+
+
+
 import type { Project, Service } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { ColumnSelector, type ColumnDef } from '../ColumnSelector';
 import { TableFilterSelector } from '../TableFilterSelector';
+import { SearchIcon, AddIcon, EditIcon, DeleteIcon, VisibilityIcon, ArrowUpwardIcon, ArrowDownwardIcon, NotesIcon } from '../icons';
 
 interface Props {
   projects: Project[];
@@ -77,7 +78,7 @@ function fmtDate(d: string | null): string {
   return `${day}.${m}.${y}.`;
 }
 
-export const ProjectsView: React.FC<Props> = ({
+const ProjectsView: React.FC<Props> = ({
   projects,
   services = [],
   searchQuery,
@@ -821,3 +822,5 @@ export const ProjectsView: React.FC<Props> = ({
     </Box>
   );
 };
+
+export default ProjectsView;

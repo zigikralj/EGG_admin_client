@@ -5,7 +5,6 @@ import {
   CardContent,
   Typography,
   Box,
-  Stack,
   Chip,
   ToggleButtonGroup,
   ToggleButton,
@@ -13,18 +12,23 @@ import {
   Divider,
   LinearProgress,
 } from '@mui/material';
-import PersonOutlinedIcon from '@mui/icons-material/PersonOutlined';
-import CategoryOutlinedIcon from '@mui/icons-material/CategoryOutlined';
-import FilterListIcon from '@mui/icons-material/FilterList';
-import LandscapeOutlinedIcon from '@mui/icons-material/LandscapeOutlined';
+
+
+
+
+
 import { PieChart } from '@mui/x-charts/PieChart';
 import { LineChart } from '@mui/x-charts/LineChart';
-import type { Project, User, Category, Service } from '../types';
+import { BarChart } from '@mui/x-charts/BarChart';
+import type { Project, User, Category, Service, Client, Invoice } from '../types';
 import { typeGroup } from '../types';
 import { useLanguage } from '../context/LanguageContext';
+import { PersonOutlinedIcon, CategoryOutlinedIcon, FilterListIcon, LandscapeOutlinedIcon, LeaderboardOutlinedIcon } from './icons';
 
 interface Props {
   projects: Project[];
+  clients?: Client[];
+  invoices?: Invoice[];
   users: User[];
   categories: Category[];
   services: Service[];
@@ -58,8 +62,10 @@ const CATEGORY_COLORS = [
   '#475569', // slate dark
 ];
 
-export const StatisticsCharts: React.FC<Props> = ({
+const StatisticsCharts: React.FC<Props> = ({
   projects,
+  clients = [],
+  invoices = [],
   users,
   categories,
   services,
@@ -259,7 +265,7 @@ export const StatisticsCharts: React.FC<Props> = ({
   };
 
   // Build series for Mountain Area Chart
-  const { stackedSeries, totalCompletedIn12Months, ownerLegendList } = useMemo(() => {
+  const { stackedSeries, totalCompletedIn12Months } = useMemo(() => {
     const completedProjects = projects.filter((p) => {
       if (!p.done) return false;
       const owner = getProjectOwner(p);
@@ -352,11 +358,60 @@ export const StatisticsCharts: React.FC<Props> = ({
     return {
       stackedSeries: series,
       totalCompletedIn12Months: totalCompleted,
-      ownerLegendList: sortedOwners,
     };
   }, [projects, users, last12Months, getProjectOwner, isAdminUser, trendMode, t]);
 
   const xLabels = useMemo(() => last12Months.map((m) => m.label), [last12Months]);
+
+  // Helper to check if an invoice is paid
+  const isPaidInvoice = useCallback((inv: Invoice) => {
+    const s = (inv.status || '').trim().toLowerCase();
+    return s === 'paid' || s === 'plaćeno' || s === 'плаћено';
+  }, []);
+
+  // Top 10 Clients by Sum of Paid Invoices
+  const top10ClientsData = useMemo(() => {
+    const map = new Map<string, { clientName: string; totalPaid: number; count: number }>();
+
+    invoices.forEach((inv) => {
+      if (!isPaidInvoice(inv)) return;
+
+      let name = inv.clientName?.trim();
+      if (!name && inv.clientId) {
+        const found = clients.find((c) => c.id === inv.clientId);
+        if (found) name = found.name.trim();
+      }
+      if (!name) {
+        name = t('unassignedUser') || 'Other';
+      }
+
+      let amount = Number(inv.totalAmount) || 0;
+      if (!amount && inv.items && inv.items.length > 0) {
+        amount = inv.items.reduce((sum, it) => sum + (Number(it.quantity) || 0) * (Number(it.unitPrice) || 0), 0);
+      }
+
+      const existing = map.get(name);
+      if (existing) {
+        existing.totalPaid += amount;
+        existing.count += 1;
+      } else {
+        map.set(name, {
+          clientName: name,
+          totalPaid: amount,
+          count: 1,
+        });
+      }
+    });
+
+    const sorted = Array.from(map.values())
+      .filter((item) => item.totalPaid > 0)
+      .sort((a, b) => b.totalPaid - a.totalPaid)
+      .slice(0, 10);
+
+    return {
+      topClients: sorted,
+    };
+  }, [invoices, clients, isPaidInvoice, t]);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 1 }}>
@@ -456,95 +511,84 @@ export const StatisticsCharts: React.FC<Props> = ({
                             label: d.label,
                             color: d.color,
                           })),
-                          innerRadius: 45,
-                          outerRadius: 90,
-                          paddingAngle: 3,
+                          innerRadius: 65,
+                          outerRadius: 105,
+                          paddingAngle: 2,
                           cornerRadius: 4,
                           highlightScope: { fade: 'global', highlight: 'item' },
-                          faded: { innerRadius: 40, additionalRadius: -5 },
+                          faded: { innerRadius: 60, additionalRadius: -10, color: 'gray' },
+                          valueFormatter: (item: { value: number }) =>
+                            item ? `${item.value} (${totalFiltered > 0 ? ((item.value / totalFiltered) * 100).toFixed(0) : 0}%)` : '',
                         },
                       ]}
-                      slotProps={{
-                        legend: { sx: { display: 'none' } } as any,
-                      }}
                       height={250}
+                      margin={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      slotProps={{
+                        legend: { hidden: true } as any,
+                      }}
                     />
                   </Box>
 
-                  <Divider sx={{ my: 2 }} />
-
-                  {/* Breakdown List */}
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      fontWeight: 700,
-                      color: 'text.secondary',
-                      textTransform: 'uppercase',
-                      mb: 1,
-                      display: 'block',
-                    }}
-                  >
-                    {t('tabUsers')} ({userChartData.length})
-                  </Typography>
-
-                  <Stack spacing={1.5} sx={{ mt: 0.5, flex: 1, overflowY: 'auto', maxHeight: 220, pr: 0.5 }}>
-                    {userChartData.map((item) => (
-                      <Box key={item.id} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                  {/* Custom Rich Breakdown Table / List */}
+                  <Box sx={{ mt: 2.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    {userChartData.map((item) => {
+                      const pct = totalFiltered > 0 ? ((item.value / totalFiltered) * 100).toFixed(1) : '0';
+                      return (
+                        <Box
+                          key={item.id}
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            p: 0.75,
+                            borderRadius: 1,
+                            '&:hover': { bgcolor: 'action.hover' },
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 140 }}>
                             <Box
                               sx={{
-                                width: 10,
-                                height: 10,
+                                width: 12,
+                                height: 12,
                                 borderRadius: '50%',
                                 bgcolor: item.color,
                                 flexShrink: 0,
                               }}
                             />
-                            <Typography
-                              variant="body2"
-                              sx={{
-                                fontWeight: 600,
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                              }}
-                            >
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
                               {item.label}
                             </Typography>
                           </Box>
 
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-                            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
-                              {item.percentage}%
-                            </Typography>
-                            <Chip
-                              label={item.value}
-                              size="small"
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, maxWidth: 200, mx: 2 }}>
+                            <LinearProgress
+                              variant="determinate"
+                              value={Number(pct)}
                               sx={{
-                                height: 20,
-                                fontWeight: 700,
+                                flex: 1,
+                                height: 6,
+                                borderRadius: 3,
                                 bgcolor: 'action.selected',
+                                '& .MuiLinearProgress-bar': {
+                                  bgcolor: item.color,
+                                  borderRadius: 3,
+                                },
                               }}
                             />
                           </Box>
+
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 70, justifyContent: 'flex-end' }}>
+                            <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                              {item.value}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ width: 40, textAlign: 'right' }}>
+                              {pct}%
+                            </Typography>
+                          </Box>
                         </Box>
-                        <LinearProgress
-                          variant="determinate"
-                          value={Number(item.percentage)}
-                          sx={{
-                            height: 4,
-                            borderRadius: 2,
-                            bgcolor: 'action.hover',
-                            '& .MuiLinearProgress-bar': {
-                              bgcolor: item.color,
-                              borderRadius: 2,
-                            },
-                          }}
-                        />
-                      </Box>
-                    ))}
-                  </Stack>
+                      );
+                    })}
+                  </Box>
                 </CardContent>
               </Card>
             </Grid>
@@ -599,101 +643,90 @@ export const StatisticsCharts: React.FC<Props> = ({
                             label: d.label,
                             color: d.color,
                           })),
-                          innerRadius: 45,
-                          outerRadius: 90,
-                          paddingAngle: 3,
+                          innerRadius: 65,
+                          outerRadius: 105,
+                          paddingAngle: 2,
                           cornerRadius: 4,
                           highlightScope: { fade: 'global', highlight: 'item' },
-                          faded: { innerRadius: 40, additionalRadius: -5 },
+                          faded: { innerRadius: 60, additionalRadius: -10, color: 'gray' },
+                          valueFormatter: (item: { value: number }) =>
+                            item ? `${item.value} (${totalFiltered > 0 ? ((item.value / totalFiltered) * 100).toFixed(0) : 0}%)` : '',
                         },
                       ]}
-                      slotProps={{
-                        legend: { sx: { display: 'none' } } as any,
-                      }}
                       height={250}
+                      margin={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      slotProps={{
+                        legend: { hidden: true } as any,
+                      }}
                     />
                   </Box>
 
-                  <Divider sx={{ my: 2 }} />
-
-                  {/* Breakdown List */}
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      fontWeight: 700,
-                      color: 'text.secondary',
-                      textTransform: 'uppercase',
-                      mb: 1,
-                      display: 'block',
-                    }}
-                  >
-                    {t('tabCategories')} ({categoryChartData.length})
-                  </Typography>
-
-                  <Stack spacing={1.5} sx={{ mt: 0.5, flex: 1, overflowY: 'auto', maxHeight: 220, pr: 0.5 }}>
-                    {categoryChartData.map((item) => (
-                      <Box key={item.id} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                  {/* Custom Rich Breakdown Table / List */}
+                  <Box sx={{ mt: 2.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    {categoryChartData.map((item) => {
+                      const pct = totalFiltered > 0 ? ((item.value / totalFiltered) * 100).toFixed(1) : '0';
+                      return (
+                        <Box
+                          key={item.id}
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            p: 0.75,
+                            borderRadius: 1,
+                            '&:hover': { bgcolor: 'action.hover' },
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 140 }}>
                             <Box
                               sx={{
-                                width: 10,
-                                height: 10,
+                                width: 12,
+                                height: 12,
                                 borderRadius: '50%',
                                 bgcolor: item.color,
                                 flexShrink: 0,
                               }}
                             />
-                            <Typography
-                              variant="body2"
-                              sx={{
-                                fontWeight: 600,
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                              }}
-                            >
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
                               {item.label}
                             </Typography>
                           </Box>
 
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-                            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
-                              {item.percentage}%
-                            </Typography>
-                            <Chip
-                              label={item.value}
-                              size="small"
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, maxWidth: 200, mx: 2 }}>
+                            <LinearProgress
+                              variant="determinate"
+                              value={Number(pct)}
                               sx={{
-                                height: 20,
-                                fontWeight: 700,
+                                flex: 1,
+                                height: 6,
+                                borderRadius: 3,
                                 bgcolor: 'action.selected',
+                                '& .MuiLinearProgress-bar': {
+                                  bgcolor: item.color,
+                                  borderRadius: 3,
+                                },
                               }}
                             />
                           </Box>
+
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 70, justifyContent: 'flex-end' }}>
+                            <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                              {item.value}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ width: 40, textAlign: 'right' }}>
+                              {pct}%
+                            </Typography>
+                          </Box>
                         </Box>
-                        <LinearProgress
-                          variant="determinate"
-                          value={Number(item.percentage)}
-                          sx={{
-                            height: 4,
-                            borderRadius: 2,
-                            bgcolor: 'action.hover',
-                            '& .MuiLinearProgress-bar': {
-                              bgcolor: item.color,
-                              borderRadius: 2,
-                            },
-                          }}
-                        />
-                      </Box>
-                    ))}
-                  </Stack>
+                      );
+                    })}
+                  </Box>
                 </CardContent>
               </Card>
             </Grid>
           </Grid>
 
-          {/* BOTTOM ROW: MOUNTAIN STACKED AREA CHART (LAST 12 MONTHS) */}
+          {/* DIAGRAM 3: MOUNTAIN STACKED AREA CHART */}
           <Card
             variant="outlined"
             sx={{
@@ -812,42 +845,130 @@ export const StatisticsCharts: React.FC<Props> = ({
                 }}
               />
             </Box>
+          </Card>
 
-            {/* Owner Badges with Color Indicators */}
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, pt: 0.5, justifyContent: 'center' }}>
-              {ownerLegendList.map((owner) => (
-                <Chip
-                  key={owner.name}
-                  avatar={
-                    <Box
-                      sx={{
-                        width: 10,
-                        height: 10,
-                        borderRadius: '50%',
-                        bgcolor: `${owner.color} !important`,
-                        ml: 1,
-                      }}
-                    />
-                  }
-                  label={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                      <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                        {owner.name}
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700 }}>
-                        ({owner.total})
-                      </Typography>
-                    </Box>
-                  }
-                  size="small"
-                  variant="outlined"
-                  sx={{ borderColor: 'divider', bgcolor: 'background.paper' }}
-                />
-              ))}
+          {/* DIAGRAM 4: TOP 10 CLIENTS HORIZONTAL BAR CHART */}
+          <Card
+            variant="outlined"
+            sx={{
+              borderRadius: 2,
+              p: 2.5,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2,
+            }}
+          >
+            {/* Header with Title */}
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.25,
+              }}
+            >
+              <Box
+                sx={{
+                  bgcolor: 'info.main',
+                  color: 'info.contrastText',
+                  p: 0.75,
+                  borderRadius: 1.5,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <LeaderboardOutlinedIcon fontSize="small" />
+              </Box>
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.05rem', lineHeight: 1.2 }}>
+                  {t('chartTop10Clients')}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {t('chartTop10ClientsSubtitle')}
+                </Typography>
+              </Box>
             </Box>
+
+            <Divider />
+
+            {top10ClientsData.topClients.length === 0 ? (
+              <Box sx={{ p: 4, textAlign: 'center' }}>
+                <Typography variant="body2" color="text.secondary">
+                  {t('noPaidInvoicesData')}
+                </Typography>
+              </Box>
+            ) : (
+              <Box
+                sx={{
+                  width: '100%',
+                  height: 500,
+                  pt: 1,
+                  '& .MuiBarElement-root': {
+                    transition: 'opacity 0.2s ease',
+                  },
+                  '& .MuiBarElement-root:hover': {
+                    opacity: 0.85,
+                  },
+                }}
+              >
+                <BarChart
+                  xAxis={[
+                    {
+                      scaleType: 'band',
+                      data: top10ClientsData.topClients.map((c) => c.clientName),
+                      height: 150,
+                      tickPlacement: 'middle',
+                      tickLabelPlacement: 'middle',
+                      tickLabelInterval: () => true,
+                      tickLabelStyle: {
+                        angle: -30,
+                        textAnchor: 'end',
+                        fontSize: 11,
+                        fontWeight: 600,
+                      },
+                    },
+                  ]}
+                  yAxis={[
+                    {
+                      width: 80,
+                      min: 0,
+                      label: `${t('axisTotalPaidAmount')} (RSD)`,
+                      valueFormatter: (value: number | null) => {
+                        if (value === null || value === undefined) return '0';
+                        if (value >= 1_000_000) return `${(value / 1_000_000).toLocaleString(undefined, { maximumFractionDigits: 1 })}M`;
+                        if (value >= 1_000) return `${(value / 1_000).toLocaleString(undefined, { maximumFractionDigits: 0 })}k`;
+                        return `${value}`;
+                      },
+                    },
+                  ]}
+                  series={[
+                    {
+                      data: top10ClientsData.topClients.map((c) => c.totalPaid),
+                      color: '#0284c7',
+                      valueFormatter: (value: number | null) =>
+                        value !== null
+                          ? `${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} RSD`
+                          : '0.00 RSD',
+                    },
+                  ]}
+                  height={600}
+                  width={950}
+                  margin={{
+                    left: 30,
+                    right: 35,
+                    top: 20,
+                    bottom: 105,
+                  }}
+                  grid={{ horizontal: true }}
+                  borderRadius={6}
+                />
+              </Box>
+            )}
           </Card>
         </>
       )}
     </Box>
   );
 };
+
+export default StatisticsCharts;

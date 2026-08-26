@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { translations, serviceTypeTranslations, errorMessageTranslations } from '../i18n/translations';
+import { serviceTypeTranslations, errorMessageTranslations } from '../i18n/translations';
 import type { Language, TranslationKeys } from '../i18n/translations';
+import { loadTranslation } from '../i18n/loader';
 import type { Service } from '../types';
 
 interface LanguageContextType {
@@ -28,6 +29,14 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return 'sr-Latn'; // Default language is Serbian (Latin)
   });
 
+  const [dictionary, setDictionary] = useState<TranslationKeys | null>(null);
+
+  useEffect(() => {
+    loadTranslation(language).then((dict) => {
+      setDictionary(dict);
+    });
+  }, [language]);
+
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);
     localStorage.setItem(STORAGE_KEY, lang);
@@ -38,8 +47,9 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [language]);
 
   const t = (key: keyof TranslationKeys, params?: Record<string, string | number>): string => {
-    const dict = translations[language] || translations['sr-Latn'] || translations['en'];
-    let text = dict[key] || translations['sr-Latn']?.[key] || translations['en']?.[key] || String(key);
+    if (!dictionary) return String(key); // Fallback while loading
+    
+    let text = dictionary[key] || String(key);
 
     if (params) {
       Object.entries(params).forEach(([pKey, pValue]) => {

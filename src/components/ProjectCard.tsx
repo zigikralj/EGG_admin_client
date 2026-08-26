@@ -11,17 +11,18 @@ import {
   IconButton,
   Tooltip,
 } from '@mui/material';
-import EditIcon from '@mui/icons-material/Edit';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import LockIcon from '@mui/icons-material/Lock';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import ErrorIcon from '@mui/icons-material/Error';
-import NotesIcon from '@mui/icons-material/Notes';
-import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
-import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+
+
+
+
+
+
+
+
 import type { Project, Service, Reminder, Invoice } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
+import { EditIcon, VisibilityIcon, LockIcon, WarningAmberIcon, ErrorIcon, NotesIcon, NotificationsActiveIcon, ReceiptLongIcon } from './icons';
 
 interface Props {
   project: Project;
