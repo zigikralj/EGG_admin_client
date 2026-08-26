@@ -74,6 +74,7 @@ import { useThemeContext } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { LanguageSelector } from './LanguageSelector';
 import { ColumnSelector, type ColumnDef } from './ColumnSelector';
+import { CompanyInfoModal } from './CompanyInfoModal';
 import logoUrl from '../assets/logo.svg';
 import type { TranslationKeys } from '../i18n/translations';
 
@@ -135,6 +136,7 @@ export const AdminLayout: React.FC<Props> = ({
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const [isProfileOpen, setIsProfileOpen] = React.useState(false);
   const [isPreferencesOpen, setIsPreferencesOpen] = React.useState(false);
+  const [isCompanyInfoOpen, setIsCompanyInfoOpen] = React.useState(false);
 
   // Profile editing state
   const [editProfileName, setEditProfileName] = React.useState('');
@@ -462,35 +464,64 @@ export const AdminLayout: React.FC<Props> = ({
             <MenuIcon />
           </IconButton>
 
-          {/* BRAND LOGO */}
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              cursor: 'pointer',
-              minWidth: { xs: 'auto', md: DRAWER_WIDTH - 24 },
-              py: 0.5,
-            }}
-            onClick={() => {
-              onTabChange('dashboard');
-              if (isMobile) setMobileOpen(false);
-            }}
-          >
+          {/* BRAND LOGO & COMPANY INFO */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.75, sm: 1.25 } }}>
             <Box
-              component="img"
-              src={logoUrl}
-              alt="Ekos Green Group"
               sx={{
-                height: { xs: 32, sm: 38 },
-                maxHeight: 42,
-                width: 'auto',
-                objectFit: 'contain',
-                transition: 'opacity 0.2s ease',
-                '&:hover': {
-                  opacity: 0.85,
-                },
+                display: 'flex',
+                alignItems: 'center',
+                cursor: 'pointer',
+                minWidth: { xs: 'auto', md: DRAWER_WIDTH - 24 - 44 },
+                py: 0.5,
               }}
-            />
+              onClick={() => {
+                onTabChange('dashboard');
+                if (isMobile) setMobileOpen(false);
+              }}
+            >
+              <Box
+                component="img"
+                src={logoUrl}
+                alt="Ekos Green Group"
+                sx={{
+                  height: { xs: 32, sm: 38 },
+                  maxHeight: 42,
+                  width: 'auto',
+                  objectFit: 'contain',
+                  transition: 'opacity 0.2s ease',
+                  '&:hover': {
+                    opacity: 0.85,
+                  },
+                }}
+              />
+            </Box>
+
+            <Tooltip title={t('companyInfoTitle')} arrow>
+              <IconButton
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsCompanyInfoOpen(true);
+                }}
+                size="small"
+                sx={{
+                  color: 'rgba(255, 255, 255, 0.9)',
+                  bgcolor: 'rgba(255, 255, 255, 0.1)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  p: { xs: 0.6, sm: 0.75 },
+                  borderRadius: 2,
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    color: '#ffffff',
+                    bgcolor: 'rgba(255, 255, 255, 0.22)',
+                    borderColor: 'rgba(255, 255, 255, 0.4)',
+                    transform: 'translateY(-1px)',
+                  },
+                }}
+                aria-label={t('companyInfoTitle')}
+              >
+                <BusinessIcon sx={{ fontSize: { xs: 18, sm: 20 } }} />
+              </IconButton>
+            </Tooltip>
           </Box>
 
           {/* PAGE TITLE */}
@@ -1159,6 +1190,12 @@ export const AdminLayout: React.FC<Props> = ({
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* COMPANY INFORMATION DIALOG */}
+      <CompanyInfoModal
+        open={isCompanyInfoOpen}
+        onClose={() => setIsCompanyInfoOpen(false)}
+      />
 
       {/* SIDEBAR DRAWER - MOBILE */}
       <Drawer

@@ -173,3 +173,19 @@ export interface SaveResult {
   error?: string;
 }
 
+export interface CompanyInfo {
+  id?: string;
+  name: string;
+  legalName: string;
+  registrationNumber: string;
+  municipality: string;
+  city: string;
+  streetAddress: string;
+  postalCode: string;
+  postOffice: string;
+  email: string;
+  taxId: string;
+  activityCode: string;
+  bankAccounts: string[];
+}
+

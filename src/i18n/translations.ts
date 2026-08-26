@@ -463,6 +463,35 @@ export interface TranslationKeys {
   msgRejectSuccess: string;
   lblAssignRole: string;
   lblSelectRole: string;
+
+  // Company Information
+  companyInfoTitle: string;
+  companyInfoSubtitle: string;
+  companyName: string;
+  companyLegalName: string;
+  companyRegistrationNumber: string;
+  companyMunicipality: string;
+  companyCity: string;
+  companyStreetAddress: string;
+  companyPostalCode: string;
+  companyPostOffice: string;
+  companyEmail: string;
+  companyTaxId: string;
+  companyActivityCode: string;
+  companyBankAccounts: string;
+  companyBasicInfoSection: string;
+  companyAddressSection: string;
+  companyFinancialSection: string;
+  copyAccountTooltip: string;
+  copiedToClipboard: string;
+  btnCopyAllDetails: string;
+  allDetailsCopied: string;
+  btnEditCompanyInfo: string;
+  btnSaveCompanyInfo: string;
+  btnCancelEdit: string;
+  btnAddBankAccount: string;
+  msgCompanyInfoSaved: string;
+  msgCompanyInfoSaveError: string;
 }
 
 export const translations: Record<Language, TranslationKeys> = {
@@ -929,6 +958,35 @@ export const translations: Record<Language, TranslationKeys> = {
     passwordTooShortError: 'Password must be at least 4 characters long.',
     passwordUpdatedSuccess: 'Password updated successfully!',
     currentPasswordIncorrectError: 'Current password is incorrect.',
+
+    // Company Information
+    companyInfoTitle: 'Company Information',
+    companyInfoSubtitle: 'Official identification & banking details',
+    companyName: 'Company Name',
+    companyLegalName: 'Business Name',
+    companyRegistrationNumber: 'Company Number (MB)',
+    companyMunicipality: 'Municipality',
+    companyCity: 'City / Place',
+    companyStreetAddress: 'Street and Number',
+    companyPostalCode: 'Postal Code',
+    companyPostOffice: 'Post Office Name',
+    companyEmail: 'Email',
+    companyTaxId: 'Tax Identification Number (PIB)',
+    companyActivityCode: 'Activity Code & Name',
+    companyBankAccounts: 'Bank Accounts',
+    companyBasicInfoSection: 'Basic & Legal Information',
+    companyAddressSection: 'Registered Address',
+    companyFinancialSection: 'Financial & Bank Information',
+    copyAccountTooltip: 'Copy account number',
+    copiedToClipboard: 'Copied to clipboard!',
+    btnCopyAllDetails: 'Copy All Info',
+    allDetailsCopied: 'Company information copied!',
+    btnEditCompanyInfo: 'Edit Details',
+    btnSaveCompanyInfo: 'Save Changes',
+    btnCancelEdit: 'Cancel',
+    btnAddBankAccount: 'Add Bank Account',
+    msgCompanyInfoSaved: 'Company information updated successfully!',
+    msgCompanyInfoSaveError: 'Failed to update company information.',
   },
 
   'sr-Latn': {
@@ -1394,6 +1452,35 @@ export const translations: Record<Language, TranslationKeys> = {
     passwordTooShortError: 'Lozinka mora imati najmanje 4 karaktera.',
     passwordUpdatedSuccess: 'Lozinka je uspešno promenjena!',
     currentPasswordIncorrectError: 'Trenutna lozinka nije tačna.',
+
+    // Company Information
+    companyInfoTitle: 'Informacije o firmi',
+    companyInfoSubtitle: 'Zvanični identifikacioni i bankovni podaci',
+    companyName: 'Naziv',
+    companyLegalName: 'Poslovno ime',
+    companyRegistrationNumber: 'Matični broj',
+    companyMunicipality: 'Naziv opštine',
+    companyCity: 'Mesto',
+    companyStreetAddress: 'Ulica, broj i slovo',
+    companyPostalCode: 'Broj pošte',
+    companyPostOffice: 'Naziv pošte',
+    companyEmail: 'E-pošta',
+    companyTaxId: 'Poreski identifikacioni broj PIB',
+    companyActivityCode: 'Šifra i naziv delatnosti',
+    companyBankAccounts: 'Tekući računi',
+    companyBasicInfoSection: 'Osnovni i pravni podaci',
+    companyAddressSection: 'Sedište i adresa',
+    companyFinancialSection: 'Finansijski i bankovni podaci',
+    copyAccountTooltip: 'Kopiraj broj računa',
+    copiedToClipboard: 'Kopirano u privremenu memoriju!',
+    btnCopyAllDetails: 'Kopiraj sve podatke',
+    allDetailsCopied: 'Podaci o firmi su kopirani!',
+    btnEditCompanyInfo: 'Izmeni podatke',
+    btnSaveCompanyInfo: 'Sačuvaj izmene',
+    btnCancelEdit: 'Otkaži',
+    btnAddBankAccount: 'Dodaj tekući račun',
+    msgCompanyInfoSaved: 'Podaci o firmi su uspešno ažurirani!',
+    msgCompanyInfoSaveError: 'Greška pri ažuriranju podataka o firmi.',
   },
 
   'sr-Cyrl': {
@@ -1859,6 +1946,35 @@ export const translations: Record<Language, TranslationKeys> = {
     passwordTooShortError: 'Лозинка мора имати најмање 4 карактера.',
     passwordUpdatedSuccess: 'Лозинка је успешно променена!',
     currentPasswordIncorrectError: 'Тренутна лозинка није тачна.',
+
+    // Company Information
+    companyInfoTitle: 'Информације о фирми',
+    companyInfoSubtitle: 'Званични идентификациони и банковни подаци',
+    companyName: 'Назив',
+    companyLegalName: 'Пословно име',
+    companyRegistrationNumber: 'Матични број',
+    companyMunicipality: 'Назив општине',
+    companyCity: 'Место',
+    companyStreetAddress: 'Улица, број и слово',
+    companyPostalCode: 'Број поште',
+    companyPostOffice: 'Назив поште',
+    companyEmail: 'Е-пошта',
+    companyTaxId: 'Порески идентификациони број ПИБ',
+    companyActivityCode: 'Шифра и назив делатности',
+    companyBankAccounts: 'Текући рачуни',
+    companyBasicInfoSection: 'Основни и правни подаци',
+    companyAddressSection: 'Седиште и адреса',
+    companyFinancialSection: 'Финансијски и банковни подаци',
+    copyAccountTooltip: 'Копирај број рачуна',
+    copiedToClipboard: 'Копирано у привремену меморију!',
+    btnCopyAllDetails: 'Копирај све податке',
+    allDetailsCopied: 'Подаци о фирми су копирани!',
+    btnEditCompanyInfo: 'Измени податке',
+    btnSaveCompanyInfo: 'Сачувај измене',
+    btnCancelEdit: 'Откажи',
+    btnAddBankAccount: 'Додај текући рачун',
+    msgCompanyInfoSaved: 'Подаци о фирми су успешно ажурирани!',
+    msgCompanyInfoSaveError: 'Грешка при ажурирању података о фирми.',
   },
 };
 
