@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import type { Category, SaveResult, AppFetchers } from '../types';
+import type { Category, AppFetchers } from '../types';
 import { useCrudOperations } from './useCrudOperations';
 
 /**

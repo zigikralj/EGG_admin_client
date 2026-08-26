@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import type { Reminder, SaveResult, AppFetchers } from '../types';
+import type { Reminder, AppFetchers } from '../types';
 import { apiFetch } from '../api';
 import { useCrudOperations } from './useCrudOperations';
 

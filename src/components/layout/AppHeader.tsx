@@ -72,7 +72,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   setIsCompanyInfoOpen,
 }) => {
   const { t } = useLanguage();
-  const { getRoleBadgeLabel, getRoleColor } = useRoleLabels();
+  const { getRoleBadgeLabel } = useRoleLabels();
   const {
     currentUser,
     users,

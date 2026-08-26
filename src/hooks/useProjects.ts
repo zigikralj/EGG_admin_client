@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import type { Project, SaveResult, AppFetchers } from '../types';
+import type { Project, AppFetchers } from '../types';
 import { apiFetch } from '../api';
 import { useLanguage } from '../context/LanguageContext';
 import { useCrudOperations } from './useCrudOperations';

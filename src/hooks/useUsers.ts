@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import type { User, SaveResult, AppFetchers } from '../types';
+import type { User, AppFetchers } from '../types';
 import { apiFetch } from '../api';
 import { useCrudOperations } from './useCrudOperations';
 

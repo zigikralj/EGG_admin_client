@@ -81,7 +81,7 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
     editInvoiceStatus, setEditInvoiceStatus,
     editInvoiceCurrency, setEditInvoiceCurrency,
     editInvoiceNotes, setEditInvoiceNotes,
-    editInvoiceItems, setEditInvoiceItems,
+    setEditInvoiceItems,
     projectInvoices,
     availableExistingInvoices,
   } = invoiceState;
@@ -120,7 +120,7 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
   };
 
   const handleRemoveNewInvoiceItem = (idx: number) => {
-    setNewInvoiceItems(newInvoiceItems.filter((_, i) => i !== idx));
+    setNewInvoiceItems(newInvoiceItems.filter((_: any, i: number) => i !== idx));
   };
 
   const newInvoiceModalTotal = newInvoiceItems.reduce((acc: number, it: any) => acc + (it.quantity * it.unitPrice || 0), 0);

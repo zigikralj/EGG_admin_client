@@ -1,42 +1,19 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState } from 'react';
 import {
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
   Checkbox,
   Button,
   Grid,
   Typography,
   Box,
   Paper,
-  Autocomplete,
   IconButton,
-  Tooltip,
-  Chip,
-  ToggleButtonGroup,
-  ToggleButton,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Divider,
-  Slider,
 } from '@mui/material';
 
-
-
-
-
-
-
-
-
-
-
-
-import type { Project, Client, User, Service, Reminder, SaveResult, Invoice, InvoiceStatus, InvoiceCurrency } from '../types';
+import type { Project, Client, User, Service, Reminder, SaveResult, Invoice } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { ErrorDialog } from './ErrorDialog';
@@ -45,7 +22,7 @@ import { ProjectProgressSlider } from './project/ProjectProgressSlider';
 import { ProjectReminderSection } from './project/ProjectReminderSection';
 import { ProjectInvoiceSection } from './project/ProjectInvoiceSection';
 import { useProjectForm } from '../hooks/useProjectForm';
-import { DeleteIcon, SaveIcon, NotificationsActiveIcon, AddIcon, EditIcon, CheckIcon, CheckCircleIcon, CloseIcon, CalendarTodayIcon, ReceiptLongIcon, LinkOffIcon, NotesIcon } from './icons';
+import { SaveIcon, EditIcon, CloseIcon, NotesIcon } from './icons';
 interface Props {
   isOpen: boolean;
   project: Project | null;
@@ -91,14 +68,13 @@ const ProjectViewModal: React.FC<Props> = ({
     open: false,
     message: '',
   });
-  const todayStr = new Date().toISOString().slice(0, 10);
 
   // Local state for editable notes
   const [notes, setNotes] = useState('');
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [notesModified, setNotesModified] = useState(false);
 
-  const { formState, reminderState, invoiceState } = useProjectForm({
+  const { reminderState, invoiceState } = useProjectForm({
     projectToEdit: project,
     clients,
     users,
