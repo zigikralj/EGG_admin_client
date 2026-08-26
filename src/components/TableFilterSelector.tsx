@@ -7,10 +7,11 @@ import {
   Box,
   Badge,
 } from '@mui/material';
-import FilterListIcon from '@mui/icons-material/FilterList';
-import SortIcon from '@mui/icons-material/Sort';
-import FilterListOffIcon from '@mui/icons-material/FilterListOff';
+
+
+
 import { useLanguage } from '../context/LanguageContext';
+import { FilterListIcon, SortIcon, FilterListOffIcon } from './icons';
 
 interface Props {
   activeCount: number;

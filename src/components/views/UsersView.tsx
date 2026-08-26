@@ -32,28 +32,29 @@ import {
   ToggleButtonGroup,
   Autocomplete,
 } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
-import AddIcon from '@mui/icons-material/Add';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
-import LockIcon from '@mui/icons-material/Lock';
-import HowToRegIcon from '@mui/icons-material/HowToReg';
-import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
-import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
-import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import HighlightOffIcon from '@mui/icons-material/HighlightOff';
-import BlockIcon from '@mui/icons-material/Block';
-import VpnKeyIcon from '@mui/icons-material/VpnKey';
-import Visibility from '@mui/icons-material/Visibility';
-import VisibilityOff from '@mui/icons-material/VisibilityOff';
-import ExitToAppIcon from '@mui/icons-material/ExitToApp';
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 import type { User, SaveResult } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { ColumnSelector, type ColumnDef } from '../ColumnSelector';
 import { TableFilterSelector } from '../TableFilterSelector';
 import { ErrorDialog } from '../ErrorDialog';
+import { SearchIcon, AddIcon, EditIcon, DeleteIcon, LockIcon, HowToRegIcon, HourglassEmptyIcon, ArrowUpwardIcon, ArrowDownwardIcon, CheckCircleIcon, HighlightOffIcon, BlockIcon, VpnKeyIcon, Visibility, VisibilityOff, ExitToAppIcon } from '../icons';
 
 interface Props {
   users: User[];
@@ -73,7 +74,7 @@ interface Props {
 
 const DEFAULT_COLUMNS = ['name', 'role', 'status', 'online', 'gender', 'email', 'phone'];
 
-export const UsersView: React.FC<Props> = ({
+const UsersView: React.FC<Props> = ({
   users,
   onSaveUser,
   onDeleteUser,
@@ -1122,3 +1123,5 @@ export const UsersView: React.FC<Props> = ({
     </Box>
   );
 };
+
+export default UsersView;

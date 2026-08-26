@@ -8,8 +8,9 @@ import {
   Typography,
   Divider,
 } from '@mui/material';
-import ViewColumnIcon from '@mui/icons-material/ViewColumn';
+
 import { useLanguage } from '../context/LanguageContext';
+import { ViewColumnIcon } from './icons';
 
 export interface ColumnDef {
   id: string;

@@ -30,19 +30,20 @@ import {
   ToggleButton,
   Autocomplete,
 } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
-import AddIcon from '@mui/icons-material/Add';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
-import CheckIcon from '@mui/icons-material/Check';
-import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
-import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+
+
+
+
+
+
+
 import type { Reminder, Project, Client, User, SaveResult } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { ColumnSelector, type ColumnDef } from '../ColumnSelector';
 import { TableFilterSelector } from '../TableFilterSelector';
 import { ErrorDialog } from '../ErrorDialog';
+import { SearchIcon, AddIcon, EditIcon, DeleteIcon, CheckIcon, ArrowUpwardIcon, ArrowDownwardIcon } from '../icons';
 
 interface Props {
   reminders: Reminder[];
@@ -62,7 +63,7 @@ interface Props {
 
 const DEFAULT_COLUMNS = ['title', 'project', 'client', 'responsible', 'status', 'notes'];
 
-export const RemindersView: React.FC<Props> = ({
+const RemindersView: React.FC<Props> = ({
   reminders,
   projects,
   clients,
@@ -1036,3 +1037,5 @@ export const RemindersView: React.FC<Props> = ({
     </Box>
   );
 };
+
+export default RemindersView;

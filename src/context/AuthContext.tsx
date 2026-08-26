@@ -102,10 +102,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [users, currentUser, logout]);
 
-  // Periodic auth check to log out blocked users immediately
+  // Periodic auth check to log out blocked users.
+  // Uses Page Visibility API to pause polling when the tab is hidden,
+  // eliminating all auth requests for inactive/background tabs.
   useEffect(() => {
     if (!currentUser) return;
-    const interval = setInterval(async () => {
+
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const checkAuth = async () => {
       try {
         const res = await apiFetch('/api/auth/me', {
           headers: { 'X-User-Id': currentUser.id },
@@ -117,8 +122,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
       } catch (e) {}
-    }, 4000);
-    return () => clearInterval(interval);
+    };
+
+    const startPolling = () => {
+      if (intervalId !== null) return;
+      intervalId = setInterval(checkAuth, 30000); // 30s — ~120 req/hr vs old 4s (~900 req/hr)
+    };
+
+    const stopPolling = () => {
+      if (intervalId !== null) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        // Tab became visible: check immediately then resume polling
+        checkAuth();
+        startPolling();
+      }
+    };
+
+    // Start polling only if tab is currently visible
+    if (!document.hidden) {
+      startPolling();
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [currentUser, logout]);
 
   useEffect(() => {

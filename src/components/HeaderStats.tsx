@@ -1,12 +1,13 @@
 import React from 'react';
 import { Box, Chip, Typography, Stack } from '@mui/material';
-import FolderIcon from '@mui/icons-material/Folder';
-import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import ErrorIcon from '@mui/icons-material/Error';
+
+
+
+
+
 import type { ProjectStats } from '../types';
 import { useLanguage } from '../context/LanguageContext';
+import { FolderIcon, CheckCircleOutlinedIcon, WarningAmberIcon, AccessTimeIcon, ErrorIcon } from './icons';
 
 interface Props {
   stats: ProjectStats;

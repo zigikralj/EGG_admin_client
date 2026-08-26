@@ -31,22 +31,23 @@ import {
   Divider,
   Collapse,
 } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
-import AddIcon from '@mui/icons-material/Add';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
-import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+
+
+
+
+
+
+
+
+
+
 import type { Invoice, Client, Project, SaveResult, InvoiceStatus, InvoiceCurrency } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { ColumnSelector, type ColumnDef } from '../ColumnSelector';
 import { TableFilterSelector } from '../TableFilterSelector';
 import { ErrorDialog } from '../ErrorDialog';
+import { SearchIcon, AddIcon, EditIcon, DeleteIcon, CheckCircleIcon, ArrowUpwardIcon, ArrowDownwardIcon, KeyboardArrowDownIcon, KeyboardArrowUpIcon, ReceiptLongIcon } from '../icons';
 
 interface Props {
   invoices: Invoice[];
@@ -63,7 +64,7 @@ interface Props {
 
 const DEFAULT_COLUMNS = ['invoiceNumber', 'client', 'project', 'dateCreated', 'dueDate', 'totalAmount', 'status'];
 
-export const InvoicesView: React.FC<Props> = ({
+const InvoicesView: React.FC<Props> = ({
   invoices,
   clients,
   projects,
@@ -1254,3 +1255,5 @@ export const InvoicesView: React.FC<Props> = ({
     </Box>
   );
 };
+
+export default InvoicesView;

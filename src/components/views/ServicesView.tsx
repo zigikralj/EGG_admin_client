@@ -27,19 +27,20 @@ import {
   InputLabel,
   Autocomplete,
 } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
-import AddIcon from '@mui/icons-material/Add';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
-import LockIcon from '@mui/icons-material/Lock';
-import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
-import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+
+
+
+
+
+
+
 import type { Service, Category, SaveResult } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { ColumnSelector, type ColumnDef } from '../ColumnSelector';
 import { TableFilterSelector } from '../TableFilterSelector';
 import { ErrorDialog } from '../ErrorDialog';
+import { SearchIcon, AddIcon, EditIcon, DeleteIcon, LockIcon, ArrowUpwardIcon, ArrowDownwardIcon } from '../icons';
 
 interface Props {
   services: Service[];
@@ -54,7 +55,7 @@ interface Props {
 
 const DEFAULT_COLUMNS = ['name', 'group', 'frequency', 'description'];
 
-export const ServicesView: React.FC<Props> = ({
+const ServicesView: React.FC<Props> = ({
   services,
   categories = [],
   onSaveService,
@@ -695,3 +696,5 @@ export const ServicesView: React.FC<Props> = ({
     </Box>
   );
 };
+
+export default ServicesView;

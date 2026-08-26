@@ -22,19 +22,20 @@ import {
   Grid,
   Autocomplete,
 } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
-import AddIcon from '@mui/icons-material/Add';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
-import LockIcon from '@mui/icons-material/Lock';
-import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
-import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+
+
+
+
+
+
+
 import type { Category, SaveResult } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { ColumnSelector, type ColumnDef } from '../ColumnSelector';
 import { TableFilterSelector } from '../TableFilterSelector';
 import { ErrorDialog } from '../ErrorDialog';
+import { SearchIcon, AddIcon, EditIcon, DeleteIcon, LockIcon, ArrowUpwardIcon, ArrowDownwardIcon } from '../icons';
 
 interface Props {
   categories: Category[];
@@ -48,7 +49,7 @@ interface Props {
 
 const DEFAULT_COLUMNS = ['name', 'description'];
 
-export const CategoriesView: React.FC<Props> = ({
+const CategoriesView: React.FC<Props> = ({
   categories,
   onSaveCategory,
   onDeleteCategory,
@@ -508,3 +509,5 @@ export const CategoriesView: React.FC<Props> = ({
     </Box>
   );
 };
+
+export default CategoriesView;

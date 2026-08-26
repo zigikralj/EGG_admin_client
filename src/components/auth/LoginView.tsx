@@ -13,18 +13,19 @@ import {
   IconButton,
   CircularProgress,
 } from '@mui/material';
-import PersonIcon from '@mui/icons-material/Person';
-import LockIcon from '@mui/icons-material/Lock';
-import EmailIcon from '@mui/icons-material/Email';
-import PhoneIcon from '@mui/icons-material/Phone';
-import Visibility from '@mui/icons-material/Visibility';
-import VisibilityOff from '@mui/icons-material/VisibilityOff';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
+
+
+
+
+
+
+
+
 import logoUrl from '../../assets/logo.svg';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { LanguageSelector } from '../LanguageSelector';
+import { PersonIcon, LockIcon, EmailIcon, PhoneIcon, Visibility, VisibilityOff, CheckCircleIcon, HourglassEmptyIcon } from '../icons';
 
 export const LoginView: React.FC = () => {
   const { t } = useLanguage();

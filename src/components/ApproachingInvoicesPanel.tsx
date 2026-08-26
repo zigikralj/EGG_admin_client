@@ -14,16 +14,17 @@ import {
   Autocomplete,
   Button,
 } from '@mui/material';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-import SearchIcon from '@mui/icons-material/Search';
-import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
-import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+
+
+
+
+
+
+
 import type { Invoice, Client, Project } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { TableFilterSelector } from './TableFilterSelector';
+import { CheckCircleIcon, CalendarTodayIcon, SearchIcon, ArrowUpwardIcon, ArrowDownwardIcon, ArrowForwardIcon, ReceiptLongIcon } from './icons';
 
 interface Props {
   invoices?: Invoice[];

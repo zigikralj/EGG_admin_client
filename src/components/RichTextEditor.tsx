@@ -9,19 +9,20 @@ import {
   MenuItem,
   Typography,
 } from '@mui/material';
-import FormatBoldIcon from '@mui/icons-material/FormatBold';
-import FormatItalicIcon from '@mui/icons-material/FormatItalic';
-import FormatUnderlinedIcon from '@mui/icons-material/FormatUnderlined';
-import StrikethroughSIcon from '@mui/icons-material/StrikethroughS';
-import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
-import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered';
-import FormatQuoteIcon from '@mui/icons-material/FormatQuote';
-import TitleIcon from '@mui/icons-material/Title';
-import FormatClearIcon from '@mui/icons-material/FormatClear';
-import UndoIcon from '@mui/icons-material/Undo';
-import RedoIcon from '@mui/icons-material/Redo';
-import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+
+
+
+
+
+
+
+
+
+
+
+
 import { useLanguage } from '../context/LanguageContext';
+import { FormatBoldIcon, FormatItalicIcon, FormatUnderlinedIcon, StrikethroughSIcon, FormatListBulletedIcon, FormatListNumberedIcon, FormatQuoteIcon, TitleIcon, FormatClearIcon, UndoIcon, RedoIcon, ArrowDropDownIcon } from './icons';
 
 interface RichTextEditorProps {
   value: string;

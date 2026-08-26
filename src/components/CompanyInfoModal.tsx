@@ -19,23 +19,24 @@ import {
   useTheme,
   alpha,
 } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
-import BusinessIcon from '@mui/icons-material/Business';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import LocationOnIcon from '@mui/icons-material/LocationOn';
-import EmailIcon from '@mui/icons-material/Email';
-import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
-import BadgeIcon from '@mui/icons-material/Badge';
-import WorkIcon from '@mui/icons-material/Work';
-import EditIcon from '@mui/icons-material/Edit';
-import SaveIcon from '@mui/icons-material/Save';
-import AddIcon from '@mui/icons-material/Add';
-import DeleteIcon from '@mui/icons-material/Delete';
+
+
+
+
+
+
+
+
+
+
+
+
+
 import { apiFetch } from '../api';
 import { useLanguage } from '../context/LanguageContext';
 import { DEFAULT_COMPANY_INFO } from '../constants/companyInfo';
 import type { CompanyInfo } from '../types';
+import { CloseIcon, BusinessIcon, ContentCopyIcon, CheckCircleIcon, LocationOnIcon, EmailIcon, AccountBalanceIcon, BadgeIcon, WorkIcon, EditIcon, SaveIcon, AddIcon, DeleteIcon } from './icons';
 
 interface CompanyInfoModalProps {
   open: boolean;

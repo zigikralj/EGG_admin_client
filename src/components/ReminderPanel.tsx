@@ -25,20 +25,21 @@ import {
   Checkbox,
   Autocomplete,
 } from '@mui/material';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
-import CheckIcon from '@mui/icons-material/Check';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-import SearchIcon from '@mui/icons-material/Search';
-import AddIcon from '@mui/icons-material/Add';
-import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
-import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+
+
+
+
+
+
+
+
+
 import type { Project, Reminder, Client, User, SaveResult } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { TableFilterSelector } from './TableFilterSelector';
 import { ErrorDialog } from './ErrorDialog';
+import { VisibilityIcon, EditIcon, DeleteIcon, CheckIcon, CalendarTodayIcon, SearchIcon, AddIcon, ArrowUpwardIcon, ArrowDownwardIcon } from './icons';
 
 interface Props {
   projects?: Project[];

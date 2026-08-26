@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, Suspense } from 'react';
 import {
   Grid,
   Card,
@@ -17,20 +17,25 @@ import {
   FormControlLabel,
   Checkbox,
   IconButton,
+  CircularProgress,
 } from '@mui/material';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
-import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
-import SearchIcon from '@mui/icons-material/Search';
-import AddIcon from '@mui/icons-material/Add';
+
+
+
+
+
 import type { Project, ProjectStats, Reminder, Invoice, DashboardSubTab, User, Category, Service, Client } from '../../types';
 import { ReminderPanel } from '../ReminderPanel';
 import { ApproachingInvoicesPanel } from '../ApproachingInvoicesPanel';
 import { ProjectCard } from '../ProjectCard';
-import { StatisticsCharts } from '../StatisticsCharts';
+
 import { TableFilterSelector } from '../TableFilterSelector';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import { ArrowForwardIcon, ArrowUpwardIcon, ArrowDownwardIcon, SearchIcon, AddIcon } from '../icons';
+
+const StatisticsCharts = React.lazy(() => import('../StatisticsCharts'));
+
 
 interface Props {
   dashboardSubTab?: DashboardSubTab;
@@ -60,7 +65,7 @@ interface Props {
   onQuickFilterDashboardRemindersChange?: (val: boolean) => void;
 }
 
-export const DashboardView: React.FC<Props> = ({
+const DashboardView: React.FC<Props> = ({
   dashboardSubTab = 'default',
   stats,
   projects,
@@ -731,15 +736,16 @@ export const DashboardView: React.FC<Props> = ({
               {t('projectsStatistic')}
             </Typography>
           </Box>
-          {renderStatisticsCard(true, false)}
-          <StatisticsCharts
-            projects={projects}
-            clients={clients}
-            invoices={invoices}
-            users={users}
-            categories={categories}
-            services={services}
-          />
+          <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>}>
+            <StatisticsCharts
+              projects={projects}
+              clients={clients}
+              users={users}
+              categories={categories}
+              services={services}
+              invoices={invoices}
+            />
+          </Suspense>
         </Box>
       )}
 
@@ -1038,3 +1044,5 @@ export const DashboardView: React.FC<Props> = ({
   );
 };
 
+
+export default DashboardView;

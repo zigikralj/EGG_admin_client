@@ -197,6 +197,20 @@ export const getTheme = (mode: 'light' | 'dark' = 'light') => {
           },
         },
       },
+      MuiDialog: {
+        styleOverrides: {
+          paper: {
+            overscrollBehavior: 'contain',
+          },
+        },
+      },
+      MuiDrawer: {
+        styleOverrides: {
+          paper: {
+            overscrollBehavior: 'contain',
+          },
+        },
+      },
     },
   });
 };
