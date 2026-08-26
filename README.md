@@ -1,226 +1,137 @@
 # EkosGreenGroup Project Tracker
 
-A professional project management application for EkosGreenGroup, built with React, TypeScript, and Vite.
+A professional project management and invoicing application for **EkosGreenGroup**, built with React 19, TypeScript, Material UI (MUI), and Vite.
+
+---
 
 ## 🚀 Overview
 
-EkosGreenGroup Project Tracker is a comprehensive platform for managing projects, tracking progress, and collaborating with your team. Key features include:
+**EkosGreenGroup Project Tracker** is a comprehensive platform designed for project lifecycle management, environmental sampling schedules, invoicing, client relations, and team collaboration.
 
-- **Project Management**: Create, update, and archive projects with detailed status tracking
-- **Task Management**: Break down projects into manageable tasks with priorities, deadlines, and assignments
-- **User Management**: Secure login/registration with role-based access control (Admin, Manager, Team Member)
-- **Dashboard Analytics**: Visual overview of project progress, overdue tasks, and team member workload
-- **Search & Filter**: Powerful search and filtering to quickly find projects and tasks
-- **Responsive Design**: Modern, mobile-friendly interface
+### Key Highlights:
+- **Role-Based Access Control (RBAC)**: Fine-grained permissions for **Administrator**, **Manager**, **Accountant**, and **User** (Team Member).
+- **Interactive Dashboard**:
+  - Combined overview with KPI statistics and analytical charts.
+  - Role-tailored views: Standard dashboard for managers/team members and specialized invoice-centric dashboard for accountants.
+  - Dedicated subtabs for Statistics, Reminders, Invoices, and Projects.
+- **Invoicing & Billing**: Full invoice lifecycle (Draft, Sent, Paid, Overdue, Cancelled), multi-currency support (`RSD` and `EUR €`), line item calculations, due date monitoring, and project linking.
+- **Sampling & Reminders**: Real-time tracking of approaching sampling dates and custom reminders with overdue alerts.
+- **Projects & Services**: Categorized project tracking with progress meters, responsible person assignment, deadline alerts, and quick filters (e.g., Active, Missing Invoice, Stale, Late).
+- **Multilingual Support (i18n)**: Instant switching between **English**, **Serbian Latin (sr-Latn)**, and **Serbian Cyrillic (sr-Cyrl)**.
+- **Theme & Customization**: Sleek dark and light themes, configurable entity columns, and responsive mobile drawer navigation.
+
+---
 
 ## 🛠️ Built With
 
-- **Frontend**: [React](https://react.dev/) 19 + [TypeScript](https://www.typescriptlang.org/) + [Vite](https://vitejs.dev/)
-- **Styling**: [Tailwind CSS](https://tailwindcss.com/) + [Shadcn UI](https://ui.shadcn.com/)
-- **Icons**: [Lucide React](https://lucide.dev/)
-- **State Management**: Built-in React hooks
+- **Frontend Core**: [React](https://react.dev/) 19 + [TypeScript](https://www.typescriptlang.org/) + [Vite](https://vitejs.dev/)
+- **UI Components & Icons**: [Material UI (MUI)](https://mui.com/) + [@mui/icons-material](https://mui.com/material-ui/material-icons/) + [Emotion](https://emotion.sh/)
+- **Data Visualization & Charts**: [@mui/x-charts](https://mui.com/x/react-charts/)
+- **Linting**: [Oxlint](https://oxc.rs/)
+
+---
+
+## 👥 User Roles & Permissions
+
+| Role | Permissions & Features |
+| :--- | :--- |
+| **Administrator** | • Full system access and configuration.<br>• User management, role assignment, and pending registration approvals.<br>• Client, service, and category management.<br>• Full project and invoice management.<br>• Header **User Switch** switcher for quick identity testing.<br>• Toggle between **Manager mode** and **User view mode**. |
+| **Manager** | • Project creation, assignment, and management.<br>• Access to clients, services, categories, and reminders.<br>• Invoice creation, management, and project linking.<br>• Toggle between **Manager mode** and **User view mode**. |
+| **Accountant** | • Complete invoice management across all projects regardless of project responsible user.<br>• Custom default dashboard displaying the latest 15 projects and **Approaching Invoices** panel.<br>• Dedicated **Dashboard -> Invoices** subtab and Invoices page.<br>• Tailored quickfilters (**Active**, **Missing Invoice**). |
+| **User (Team Member)** | • Personal project tracking and sampling updates.<br>• Personal reminders monitoring.<br>• Clean, distraction-free interface focused on assigned work. |
+
+---
 
 ## 📋 Prerequisites
 
-- [Node.js](https://nodejs.org/) (v18 or higher)
-- [npm](https://www.npmjs.com/) (v9 or higher)
+- **Node.js**: v18.0.0 or higher
+- **npm**: v9.0.0 or higher
+
+---
 
 ## 🚀 Getting Started
 
-### Installation
+### 1. Installation
 
-1. Clone the repository:
-   ```bash
-   git clone <repository-url>
-   cd client
-   ```
+Clone the repository and install dependencies:
 
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
+```bash
+cd client
+npm install
+```
 
-### Environment Configuration
+### 2. Environment Configuration
 
-1. Copy the example environment file:
-   ```bash
-   cp .env.example .env
-   ```
+Create a `.env` file in the `client/` root:
 
-2. Edit the `.env` file with your API configuration:
-   ```ini
-   # API base URL
-   VITE_API_BASE_URL=http://localhost:8000/api
-   ```
+```ini
+# Backend API base URL
+VITE_API_BASE_URL=http://localhost:8000/api
+```
 
-### Run Development Server
+### 3. Running Development Server
 
-Start the development server with hot-reload:
+Start the Vite development server with Hot Module Replacement (HMR):
 
 ```bash
 npm run dev
 ```
 
-The application will be available at `http://localhost:5173`.
+The application will be accessible at `http://localhost:5173`.
 
-### Build for Production
+### 4. Production Build
 
-Build the application for production:
+Compile TypeScript and build the production bundle:
 
 ```bash
 npm run build
 ```
 
-The production build will be created in the `dist/` directory.
-
-### Run Production Build
-
-Serve the production build:
+Preview the production build locally:
 
 ```bash
 npm run preview
 ```
 
-## 📋 Local Development Setup
-
-### Setting Up a Mock API with JSON Server
-
-For local development without the backend, you can use **JSON Server** to mock the API:
-
-1. Install JSON Server:
-   ```bash
-   npm install -g json-server
-   ```
-
-2. Start the mock API:
-   ```bash
-   json-server --watch db.json --port 8000
-   ```
-
-3. Configure your `.env` file for local development:
-   ```ini
-   VITE_API_BASE_URL=http://localhost:8000/api
-   ```
-
-### Available Commands
-
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start development server with HMR |
-| `npm run build` | Build for production |
-| `npm run preview` | Serve production build locally |
-| `npm run lint` | Run ESLint to check code quality |
-| `npm run format` | Format code using Prettier |
+---
 
 ## 📂 Project Structure
 
 ```
 client/
+├── public/                  # Static assets & public files
 ├── src/
-│   ├── api/             # API configuration and services
-│   ├── assets/          # Static assets
-│   ├── components/      # Reusable UI components
-│   ├── contexts/        # React contexts (e.g., AuthContext)
-│   ├── hooks/           # Custom React hooks
-│   ├── layouts/         # Page layouts (e.g., DashboardLayout)
-│   ├── pages/           # Page components
-│   ├── utils/           # Utility functions
-│   └── App.tsx          # Main application component
-├── public/              # Static files
-├── .env                 # Environment variables
-├── tailwind.config.js   # Tailwind CSS configuration
-└── vite.config.ts       # Vite configuration
+│   ├── assets/              # Logos and SVGs
+│   ├── components/          # Reusable UI components & modals
+│   │   ├── views/           # Primary page views (Dashboard, Projects, Invoices, etc.)
+│   │   ├── AdminLayout.tsx  # Responsive shell, top app bar, and navigation drawer
+│   │   ├── ProjectCard.tsx  # Project summary card with sampling & status controls
+│   │   ├── ApproachingInvoicesPanel.tsx # Invoices due soon dashboard widget
+│   │   ├── ReminderPanel.tsx            # Reminders dashboard widget
+│   │   └── ...
+│   ├── context/             # React contexts (AuthContext, LanguageContext, ThemeContext)
+│   ├── i18n/                # Localization dictionaries (translations.ts)
+│   ├── types.ts             # TypeScript definitions & data models
+│   ├── App.tsx              # Root component & view router
+│   └── main.tsx             # Application entry point
+├── package.json             # Scripts & dependencies
+├── tsconfig.json            # TypeScript configuration
+└── vite.config.ts           # Vite bundler configuration
 ```
 
-## 📝 Project Features
+---
 
-### User Authentication
+## ⚙️ Available Scripts
 
-- **Login**: Secure login with email and password
-- **Registration**: Create new user accounts
-- **Role-Based Access**: Different permissions for Admin, Manager, and Team Member
-- **Session Management**: Automatic session persistence
+| Command | Description |
+| :--- | :--- |
+| `npm run dev` | Starts the development server at `http://localhost:5173` |
+| `npm run build` | Type-checks with `tsc` and creates optimized build in `dist/` |
+| `npm run preview` | Serves the production build locally for verification |
+| `npm run lint` | Runs `oxlint` fast linter on the codebase |
 
-### Project Dashboard
+---
 
-- **Overview**: At-a-glance view of project statistics
-- **Filters**: Filter projects by status (Active, On Hold, Completed, Archived)
-- **Search**: Quick search functionality
-- **Sorting**: Sort projects by name, status, or priority
+## 🔒 Security
 
-### Project Management
-
-- **Create Project**: Add new projects with title, description, and status
-- **Edit Project**: Update project details
-- **Archive Project**: Move projects to archive when completed
-- **View Details**: View all tasks associated with a project
-
-### Task Management
-
-- **Task List**: View all tasks for a project
-- **Add Task**: Create new tasks with:
-  - **Title**: Task name
-  - **Priority**: High, Medium, Low
-  - **Status**: Pending, In Progress, Completed
-  - **Deadline**: Due date
-  - **Assignee**: User responsible for the task
-  - **Estimated Hours**: Time estimate
-  - **Actual Hours**: Time spent
-- **Edit Task**: Update task details
-- **Delete Task**: Remove tasks
-
-### User Roles
-
-**Admin**:
-- Full access to all features
-- Can manage users, projects, and tasks
-
-**Manager**:
-- Can create and manage projects
-- Can assign tasks to team members
-- Can view all project data
-
-**Team Member**:
-- Can view assigned tasks
-- Can update task status and hours
-- Cannot delete or archive projects
-
-## 📋 Development Tips
-
-### Component Development
-
-- Use functional components with TypeScript interfaces
-- Keep components focused and reusable
-- Follow the existing UI/UX patterns from Shadcn UI
-- Use Tailwind classes for styling
-
-### API Integration
-
-- Use the `api/` directory for all API configurations
-- Create separate service files for different resources
-- Handle loading and error states properly
-
-### Testing
-
-- Create unit tests for complex components
-- Test API integrations
-- Ensure responsive design works on different devices
-
-## 🚀 Deployment
-
-### GitHub Pages (Automated via GitHub Actions)
-
-This project contains a GitHub Actions workflow (`.github/workflows/deploy.yml`) that automatically builds and deploys the application to GitHub Pages whenever changes are pushed to the `main` branch.
-
-To enable GitHub Pages for your repository:
-1. Go to your repository on GitHub: **Settings** > **Pages**
-2. Under **Build and deployment** > **Source**, select **GitHub Actions**
-3. Push changes to the `main` branch to trigger deployment!
-
-### Prerequisites for Manual Deployment
-
-1. Ensure the backend API is accessible at the configured `VITE_API_BASE_URL`
-2. Build the application for production:
-   ```bash
-   npm run build
-   ```
+For security best practices and vulnerability reporting guidelines, please refer to [SECURITY.md](SECURITY.md).
