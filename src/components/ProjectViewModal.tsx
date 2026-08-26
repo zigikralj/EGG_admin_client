@@ -331,7 +331,7 @@ export const ProjectViewModal: React.FC<Props> = ({
     if (!project || !onSave || !isEditable) return;
     const newDone = newVal >= 100;
     await onSave({
-      id: project.id,
+      ...project,
       progress: newVal,
       done: newDone,
     });
@@ -342,7 +342,7 @@ export const ProjectViewModal: React.FC<Props> = ({
     setIsSavingNotes(true);
     try {
       await onSave({
-        id: project.id,
+        ...project,
         notes: notes.trim() || null,
       });
       setNotesModified(false);
@@ -662,7 +662,7 @@ export const ProjectViewModal: React.FC<Props> = ({
                       onToggleDone(project.id);
                     } else if (onSave) {
                       onSave({
-                        id: project.id,
+                        ...project,
                         done: !project.done,
                         progress: !project.done ? 100 : project.progress,
                       });
