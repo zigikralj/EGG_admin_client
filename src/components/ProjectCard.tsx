@@ -253,7 +253,7 @@ export const ProjectCard: React.FC<Props> = ({
     }
 
     const totalAmount = projectInvoices.reduce((sum, inv) => sum + (Number(inv.totalAmount) || 0), 0);
-    const currency = projectInvoices[0]?.currency || '€';
+    const currency = projectInvoices[0]?.currency || 'RSD';
 
     return {
       color,
@@ -367,7 +367,7 @@ export const ProjectCard: React.FC<Props> = ({
   const renderInvoicesTooltip = () => {
     const formatAmount = (amount?: number | null, curr?: string | null) => {
       const val = amount || 0;
-      const c = curr || '€';
+      const c = curr || 'RSD';
       return `${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${c}`;
     };
 

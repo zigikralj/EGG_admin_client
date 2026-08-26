@@ -219,11 +219,11 @@ export const ProjectModal: React.FC<Props> = ({
   const [newInvoiceNumber, setNewInvoiceNumber] = useState('');
   const [newInvoiceDateCreated, setNewInvoiceDateCreated] = useState(todayStr);
   const [newInvoiceDueDate, setNewInvoiceDueDate] = useState('');
-  const [newInvoiceCurrency, setNewInvoiceCurrency] = useState<InvoiceCurrency>('€');
+  const [newInvoiceCurrency, setNewInvoiceCurrency] = useState<InvoiceCurrency>('RSD');
   const [newInvoiceStatus, setNewInvoiceStatus] = useState<InvoiceStatus>('Draft');
   const [newInvoiceNotes, setNewInvoiceNotes] = useState('');
   const [newInvoiceItems, setNewInvoiceItems] = useState<{ description: string; quantity: number; unitPrice: number; currency: InvoiceCurrency }[]>([
-    { description: '', quantity: 1, unitPrice: 0, currency: '€' },
+    { description: '', quantity: 1, unitPrice: 0, currency: 'RSD' },
   ]);
   const [selectedExistingInvoiceId, setSelectedExistingInvoiceId] = useState('');
 
@@ -234,7 +234,7 @@ export const ProjectModal: React.FC<Props> = ({
   const [editInvoiceDueDate, setEditInvoiceDueDate] = useState('');
   const [editInvoicePaymentDate, setEditInvoicePaymentDate] = useState('');
   const [editInvoiceStatus, setEditInvoiceStatus] = useState<InvoiceStatus>('Draft');
-  const [editInvoiceCurrency, setEditInvoiceCurrency] = useState<InvoiceCurrency>('€');
+  const [editInvoiceCurrency, setEditInvoiceCurrency] = useState<InvoiceCurrency>('RSD');
   const [editInvoiceNotes, setEditInvoiceNotes] = useState('');
   const [editInvoiceItems, setEditInvoiceItems] = useState<{ description: string; quantity: number; unitPrice: number; currency: InvoiceCurrency }[]>([]);
 
@@ -420,7 +420,7 @@ export const ProjectModal: React.FC<Props> = ({
 
   const formatInvoiceAmount = (amount?: number | null, curr?: string | null) => {
     const val = amount || 0;
-    const c = curr || '€';
+    const c = curr || 'RSD';
     return `${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${c}`;
   };
 
@@ -481,7 +481,7 @@ export const ProjectModal: React.FC<Props> = ({
       setNewInvoiceDateCreated(todayStr);
       setNewInvoiceDueDate('');
       setNewInvoiceNotes('');
-      setNewInvoiceItems([{ description: '', quantity: 1, unitPrice: 0, currency: '€' }]);
+      setNewInvoiceItems([{ description: '', quantity: 1, unitPrice: 0, currency: 'RSD' }]);
     }
   };
 
@@ -518,7 +518,7 @@ export const ProjectModal: React.FC<Props> = ({
     setEditInvoiceDueDate(inv.dueDate || '');
     setEditInvoicePaymentDate(inv.paymentDate || '');
     setEditInvoiceStatus((inv.status as InvoiceStatus) || 'Draft');
-    setEditInvoiceCurrency((inv.currency as InvoiceCurrency) || '€');
+    setEditInvoiceCurrency((inv.currency as InvoiceCurrency) || 'RSD');
     setEditInvoiceNotes(inv.notes || '');
     setEditInvoiceItems(
       inv.items && inv.items.length > 0
@@ -526,9 +526,9 @@ export const ProjectModal: React.FC<Props> = ({
             description: it.description,
             quantity: it.quantity,
             unitPrice: it.unitPrice,
-            currency: (it.currency as InvoiceCurrency) || (inv.currency as InvoiceCurrency) || '€',
+            currency: (it.currency as InvoiceCurrency) || (inv.currency as InvoiceCurrency) || 'RSD',
           }))
-        : [{ description: '', quantity: 1, unitPrice: 0, currency: (inv.currency as InvoiceCurrency) || '€' }]
+        : [{ description: '', quantity: 1, unitPrice: 0, currency: (inv.currency as InvoiceCurrency) || 'RSD' }]
     );
   };
 
@@ -1274,10 +1274,10 @@ export const ProjectModal: React.FC<Props> = ({
                           setNewInvoiceNumber("");
                           setNewInvoiceDateCreated(todayStr);
                           setNewInvoiceDueDate("");
-                          setNewInvoiceCurrency("€");
+                          setNewInvoiceCurrency("RSD");
                           setNewInvoiceStatus("Draft");
                           setNewInvoiceNotes("");
-                          setNewInvoiceItems([{ description: "", quantity: 1, unitPrice: 0, currency: "€" }]);
+                          setNewInvoiceItems([{ description: "", quantity: 1, unitPrice: 0, currency: "RSD" }]);
                           setSelectedExistingInvoiceId("");
                         }}
                         sx={{ textTransform: "none", fontWeight: 600, fontSize: "0.75rem", py: 0.25, px: 1, minHeight: 28, borderRadius: 1 }}
@@ -1351,8 +1351,8 @@ export const ProjectModal: React.FC<Props> = ({
                                   setNewInvoiceItems((prev) => prev.map((it) => ({ ...it, currency: c })));
                                 }}
                               >
-                                <MenuItem value="€">€ (Euro)</MenuItem>
                                 <MenuItem value="RSD">RSD (Dinar)</MenuItem>
+                                <MenuItem value="€">€ (Euro)</MenuItem>
                               </Select>
                             </FormControl>
                           </Grid>
@@ -1718,8 +1718,8 @@ export const ProjectModal: React.FC<Props> = ({
                       setEditInvoiceItems((prev) => prev.map((it) => ({ ...it, currency: c })));
                     }}
                   >
-                    <MenuItem value="€">€ (Euro)</MenuItem>
                     <MenuItem value="RSD">RSD (Dinar)</MenuItem>
+                    <MenuItem value="€">€ (Euro)</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
