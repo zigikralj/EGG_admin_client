@@ -25,6 +25,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
 import type { Project, ProjectStats, Reminder, Invoice, DashboardSubTab, User, Category, Service, Client } from '../../types';
 import { ReminderPanel } from '../ReminderPanel';
+import { ApproachingInvoicesPanel } from '../ApproachingInvoicesPanel';
 import { ProjectCard } from '../ProjectCard';
 import { StatisticsCharts } from '../StatisticsCharts';
 import { TableFilterSelector } from '../TableFilterSelector';
@@ -50,7 +51,9 @@ interface Props {
   onEditProject: (project: Project) => void;
   onDeleteProject: (id: string) => void;
   onNavigateToProjects: () => void;
+  onNavigateToInvoices?: () => void;
   onOpenNewProject?: () => void;
+  onStatusChangeInvoice?: (id: string, status: string, paymentDate?: string) => Promise<void> | void;
   quickFilters?: string[];
   onQuickFiltersChange?: (filters: string[]) => void;
   quickFilterDashboardReminders?: boolean;
@@ -76,19 +79,21 @@ export const DashboardView: React.FC<Props> = ({
   onEditProject,
   onDeleteProject,
   onNavigateToProjects,
+  onNavigateToInvoices,
   onOpenNewProject,
+  onStatusChangeInvoice,
   quickFilters: quickFiltersProp,
   onQuickFiltersChange,
   quickFilterDashboardReminders,
   onQuickFilterDashboardRemindersChange,
 }) => {
   const { t, getServiceLabel } = useLanguage();
-  const { currentUser, isAdmin, isManager } = useAuth();
+  const { currentUser, isAdmin, isManager, isAccountant } = useAuth();
 
   // Projects subtab state & filtering
   const [searchQuery, setSearchQuery] = useState('');
-  const [quickFilters, setQuickFilters] = useState<string[]>(
-    quickFiltersProp !== undefined ? quickFiltersProp : ['my', 'active']
+  const [quickFilters, setQuickFilters] = useState<string[]>(() =>
+    quickFiltersProp !== undefined ? quickFiltersProp : (isAccountant ? ['active'] : ['my', 'active'])
   );
 
   useEffect(() => {
@@ -104,8 +109,10 @@ export const DashboardView: React.FC<Props> = ({
       } else if (quickFiltersProp.includes('done')) {
         setFilterStatus('done');
       }
+    } else {
+      setQuickFilters(isAccountant ? ['active'] : ['my', 'active']);
     }
-  }, [quickFiltersProp, currentUser?.name]);
+  }, [quickFiltersProp, currentUser?.name, isAccountant]);
 
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterClient, setFilterClient] = useState<string>('all');
@@ -236,6 +243,19 @@ export const DashboardView: React.FC<Props> = ({
       return new Date(p.deadline) < new Date(new Date().toDateString());
     };
 
+    const hasInvoices = (p: Project): boolean => {
+      if (invoices && invoices.length > 0) {
+        const has = invoices.some(
+          (inv) =>
+            (inv.projectId && inv.projectId === p.id) ||
+            (!inv.projectId && inv.projectName && inv.projectName.trim().toLowerCase() === p.name.trim().toLowerCase())
+        );
+        if (has) return true;
+      }
+      if (p.invoices && p.invoices.length > 0) return true;
+      return false;
+    };
+
     return projects
       .filter((p) => {
         if (quickFilters.includes('my') && currentUser) {
@@ -247,6 +267,7 @@ export const DashboardView: React.FC<Props> = ({
           if (!isMyName && !isMyId) return false;
         }
         if (quickFilters.includes('active') && p.done) return false;
+        if (quickFilters.includes('missing_invoice') && hasInvoices(p)) return false;
         if (quickFilters.includes('stale') && (!isStaleProject(p) || p.done)) return false;
         if (quickFilters.includes('overdue') && (!isLateProject(p) || p.done)) return false;
         if (quickFilters.includes('done') && !p.done) return false;
@@ -315,7 +336,7 @@ export const DashboardView: React.FC<Props> = ({
         }
         return sortDirection === 'asc' ? res : -res;
       });
-  }, [projects, quickFilters, currentUser, filterCategory, filterClient, filterResponsible, filterStatus, searchQuery, getServiceLabel, sortOption, sortDirection]);
+  }, [projects, invoices, quickFilters, currentUser, filterCategory, filterClient, filterResponsible, filterStatus, searchQuery, getServiceLabel, sortOption, sortDirection]);
 
   const activeFilterCount =
     (filterCategory !== 'all' ? 1 : 0) +
@@ -403,6 +424,30 @@ export const DashboardView: React.FC<Props> = ({
     }).length;
   }, [reminders, projects]);
 
+  const approachingInvoicesCount = useMemo(() => {
+    const today = new Date(new Date().toDateString());
+    if (!invoices || invoices.length === 0) return 0;
+    return invoices.filter((inv) => {
+      const s = (inv.status || '').toLowerCase();
+      if (s === 'paid' || s === 'plaćeno' || s === 'плаћено' || s === 'cancelled' || s === 'otkazano' || s === 'отказано') return false;
+      if (!inv.dueDate) return true;
+      const due = new Date(inv.dueDate.split('T')[0]);
+      const diffDays = (due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
+      return diffDays <= 15;
+    }).length;
+  }, [invoices]);
+
+  const latest15Projects = useMemo(() => {
+    return [...projects]
+      .sort((a, b) => {
+        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : a.start ? new Date(a.start).getTime() : 0;
+        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : b.start ? new Date(b.start).getTime() : 0;
+        if (aTime !== bTime) return bTime - aTime;
+        return (b.id || '').localeCompare(a.id || '');
+      })
+      .slice(0, 15);
+  }, [projects]);
+
   const urgentProjectsCount = useMemo(() => {
     const today = new Date(new Date().toDateString());
     return projects.filter((p) => !p.done && p.deadline && new Date(p.deadline) < today).length;
@@ -413,7 +458,9 @@ export const DashboardView: React.FC<Props> = ({
     { title: t('statUrgentProjects'), value: urgentProjectsCount, color: 'error.main' },
     { title: t('statDone'), value: stats.done, color: 'info.main' },
     { title: t('statStale'), value: stats.stale, color: 'warning.main' },
-    { title: t('statMonitorSoon'), value: approachingRemindersCount, color: '#ff9800' },
+    isAccountant
+      ? { title: t('statApproachingInvoices'), value: approachingInvoicesCount, color: '#ff9800' }
+      : { title: t('statMonitorSoon'), value: approachingRemindersCount, color: '#ff9800' },
   ];
 
   const renderStatisticsCard = (isFullWidth = false, showNotch = true) => (
@@ -528,6 +575,66 @@ export const DashboardView: React.FC<Props> = ({
       myRemindersOnly={quickFilterDashboardReminders}
       onMyRemindersOnlyChange={onQuickFilterDashboardRemindersChange}
     />
+  );
+
+  const renderApproachingInvoicesPanel = (isFullHeight = false, hideNotch = false) => (
+    <ApproachingInvoicesPanel
+      invoices={invoices}
+      clients={clients}
+      projects={projects}
+      isFullHeight={isFullHeight}
+      hideNotch={hideNotch}
+      onStatusChangeInvoice={onStatusChangeInvoice}
+      onViewProject={onViewProject || onEditProject}
+      onNavigateToInvoices={onNavigateToInvoices}
+    />
+  );
+
+  const renderLatestProjectsSection = () => (
+    <Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+            {t('latestProjectsTitle')}
+          </Typography>
+          <Chip label={latest15Projects.length} size="small" color="primary" sx={{ fontWeight: 700 }} />
+        </Box>
+        {dashboardSubTab !== 'projects' && (
+          <Button
+            size="small"
+            variant="outlined"
+            endIcon={<ArrowForwardIcon />}
+            onClick={onNavigateToProjects}
+          >
+            {t('btnShowAllProjects')}
+          </Button>
+        )}
+      </Box>
+
+      {latest15Projects.length > 0 ? (
+        <Grid container spacing={2}>
+          {latest15Projects.map((p) => (
+            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={p.id}>
+              <ProjectCard
+                project={p}
+                services={services}
+                reminders={reminders}
+                invoices={invoices}
+                onToggleDone={onToggleDone}
+                onMarkSampled={onMarkSampled}
+                onView={onViewProject || onEditProject}
+                onEdit={onEditProject}
+                onDelete={onDeleteProject}
+              />
+            </Grid>
+          ))}
+        </Grid>
+      ) : (
+        <Paper variant="outlined" sx={{ p: 4, textAlign: 'center' }}>
+          <Typography color="text.secondary">{t('emptyProjects')}</Typography>
+        </Paper>
+      )}
+    </Box>
   );
 
   const renderApproachingDeadlinesSection = () => (
@@ -646,6 +753,18 @@ export const DashboardView: React.FC<Props> = ({
         </Box>
       )}
 
+      {/* INVOICES ONLY VIEW */}
+      {dashboardSubTab === 'invoices' && (
+        <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+              {t('approachingInvoicesTitle')}
+            </Typography>
+          </Box>
+          {renderApproachingInvoicesPanel(true, true)}
+        </Box>
+      )}
+
       {/* PROJECTS SUBTAB VIEW */}
       {dashboardSubTab === 'projects' && (
         <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2.5 }}>
@@ -693,21 +812,23 @@ export const DashboardView: React.FC<Props> = ({
 
               {/* QUICK FILTER CHECKBOXES */}
               <FormGroup row sx={{ gap: 1, alignItems: 'center' }}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      size="small"
-                      checked={quickFilters.includes('my')}
-                      onChange={(e) => handleToggleFilter('my', e.target.checked)}
-                      color="primary"
-                    />
-                  }
-                  label={
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {t('quickFilterMyProjects')}
-                    </Typography>
-                  }
-                />
+                {!isAccountant && (
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        size="small"
+                        checked={quickFilters.includes('my')}
+                        onChange={(e) => handleToggleFilter('my', e.target.checked)}
+                        color="primary"
+                      />
+                    }
+                    label={
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {t('quickFilterMyProjects')}
+                      </Typography>
+                    }
+                  />
+                )}
                 <FormControlLabel
                   control={
                     <Checkbox
@@ -727,32 +848,51 @@ export const DashboardView: React.FC<Props> = ({
                   control={
                     <Checkbox
                       size="small"
-                      checked={quickFilters.includes('stale')}
-                      onChange={(e) => handleToggleFilter('stale', e.target.checked)}
-                      color="primary"
+                      checked={quickFilters.includes('missing_invoice')}
+                      onChange={(e) => handleToggleFilter('missing_invoice', e.target.checked)}
+                      color="warning"
                     />
                   }
                   label={
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {t('statStale')}
+                      {t('quickFilterMissingInvoice')}
                     </Typography>
                   }
                 />
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      size="small"
-                      checked={quickFilters.includes('overdue')}
-                      onChange={(e) => handleToggleFilter('overdue', e.target.checked)}
-                      color="error"
+                {!isAccountant && (
+                  <>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          size="small"
+                          checked={quickFilters.includes('stale')}
+                          onChange={(e) => handleToggleFilter('stale', e.target.checked)}
+                          color="primary"
+                        />
+                      }
+                      label={
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {t('statStale')}
+                        </Typography>
+                      }
                     />
-                  }
-                  label={
-                    <Typography variant="body2" sx={{ fontWeight: 600, color: 'error.main' }}>
-                      {t('statOverdueUrgent')}
-                    </Typography>
-                  }
-                />
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          size="small"
+                          checked={quickFilters.includes('overdue')}
+                          onChange={(e) => handleToggleFilter('overdue', e.target.checked)}
+                          color="error"
+                        />
+                      }
+                      label={
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: 'error.main' }}>
+                          {t('statOverdueUrgent')}
+                        </Typography>
+                      }
+                    />
+                  </>
+                )}
               </FormGroup>
 
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
@@ -878,12 +1018,18 @@ export const DashboardView: React.FC<Props> = ({
               {renderStatisticsCard(false)}
             </Box>
             <Box sx={{ flex: 1, minWidth: 0, width: '100%', maxWidth: '100%' }}>
-              {renderRemindersPanel()}
+              {isAccountant ? renderApproachingInvoicesPanel() : renderRemindersPanel()}
             </Box>
           </Box>
 
-          {renderApproachingDeadlinesSection()}
-          {renderStaleProjectsSection()}
+          {isAccountant ? (
+            renderLatestProjectsSection()
+          ) : (
+            <>
+              {renderApproachingDeadlinesSection()}
+              {renderStaleProjectsSection()}
+            </>
+          )}
         </>
       )}
     </Stack>

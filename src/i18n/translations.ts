@@ -46,6 +46,8 @@ export interface TranslationKeys {
   btnRemoveInvoiceItem: string;
   confirmDeleteInvoice: string;
   alertInvoiceNumberRequired: string;
+  alertDueDateRequired: string;
+  alertClientRequired: string;
   statusDraft: string;
   statusSent: string;
   statusPaid: string;
@@ -92,6 +94,11 @@ export interface TranslationKeys {
   emptyDashboardActive: string;
   approachingDeadlinesTitle: string;
   staleProjectsTitle: string;
+  latestProjectsTitle: string;
+  approachingInvoicesTitle: string;
+  statApproachingInvoices: string;
+  emptyApproachingInvoices: string;
+  btnShowAllInvoices: string;
   emptyApproachingDeadlines: string;
   emptyStaleProjects: string;
 
@@ -216,6 +223,7 @@ export interface TranslationKeys {
   roleAdministrator: string;
   roleManager: string;
   roleUser: string;
+  roleAccountant: string;
   roleLeadEngineer: string;
   roleEnvironmentalInspector: string;
   roleChemicalAdvisor: string;
@@ -388,6 +396,7 @@ export interface TranslationKeys {
   quickFilterMyProjects: string;
   quickFilterMyReminders: string;
   quickFilterActive: string;
+  quickFilterMissingInvoice: string;
   quickFilterOverdue: string;
   quickFilterAll: string;
   lblProjectCountFilter: string;
@@ -498,6 +507,8 @@ export const translations: Record<Language, TranslationKeys> = {
     btnRemoveInvoiceItem: "Remove",
     confirmDeleteInvoice: "Are you sure you want to delete this invoice?",
     alertInvoiceNumberRequired: "Invoice number is required",
+    alertDueDateRequired: "Due date is required",
+    alertClientRequired: "Client is required",
     statusDraft: "Draft",
     statusSent: "Sent",
     statusPaid: "Paid",
@@ -544,6 +555,11 @@ export const translations: Record<Language, TranslationKeys> = {
     emptyDashboardActive: 'No active projects currently in progress.',
     approachingDeadlinesTitle: 'Approaching Deadlines',
     staleProjectsTitle: 'Stale Projects (Starts > 2 Months Ago)',
+    latestProjectsTitle: 'Latest Projects',
+    approachingInvoicesTitle: 'Approaching Invoices',
+    statApproachingInvoices: 'Invoices due soon',
+    emptyApproachingInvoices: 'No approaching invoices found.',
+    btnShowAllInvoices: 'View All Invoices',
     emptyApproachingDeadlines: 'No projects with approaching deadlines.',
     emptyStaleProjects: 'No projects older than 2 months.',
 
@@ -668,6 +684,7 @@ export const translations: Record<Language, TranslationKeys> = {
     roleAdministrator: 'Administrator',
     roleManager: 'Manager',
     roleUser: 'User',
+    roleAccountant: 'Accountant',
     roleLeadEngineer: 'Lead Engineer',
     roleEnvironmentalInspector: 'Environmental Inspector',
     roleChemicalAdvisor: 'Chemical Advisor',
@@ -826,7 +843,8 @@ export const translations: Record<Language, TranslationKeys> = {
     quickFilterMyProjects: 'My Projects',
     quickFilterMyReminders: 'My Reminders',
     quickFilterActive: 'Active',
-    quickFilterOverdue: 'Late - Urgent',
+    quickFilterMissingInvoice: 'Missing Invoice',
+    quickFilterOverdue: 'Late - Urgent!',
     quickFilterAll: 'All',
     lblProjectCountFilter: 'Project Count',
     filterOpEquals: 'Equals (=)',
@@ -949,6 +967,8 @@ export const translations: Record<Language, TranslationKeys> = {
     btnRemoveInvoiceItem: "Ukloni",
     confirmDeleteInvoice: "Da li ste sigurni da želite da obrišete ovu fakturu?",
     alertInvoiceNumberRequired: "Broj fakture je obavezan",
+    alertDueDateRequired: "Datum dospeća je obavezan",
+    alertClientRequired: "Klijent je obavezan",
     statusDraft: "Kreirano",
     statusSent: "Poslato",
     statusPaid: "Plaćeno",
@@ -995,6 +1015,11 @@ export const translations: Record<Language, TranslationKeys> = {
     emptyDashboardActive: 'Nema aktivnih projekata u izradi.',
     approachingDeadlinesTitle: 'Rokovi koji se bliže',
     staleProjectsTitle: 'Traje > 2 meseca',
+    latestProjectsTitle: 'Najnoviji projekti',
+    approachingInvoicesTitle: 'Fakture koje dospevaju',
+    statApproachingInvoices: 'Fakture uskoro dospevaju',
+    emptyApproachingInvoices: 'Nema faktura koje uskoro dospevaju.',
+    btnShowAllInvoices: 'Prikaži sve fakture',
     emptyApproachingDeadlines: 'Nema projekata sa rokovima koji se bliže.',
     emptyStaleProjects: 'Nema projekata starijih od 2 meseca.',
 
@@ -1119,6 +1144,7 @@ export const translations: Record<Language, TranslationKeys> = {
     roleAdministrator: 'Administrator',
     roleManager: 'Menadžer',
     roleUser: 'Korisnik',
+    roleAccountant: 'Računovođa',
     roleLeadEngineer: 'Vodeći inženjer',
     roleEnvironmentalInspector: 'Inspektor za zaštitu',
     roleChemicalAdvisor: 'Savetnik za hemikalije',
@@ -1277,7 +1303,8 @@ export const translations: Record<Language, TranslationKeys> = {
     quickFilterMyProjects: 'Moji projekti',
     quickFilterMyReminders: 'Moji podsetnici',
     quickFilterActive: 'Aktivni',
-    quickFilterOverdue: 'Kasni - Hitno',
+    quickFilterMissingInvoice: 'Nedostaje faktura',
+    quickFilterOverdue: 'Kašnjenje - hitno!',
     quickFilterAll: 'Svi',
     lblProjectCountFilter: 'Broj projekata',
     filterOpEquals: 'Jednako (=)',
@@ -1400,6 +1427,8 @@ export const translations: Record<Language, TranslationKeys> = {
     btnRemoveInvoiceItem: "Уклони",
     confirmDeleteInvoice: "Да ли сте сигурни да желите да обришете ову фактуру?",
     alertInvoiceNumberRequired: "Број фактуре је обавезан",
+    alertDueDateRequired: "Датум доспећа је обавезан",
+    alertClientRequired: "Клијент је обавезан",
     statusDraft: "Креирано",
     statusSent: "Послато",
     statusPaid: "Плаћено",
@@ -1446,6 +1475,11 @@ export const translations: Record<Language, TranslationKeys> = {
     emptyDashboardActive: 'Нема активних пројеката у изради.',
     approachingDeadlinesTitle: 'Рокови који се ближе',
     staleProjectsTitle: 'Траје > 2 месеца',
+    latestProjectsTitle: 'Најновији пројекти',
+    approachingInvoicesTitle: 'Фактуре које доспевају',
+    statApproachingInvoices: 'Фактуре ускоро доспевају',
+    emptyApproachingInvoices: 'Нема фактура које ускоро доспевају.',
+    btnShowAllInvoices: 'Прикажи све фактуре',
     emptyApproachingDeadlines: 'Нема пројеката са роковима који се ближе.',
     emptyStaleProjects: 'Нема пројеката старијих од 2 месеца.',
 
@@ -1570,6 +1604,7 @@ export const translations: Record<Language, TranslationKeys> = {
     roleAdministrator: 'Администратор',
     roleManager: 'Менаџер',
     roleUser: 'Корисник',
+    roleAccountant: 'Рачуновођа',
     roleLeadEngineer: 'Водећи инжењер',
     roleEnvironmentalInspector: 'Инспектор за заштиту',
     roleChemicalAdvisor: 'Саветник за хемикалије',
@@ -1728,7 +1763,8 @@ export const translations: Record<Language, TranslationKeys> = {
     quickFilterMyProjects: 'Моји пројекти',
     quickFilterMyReminders: 'Моји подсетници',
     quickFilterActive: 'Активни',
-    quickFilterOverdue: 'Касни - Хитно',
+    quickFilterMissingInvoice: 'Недостаје фактура',
+    quickFilterOverdue: 'Кашњење - хитно!',
     quickFilterAll: 'Сви',
     lblProjectCountFilter: 'Број пројеката',
     filterOpEquals: 'Једнако (=)',

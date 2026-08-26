@@ -15,6 +15,8 @@ interface AuthContextType {
   isAdmin: boolean;
   isManager: boolean;
   isUser: boolean;
+  isAccountant: boolean;
+  canManageInvoices: boolean;
   canToggleEntityWorkMode: boolean;
   workOnEntities: boolean;
   setWorkOnEntities: (val: boolean) => void;
@@ -215,6 +217,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [users]);
 
   const actualRole: UserRole = (currentUser?.role as UserRole) || 'User';
+  const isAccountant = actualRole === 'Accountant';
   const canToggleEntityWorkMode = actualRole === 'Administrator' || actualRole === 'Manager';
 
   const isAdmin = actualRole === 'Administrator' && (canToggleEntityWorkMode ? workOnEntities : true);
@@ -224,6 +227,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const canManageClients = canToggleEntityWorkMode && workOnEntities;
   const canManageServices = canToggleEntityWorkMode && workOnEntities;
   const canManageUsers = canToggleEntityWorkMode && workOnEntities;
+  const canManageInvoices = actualRole === 'Administrator' || actualRole === 'Manager' || actualRole === 'Accountant';
 
   const canEditUser = React.useCallback(
     (targetUser: User): boolean => {
@@ -267,6 +271,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isAdmin,
       isManager,
       isUser,
+      isAccountant,
+      canManageInvoices,
       canToggleEntityWorkMode,
       workOnEntities,
       setWorkOnEntities,
@@ -288,6 +294,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isAdmin,
       isManager,
       isUser,
+      isAccountant,
+      canManageInvoices,
       canToggleEntityWorkMode,
       workOnEntities,
       setWorkOnEntities,

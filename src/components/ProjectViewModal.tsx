@@ -185,7 +185,7 @@ export const ProjectViewModal: React.FC<Props> = ({
   onStatusChangeInvoice,
 }) => {
   const { t, getServiceLabel, getResponsibleLabel } = useLanguage();
-  const { currentUser, canEditProject } = useAuth();
+  const { currentUser, canEditProject, canManageInvoices } = useAuth();
   const [errorDialogState, setErrorDialogState] = useState<{ open: boolean; message: string }>({
     open: false,
     message: '',
@@ -248,6 +248,7 @@ export const ProjectViewModal: React.FC<Props> = ({
   }, [project, isOpen]);
 
   const isEditable = project ? canEditProject(project) : false;
+  const canEditProjectInvoices = isEditable || canManageInvoices;
 
   const projectReminders = useMemo(() => {
     if (!project || !reminders) return [];
@@ -462,6 +463,20 @@ export const ProjectViewModal: React.FC<Props> = ({
       });
       return;
     }
+    if (!newInvoiceDueDate || !newInvoiceDueDate.trim()) {
+      setErrorDialogState({
+        open: true,
+        message: t('alertDueDateRequired'),
+      });
+      return;
+    }
+    if (!project?.clientId && !project?.clientName) {
+      setErrorDialogState({
+        open: true,
+        message: t('alertClientRequired'),
+      });
+      return;
+    }
     if (onSaveInvoice && project) {
       const validItems = newInvoiceItems
         .filter((it) => it.description.trim())
@@ -547,6 +562,13 @@ export const ProjectViewModal: React.FC<Props> = ({
       setErrorDialogState({
         open: true,
         message: t('alertInvoiceNumberRequired'),
+      });
+      return;
+    }
+    if (!editInvoiceDueDate || !editInvoiceDueDate.trim()) {
+      setErrorDialogState({
+        open: true,
+        message: t('alertDueDateRequired'),
       });
       return;
     }
@@ -1091,7 +1113,7 @@ export const ProjectViewModal: React.FC<Props> = ({
                       {t("invoiceBoxTitle")}
                     </Typography>
                   </Box>
-                  {isEditable && (
+                  {canEditProjectInvoices && (
                     <Button
                       size="small"
                       variant={isAddingInvoice ? "outlined" : "contained"}
@@ -1117,7 +1139,7 @@ export const ProjectViewModal: React.FC<Props> = ({
                 </Box>
 
                 {/* ADD / LINK INVOICE PANEL */}
-                {isAddingInvoice && isEditable && (
+                {isAddingInvoice && canEditProjectInvoices && (
                   <Box sx={{ mb: 1.5, p: 1.5, bgcolor: "background.paper", borderRadius: 1.5, border: "1px solid", borderColor: "divider" }}>
                     <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5, flexWrap: "wrap", gap: 1 }}>
                       <ToggleButtonGroup
@@ -1201,6 +1223,7 @@ export const ProjectViewModal: React.FC<Props> = ({
                             fullWidth
                             size="small"
                             type="date"
+                            required
                             label={t("lblDueDate")}
                             slotProps={{ inputLabel: { shrink: true } }}
                             value={newInvoiceDueDate}
@@ -1420,7 +1443,7 @@ export const ProjectViewModal: React.FC<Props> = ({
                           </Box>
 
                           {/* ACTIONS */}
-                          {isEditable && (
+                          {canEditProjectInvoices && (
                             <Box sx={{ display: "flex", alignItems: "center", gap: 0.25, flexShrink: 0 }}>
                               {!isPaid && onStatusChangeInvoice && (
                                 <Tooltip title={t("markAsPaid")}>
@@ -1612,6 +1635,7 @@ export const ProjectViewModal: React.FC<Props> = ({
                   fullWidth
                   size="small"
                   type="date"
+                  required
                   label={t("lblDueDate")}
                   slotProps={{ inputLabel: { shrink: true } }}
                   value={editInvoiceDueDate}

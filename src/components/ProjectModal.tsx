@@ -452,6 +452,20 @@ export const ProjectModal: React.FC<Props> = ({
       });
       return;
     }
+    if (!newInvoiceDueDate || !newInvoiceDueDate.trim()) {
+      setErrorDialogState({
+        open: true,
+        message: t('alertDueDateRequired'),
+      });
+      return;
+    }
+    if (!clientId && !clientName.trim() && !projectToEdit?.clientId && !projectToEdit?.clientName) {
+      setErrorDialogState({
+        open: true,
+        message: t('alertClientRequired'),
+      });
+      return;
+    }
     if (onSaveInvoice && projectToEdit) {
       const validItems = newInvoiceItems
         .filter((it) => it.description.trim())
@@ -537,6 +551,13 @@ export const ProjectModal: React.FC<Props> = ({
       setErrorDialogState({
         open: true,
         message: t('alertInvoiceNumberRequired'),
+      });
+      return;
+    }
+    if (!editInvoiceDueDate || !editInvoiceDueDate.trim()) {
+      setErrorDialogState({
+        open: true,
+        message: t('alertDueDateRequired'),
       });
       return;
     }
@@ -1372,6 +1393,7 @@ export const ProjectModal: React.FC<Props> = ({
                               fullWidth
                               size="small"
                               type="date"
+                              required
                               label={t("lblDueDate")}
                               slotProps={{ inputLabel: { shrink: true } }}
                               value={newInvoiceDueDate}
@@ -1739,6 +1761,7 @@ export const ProjectModal: React.FC<Props> = ({
                   fullWidth
                   size="small"
                   type="date"
+                  required
                   label={t("lblDueDate")}
                   slotProps={{ inputLabel: { shrink: true } }}
                   value={editInvoiceDueDate}
