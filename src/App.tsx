@@ -292,10 +292,13 @@ function MainApp() {
       };
 
       if (data.id) {
+        const existing = projects.find((p) => p.id === data.id);
+        const payload = existing ? { ...existing, ...data } : data;
+
         res = await apiFetch(`/api/projects/${data.id}`, {
           method: 'PUT',
           headers,
-          body: JSON.stringify(data),
+          body: JSON.stringify(payload),
         });
       } else {
         res = await apiFetch('/api/projects', {
