@@ -111,9 +111,9 @@ export const InvoicesView: React.FC<Props> = ({
     projectId: '',
     projectName: '',
     status: 'Draft',
-    currency: '€',
+    currency: 'RSD',
     notes: '',
-    items: [{ description: '', quantity: 1, unitPrice: 0, currency: '€' }],
+    items: [{ description: '', quantity: 1, unitPrice: 0, currency: 'RSD' }],
   });
 
   const [sortColumn, setSortColumn] = useState<string>(sortState?.field || 'dateCreated');
@@ -208,7 +208,7 @@ export const InvoicesView: React.FC<Props> = ({
 
   const formatAmount = (amount?: number | null, currency?: string | null) => {
     const val = amount || 0;
-    const curr = currency || '€';
+    const curr = currency || 'RSD';
     const formatted = val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     return `${formatted} ${curr}`;
   };
@@ -263,9 +263,9 @@ export const InvoicesView: React.FC<Props> = ({
       projectId: '',
       projectName: '',
       status: 'Draft',
-      currency: '€',
+      currency: 'RSD',
       notes: '',
-      items: [{ description: '', quantity: 1, unitPrice: 0, currency: '€' }],
+      items: [{ description: '', quantity: 1, unitPrice: 0, currency: 'RSD' }],
     });
     setIsOpen(true);
   };
@@ -283,7 +283,7 @@ export const InvoicesView: React.FC<Props> = ({
       projectId: inv.projectId || (inv.project?.id || ''),
       projectName: inv.projectName || (inv.project?.name || ''),
       status: (inv.status as InvoiceStatus) || 'Draft',
-      currency: (inv.currency as InvoiceCurrency) || '€',
+      currency: (inv.currency as InvoiceCurrency) || 'RSD',
       notes: inv.notes || '',
       items:
         inv.items && inv.items.length > 0
@@ -291,9 +291,9 @@ export const InvoicesView: React.FC<Props> = ({
               description: item.description,
               quantity: item.quantity,
               unitPrice: item.unitPrice,
-              currency: (item.currency as InvoiceCurrency) || (inv.currency as InvoiceCurrency) || '€',
+              currency: (item.currency as InvoiceCurrency) || (inv.currency as InvoiceCurrency) || 'RSD',
             }))
-          : [{ description: '', quantity: 1, unitPrice: 0, currency: (inv.currency as InvoiceCurrency) || '€' }],
+          : [{ description: '', quantity: 1, unitPrice: 0, currency: (inv.currency as InvoiceCurrency) || 'RSD' }],
     });
     setIsOpen(true);
   };
@@ -355,7 +355,7 @@ export const InvoicesView: React.FC<Props> = ({
             description: it.description.trim(),
             quantity: Number(it.quantity) || 1,
             unitPrice: Number(it.unitPrice) || 0,
-            currency: it.currency || formData.currency || '€',
+            currency: it.currency || formData.currency || 'RSD',
           })),
       };
 
@@ -565,8 +565,8 @@ export const InvoicesView: React.FC<Props> = ({
                       onChange={(e) => setFilterCurrency(e.target.value)}
                     >
                       <MenuItem value="all">All</MenuItem>
-                      <MenuItem value="€">€ (Euro)</MenuItem>
                       <MenuItem value="RSD">RSD (Dinar)</MenuItem>
+                      <MenuItem value="€">€ (Euro)</MenuItem>
                     </Select>
                   </FormControl>
 
@@ -1021,8 +1021,8 @@ export const InvoicesView: React.FC<Props> = ({
                       });
                     }}
                   >
-                    <MenuItem value="€">€ (Euro)</MenuItem>
                     <MenuItem value="RSD">RSD (Dinar)</MenuItem>
+                    <MenuItem value="€">€ (Euro)</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
