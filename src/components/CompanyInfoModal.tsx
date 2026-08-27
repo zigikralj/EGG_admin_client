@@ -34,7 +34,6 @@ import {
 
 import { apiFetch } from '../api';
 import { useLanguage } from '../context/LanguageContext';
-import { DEFAULT_COMPANY_INFO } from '../constants/companyInfo';
 import type { CompanyInfo } from '../types';
 import { CloseIcon, BusinessIcon, ContentCopyIcon, CheckCircleIcon, LocationOnIcon, EmailIcon, AccountBalanceIcon, BadgeIcon, WorkIcon, EditIcon, SaveIcon, AddIcon, DeleteIcon } from './icons';
 
@@ -43,13 +42,28 @@ interface CompanyInfoModalProps {
   onClose: () => void;
 }
 
+const EMPTY_COMPANY_INFO: CompanyInfo = {
+  name: '',
+  legalName: '',
+  registrationNumber: '',
+  municipality: '',
+  city: '',
+  streetAddress: '',
+  postalCode: '',
+  postOffice: '',
+  email: '',
+  taxId: '',
+  activityCode: '',
+  bankAccounts: [],
+};
+
 export const CompanyInfoModal: React.FC<CompanyInfoModalProps> = ({ open, onClose }) => {
   const { t } = useLanguage();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
-  const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(DEFAULT_COMPANY_INFO);
-  const [formData, setFormData] = useState<CompanyInfo>(DEFAULT_COMPANY_INFO);
+  const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(EMPTY_COMPANY_INFO);
+  const [formData, setFormData] = useState<CompanyInfo>(EMPTY_COMPANY_INFO);
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -72,21 +86,21 @@ export const CompanyInfoModal: React.FC<CompanyInfoModalProps> = ({ open, onClos
       const res = await apiFetch('/api/company-info');
       if (res.ok) {
         const data = await res.json();
-        if (data && data.name) {
+        if (data) {
           const info: CompanyInfo = {
             id: data.id || 'default',
-            name: data.name || DEFAULT_COMPANY_INFO.name,
-            legalName: data.legalName || DEFAULT_COMPANY_INFO.legalName,
-            registrationNumber: data.registrationNumber || DEFAULT_COMPANY_INFO.registrationNumber,
-            municipality: data.municipality || DEFAULT_COMPANY_INFO.municipality,
-            city: data.city || DEFAULT_COMPANY_INFO.city,
-            streetAddress: data.streetAddress || DEFAULT_COMPANY_INFO.streetAddress,
-            postalCode: data.postalCode || DEFAULT_COMPANY_INFO.postalCode,
-            postOffice: data.postOffice || DEFAULT_COMPANY_INFO.postOffice,
-            email: data.email || DEFAULT_COMPANY_INFO.email,
-            taxId: data.taxId || DEFAULT_COMPANY_INFO.taxId,
-            activityCode: data.activityCode || DEFAULT_COMPANY_INFO.activityCode,
-            bankAccounts: Array.isArray(data.bankAccounts) ? data.bankAccounts : DEFAULT_COMPANY_INFO.bankAccounts,
+            name: data.name || '',
+            legalName: data.legalName || '',
+            registrationNumber: data.registrationNumber || '',
+            municipality: data.municipality || '',
+            city: data.city || '',
+            streetAddress: data.streetAddress || '',
+            postalCode: data.postalCode || '',
+            postOffice: data.postOffice || '',
+            email: data.email || '',
+            taxId: data.taxId || '',
+            activityCode: data.activityCode || '',
+            bankAccounts: Array.isArray(data.bankAccounts) ? data.bankAccounts : [],
           };
           setCompanyInfo(info);
           setFormData(info);
