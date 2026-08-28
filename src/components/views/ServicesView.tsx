@@ -28,19 +28,23 @@ import {
   Autocomplete,
 } from '@mui/material';
 
-
-
-
-
-
-
-import type { Service, Category, SaveResult } from '../../types';
+import type { Service, Category, SaveResult, CustomFieldDefinition } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { ColumnSelector, type ColumnDef } from '../ColumnSelector';
 import { TableFilterSelector } from '../TableFilterSelector';
 import { ErrorDialog } from '../ErrorDialog';
-import { SearchIcon, AddIcon, EditIcon, DeleteIcon, LockIcon, ArrowUpwardIcon, ArrowDownwardIcon } from '../icons';
+import { CustomDataModelModal } from '../CustomDataModelModal';
+import {
+  SearchIcon,
+  AddIcon,
+  EditIcon,
+  DeleteIcon,
+  LockIcon,
+  SettingsIcon,
+  ArrowUpwardIcon,
+  ArrowDownwardIcon,
+} from '../icons';
 
 interface Props {
   services: Service[];
@@ -51,9 +55,11 @@ interface Props {
   onVisibleColumnsChange?: (cols: string[]) => void;
   sortState?: { field: string; direction: 'asc' | 'desc' };
   onSortChange?: (sort: { field: string; direction: 'asc' | 'desc' }) => void;
+  userPreferences?: Record<string, any>;
+  onPreferenceChange?: (key: string, value: any) => void;
 }
 
-const DEFAULT_COLUMNS = ['name', 'group', 'frequency', 'description'];
+const DEFAULT_COLUMNS = ['name', 'group', 'frequency', 'description', 'customData'];
 
 const ServicesView: React.FC<Props> = ({
   services,
@@ -64,6 +70,8 @@ const ServicesView: React.FC<Props> = ({
   onVisibleColumnsChange,
   sortState,
   onSortChange,
+  userPreferences,
+  onPreferenceChange,
 }) => {
   const { t, getServiceLabel } = useLanguage();
   const { canManageServices } = useAuth();
@@ -75,6 +83,52 @@ const ServicesView: React.FC<Props> = ({
     open: false,
     message: '',
   });
+
+  // Custom data model state
+  const [isCustomModelModalOpen, setIsCustomModelModalOpen] = useState(false);
+  const [activeModelService, setActiveModelService] = useState<Service | null>(null);
+
+  const getCustomModelForService = (serviceId: string): CustomFieldDefinition[] => {
+    if (!serviceId) return [];
+    const matchedService = services.find((s) => s.id === serviceId);
+    if (matchedService?.customDataModel && Array.isArray(matchedService.customDataModel)) {
+      return matchedService.customDataModel;
+    }
+    const models = userPreferences?.custom_data_models || {};
+    if (models[serviceId] && Array.isArray(models[serviceId])) {
+      return models[serviceId];
+    }
+    try {
+      const local = localStorage.getItem('custom_data_models');
+      if (local) {
+        const parsed = JSON.parse(local);
+        if (parsed[serviceId] && Array.isArray(parsed[serviceId])) {
+          return parsed[serviceId];
+        }
+      }
+    } catch (e) {}
+    return [];
+  };
+
+  const handleSaveCustomModel = async (serviceId: string, fields: CustomFieldDefinition[]) => {
+    if (onSaveService) {
+      await onSaveService({ id: serviceId, customDataModel: fields });
+    }
+    const currentModels = { ...(userPreferences?.custom_data_models || {}) };
+    try {
+      const local = localStorage.getItem('custom_data_models');
+      if (local) {
+        Object.assign(currentModels, JSON.parse(local));
+      }
+    } catch (e) {}
+    currentModels[serviceId] = fields;
+    try {
+      localStorage.setItem('custom_data_models', JSON.stringify(currentModels));
+    } catch (e) {}
+    if (onPreferenceChange) {
+      await onPreferenceChange('custom_data_models', currentModels);
+    }
+  };
 
   const [sortColumn, setSortColumn] = useState<string>(sortState?.field || 'name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(sortState?.direction || 'asc');
@@ -143,6 +197,7 @@ const ServicesView: React.FC<Props> = ({
     { id: 'group', label: t('colCategory') },
     { id: 'frequency', label: t('colPeriodicSampling') },
     { id: 'description', label: t('colDescription') },
+    { id: 'customData', label: t('colCustomData') },
   ];
 
   const groupLabels: Record<string, string> = {
@@ -176,7 +231,7 @@ const ServicesView: React.FC<Props> = ({
     setEditingService(null);
     setCode('');
     setName('');
-    setGroup('grp-legal');
+    setGroup(categories[0]?.code || 'grp-legal');
     setFrequency(0);
     setDescription('');
     setIsOpen(true);
@@ -186,9 +241,9 @@ const ServicesView: React.FC<Props> = ({
     if (!canManageServices) return;
     setEditingService(s);
     setCode(s.code);
-    setName(s.name);
+    setName(s.name || getServiceLabel(s.code));
     setGroup(s.group);
-    setFrequency(s.frequency);
+    setFrequency(s.frequency || 0);
     setDescription(s.description || '');
     setIsOpen(true);
   };
@@ -196,22 +251,30 @@ const ServicesView: React.FC<Props> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canManageServices) return;
-    if (!code.trim() || !name.trim()) {
+    if (!name.trim()) {
       setErrorDialogState({
         open: true,
-        message: t('alertServiceRequired'),
+        message: t('alertServiceNameRequired'),
       });
       return;
     }
+    if (!editingService && !code.trim()) {
+      setErrorDialogState({
+        open: true,
+        message: t('alertServiceCodeRequired'),
+      });
+      return;
+    }
+
     setIsSaving(true);
     try {
       const res = await onSaveService({
-        id: editingService?.id,
-        code: code.trim().toLowerCase().replace(/\s+/g, '-'),
+        id: editingService ? editingService.id : undefined,
+        code: editingService ? editingService.code : code,
         name: name.trim(),
         group,
-        frequency: Number(frequency) || 0,
-        description: description.trim() || null,
+        frequency,
+        description: description.trim() ? description.trim() : null,
       });
 
       if (res && typeof res === 'object' && 'success' in res) {
@@ -236,54 +299,36 @@ const ServicesView: React.FC<Props> = ({
     }
   };
 
-  // 1. Apply Filter
+  // 1. Popover Filters
   const filteredServices = services.filter((s) => {
     if (filterGroup !== 'all' && s.group !== filterGroup) return false;
-    if (filterFrequency !== 'all') {
-      if (filterFrequency === '0' && s.frequency !== 0) return false;
-      if (filterFrequency === '3' && s.frequency !== 3) return false;
-      if (filterFrequency === '6' && s.frequency !== 6) return false;
-      if (filterFrequency === '12' && s.frequency !== 12) return false;
-      if (filterFrequency === 'other' && [0, 3, 6, 12].includes(s.frequency)) return false;
-    }
+    if (filterFrequency !== 'all' && String(s.frequency || 0) !== filterFrequency) return false;
     return true;
   });
 
-  // 2. Search among filtered items
+  // 2. Search
   const searchedServices = filteredServices.filter((s) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
-    const serviceLabel = getServiceLabel(s.code).toLowerCase();
-    return (
-      s.code.toLowerCase().includes(q) ||
-      s.name.toLowerCase().includes(q) ||
-      serviceLabel.includes(q) ||
-      s.group.toLowerCase().includes(q) ||
-      (s.description && s.description.toLowerCase().includes(q))
-    );
+    const sName = (s.name || getServiceLabel(s.code)).toLowerCase();
+    const sCode = s.code.toLowerCase();
+    const sDesc = (s.description || '').toLowerCase();
+    const sGroup = getCategoryName(s.group).toLowerCase();
+    return sName.includes(q) || sCode.includes(q) || sDesc.includes(q) || sGroup.includes(q);
   });
 
-  // 3. Sort final dataset
+  // 3. Sort
   const sortedServices = [...searchedServices].sort((a, b) => {
     let res = 0;
     switch (sortColumn) {
-      case 'code':
-        res = a.code.localeCompare(b.code);
+      case 'name':
+        res = (a.name || getServiceLabel(a.code)).localeCompare(b.name || getServiceLabel(b.code));
         break;
-      case 'name': {
-        const nameA = a.name || getServiceLabel(a.code);
-        const nameB = b.name || getServiceLabel(b.code);
-        res = nameA.localeCompare(nameB);
+      case 'group':
+        res = getCategoryName(a.group).localeCompare(getCategoryName(b.group));
         break;
-      }
-      case 'group': {
-        const grpA = getCategoryName(a.group);
-        const grpB = getCategoryName(b.group);
-        res = grpA.localeCompare(grpB);
-        break;
-      }
       case 'frequency':
-        res = a.frequency - b.frequency;
+        res = (a.frequency || 0) - (b.frequency || 0);
         break;
       case 'description':
         res = (a.description || '').localeCompare(b.description || '');
@@ -315,26 +360,44 @@ const ServicesView: React.FC<Props> = ({
 
   const paginatedServices = sortedServices.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
-  const sortOptions = useMemo(() => [
-    { value: 'name', label: t('colServiceName') },
-    { value: 'group', label: t('colCategory') },
-    { value: 'frequency', label: t('colPeriodicSampling') },
-    { value: 'description', label: t('colDescription') },
-    { value: 'createdAt', label: t('lblCreatedDate') },
-  ], [t]);
+  const sortOptions = useMemo(
+    () => [
+      { value: 'name', label: t('colServiceName') },
+      { value: 'group', label: t('colCategory') },
+      { value: 'frequency', label: t('colPeriodicSampling') },
+      { value: 'createdAt', label: t('lblCreatedDate') },
+    ],
+    [t]
+  );
 
-  const groupOptions = useMemo(() => [
-    ...(categories || []).map((cat) => ({ value: cat.code, label: cat.name })),
-    { value: 'other', label: t('other') },
-  ], [categories, t]);
+  const categoryOptions = useMemo(() => {
+    if (categories.length > 0) {
+      return [
+        { value: 'all', label: t('chartFilterAll') },
+        ...categories.map((c) => ({ value: c.code, label: c.name })),
+      ];
+    }
+    return [
+      { value: 'all', label: t('chartFilterAll') },
+      { value: 'grp-waste', label: t('groupWaste') },
+      { value: 'grp-legal', label: t('groupLegal') },
+      { value: 'grp-testing', label: t('groupTesting') },
+      { value: 'grp-advisory', label: t('groupAdvisory') },
+      { value: 'grp-standards', label: t('groupStandards') },
+    ];
+  }, [categories, t]);
 
-  const frequencyOptions = useMemo(() => [
-    { value: '0', label: t('freqNoReminder') },
-    { value: '3', label: t('freqQuarterly') },
-    { value: '6', label: t('freqSemiAnnually') },
-    { value: '12', label: t('freqEveryXMonths', { freq: 12 }) },
-    { value: 'other', label: t('other') },
-  ], [t]);
+  const frequencyOptions = useMemo(
+    () => [
+      { value: 'all', label: t('chartFilterAll') },
+      { value: '0', label: t('freqNoReminder') },
+      { value: '1', label: t('freqEveryXMonths', { freq: 1 }) },
+      { value: '3', label: t('freqQuarterly') },
+      { value: '6', label: t('freqSemiAnnually') },
+      { value: '12', label: t('freqEveryXMonths', { freq: 12 }) },
+    ],
+    [t]
+  );
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%', flex: 1, minHeight: 0 }}>
@@ -356,7 +419,18 @@ const ServicesView: React.FC<Props> = ({
 
       {/* TABLE CARD */}
       <Card variant="outlined" sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        <Box sx={{ p: { xs: 1.5, sm: 2 }, display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+        <Box
+          sx={{
+            p: { xs: 1.5, sm: 2 },
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: { xs: 'stretch', sm: 'center' },
+            flexDirection: { xs: 'column', sm: 'row' },
+            gap: 1.5,
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+          }}
+        >
           <Typography variant="h6" sx={{ fontWeight: 700 }}>
             {t('servicesListTitle', { count: sortedServices.length })}
           </Typography>
@@ -414,12 +488,12 @@ const ServicesView: React.FC<Props> = ({
                     size="small"
                     fullWidth
                     disablePortal
-                    options={groupOptions}
+                    options={categoryOptions}
                     getOptionLabel={(option) => option.label}
                     isOptionEqualToValue={(option, val) => option.value === val.value}
-                    value={groupOptions.find((o) => o.value === filterGroup) || null}
+                    value={categoryOptions.find((o) => o.value === filterGroup) || null}
                     onChange={(_, newValue) => setFilterGroup(newValue ? newValue.value : 'all')}
-                    renderInput={(params) => <TextField {...params} label={t('colCategory')} size="small" />}
+                    renderInput={(params) => <TextField {...params} label={t('lblCategoryGroup')} size="small" />}
                   />
 
                   <Autocomplete
@@ -431,22 +505,18 @@ const ServicesView: React.FC<Props> = ({
                     isOptionEqualToValue={(option, val) => option.value === val.value}
                     value={frequencyOptions.find((o) => o.value === filterFrequency) || null}
                     onChange={(_, newValue) => setFilterFrequency(newValue ? newValue.value : 'all')}
-                    renderInput={(params) => <TextField {...params} label={t('colPeriodicSampling')} size="small" />}
+                    renderInput={(params) => <TextField {...params} label={t('lblFrequencyMonths')} size="small" />}
                   />
                 </>
               }
             />
 
-            <ColumnSelector
-              columns={columnDefs}
-              visibleColumns={activeCols}
-              onChange={setCols}
-            />
+            <ColumnSelector columns={columnDefs} visibleColumns={activeCols} onChange={setCols} />
           </Box>
         </Box>
 
         <TableContainer sx={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
-          <Table stickyHeader sx={{ width: '100%', minWidth: 600 }}>
+          <Table stickyHeader sx={{ width: '100%', minWidth: 700 }}>
             <TableHead>
               <TableRow>
                 {activeCols.includes('name') && (
@@ -493,6 +563,7 @@ const ServicesView: React.FC<Props> = ({
                     </TableSortLabel>
                   </TableCell>
                 )}
+                {activeCols.includes('customData') && <TableCell>{t('colCustomData')}</TableCell>}
                 {canManageServices && <TableCell align="right">{t('colActions')}</TableCell>}
               </TableRow>
             </TableHead>
@@ -504,65 +575,101 @@ const ServicesView: React.FC<Props> = ({
                   </TableCell>
                 </TableRow>
               ) : (
-                paginatedServices.map((s) => (
-                  <TableRow key={s.id} hover>
-                    {activeCols.includes('name') && (
-                      <TableCell>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                          {s.name || getServiceLabel(s.code)}
-                        </Typography>
-                      </TableCell>
-                    )}
-                    {activeCols.includes('group') && (
-                      <TableCell>
-                        <Chip
-                          label={getCategoryName(s.group)}
-                          size="small"
-                          color="primary"
-                          variant="outlined"
-                        />
-                      </TableCell>
-                    )}
-                    {activeCols.includes('frequency') && (
-                      <TableCell>
-                        {s.frequency === 0
-                          ? t('freqNoReminder')
-                          : s.frequency === 3
-                          ? t('freqQuarterly')
-                          : s.frequency === 6
-                          ? t('freqSemiAnnually')
-                          : t('freqEveryXMonths', { freq: s.frequency })}
-                      </TableCell>
-                    )}
-                    {activeCols.includes('description') && (
-                      <TableCell sx={{ maxWidth: { xs: 180, sm: 260, md: 320 } }}>
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            color: 'text.secondary',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {s.description || '—'}
-                        </Typography>
-                      </TableCell>
-                    )}
-                    {canManageServices && (
-                      <TableCell align="right">
-                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
-                          <IconButton size="small" color="info" onClick={() => openEdit(s)}>
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton size="small" color="error" onClick={() => onDeleteService(s.id)}>
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Box>
-                      </TableCell>
-                    )}
-                  </TableRow>
-                ))
+                paginatedServices.map((s) => {
+                  const fields = getCustomModelForService(s.id);
+                  return (
+                    <TableRow key={s.id} hover>
+                      {activeCols.includes('name') && (
+                        <TableCell>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                            {s.name || getServiceLabel(s.code)}
+                          </Typography>
+                        </TableCell>
+                      )}
+                      {activeCols.includes('group') && (
+                        <TableCell>
+                          <Chip
+                            label={getCategoryName(s.group)}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                          />
+                        </TableCell>
+                      )}
+                      {activeCols.includes('frequency') && (
+                        <TableCell>
+                          {s.frequency === 0
+                            ? t('freqNoReminder')
+                            : s.frequency === 3
+                            ? t('freqQuarterly')
+                            : s.frequency === 6
+                            ? t('freqSemiAnnually')
+                            : t('freqEveryXMonths', { freq: s.frequency })}
+                        </TableCell>
+                      )}
+                      {activeCols.includes('description') && (
+                        <TableCell sx={{ maxWidth: { xs: 180, sm: 260, md: 320 } }}>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              color: 'text.secondary',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {s.description || '—'}
+                          </Typography>
+                        </TableCell>
+                      )}
+                      {activeCols.includes('customData') && (
+                        <TableCell sx={{ maxWidth: { xs: 180, sm: 240 } }}>
+                          {fields.length === 0 ? (
+                            <Typography variant="body2" color="text.secondary">
+                              —
+                            </Typography>
+                          ) : (
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                              {fields.map((f) => (
+                                <Chip
+                                  key={f.id}
+                                  size="small"
+                                  variant="outlined"
+                                  color="primary"
+                                  label={`${f.name}${f.unit ? ` (${f.unit})` : ''}`}
+                                  sx={{ fontSize: '0.75rem', height: 22 }}
+                                />
+                              ))}
+                            </Box>
+                          )}
+                        </TableCell>
+                      )}
+                      {canManageServices && (
+                        <TableCell align="right">
+                          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+                            <IconButton
+                              size="small"
+                              color="primary"
+                              title={t('btnEditCustomDataModel')}
+                              onClick={() => {
+                                setActiveModelService(s);
+                                setIsCustomModelModalOpen(true);
+                              }}
+                            >
+                              <SettingsIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton size="small" color="info" onClick={() => openEdit(s)}>
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton size="small" color="error" onClick={() => onDeleteService(s.id)}>
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
@@ -675,6 +782,83 @@ const ServicesView: React.FC<Props> = ({
                   onChange={(e) => setDescription(e.target.value)}
                 />
               </Grid>
+
+              {/* CUSTOM DATA MODEL SECTION IN EDIT DIALOG */}
+              {editingService && (
+                <Grid size={{ xs: 12 }}>
+                  <Box
+                    sx={{
+                      mt: 1,
+                      p: 2,
+                      bgcolor: 'action.hover',
+                      borderRadius: 2,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                        {t('customDataSection')}
+                      </Typography>
+                      {canManageServices && (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<SettingsIcon />}
+                          onClick={() => {
+                            setActiveModelService(editingService);
+                            setIsCustomModelModalOpen(true);
+                          }}
+                          sx={{ textTransform: 'none' }}
+                        >
+                          {t('btnEditCustomDataModel')}
+                        </Button>
+                      )}
+                    </Box>
+
+                    {(() => {
+                      const fields = getCustomModelForService(editingService.id);
+                      if (fields.length === 0) {
+                        return (
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 1 }}>
+                            <Typography variant="body2" color="text.secondary">
+                              {t('noCustomFieldsDefined')}
+                            </Typography>
+                            {canManageServices && (
+                              <Button
+                                size="small"
+                                variant="text"
+                                color="primary"
+                                startIcon={<AddIcon />}
+                                onClick={() => {
+                                  setActiveModelService(editingService);
+                                  setIsCustomModelModalOpen(true);
+                                }}
+                                sx={{ textTransform: 'none' }}
+                              >
+                                {t('btnDefineModel')}
+                              </Button>
+                            )}
+                          </Box>
+                        );
+                      }
+                      return (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 1.5 }}>
+                          {fields.map((f) => (
+                            <Chip
+                              key={f.id}
+                              size="small"
+                              variant="outlined"
+                              color="primary"
+                              label={`${f.name} (${f.type}${f.unit ? ` - ${f.unit}` : ''})`}
+                            />
+                          ))}
+                        </Box>
+                      );
+                    })()}
+                  </Box>
+                </Grid>
+              )}
             </Grid>
           </DialogContent>
           <DialogActions sx={{ p: 2 }}>
@@ -687,6 +871,15 @@ const ServicesView: React.FC<Props> = ({
           </DialogActions>
         </form>
       </Dialog>
+
+      {/* CUSTOM DATA MODEL DEFINITION MODAL */}
+      <CustomDataModelModal
+        isOpen={isCustomModelModalOpen}
+        onClose={() => setIsCustomModelModalOpen(false)}
+        service={activeModelService}
+        initialFields={activeModelService ? getCustomModelForService(activeModelService.id) : []}
+        onSave={handleSaveCustomModel}
+      />
 
       <ErrorDialog
         open={errorDialogState.open}

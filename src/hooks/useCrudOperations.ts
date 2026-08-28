@@ -72,8 +72,9 @@ export function useCrudOperations<T extends { id: string }>(config: CrudConfig<T
       }
 
       if (res.ok) {
+        const savedItem = await res.json().catch(() => ({}));
         onSuccess();
-        return { success: true };
+        return { success: true, id: savedItem?.id, data: savedItem };
       } else {
         const err = await res.json().catch(() => ({}));
         return { success: false, error: err.error || err.message || t(errorSaveMessageKey) };

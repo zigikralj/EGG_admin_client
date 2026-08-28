@@ -4,6 +4,7 @@ import type {
   Project,
   ActiveTab,
   DashboardSubTab,
+  ProvidedServicesSubTab,
   SaveResult,
 } from './types';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
@@ -17,6 +18,7 @@ import { useProjects } from './hooks/useProjects';
 import { useClients } from './hooks/useClients';
 import { useUsers } from './hooks/useUsers';
 import { useServices } from './hooks/useServices';
+import { useProvidedServices } from './hooks/useProvidedServices';
 import { useCategories } from './hooks/useCategories';
 import { useReminders } from './hooks/useReminders';
 import { useInvoices } from './hooks/useInvoices';
@@ -28,6 +30,7 @@ const ProjectsView = React.lazy(() => import('./components/views/ProjectsView'))
 const ClientsView = React.lazy(() => import('./components/views/ClientsView'));
 const UsersView = React.lazy(() => import('./components/views/UsersView'));
 const ServicesView = React.lazy(() => import('./components/views/ServicesView'));
+const ProvidedServicesView = React.lazy(() => import('./components/views/ProvidedServicesView'));
 const CategoriesView = React.lazy(() => import('./components/views/CategoriesView'));
 const RemindersView = React.lazy(() => import('./components/views/RemindersView'));
 const InvoicesView = React.lazy(() => import('./components/views/InvoicesView'));
@@ -41,6 +44,7 @@ function MainApp() {
   // ── UI State ────────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [dashboardSubTab, setDashboardSubTab] = useState<DashboardSubTab>('default');
+  const [providedServicesSubTab, setProvidedServicesSubTab] = useState<ProvidedServicesSubTab>('summary');
   const [usersFilterStatus, setUsersFilterStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -79,6 +83,7 @@ function MainApp() {
     fetchClients: () => Promise<void>;
     fetchUsers: () => Promise<void>;
     fetchServices: () => Promise<void>;
+    fetchProvidedServices: () => Promise<void>;
     fetchCategories: () => Promise<void>;
     fetchReminders: () => Promise<void>;
     fetchInvoices: () => Promise<void>;
@@ -88,6 +93,7 @@ function MainApp() {
     fetchClients: async () => {},
     fetchUsers: async () => {},
     fetchServices: async () => {},
+    fetchProvidedServices: async () => {},
     fetchCategories: async () => {},
     fetchReminders: async () => {},
     fetchInvoices: async () => {},
@@ -99,6 +105,7 @@ function MainApp() {
     fetchClients: () => fetchersRef.current.fetchClients(),
     fetchUsers: () => fetchersRef.current.fetchUsers(),
     fetchServices: () => fetchersRef.current.fetchServices(),
+    fetchProvidedServices: () => fetchersRef.current.fetchProvidedServices(),
     fetchCategories: () => fetchersRef.current.fetchCategories(),
     fetchReminders: () => fetchersRef.current.fetchReminders(),
     fetchInvoices: () => fetchersRef.current.fetchInvoices(),
@@ -116,6 +123,7 @@ function MainApp() {
   const clientsHook = useClients(authHeaders, stableFetchers, askDeleteConfirm);
   const usersHook = useUsers(authHeaders, stableFetchers, askDeleteConfirm);
   const servicesHook = useServices(authHeaders, stableFetchers, askDeleteConfirm);
+  const providedServicesHook = useProvidedServices(authHeaders, stableFetchers, askDeleteConfirm);
   const categoriesHook = useCategories(authHeaders, stableFetchers, askDeleteConfirm);
   const remindersHook = useReminders(authHeaders, stableFetchers, askDeleteConfirm);
   const invoicesHook = useInvoices(authHeaders, stableFetchers, askDeleteConfirm);
@@ -134,6 +142,7 @@ function MainApp() {
       setClients: clientsHook.setClients,
       setUsers: usersHook.setUsers,
       setServices: servicesHook.setServices,
+      setProvidedServices: providedServicesHook.setProvidedServices,
       setCategories: categoriesHook.setCategories,
       setReminders: remindersHook.setReminders,
       setInvoices: invoicesHook.setInvoices,
@@ -232,6 +241,8 @@ function MainApp() {
         }}
         dashboardSubTab={dashboardSubTab}
         onDashboardSubTabChange={setDashboardSubTab}
+        providedServicesSubTab={providedServicesSubTab}
+        onProvidedServicesSubTabChange={setProvidedServicesSubTab}
         stats={derivedStats}
         userPreferences={userPreferences}
         onPreferenceChange={updatePreference}
@@ -385,6 +396,34 @@ function MainApp() {
             onVisibleColumnsChange={(cols) => updatePreference('cols_services', cols)}
             sortState={userPreferences.sort_services}
             onSortChange={(sort) => updatePreference('sort_services', sort)}
+            userPreferences={userPreferences}
+            onPreferenceChange={updatePreference}
+          />
+        )}
+
+        {activeTab === 'providedServices' && (
+          <ProvidedServicesView
+            subTab={providedServicesSubTab}
+            providedServices={providedServicesHook.providedServices}
+            services={servicesHook.services}
+            clients={clientsHook.clients}
+            projects={projectsHook.projects}
+            invoices={invoicesHook.invoices}
+            categories={categoriesHook.categories}
+            onSaveProvidedService={providedServicesHook.handleSaveProvidedService}
+            onDeleteProvidedService={providedServicesHook.handleDeleteProvidedService}
+            onSaveService={servicesHook.handleSaveService}
+            onSaveInvoice={invoicesHook.handleSaveInvoice}
+            onDeleteInvoice={invoicesHook.handleDeleteInvoice}
+            onStatusChangeInvoice={invoicesHook.handleUpdateInvoiceStatus}
+            visibleColumns={userPreferences.cols_providedServices}
+            onVisibleColumnsChange={(cols) => updatePreference('cols_providedServices', cols)}
+            sortState={userPreferences.sort_providedServices}
+            onSortChange={(sort) => updatePreference('sort_providedServices', sort)}
+            quickFilter={userPreferences.quick_filter_providedServices || 'all'}
+            onQuickFilterChange={(val) => updatePreference('quick_filter_providedServices', val)}
+            userPreferences={userPreferences}
+            onPreferenceChange={updatePreference}
           />
         )}
 

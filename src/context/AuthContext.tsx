@@ -17,6 +17,7 @@ interface AuthContextType {
   isUser: boolean;
   isAccountant: boolean;
   canManageInvoices: boolean;
+  canManageProvidedServices: boolean;
   canToggleEntityWorkMode: boolean;
   workOnEntities: boolean;
   setWorkOnEntities: (val: boolean) => void;
@@ -265,6 +266,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const canManageServices = canToggleEntityWorkMode && workOnEntities;
   const canManageUsers = canToggleEntityWorkMode && workOnEntities;
   const canManageInvoices = actualRole === 'Administrator' || actualRole === 'Manager' || actualRole === 'Accountant';
+  const canManageProvidedServices = actualRole === 'Administrator' || actualRole === 'Manager' || actualRole === 'Accountant';
 
   const canEditUser = React.useCallback(
     (targetUser: User): boolean => {
@@ -310,6 +312,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isUser,
       isAccountant,
       canManageInvoices,
+      canManageProvidedServices,
       canToggleEntityWorkMode,
       workOnEntities,
       setWorkOnEntities,
@@ -333,6 +336,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isUser,
       isAccountant,
       canManageInvoices,
+      canManageProvidedServices,
       canToggleEntityWorkMode,
       workOnEntities,
       setWorkOnEntities,

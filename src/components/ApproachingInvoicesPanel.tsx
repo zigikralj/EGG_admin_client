@@ -23,6 +23,7 @@ import {
 
 import type { Invoice, Client, Project } from '../types';
 import { useLanguage } from '../context/LanguageContext';
+import { enhanceInvoicesWithLinks } from '../utils/invoiceUtils';
 import { TableFilterSelector } from './TableFilterSelector';
 import { CheckCircleIcon, CalendarTodayIcon, SearchIcon, ArrowUpwardIcon, ArrowDownwardIcon, ArrowForwardIcon, ReceiptLongIcon } from './icons';
 
@@ -130,8 +131,44 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
 
   // Only show unpaid / actionable invoices in approaching invoices panel
   const unpaidInvoices = useMemo(() => {
-    return invoices.filter((inv) => inv.status !== 'Paid' && inv.status !== 'Cancelled');
+    const enhanced = enhanceInvoicesWithLinks(invoices);
+    return enhanced.filter((inv) => inv.status !== 'Paid' && inv.status !== 'Cancelled');
   }, [invoices]);
+
+  const getInvoiceTypeChip = (type?: string | null) => {
+    if (!type || type === 'Standard') return null;
+    switch (type) {
+      case 'Advance':
+        return (
+          <Chip
+            label={t('badgeAdvance')}
+            size="small"
+            color="secondary"
+            sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700, px: 0.25 }}
+          />
+        );
+      case 'Final':
+        return (
+          <Chip
+            label={t('badgeFinal')}
+            size="small"
+            color="primary"
+            sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700, px: 0.25 }}
+          />
+        );
+      case 'Partial':
+        return (
+          <Chip
+            label={t('badgePartial')}
+            size="small"
+            color="info"
+            sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700, px: 0.25 }}
+          />
+        );
+      default:
+        return null;
+    }
+  };
 
   const uniqueClients = useMemo(() => {
     const set = new Set<string>();
@@ -472,6 +509,7 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
                         >
                           {inv.invoiceNumber}
                         </Typography>
+                        {getInvoiceTypeChip(inv.invoiceType)}
                       </Box>
 
                       {inv.clientName && (

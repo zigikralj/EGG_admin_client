@@ -32,22 +32,26 @@ import {
   Collapse,
 } from '@mui/material';
 
-
-
-
-
-
-
-
-
-
-import type { Invoice, Client, Project, SaveResult, InvoiceStatus, InvoiceCurrency } from '../../types';
+import type { Invoice, Client, Project, SaveResult, InvoiceStatus, InvoiceCurrency, InvoiceType } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { ColumnSelector, type ColumnDef } from '../ColumnSelector';
 import { TableFilterSelector } from '../TableFilterSelector';
 import { ErrorDialog } from '../ErrorDialog';
-import { SearchIcon, AddIcon, EditIcon, DeleteIcon, CheckCircleIcon, ArrowUpwardIcon, ArrowDownwardIcon, KeyboardArrowDownIcon, KeyboardArrowUpIcon, ReceiptLongIcon } from '../icons';
+import { parseInvoiceNotes, serializeInvoiceNotes, enhanceInvoicesWithLinks } from '../../utils/invoiceUtils';
+import {
+  SearchIcon,
+  AddIcon,
+  EditIcon,
+  DeleteIcon,
+  CheckCircleIcon,
+  ArrowUpwardIcon,
+  ArrowDownwardIcon,
+  KeyboardArrowDownIcon,
+  KeyboardArrowUpIcon,
+  ReceiptLongIcon,
+  LinkIcon,
+} from '../icons';
 
 interface Props {
   invoices: Invoice[];
@@ -62,7 +66,7 @@ interface Props {
   onSortChange?: (sort: { field: string; direction: 'asc' | 'desc' }) => void;
 }
 
-const DEFAULT_COLUMNS = ['invoiceNumber', 'client', 'project', 'dateCreated', 'dueDate', 'totalAmount', 'status'];
+const DEFAULT_COLUMNS = ['invoiceNumber', 'invoiceType', 'linkedInvoices', 'client', 'project', 'dateCreated', 'dueDate', 'totalAmount', 'status'];
 
 const InvoicesView: React.FC<Props> = ({
   invoices,
@@ -92,6 +96,8 @@ const InvoicesView: React.FC<Props> = ({
   // Modal form state
   const [formData, setFormData] = useState<{
     invoiceNumber: string;
+    invoiceType: InvoiceType;
+    parentInvoiceId: string;
     dateCreated: string;
     dueDate: string;
     paymentDate: string;
@@ -105,6 +111,8 @@ const InvoicesView: React.FC<Props> = ({
     items: { description: string; quantity: number; unitPrice: number; currency: InvoiceCurrency }[];
   }>({
     invoiceNumber: '',
+    invoiceType: 'Standard',
+    parentInvoiceId: '',
     dateCreated: new Date().toISOString().slice(0, 10),
     dueDate: '',
     paymentDate: '',
@@ -159,17 +167,23 @@ const InvoicesView: React.FC<Props> = ({
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterClient, setFilterClient] = useState<string>('all');
   const [filterCurrency, setFilterCurrency] = useState<string>('all');
+  const [filterInvoiceType, setFilterInvoiceType] = useState<string>('all');
+  const [filterLinkedStatus, setFilterLinkedStatus] = useState<string>('all');
 
   const activeFilterCount =
     (filterStatus !== 'all' ? 1 : 0) +
     (filterClient !== 'all' ? 1 : 0) +
     (filterCurrency !== 'all' ? 1 : 0) +
+    (filterInvoiceType !== 'all' ? 1 : 0) +
+    (filterLinkedStatus !== 'all' ? 1 : 0) +
     (sortColumn !== 'dateCreated' || sortDirection !== 'desc' ? 1 : 0);
 
   const clearFilters = () => {
     setFilterStatus('all');
     setFilterClient('all');
     setFilterCurrency('all');
+    setFilterInvoiceType('all');
+    setFilterLinkedStatus('all');
     setSortColumn('dateCreated');
     setSortDirection('desc');
     if (onSortChange) {
@@ -185,6 +199,8 @@ const InvoicesView: React.FC<Props> = ({
 
   const columnDefs: ColumnDef[] = [
     { id: 'invoiceNumber', label: t('colInvoiceNumber') },
+    { id: 'invoiceType', label: t('colInvoiceType') },
+    { id: 'linkedInvoices', label: t('colLinkedInvoices') },
     { id: 'client', label: t('lblClient') },
     { id: 'project', label: t('tabProjects') },
     { id: 'dateCreated', label: t('colDateCreated') },
@@ -196,6 +212,7 @@ const InvoicesView: React.FC<Props> = ({
 
   const sortOptions = [
     { value: 'invoiceNumber', label: t('colInvoiceNumber') },
+    { value: 'invoiceType', label: t('colInvoiceType') },
     { value: 'client', label: t('lblClient') },
     { value: 'project', label: t('tabProjects') },
     { value: 'dateCreated', label: t('colDateCreated') },
@@ -207,6 +224,11 @@ const InvoicesView: React.FC<Props> = ({
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [search, setSearch] = useState('');
+
+  // Enhance invoices with normalized link relations
+  const enhancedInvoices = useMemo(() => {
+    return enhanceInvoicesWithLinks(invoices);
+  }, [invoices]);
 
   const formatAmount = (amount?: number | null, currency?: string | null) => {
     const val = amount || 0;
@@ -248,6 +270,77 @@ const InvoicesView: React.FC<Props> = ({
     }
   };
 
+  const getInvoiceTypeChip = (type?: string | null) => {
+    if (!type || type === 'Standard') {
+      return (
+        <Chip
+          label={t('typeStandard')}
+          size="small"
+          variant="outlined"
+          sx={{ height: 20, fontSize: '0.7rem', fontWeight: 500, color: 'text.secondary', borderColor: 'divider' }}
+        />
+      );
+    }
+    switch (type) {
+      case 'Advance':
+        return (
+          <Chip
+            label={t('badgeAdvance')}
+            size="small"
+            color="secondary"
+            sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700, px: 0.25 }}
+          />
+        );
+      case 'Final':
+        return (
+          <Chip
+            label={t('badgeFinal')}
+            size="small"
+            color="primary"
+            sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700, px: 0.25 }}
+          />
+        );
+      case 'Partial':
+        return (
+          <Chip
+            label={t('badgePartial')}
+            size="small"
+            color="info"
+            sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700, px: 0.25 }}
+          />
+        );
+      default:
+        return <Chip label={type} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 600 }} />;
+    }
+  };
+
+  const getLinkedInvoiceLabel = (linkedInv?: Invoice | null) => {
+    const type = linkedInv?.invoiceType || 'Standard';
+    switch (type) {
+      case 'Advance':
+        return t('badgeAdvance');
+      case 'Final':
+        return t('badgeFinal');
+      case 'Partial':
+        return t('badgePartial');
+      default:
+        return t('typeStandard');
+    }
+  };
+
+  const getLinkedInvoiceChipColor = (type?: string | null): 'secondary' | 'primary' | 'info' | 'default' => {
+    switch (type) {
+      case 'Advance':
+        return 'secondary';
+      case 'Final':
+        return 'primary';
+      case 'Partial':
+        return 'info';
+      default:
+        return 'default';
+    }
+  };
+
   const toggleRowExpanded = (id: string) => {
     setExpandedRows((prev) => ({ ...prev, [id]: !prev[id] }));
   };
@@ -257,6 +350,8 @@ const InvoicesView: React.FC<Props> = ({
     setEditingInvoice(null);
     setFormData({
       invoiceNumber: '',
+      invoiceType: 'Standard',
+      parentInvoiceId: '',
       dateCreated: new Date().toISOString().slice(0, 10),
       dueDate: '',
       paymentDate: '',
@@ -274,9 +369,12 @@ const InvoicesView: React.FC<Props> = ({
 
   // Open modal for editing invoice
   const handleOpenEdit = (inv: Invoice) => {
+    const { cleanNotes, invoiceType: pType, parentInvoiceId: pParentId } = parseInvoiceNotes(inv.notes);
     setEditingInvoice(inv);
     setFormData({
       invoiceNumber: inv.invoiceNumber || '',
+      invoiceType: (inv.invoiceType || pType || 'Standard') as InvoiceType,
+      parentInvoiceId: inv.parentInvoiceId || pParentId || '',
       dateCreated: inv.dateCreated || '',
       dueDate: inv.dueDate || '',
       paymentDate: inv.paymentDate || '',
@@ -286,7 +384,7 @@ const InvoicesView: React.FC<Props> = ({
       projectName: inv.projectName || (inv.project?.name || ''),
       status: (inv.status as InvoiceStatus) || 'Draft',
       currency: (inv.currency as InvoiceCurrency) || 'RSD',
-      notes: inv.notes || '',
+      notes: cleanNotes || '',
       items:
         inv.items && inv.items.length > 0
           ? inv.items.map((item) => ({
@@ -346,9 +444,13 @@ const InvoicesView: React.FC<Props> = ({
 
     setIsSaving(true);
     try {
+      const combinedNotes = serializeInvoiceNotes(formData.notes, formData.invoiceType, formData.parentInvoiceId);
+
       const payload: Partial<Invoice> = {
         ...(editingInvoice ? { id: editingInvoice.id } : {}),
         invoiceNumber: formData.invoiceNumber.trim(),
+        invoiceType: formData.invoiceType,
+        parentInvoiceId: formData.parentInvoiceId || null,
         dateCreated: formData.dateCreated || null,
         dueDate: formData.dueDate || null,
         paymentDate: formData.paymentDate || null,
@@ -358,7 +460,7 @@ const InvoicesView: React.FC<Props> = ({
         projectName: formData.projectName || null,
         status: formData.status,
         currency: formData.currency,
-        notes: formData.notes || null,
+        notes: combinedNotes,
         items: formData.items
           .filter((it) => it.description.trim())
           .map((it) => ({
@@ -391,17 +493,30 @@ const InvoicesView: React.FC<Props> = ({
 
   // Filter & Sort Invoices
   const filteredInvoices = useMemo(() => {
-    return invoices.filter((inv) => {
+    return enhancedInvoices.filter((inv) => {
       // Search
-      const s = search.toLowerCase();
+      const s = search.toLowerCase().trim();
       const numMatch = (inv.invoiceNumber || '').toLowerCase().includes(s);
       const clientMatch = (inv.clientName || inv.client?.name || '').toLowerCase().includes(s);
       const projMatch = (inv.projectName || inv.project?.name || '').toLowerCase().includes(s);
       const notesMatch = (inv.notes || '').toLowerCase().includes(s);
       const itemsMatch = (inv.items || []).some((it) => it.description.toLowerCase().includes(s));
       const statusMatch = (inv.status || '').toLowerCase().includes(s);
+      const typeMatch = (inv.invoiceType || '').toLowerCase().includes(s);
+      const parentMatch = Boolean(inv.parentInvoice && inv.parentInvoice.invoiceNumber?.toLowerCase().includes(s));
+      const childMatch = Boolean(inv.childInvoices && inv.childInvoices.some((c) => c.invoiceNumber?.toLowerCase().includes(s)));
 
-      const matchesSearch = !s || numMatch || clientMatch || projMatch || notesMatch || itemsMatch || statusMatch;
+      const matchesSearch =
+        !s ||
+        numMatch ||
+        clientMatch ||
+        projMatch ||
+        notesMatch ||
+        itemsMatch ||
+        statusMatch ||
+        typeMatch ||
+        parentMatch ||
+        childMatch;
 
       // Status filter
       const matchesStatus = filterStatus === 'all' || inv.status === filterStatus;
@@ -412,9 +527,22 @@ const InvoicesView: React.FC<Props> = ({
       // Currency filter
       const matchesCurrency = filterCurrency === 'all' || inv.currency === filterCurrency;
 
-      return matchesSearch && matchesStatus && matchesClient && matchesCurrency;
+      // Invoice Type filter
+      const matchesType =
+        filterInvoiceType === 'all' ||
+        (filterInvoiceType === 'Standard' && (!inv.invoiceType || inv.invoiceType === 'Standard')) ||
+        inv.invoiceType === filterInvoiceType;
+
+      // Linked Status filter
+      const isLinked = Boolean(inv.parentInvoiceId || (inv.childInvoices && inv.childInvoices.length > 0));
+      const matchesLinked =
+        filterLinkedStatus === 'all' ||
+        (filterLinkedStatus === 'linked' && isLinked) ||
+        (filterLinkedStatus === 'independent' && !isLinked);
+
+      return matchesSearch && matchesStatus && matchesClient && matchesCurrency && matchesType && matchesLinked;
     });
-  }, [invoices, search, filterStatus, filterClient, filterCurrency]);
+  }, [enhancedInvoices, search, filterStatus, filterClient, filterCurrency, filterInvoiceType, filterLinkedStatus]);
 
   const sortedInvoices = useMemo(() => {
     return [...filteredInvoices].sort((a, b) => {
@@ -425,6 +553,10 @@ const InvoicesView: React.FC<Props> = ({
         case 'invoiceNumber':
           aVal = a.invoiceNumber || '';
           bVal = b.invoiceNumber || '';
+          break;
+        case 'invoiceType':
+          aVal = a.invoiceType || 'Standard';
+          bVal = b.invoiceType || 'Standard';
           break;
         case 'client':
           aVal = a.clientName || a.client?.name || '';
@@ -473,6 +605,11 @@ const InvoicesView: React.FC<Props> = ({
     if (!formData.clientId) return projects;
     return projects.filter((p) => p.clientId === formData.clientId);
   }, [projects, formData.clientId]);
+
+  // Available parent invoices for linking in modal
+  const availableParentInvoices = useMemo(() => {
+    return enhancedInvoices.filter((inv) => !editingInvoice || inv.id !== editingInvoice.id);
+  }, [enhancedInvoices, editingInvoice]);
 
   return (
     <Box sx={{ width: '100%', py: 2 }}>
@@ -551,6 +688,7 @@ const InvoicesView: React.FC<Props> = ({
               }
               filteringContent={
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                  {/* Status Filter */}
                   <FormControl fullWidth size="small">
                     <InputLabel>{t('lblInvoiceStatus')}</InputLabel>
                     <Select
@@ -558,7 +696,7 @@ const InvoicesView: React.FC<Props> = ({
                       label={t('lblInvoiceStatus')}
                       onChange={(e) => setFilterStatus(e.target.value)}
                     >
-                      <MenuItem value="all">All</MenuItem>
+                      <MenuItem value="all">{t('filterAllStatus') || 'All'}</MenuItem>
                       <MenuItem value="Draft">{t('statusDraft')}</MenuItem>
                       <MenuItem value="Sent">{t('statusSent')}</MenuItem>
                       <MenuItem value="Paid">{t('statusPaid')}</MenuItem>
@@ -567,6 +705,37 @@ const InvoicesView: React.FC<Props> = ({
                     </Select>
                   </FormControl>
 
+                  {/* Invoice Type Filter */}
+                  <FormControl fullWidth size="small">
+                    <InputLabel>{t('lblInvoiceType')}</InputLabel>
+                    <Select
+                      value={filterInvoiceType}
+                      label={t('lblInvoiceType')}
+                      onChange={(e) => setFilterInvoiceType(e.target.value)}
+                    >
+                      <MenuItem value="all">{t('filterAllInvoiceTypes')}</MenuItem>
+                      <MenuItem value="Standard">{t('typeStandard')}</MenuItem>
+                      <MenuItem value="Advance">{t('typeAdvance')}</MenuItem>
+                      <MenuItem value="Final">{t('typeFinal')}</MenuItem>
+                      <MenuItem value="Partial">{t('typePartial')}</MenuItem>
+                    </Select>
+                  </FormControl>
+
+                  {/* Linked Status Filter */}
+                  <FormControl fullWidth size="small">
+                    <InputLabel>{t('filterLinkedStatus')}</InputLabel>
+                    <Select
+                      value={filterLinkedStatus}
+                      label={t('filterLinkedStatus')}
+                      onChange={(e) => setFilterLinkedStatus(e.target.value)}
+                    >
+                      <MenuItem value="all">{t('filterAllLinks')}</MenuItem>
+                      <MenuItem value="linked">{t('filterLinkedOnly')}</MenuItem>
+                      <MenuItem value="independent">{t('filterIndependentOnly')}</MenuItem>
+                    </Select>
+                  </FormControl>
+
+                  {/* Currency Filter */}
                   <FormControl fullWidth size="small">
                     <InputLabel>{t('lblCurrency')}</InputLabel>
                     <Select
@@ -580,6 +749,7 @@ const InvoicesView: React.FC<Props> = ({
                     </Select>
                   </FormControl>
 
+                  {/* Client Filter */}
                   <FormControl fullWidth size="small">
                     <InputLabel>{t('lblClient')}</InputLabel>
                     <Select
@@ -622,6 +792,26 @@ const InvoicesView: React.FC<Props> = ({
                         {t('colInvoiceNumber')}
                       </Typography>
                     </TableSortLabel>
+                  </TableCell>
+                )}
+                {activeCols.includes('invoiceType') && (
+                  <TableCell>
+                    <TableSortLabel
+                      active={sortColumn === 'invoiceType'}
+                      direction={sortColumn === 'invoiceType' ? sortDirection : 'asc'}
+                      onClick={() => handleSort('invoiceType')}
+                    >
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                        {t('colInvoiceType')}
+                      </Typography>
+                    </TableSortLabel>
+                  </TableCell>
+                )}
+                {activeCols.includes('linkedInvoices') && (
+                  <TableCell>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                      {t('colLinkedInvoices')}
+                    </Typography>
                   </TableCell>
                 )}
                 {activeCols.includes('client') && (
@@ -744,6 +934,8 @@ const InvoicesView: React.FC<Props> = ({
                       inv.status !== 'Paid' &&
                       inv.dueDate &&
                       new Date(inv.dueDate) < new Date(new Date().toDateString());
+                    const isPaid = inv.status === 'Paid';
+                    const hasLinks = Boolean(inv.parentInvoice || (inv.childInvoices && inv.childInvoices.length > 0));
 
                     return (
                       <React.Fragment key={inv.id}>
@@ -755,15 +947,13 @@ const InvoicesView: React.FC<Props> = ({
                           }}
                         >
                           <TableCell>
-                            {itemsCount > 0 && (
-                              <IconButton
-                                size="small"
-                                onClick={() => toggleRowExpanded(inv.id)}
-                                title={t('invoiceItemsSection')}
-                              >
-                                {isExpanded ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
-                              </IconButton>
-                            )}
+                            <IconButton
+                              size="small"
+                              onClick={() => toggleRowExpanded(inv.id)}
+                              title={t('invoiceItemsSection')}
+                            >
+                              {isExpanded ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+                            </IconButton>
                           </TableCell>
 
                           {activeCols.includes('invoiceNumber') && (
@@ -776,6 +966,65 @@ const InvoicesView: React.FC<Props> = ({
                                   {itemsCount} {t('colItemsCount').toLowerCase()}
                                 </Typography>
                               )}
+                            </TableCell>
+                          )}
+
+                          {activeCols.includes('invoiceType') && (
+                            <TableCell>
+                              {getInvoiceTypeChip(inv.invoiceType)}
+                            </TableCell>
+                          )}
+
+                          {activeCols.includes('linkedInvoices') && (
+                            <TableCell>
+                              {(() => {
+                                const uniqueLinks: Invoice[] = [];
+                                if (inv.parentInvoice) {
+                                  uniqueLinks.push(inv.parentInvoice);
+                                }
+                                if (inv.childInvoices && inv.childInvoices.length > 0) {
+                                  inv.childInvoices.forEach((child) => {
+                                    if (!uniqueLinks.some((existing) => existing.id === child.id)) {
+                                      uniqueLinks.push(child);
+                                    }
+                                  });
+                                }
+
+                                if (uniqueLinks.length === 0) {
+                                  return (
+                                    <Typography variant="caption" color="text.disabled">
+                                      -
+                                    </Typography>
+                                  );
+                                }
+
+                                return (
+                                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                    {uniqueLinks.map((linked) => {
+                                      const labelType = getLinkedInvoiceLabel(linked);
+                                      const chipColor = getLinkedInvoiceChipColor(linked.invoiceType);
+                                      return (
+                                        <Chip
+                                          key={linked.id}
+                                          icon={<LinkIcon sx={{ fontSize: 13 }} />}
+                                          size="small"
+                                          variant="outlined"
+                                          color={chipColor}
+                                          label={`${labelType}: ${linked.invoiceNumber || ''}`}
+                                          onClick={() => linked.invoiceNumber && setSearch(linked.invoiceNumber)}
+                                          sx={{
+                                            height: 20,
+                                            fontSize: '0.675rem',
+                                            fontWeight: 600,
+                                            cursor: 'pointer',
+                                            '&:hover': { opacity: 0.85 },
+                                          }}
+                                        />
+                                      );
+                                    })}
+                                  </Box>
+                                );
+                              })()}
                             </TableCell>
                           )}
 
@@ -843,7 +1092,7 @@ const InvoicesView: React.FC<Props> = ({
                           {canManage && (
                             <TableCell align="right">
                               <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
-                                {inv.status !== 'Paid' && onUpdateStatus && (
+                                {!isPaid && onUpdateStatus && (
                                   <Tooltip title={t('markAsPaid')}>
                                     <IconButton
                                       size="small"
@@ -875,60 +1124,156 @@ const InvoicesView: React.FC<Props> = ({
                           )}
                         </TableRow>
 
-                        {/* EXPANDABLE ITEMS BREAKDOWN */}
-                        {itemsCount > 0 && (
-                          <TableRow>
-                            <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={activeCols.length + 2}>
-                              <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-                                <Box sx={{ margin: 2, p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
-                                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                                    {t('invoiceItemsSection')}
-                                  </Typography>
-                                  <Table size="small">
-                                    <TableHead>
-                                      <TableRow>
-                                        <TableCell sx={{ fontWeight: 700 }}>{t('lblItemDescription')}</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 700 }}>
-                                          {t('lblItemQuantity')}
-                                        </TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 700 }}>
-                                          {t('lblItemUnitPrice')}
-                                        </TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 700, whiteSpace: 'nowrap', minWidth: 120 }}>
-                                          {t('lblItemTotal')}
-                                        </TableCell>
-                                      </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                      {inv.items?.map((item, idx) => (
-                                        <TableRow key={item.id || idx}>
-                                          <TableCell>{item.description}</TableCell>
-                                          <TableCell align="right">{item.quantity}</TableCell>
-                                          <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                                            {formatAmount(item.unitPrice, item.currency || inv.currency)}
-                                          </TableCell>
-                                          <TableCell align="right" sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
-                                            {formatAmount(item.quantity * item.unitPrice, item.currency || inv.currency)}
-                                          </TableCell>
-                                        </TableRow>
-                                      ))}
-                                    </TableBody>
-                                  </Table>
-                                  {inv.notes && (
-                                    <Box sx={{ mt: 1.5 }}>
-                                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-                                        {t('lblNotes')}:
-                                      </Typography>
-                                      <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                                        {inv.notes}
+                        {/* EXPANDABLE ITEMS BREAKDOWN & LINKED INVOICES */}
+                        <TableRow>
+                          <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={activeCols.length + 2}>
+                            <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                              <Box sx={{ margin: 2, p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
+                                {/* LINKED INVOICES BREAKDOWN CARD */}
+                                {hasLinks && (
+                                  <Box sx={{ mb: 2, p: 1.5, bgcolor: 'background.paper', borderRadius: 1.5, border: '1px solid', borderColor: 'divider' }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                      <LinkIcon color="primary" sx={{ fontSize: 18 }} />
+                                      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                                        {t('lblLinkedInvoices')}
                                       </Typography>
                                     </Box>
-                                  )}
-                                </Box>
-                              </Collapse>
-                            </TableCell>
-                          </TableRow>
-                        )}
+
+                                    <Grid container spacing={1.5}>
+                                      {/* Parent Invoice info */}
+                                      {inv.parentInvoice && (
+                                        <Grid size={{ xs: 12, md: inv.childInvoices && inv.childInvoices.filter((c) => c.id !== inv.parentInvoice?.id).length > 0 ? 6 : 12 }}>
+                                          <Paper variant="outlined" sx={{ p: 1.25, bgcolor: 'background.default', borderRadius: 1 }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.5 }}>
+                                              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                                                {t('lblParentInvoice')}:
+                                              </Typography>
+                                              {getInvoiceTypeChip(inv.parentInvoice.invoiceType)}
+                                            </Box>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                                              <Typography
+                                                variant="body2"
+                                                sx={{ fontWeight: 700, color: 'primary.main', cursor: 'pointer' }}
+                                                onClick={() => inv.parentInvoice?.invoiceNumber && setSearch(inv.parentInvoice.invoiceNumber)}
+                                              >
+                                                {inv.parentInvoice.invoiceNumber}
+                                              </Typography>
+                                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                <Chip
+                                                  label={getStatusLabel(inv.parentInvoice.status)}
+                                                  size="small"
+                                                  color={getStatusChipColor(inv.parentInvoice.status)}
+                                                  sx={{ height: 18, fontSize: '0.65rem' }}
+                                                />
+                                                <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                                                  {formatAmount(inv.parentInvoice.totalAmount, inv.parentInvoice.currency)}
+                                                </Typography>
+                                              </Box>
+                                            </Box>
+                                          </Paper>
+                                        </Grid>
+                                      )}
+
+                                      {/* Child Invoices info */}
+                                      {inv.childInvoices && inv.childInvoices.filter((c) => !inv.parentInvoice || c.id !== inv.parentInvoice.id).length > 0 && (
+                                        <Grid size={{ xs: 12, md: inv.parentInvoice ? 6 : 12 }}>
+                                          <Paper variant="outlined" sx={{ p: 1.25, bgcolor: 'background.default', borderRadius: 1 }}>
+                                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
+                                              {t('lblLinkedInvoices')} ({inv.childInvoices.filter((c) => !inv.parentInvoice || c.id !== inv.parentInvoice.id).length})
+                                            </Typography>
+                                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+                                              {inv.childInvoices
+                                                .filter((c) => !inv.parentInvoice || c.id !== inv.parentInvoice.id)
+                                                .map((child) => (
+                                                  <Box key={child.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                                                      <Typography
+                                                        variant="body2"
+                                                        sx={{ fontWeight: 700, color: 'primary.main', cursor: 'pointer' }}
+                                                        onClick={() => child.invoiceNumber && setSearch(child.invoiceNumber)}
+                                                      >
+                                                        {child.invoiceNumber}
+                                                      </Typography>
+                                                      {getInvoiceTypeChip(child.invoiceType)}
+                                                    </Box>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                      <Chip
+                                                        label={getStatusLabel(child.status)}
+                                                        size="small"
+                                                        color={getStatusChipColor(child.status)}
+                                                        sx={{ height: 18, fontSize: '0.65rem' }}
+                                                      />
+                                                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                                                        {formatAmount(child.totalAmount, child.currency)}
+                                                      </Typography>
+                                                    </Box>
+                                                  </Box>
+                                                ))}
+                                            </Box>
+                                          </Paper>
+                                        </Grid>
+                                      )}
+                                    </Grid>
+                                  </Box>
+                                )}
+
+                                {/* ITEMS TABLE */}
+                                {itemsCount > 0 ? (
+                                  <>
+                                    <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                                      {t('invoiceItemsSection')}
+                                    </Typography>
+                                    <Table size="small">
+                                      <TableHead>
+                                        <TableRow>
+                                          <TableCell sx={{ fontWeight: 700 }}>{t('lblItemDescription')}</TableCell>
+                                          <TableCell align="right" sx={{ fontWeight: 700 }}>
+                                            {t('lblItemQuantity')}
+                                          </TableCell>
+                                          <TableCell align="right" sx={{ fontWeight: 700 }}>
+                                            {t('lblItemUnitPrice')}
+                                          </TableCell>
+                                          <TableCell align="right" sx={{ fontWeight: 700, whiteSpace: 'nowrap', minWidth: 120 }}>
+                                            {t('lblItemTotal')}
+                                          </TableCell>
+                                        </TableRow>
+                                      </TableHead>
+                                      <TableBody>
+                                        {inv.items?.map((item, idx) => (
+                                          <TableRow key={item.id || idx}>
+                                            <TableCell>{item.description}</TableCell>
+                                            <TableCell align="right">{item.quantity}</TableCell>
+                                            <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                                              {formatAmount(item.unitPrice, item.currency || inv.currency)}
+                                            </TableCell>
+                                            <TableCell align="right" sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                              {formatAmount(item.quantity * item.unitPrice, item.currency || inv.currency)}
+                                            </TableCell>
+                                          </TableRow>
+                                        ))}
+                                      </TableBody>
+                                    </Table>
+                                  </>
+                                ) : (
+                                  <Typography variant="caption" color="text.secondary">
+                                    {t('noItemsInInvoice')}
+                                  </Typography>
+                                )}
+
+                                {inv.notes && (
+                                  <Box sx={{ mt: 1.5 }}>
+                                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                                      {t('lblNotes')}:
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                                      {inv.notes}
+                                    </Typography>
+                                  </Box>
+                                )}
+                              </Box>
+                            </Collapse>
+                          </TableCell>
+                        </TableRow>
                       </React.Fragment>
                     );
                   })
@@ -975,7 +1320,7 @@ const InvoicesView: React.FC<Props> = ({
               )}
 
               {/* Invoice Number */}
-              <Grid size={{ xs: 12, sm: 6 }}>
+              <Grid size={{ xs: 12, sm: 5 }}>
                 <TextField
                   fullWidth
                   size="small"
@@ -987,8 +1332,25 @@ const InvoicesView: React.FC<Props> = ({
                 />
               </Grid>
 
+              {/* Invoice Type */}
+              <Grid size={{ xs: 12, sm: 3.5 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>{t('lblInvoiceType')}</InputLabel>
+                  <Select
+                    value={formData.invoiceType}
+                    label={t('lblInvoiceType')}
+                    onChange={(e) => setFormData({ ...formData, invoiceType: e.target.value as InvoiceType })}
+                  >
+                    <MenuItem value="Standard">{t('typeStandard')}</MenuItem>
+                    <MenuItem value="Advance">{t('typeAdvance')}</MenuItem>
+                    <MenuItem value="Final">{t('typeFinal')}</MenuItem>
+                    <MenuItem value="Partial">{t('typePartial')}</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
               {/* Status */}
-              <Grid size={{ xs: 12, sm: 3 }}>
+              <Grid size={{ xs: 12, sm: 3.5 }}>
                 <FormControl fullWidth size="small">
                   <InputLabel>{t('lblInvoiceStatus')}</InputLabel>
                   <Select
@@ -1015,8 +1377,40 @@ const InvoicesView: React.FC<Props> = ({
                 </FormControl>
               </Grid>
 
+              {/* Linked / Parent Invoice Selection */}
+              <Grid size={{ xs: 12, sm: 8 }}>
+                <Autocomplete
+                  options={availableParentInvoices}
+                  groupBy={(inv) => {
+                    const matchClient = formData.clientId && inv.clientId === formData.clientId;
+                    const matchProj = formData.projectId && inv.projectId === formData.projectId;
+                    if (matchProj) return `${t('tabProjects')}: ${formData.projectName || ''}`;
+                    if (matchClient) return `${t('lblClient')}: ${formData.clientName || ''}`;
+                    return t('other');
+                  }}
+                  getOptionLabel={(inv) =>
+                    `${inv.invoiceNumber}${inv.invoiceType && inv.invoiceType !== 'Standard' ? ` [${inv.invoiceType}]` : ''}${inv.clientName ? ` (${inv.clientName})` : ''} [${inv.status}]`
+                  }
+                  value={availableParentInvoices.find((inv) => inv.id === formData.parentInvoiceId) || null}
+                  onChange={(_, val) => {
+                    setFormData({
+                      ...formData,
+                      parentInvoiceId: val ? val.id : '',
+                    });
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      size="small"
+                      label={t('lblParentInvoice')}
+                      placeholder={t('phSelectParentInvoice')}
+                    />
+                  )}
+                />
+              </Grid>
+
               {/* Currency */}
-              <Grid size={{ xs: 12, sm: 3 }}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <FormControl fullWidth size="small">
                   <InputLabel>{t('lblCurrency')}</InputLabel>
                   <Select

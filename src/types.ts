@@ -53,6 +53,7 @@ export interface Service {
   group: string;
   frequency: number;
   description?: string | null;
+  customDataModel?: CustomFieldDefinition[] | null;
   createdAt?: string;
 }
 
@@ -83,6 +84,7 @@ export interface Reminder {
 
 export type InvoiceCurrency = 'RSD' | '€' | string;
 export type InvoiceStatus = 'Draft' | 'Sent' | 'Paid' | 'Overdue' | 'Cancelled' | string;
+export type InvoiceType = 'Standard' | 'Advance' | 'Final' | 'Partial' | string;
 
 export interface InvoiceItem {
   id?: string;
@@ -98,6 +100,10 @@ export interface InvoiceItem {
 export interface Invoice {
   id: string;
   invoiceNumber: string;
+  invoiceType?: InvoiceType | null;
+  parentInvoiceId?: string | null;
+  parentInvoice?: Invoice | null;
+  childInvoices?: Invoice[];
   dateCreated?: string | null;
   dueDate?: string | null;
   paymentDate?: string | null;
@@ -116,6 +122,37 @@ export interface Invoice {
   updatedAt?: string;
 }
 
+export type CustomFieldType = 'text' | 'number' | 'list';
+
+export interface CustomFieldDefinition {
+  id: string;
+  name: string;
+  type: CustomFieldType;
+  unit?: string;
+  options?: string[];
+  required?: boolean;
+}
+
+export interface ProvidedService {
+  id: string;
+  serviceId: string;
+  clientId: string;
+  projectId?: string | null;
+  invoiceId?: string | null;
+  status: string;
+  location?: string | null;
+  scheduledDate?: string | null;
+  completionDate?: string | null;
+  notes?: string | null;
+  customData?: Record<string, any> | null;
+  service?: Service;
+  client?: Client;
+  project?: Project | null;
+  invoice?: Invoice | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface ProjectStats {
   active: number;
   done: number;
@@ -127,11 +164,14 @@ export interface ProjectStats {
   servicesCount: number;
   categoriesCount?: number;
   invoicesCount?: number;
+  providedServicesCount?: number;
 }
 
-export type ActiveTab = 'dashboard' | 'projects' | 'clients' | 'users' | 'services' | 'categories' | 'reminders' | 'invoices';
+export type ActiveTab = 'dashboard' | 'projects' | 'clients' | 'users' | 'services' | 'providedServices' | 'categories' | 'reminders' | 'invoices';
 
 export type DashboardSubTab = 'default' | 'statistic' | 'reminders' | 'invoices' | 'projects';
+
+export type ProvidedServicesSubTab = 'summary' | 'statistics';
 
 export const typeGroup: Record<string, string> = {
   // English codes
@@ -170,6 +210,8 @@ export const typeGroup: Record<string, string> = {
 
 export interface SaveResult {
   success: boolean;
+  id?: string;
+  data?: any;
   error?: string;
 }
 
@@ -195,6 +237,7 @@ export interface AppFetchers {
   fetchClients: () => Promise<void>;
   fetchUsers: () => Promise<void>;
   fetchServices: () => Promise<void>;
+  fetchProvidedServices: () => Promise<void>;
   fetchCategories: () => Promise<void>;
   fetchReminders: () => Promise<void>;
   fetchInvoices: () => Promise<void>;

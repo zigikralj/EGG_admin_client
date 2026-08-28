@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Toolbar } from '@mui/material';
 
-import type { ActiveTab, DashboardSubTab, ProjectStats } from '../types';
+import type { ActiveTab, DashboardSubTab, ProvidedServicesSubTab, ProjectStats } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -10,7 +10,7 @@ import { AppHeader } from './layout/AppHeader';
 import { UserProfileDialog } from './layout/UserProfileDialog';
 import { SettingsDialog } from './layout/SettingsDialog';
 import { CompanyInfoModal } from './CompanyInfoModal';
-import { DashboardIcon, FolderIcon, BusinessIcon, PeopleIcon, BuildIcon, CategoryIcon, NotificationsActiveIcon, ReceiptLongIcon } from './icons';
+import { DashboardIcon, FolderIcon, BusinessIcon, PeopleIcon, BuildIcon, HandymanIcon, CategoryIcon, NotificationsActiveIcon, ReceiptLongIcon } from './icons';
 
 
 
@@ -26,6 +26,8 @@ interface Props {
   onTabChange: (tab: ActiveTab) => void;
   dashboardSubTab?: DashboardSubTab;
   onDashboardSubTabChange?: (subTab: DashboardSubTab) => void;
+  providedServicesSubTab?: ProvidedServicesSubTab;
+  onProvidedServicesSubTabChange?: (subTab: ProvidedServicesSubTab) => void;
   stats: ProjectStats;
   userPreferences?: Record<string, any>;
   onPreferenceChange?: (key: string, value: any) => void;
@@ -38,6 +40,8 @@ export const AdminLayout: React.FC<Props> = ({
   onTabChange,
   dashboardSubTab = 'default',
   onDashboardSubTabChange,
+  providedServicesSubTab = 'summary',
+  onProvidedServicesSubTabChange,
   stats,
   userPreferences,
   onPreferenceChange,
@@ -52,6 +56,7 @@ export const AdminLayout: React.FC<Props> = ({
     canManageUsers,
     canManageServices,
     canManageInvoices,
+    canManageProvidedServices,
     pendingUsersCount,
     workOnEntities,
     setWorkOnEntities,
@@ -59,6 +64,7 @@ export const AdminLayout: React.FC<Props> = ({
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isDashboardExpanded, setIsDashboardExpanded] = useState(true);
+  const [isProvidedServicesExpanded, setIsProvidedServicesExpanded] = useState(true);
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isPreferencesOpen, setIsPreferencesOpen] = useState(false);
@@ -94,7 +100,7 @@ export const AdminLayout: React.FC<Props> = ({
     // Call again after a short delay to account for React.lazy / Suspense rendering new content
     const timeoutId = setTimeout(resetScroll, 100);
     return () => clearTimeout(timeoutId);
-  }, [activeTab, dashboardSubTab]);
+  }, [activeTab, dashboardSubTab, providedServicesSubTab]);
 
   const navItems = [
     { id: 'dashboard' as ActiveTab, label: t('tabDashboard'), icon: <DashboardIcon />, count: 0, show: true },
@@ -109,6 +115,7 @@ export const AdminLayout: React.FC<Props> = ({
       show: canManageUsers,
     },
     { id: 'services' as ActiveTab, label: t('tabServices'), icon: <BuildIcon />, count: 0, show: canManageServices },
+    { id: 'providedServices' as ActiveTab, label: t('tabProvidedServices'), icon: <HandymanIcon />, count: 0, show: canManageProvidedServices },
     { id: 'categories' as ActiveTab, label: t('tabCategories'), icon: <CategoryIcon />, count: stats.categoriesCount || 0, show: canManageServices },
     { id: 'reminders' as ActiveTab, label: t('tabReminders'), icon: <NotificationsActiveIcon />, count: stats.monitor, show: !isUser && !isAccountant, color: 'error' as const },
     { id: 'invoices' as ActiveTab, label: t('tabInvoices'), icon: <ReceiptLongIcon />, count: stats.invoicesCount || 0, show: isAccountant || (!isUser && canManageInvoices) },
@@ -138,6 +145,10 @@ export const AdminLayout: React.FC<Props> = ({
         onDashboardSubTabChange={onDashboardSubTabChange}
         isDashboardExpanded={isDashboardExpanded}
         setIsDashboardExpanded={setIsDashboardExpanded}
+        providedServicesSubTab={providedServicesSubTab}
+        onProvidedServicesSubTabChange={onProvidedServicesSubTabChange}
+        isProvidedServicesExpanded={isProvidedServicesExpanded}
+        setIsProvidedServicesExpanded={setIsProvidedServicesExpanded}
         navItems={navItems}
         onPreferenceChange={onPreferenceChange}
       />
