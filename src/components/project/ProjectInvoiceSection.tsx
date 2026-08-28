@@ -29,9 +29,10 @@ import {
 
 
 
-import type { Invoice, InvoiceStatus, InvoiceCurrency, Project } from '../../types';
+import type { Invoice, InvoiceStatus, InvoiceCurrency, InvoiceType, Project } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
-import { ReceiptLongIcon, AddIcon, CloseIcon, CheckCircleIcon, EditIcon, LinkOffIcon, DeleteIcon } from '../icons';
+import { parseInvoiceNotes, serializeInvoiceNotes } from '../../utils/invoiceUtils';
+import { ReceiptLongIcon, AddIcon, CloseIcon, CheckCircleIcon, EditIcon, LinkOffIcon, DeleteIcon, LinkIcon } from '../icons';
 
 interface ProjectInvoiceSectionProps {
   projectToEdit?: Project | null;
@@ -67,6 +68,8 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
     isAddingInvoice, setIsAddingInvoice,
     addInvoiceMode, setAddInvoiceMode,
     newInvoiceNumber, setNewInvoiceNumber,
+    newInvoiceType, setNewInvoiceType,
+    newParentInvoiceId, setNewParentInvoiceId,
     newInvoiceDateCreated, setNewInvoiceDateCreated,
     newInvoiceDueDate, setNewInvoiceDueDate,
     newInvoiceCurrency, setNewInvoiceCurrency,
@@ -76,6 +79,8 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
     selectedExistingInvoiceId, setSelectedExistingInvoiceId,
     editingProjectInvoice, setEditingProjectInvoice,
     editInvoiceNumber, setEditInvoiceNumber,
+    editInvoiceType, setEditInvoiceType,
+    editParentInvoiceId, setEditParentInvoiceId,
     editInvoiceDateCreated, setEditInvoiceDateCreated,
     editInvoiceDueDate, setEditInvoiceDueDate,
     editInvoiceStatus, setEditInvoiceStatus,
@@ -100,6 +105,71 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
       case 'Draft':
       default:
         return <Chip label={t('statusDraft')} color="warning" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, px: 0.25 }} />;
+    }
+  };
+
+  const getInvoiceTypeChip = (type?: string | null) => {
+    if (!type || type === 'Standard') return null;
+    switch (type) {
+      case 'Advance':
+        return (
+          <Chip
+            label={t('badgeAdvance')}
+            size="small"
+            color="secondary"
+            variant="outlined"
+            sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700, px: 0.25 }}
+          />
+        );
+      case 'Final':
+        return (
+          <Chip
+            label={t('badgeFinal')}
+            size="small"
+            color="primary"
+            variant="outlined"
+            sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700, px: 0.25 }}
+          />
+        );
+      case 'Partial':
+        return (
+          <Chip
+            label={t('badgePartial')}
+            size="small"
+            color="info"
+            variant="outlined"
+            sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700, px: 0.25 }}
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
+  const getLinkedInvoiceLabel = (linkedInv?: Invoice | null) => {
+    const type = linkedInv?.invoiceType || 'Standard';
+    switch (type) {
+      case 'Advance':
+        return t('badgeAdvance');
+      case 'Final':
+        return t('badgeFinal');
+      case 'Partial':
+        return t('badgePartial');
+      default:
+        return t('typeStandard');
+    }
+  };
+
+  const getLinkedInvoiceChipColor = (type?: string | null): 'secondary' | 'primary' | 'info' | 'default' => {
+    switch (type) {
+      case 'Advance':
+        return 'secondary';
+      case 'Final':
+        return 'primary';
+      case 'Partial':
+        return 'info';
+      default:
+        return 'default';
     }
   };
 
@@ -131,8 +201,11 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
       return;
     }
     if (onSaveInvoice && projectToEdit) {
+      const combinedNotes = serializeInvoiceNotes(newInvoiceNotes, newInvoiceType, newParentInvoiceId);
       onSaveInvoice({
         invoiceNumber: newInvoiceNumber.trim(),
+        invoiceType: newInvoiceType,
+        parentInvoiceId: newParentInvoiceId || null,
         projectId: projectToEdit.id,
         projectName: projectName.trim() || projectToEdit.name,
         clientId: clientId || projectToEdit.clientId || null,
@@ -141,7 +214,7 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
         dueDate: newInvoiceDueDate || null,
         status: newInvoiceStatus,
         currency: newInvoiceCurrency,
-        notes: newInvoiceNotes || null,
+        notes: combinedNotes,
         items: newInvoiceItems.filter((it: any) => it.description.trim() !== '' || it.unitPrice > 0),
         totalAmount: newInvoiceModalTotal,
       });
@@ -166,13 +239,16 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
   };
 
   const handleStartEditInvoice = (inv: Invoice) => {
+    const { cleanNotes, invoiceType: pType, parentInvoiceId: pParentId } = parseInvoiceNotes(inv.notes);
     setEditingProjectInvoice(inv);
     setEditInvoiceNumber(inv.invoiceNumber || '');
+    setEditInvoiceType(inv.invoiceType || pType || 'Standard');
+    setEditParentInvoiceId(inv.parentInvoiceId || pParentId || '');
     setEditInvoiceDateCreated(inv.dateCreated || '');
     setEditInvoiceDueDate(inv.dueDate || '');
     setEditInvoiceStatus(inv.status || 'Draft');
     setEditInvoiceCurrency(inv.currency || 'RSD');
-    setEditInvoiceNotes(inv.notes || '');
+    setEditInvoiceNotes(cleanNotes || '');
     setEditInvoiceItems(inv.items && inv.items.length > 0 ? [...inv.items] : []);
   };
 
@@ -182,9 +258,12 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
       return;
     }
     if (onSaveInvoice && editingProjectInvoice && projectToEdit) {
+      const combinedNotes = serializeInvoiceNotes(editInvoiceNotes, editInvoiceType, editParentInvoiceId);
       onSaveInvoice({
         id: editingProjectInvoice.id,
         invoiceNumber: editInvoiceNumber.trim(),
+        invoiceType: editInvoiceType,
+        parentInvoiceId: editParentInvoiceId || null,
         projectId: projectToEdit.id,
         projectName: projectName.trim() || projectToEdit.name,
         clientId: clientId || projectToEdit.clientId || null,
@@ -193,7 +272,7 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
         dueDate: editInvoiceDueDate || null,
         status: editInvoiceStatus,
         currency: editInvoiceCurrency,
-        notes: editInvoiceNotes || null,
+        notes: combinedNotes,
       });
       setEditingProjectInvoice(null);
     }
@@ -229,6 +308,8 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
                 setIsAddingInvoice(!isAddingInvoice);
                 setAddInvoiceMode("new");
                 setNewInvoiceNumber("");
+                setNewInvoiceType("Standard");
+                setNewParentInvoiceId("");
                 setNewInvoiceDateCreated(todayStr);
                 setNewInvoiceDueDate("");
                 setNewInvoiceCurrency("RSD");
@@ -268,7 +349,7 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
 
             {addInvoiceMode === "new" ? (
               <Grid container spacing={1.5}>
-                <Grid size={{ xs: 12, sm: 6 }}>
+                <Grid size={{ xs: 12, sm: 5 }}>
                   <TextField
                     fullWidth
                     size="small"
@@ -280,7 +361,22 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
                     autoFocus
                   />
                 </Grid>
-                <Grid size={{ xs: 6, sm: 3 }}>
+                <Grid size={{ xs: 6, sm: 3.5 }}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>{t("lblInvoiceType")}</InputLabel>
+                    <Select
+                      value={newInvoiceType}
+                      label={t("lblInvoiceType")}
+                      onChange={(e) => setNewInvoiceType(e.target.value as InvoiceType)}
+                    >
+                      <MenuItem value="Standard">{t("typeStandard")}</MenuItem>
+                      <MenuItem value="Advance">{t("typeAdvance")}</MenuItem>
+                      <MenuItem value="Final">{t("typeFinal")}</MenuItem>
+                      <MenuItem value="Partial">{t("typePartial")}</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid size={{ xs: 6, sm: 3.5 }}>
                   <FormControl fullWidth size="small">
                     <InputLabel>{t("lblInvoiceStatus")}</InputLabel>
                     <Select
@@ -296,7 +392,32 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
                     </Select>
                   </FormControl>
                 </Grid>
-                <Grid size={{ xs: 6, sm: 3 }}>
+
+                {/* Parent / Linked Invoice selection */}
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Autocomplete
+                    size="small"
+                    options={invoices.filter((inv) => inv.id !== selectedExistingInvoiceId)}
+                    groupBy={(inv) => {
+                      const isSameProj = inv.projectId === projectToEdit?.id;
+                      return isSameProj ? (projectName || projectToEdit?.name || t("tabProjects")) : t("other");
+                    }}
+                    getOptionLabel={(inv) =>
+                      `${inv.invoiceNumber}${inv.invoiceType && inv.invoiceType !== 'Standard' ? ` [${inv.invoiceType}]` : ''} (${inv.status})`
+                    }
+                    value={invoices.find((inv) => inv.id === newParentInvoiceId) || null}
+                    onChange={(_, val) => setNewParentInvoiceId(val ? val.id : '')}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label={t("lblParentInvoice")}
+                        placeholder={t("phSelectParentInvoice")}
+                      />
+                    )}
+                  />
+                </Grid>
+
+                <Grid size={{ xs: 12, sm: 6 }}>
                   <FormControl fullWidth size="small">
                     <InputLabel>{t("lblCurrency")}</InputLabel>
                     <Select
@@ -430,7 +551,7 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
                     return isMatch ? `${t("colClient")}: ${clientName || projectToEdit?.clientName || ""}` : t("other");
                   }}
                   getOptionLabel={(inv: Invoice) =>
-                    `${inv.invoiceNumber}${inv.totalAmount ? ` (${formatInvoiceAmount(inv.totalAmount, inv.currency)})` : ""}${inv.clientName ? ` - ${inv.clientName}` : ""}`
+                    `${inv.invoiceNumber}${inv.invoiceType && inv.invoiceType !== 'Standard' ? ` [${inv.invoiceType}]` : ''}${inv.totalAmount ? ` (${formatInvoiceAmount(inv.totalAmount, inv.currency)})` : ""}${inv.clientName ? ` - ${inv.clientName}` : ""}`
                   }
                   value={availableExistingInvoices.find((inv: Invoice) => inv.id === selectedExistingInvoiceId) || null}
                   onChange={(_, val) => setSelectedExistingInvoiceId(val ? val.id : "")}
@@ -446,9 +567,12 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
                       <li key={key || inv.id} {...otherProps}>
                         <Box sx={{ display: "flex", flexDirection: "column", width: "100%", py: 0.5 }}>
                           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
-                            <Typography variant="body2" sx={{ fontWeight: isMatch ? 700 : 500 }}>
-                              {inv.invoiceNumber}
-                            </Typography>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                              <Typography variant="body2" sx={{ fontWeight: isMatch ? 700 : 500 }}>
+                                {inv.invoiceNumber}
+                              </Typography>
+                              {getInvoiceTypeChip(inv.invoiceType)}
+                            </Box>
                             <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                               {getInvoiceStatusChip(inv.status)}
                               {isMatch && (
@@ -509,10 +633,9 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
                     key={inv.id}
                     sx={{
                       display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 1,
-                      py: 0.5,
+                      flexDirection: "column",
+                      gap: 0.5,
+                      py: 0.75,
                       px: 1,
                       bgcolor: "background.paper",
                       borderRadius: 1,
@@ -521,68 +644,108 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
                       transition: "all 0.15s ease",
                     }}
                   >
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0, flex: 1, overflow: "hidden" }}>
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          fontWeight: 700,
-                          fontSize: "0.8125rem",
-                          color: "primary.main",
-                          flexShrink: 0,
-                        }}
-                      >
-                        {inv.invoiceNumber}
-                      </Typography>
-                      <Box sx={{ flexShrink: 0 }}>{getInvoiceStatusChip(inv.status)}</Box>
-                      <Typography variant="body2" sx={{ fontWeight: 700, fontSize: "0.8125rem", flexShrink: 0 }}>
-                        {formatInvoiceAmount(inv.totalAmount, inv.currency)}
-                      </Typography>
-                      {inv.dueDate && (
-                        <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, fontSize: "0.725rem" }}>
-                          • {inv.dueDate}
+                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, minWidth: 0, flex: 1, flexWrap: "wrap" }}>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontWeight: 700,
+                            fontSize: "0.8125rem",
+                            color: "primary.main",
+                            flexShrink: 0,
+                          }}
+                        >
+                          {inv.invoiceNumber}
                         </Typography>
-                      )}
-                      {inv.items && inv.items.length > 0 && (
-                        <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, fontSize: "0.725rem" }}>
-                          ({inv.items.length} {t("colItemsCount").toLowerCase()})
+                        {getInvoiceTypeChip(inv.invoiceType)}
+                        <Box sx={{ flexShrink: 0 }}>{getInvoiceStatusChip(inv.status)}</Box>
+                        <Typography variant="body2" sx={{ fontWeight: 700, fontSize: "0.8125rem", flexShrink: 0 }}>
+                          {formatInvoiceAmount(inv.totalAmount, inv.currency)}
                         </Typography>
+                        {inv.dueDate && (
+                          <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, fontSize: "0.725rem" }}>
+                            • {inv.dueDate}
+                          </Typography>
+                        )}
+                        {inv.items && inv.items.length > 0 && (
+                          <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, fontSize: "0.725rem" }}>
+                            ({inv.items.length} {t("colItemsCount").toLowerCase()})
+                          </Typography>
+                        )}
+                      </Box>
+
+                      {/* ACTIONS */}
+                      {!disabled && (
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.25, flexShrink: 0 }}>
+                          {!isPaid && onStatusChangeInvoice && (
+                            <Tooltip title={t("markAsPaid")}>
+                              <IconButton
+                                size="small"
+                                color="success"
+                                onClick={() => onStatusChangeInvoice(inv.id, "Paid", new Date().toISOString().slice(0, 10))}
+                                sx={{ p: 0.25 }}
+                              >
+                                <CheckCircleIcon sx={{ fontSize: 16 }} />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          <Tooltip title={t("btnEdit")}>
+                            <IconButton size="small" color="primary" onClick={() => handleStartEditInvoice(inv)} sx={{ p: 0.25 }}>
+                              <EditIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title={t("btnUnlinkInvoice")}>
+                            <IconButton size="small" color="warning" onClick={() => handleUnlinkInvoice(inv.id)} sx={{ p: 0.25 }}>
+                              <LinkOffIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </Tooltip>
+                          {onDeleteInvoice && (
+                            <Tooltip title={t("btnDelete")}>
+                              <IconButton size="small" color="error" onClick={() => onDeleteInvoice(inv.id)} sx={{ p: 0.25 }}>
+                                <DeleteIcon sx={{ fontSize: 16 }} />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </Box>
                       )}
                     </Box>
 
-                    {/* ACTIONS */}
-                    {!disabled && (
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.25, flexShrink: 0 }}>
-                        {!isPaid && onStatusChangeInvoice && (
-                          <Tooltip title={t("markAsPaid")}>
-                            <IconButton
-                              size="small"
-                              color="success"
-                              onClick={() => onStatusChangeInvoice(inv.id, "Paid", new Date().toISOString().slice(0, 10))}
-                              sx={{ p: 0.25 }}
-                            >
-                              <CheckCircleIcon sx={{ fontSize: 16 }} />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                        <Tooltip title={t("btnEdit")}>
-                          <IconButton size="small" color="primary" onClick={() => handleStartEditInvoice(inv)} sx={{ p: 0.25 }}>
-                            <EditIcon sx={{ fontSize: 16 }} />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title={t("btnUnlinkInvoice")}>
-                          <IconButton size="small" color="warning" onClick={() => handleUnlinkInvoice(inv.id)} sx={{ p: 0.25 }}>
-                            <LinkOffIcon sx={{ fontSize: 16 }} />
-                          </IconButton>
-                        </Tooltip>
-                        {onDeleteInvoice && (
-                          <Tooltip title={t("btnDelete")}>
-                            <IconButton size="small" color="error" onClick={() => onDeleteInvoice(inv.id)} sx={{ p: 0.25 }}>
-                              <DeleteIcon sx={{ fontSize: 16 }} />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </Box>
-                    )}
+                    {/* Linked Invoices indicators */}
+                    {(() => {
+                      const uniqueLinks: Invoice[] = [];
+                      if (inv.parentInvoice) {
+                        uniqueLinks.push(inv.parentInvoice);
+                      }
+                      if (inv.childInvoices && inv.childInvoices.length > 0) {
+                        inv.childInvoices.forEach((child) => {
+                          if (!uniqueLinks.some((existing) => existing.id === child.id)) {
+                            uniqueLinks.push(child);
+                          }
+                        });
+                      }
+
+                      if (uniqueLinks.length === 0) return null;
+
+                      return (
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexWrap: "wrap", pt: 0.25, pl: 0.5 }}>
+                          <LinkIcon sx={{ fontSize: 13, color: "text.secondary" }} />
+                          {uniqueLinks.map((linked) => {
+                            const labelType = getLinkedInvoiceLabel(linked);
+                            const chipColor = getLinkedInvoiceChipColor(linked.invoiceType);
+                            return (
+                              <Chip
+                                key={linked.id}
+                                size="small"
+                                variant="outlined"
+                                color={chipColor}
+                                label={`${labelType}: ${linked.invoiceNumber || ""}`}
+                                sx={{ height: 18, fontSize: "0.65rem", fontWeight: 600 }}
+                              />
+                            );
+                          })}
+                        </Box>
+                      );
+                    })()}
                   </Box>
                 );
               })}
@@ -608,7 +771,7 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
           </DialogTitle>
           <DialogContent dividers>
             <Grid container spacing={2} sx={{ pt: 1 }}>
-              <Grid size={{ xs: 12, sm: 6 }}>
+              <Grid size={{ xs: 12, sm: 5 }}>
                 <TextField
                   fullWidth
                   size="small"
@@ -619,7 +782,22 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
                   autoFocus
                 />
               </Grid>
-              <Grid size={{ xs: 6, sm: 3 }}>
+              <Grid size={{ xs: 6, sm: 3.5 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>{t("lblInvoiceType")}</InputLabel>
+                  <Select
+                    value={editInvoiceType}
+                    label={t("lblInvoiceType")}
+                    onChange={(e) => setEditInvoiceType(e.target.value as InvoiceType)}
+                  >
+                    <MenuItem value="Standard">{t("typeStandard")}</MenuItem>
+                    <MenuItem value="Advance">{t("typeAdvance")}</MenuItem>
+                    <MenuItem value="Final">{t("typeFinal")}</MenuItem>
+                    <MenuItem value="Partial">{t("typePartial")}</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 6, sm: 3.5 }}>
                 <FormControl fullWidth size="small">
                   <InputLabel>{t("lblInvoiceStatus")}</InputLabel>
                   <Select
@@ -635,7 +813,32 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid size={{ xs: 6, sm: 3 }}>
+
+              {/* Edit Parent / Linked Invoice */}
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <Autocomplete
+                  size="small"
+                  options={invoices.filter((inv) => inv.id !== editingProjectInvoice?.id)}
+                  groupBy={(inv) => {
+                    const isSameProj = inv.projectId === projectToEdit?.id;
+                    return isSameProj ? (projectName || projectToEdit?.name || t("tabProjects")) : t("other");
+                  }}
+                  getOptionLabel={(inv) =>
+                    `${inv.invoiceNumber}${inv.invoiceType && inv.invoiceType !== 'Standard' ? ` [${inv.invoiceType}]` : ''} (${inv.status})`
+                  }
+                  value={invoices.find((inv) => inv.id === editParentInvoiceId) || null}
+                  onChange={(_, val) => setEditParentInvoiceId(val ? val.id : '')}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label={t("lblParentInvoice")}
+                      placeholder={t("phSelectParentInvoice")}
+                    />
+                  )}
+                />
+              </Grid>
+
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FormControl fullWidth size="small">
                   <InputLabel>{t("lblCurrency")}</InputLabel>
                   <Select

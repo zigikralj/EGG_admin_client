@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import type { Project, Client, User, Service, Category, Reminder, Invoice, ProjectStats } from '../types';
+import type { Project, Client, User, Service, ProvidedService, Category, Reminder, Invoice, ProjectStats } from '../types';
 import { apiFetch } from '../api';
 import { useAuth } from '../context/AuthContext';
 
@@ -8,6 +8,7 @@ interface AppDataSetters {
   setClients: (clients: Client[]) => void;
   setUsers: (users: User[]) => void;
   setServices: (services: Service[]) => void;
+  setProvidedServices: (providedServices: ProvidedService[]) => void;
   setCategories: (categories: Category[]) => void;
   setReminders: (reminders: Reminder[]) => void;
   setInvoices: (invoices: Invoice[]) => void;
@@ -40,6 +41,7 @@ export function useAppData(
     setClients,
     setUsers,
     setServices,
+    setProvidedServices,
     setCategories,
     setReminders,
     setInvoices,
@@ -98,6 +100,15 @@ export function useAppData(
     }
   }, [authHeaders, setServices]);
 
+  const fetchProvidedServices = useCallback(async () => {
+    try {
+      const res = await apiFetch('/api/provided-services', { headers: authHeaders() });
+      if (res.ok) setProvidedServices(await res.json());
+    } catch (error) {
+      console.error('Error fetching provided services:', error);
+    }
+  }, [authHeaders, setProvidedServices]);
+
   const fetchCategories = useCallback(async () => {
     try {
       const res = await apiFetch('/api/categories', { headers: authHeaders() });
@@ -140,6 +151,7 @@ export function useAppData(
       fetchClients(),
       fetchUsers(),
       fetchServices(),
+      fetchProvidedServices(),
       fetchCategories(),
       fetchReminders(),
       fetchInvoices(),
@@ -150,6 +162,7 @@ export function useAppData(
     fetchClients,
     fetchUsers,
     fetchServices,
+    fetchProvidedServices,
     fetchCategories,
     fetchReminders,
     fetchInvoices,
@@ -197,6 +210,7 @@ export function useAppData(
       fetchClients,
       fetchUsers,
       fetchServices,
+      fetchProvidedServices,
       fetchCategories,
       fetchReminders,
       fetchInvoices,

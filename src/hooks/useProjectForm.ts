@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import type { Project, Client, User, Service, Reminder, Invoice, InvoiceStatus, InvoiceCurrency } from '../types';
+import type { Project, Client, User, Service, Reminder, Invoice, InvoiceStatus, InvoiceCurrency, InvoiceType } from '../types';
+import { enhanceInvoicesWithLinks } from '../utils/invoiceUtils';
 
 export function useProjectForm({
   projectToEdit,
@@ -53,6 +54,8 @@ export function useProjectForm({
   const [isAddingInvoice, setIsAddingInvoice] = useState(false);
   const [addInvoiceMode, setAddInvoiceMode] = useState<'new' | 'existing'>('new');
   const [newInvoiceNumber, setNewInvoiceNumber] = useState('');
+  const [newInvoiceType, setNewInvoiceType] = useState<InvoiceType>('Standard');
+  const [newParentInvoiceId, setNewParentInvoiceId] = useState('');
   const [newInvoiceDateCreated, setNewInvoiceDateCreated] = useState(todayStr);
   const [newInvoiceDueDate, setNewInvoiceDueDate] = useState('');
   const [newInvoiceCurrency, setNewInvoiceCurrency] = useState<InvoiceCurrency>('RSD');
@@ -65,6 +68,8 @@ export function useProjectForm({
 
   const [editingProjectInvoice, setEditingProjectInvoice] = useState<Invoice | null>(null);
   const [editInvoiceNumber, setEditInvoiceNumber] = useState('');
+  const [editInvoiceType, setEditInvoiceType] = useState<InvoiceType>('Standard');
+  const [editParentInvoiceId, setEditParentInvoiceId] = useState('');
   const [editInvoiceDateCreated, setEditInvoiceDateCreated] = useState('');
   const [editInvoiceDueDate, setEditInvoiceDueDate] = useState('');
   const [editInvoicePaymentDate, setEditInvoicePaymentDate] = useState('');
@@ -159,17 +164,21 @@ export function useProjectForm({
       });
   }, [reminders, projectReminders, clientId, clientName, projectToEdit]);
 
+  const linkedInvoices = useMemo(() => {
+    return enhanceInvoicesWithLinks(invoices || []);
+  }, [invoices]);
+
   const projectInvoices = useMemo(() => {
-    if (!projectToEdit || !invoices) return [];
-    return invoices.filter((inv) => {
+    if (!projectToEdit || !linkedInvoices) return [];
+    return linkedInvoices.filter((inv) => {
       if (inv.projectId && inv.projectId === projectToEdit.id) return true;
       if (!inv.projectId && inv.projectName && inv.projectName.trim().toLowerCase() === projectToEdit.name.trim().toLowerCase()) return true;
       return false;
     });
-  }, [invoices, projectToEdit]);
+  }, [linkedInvoices, projectToEdit]);
 
   const availableExistingInvoices = useMemo(() => {
-    if (!invoices) return [];
+    if (!linkedInvoices) return [];
     const projectInvoiceIds = new Set(projectInvoices.map((i: Invoice) => i.id));
     const targetClientId = clientId || projectToEdit?.clientId;
     const targetClientName = (clientName || projectToEdit?.clientName || '').trim().toLowerCase();
@@ -180,7 +189,7 @@ export function useProjectForm({
       return false;
     };
 
-    return invoices
+    return linkedInvoices
       .filter((i) => !projectInvoiceIds.has(i.id))
       .sort((a, b) => {
         const aClientMatch = isMatchClient(a);
@@ -197,7 +206,7 @@ export function useProjectForm({
 
         return (a.invoiceNumber || '').localeCompare(b.invoiceNumber || '');
       });
-  }, [invoices, projectInvoices, clientId, clientName, projectToEdit]);
+  }, [linkedInvoices, projectInvoices, clientId, clientName, projectToEdit]);
 
   return {
     formState: {
@@ -233,6 +242,8 @@ export function useProjectForm({
       isAddingInvoice, setIsAddingInvoice,
       addInvoiceMode, setAddInvoiceMode,
       newInvoiceNumber, setNewInvoiceNumber,
+      newInvoiceType, setNewInvoiceType,
+      newParentInvoiceId, setNewParentInvoiceId,
       newInvoiceDateCreated, setNewInvoiceDateCreated,
       newInvoiceDueDate, setNewInvoiceDueDate,
       newInvoiceCurrency, setNewInvoiceCurrency,
@@ -242,6 +253,8 @@ export function useProjectForm({
       selectedExistingInvoiceId, setSelectedExistingInvoiceId,
       editingProjectInvoice, setEditingProjectInvoice,
       editInvoiceNumber, setEditInvoiceNumber,
+      editInvoiceType, setEditInvoiceType,
+      editParentInvoiceId, setEditParentInvoiceId,
       editInvoiceDateCreated, setEditInvoiceDateCreated,
       editInvoiceDueDate, setEditInvoiceDueDate,
       editInvoicePaymentDate, setEditInvoicePaymentDate,

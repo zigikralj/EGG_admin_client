@@ -38,6 +38,7 @@ export { default as FormatListBulletedIcon } from '@mui/icons-material/FormatLis
 export { default as FormatListNumberedIcon } from '@mui/icons-material/FormatListNumbered';
 export { default as FormatQuoteIcon } from '@mui/icons-material/FormatQuote';
 export { default as FormatUnderlinedIcon } from '@mui/icons-material/FormatUnderlined';
+export { default as HandymanIcon } from '@mui/icons-material/Handyman';
 export { default as HighlightOffIcon } from '@mui/icons-material/HighlightOff';
 export { default as HourglassEmptyIcon } from '@mui/icons-material/HourglassEmpty';
 export { default as HowToRegIcon } from '@mui/icons-material/HowToReg';
@@ -47,6 +48,7 @@ export { default as LandscapeOutlinedIcon } from '@mui/icons-material/LandscapeO
 export { default as LanguageIcon } from '@mui/icons-material/Language';
 export { default as LeaderboardOutlinedIcon } from '@mui/icons-material/LeaderboardOutlined';
 export { default as LightModeIcon } from '@mui/icons-material/LightMode';
+export { default as LinkIcon } from '@mui/icons-material/Link';
 export { default as LinkOffIcon } from '@mui/icons-material/LinkOff';
 export { default as LocationOnIcon } from '@mui/icons-material/LocationOn';
 export { default as LockIcon } from '@mui/icons-material/Lock';

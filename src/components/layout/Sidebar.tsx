@@ -27,8 +27,18 @@ import {
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useRoleLabels } from '../../hooks/useRoleLabels';
-import type { ActiveTab, DashboardSubTab } from '../../types';
-import { PersonIcon, ExpandMoreIcon, ExpandLessIcon, ViewQuiltIcon, BarChartIcon, NotificationsActiveIcon, ReceiptLongIcon, FolderIcon } from '../icons';
+import type { ActiveTab, DashboardSubTab, ProvidedServicesSubTab } from '../../types';
+import {
+  PersonIcon,
+  ExpandMoreIcon,
+  ExpandLessIcon,
+  ViewQuiltIcon,
+  BarChartIcon,
+  NotificationsActiveIcon,
+  ReceiptLongIcon,
+  FolderIcon,
+  FormatListBulletedIcon,
+} from '../icons';
 
 export const DRAWER_WIDTH = 250;
 
@@ -50,6 +60,10 @@ interface SidebarProps {
   onDashboardSubTabChange?: (subTab: DashboardSubTab) => void;
   isDashboardExpanded: boolean;
   setIsDashboardExpanded: React.Dispatch<React.SetStateAction<boolean>>;
+  providedServicesSubTab?: ProvidedServicesSubTab;
+  onProvidedServicesSubTabChange?: (subTab: ProvidedServicesSubTab) => void;
+  isProvidedServicesExpanded: boolean;
+  setIsProvidedServicesExpanded: React.Dispatch<React.SetStateAction<boolean>>;
   navItems: NavItem[];
   onPreferenceChange?: (key: string, value: any) => void;
 }
@@ -63,6 +77,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onDashboardSubTabChange,
   isDashboardExpanded,
   setIsDashboardExpanded,
+  providedServicesSubTab = 'summary',
+  onProvidedServicesSubTabChange,
+  isProvidedServicesExpanded,
+  setIsProvidedServicesExpanded,
   navItems,
   onPreferenceChange,
 }) => {
@@ -223,6 +241,110 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                   }
                                   if (onDashboardSubTabChange) {
                                     onDashboardSubTabChange(sub.id);
+                                  }
+                                  onMobileClose();
+                                }}
+                                sx={{
+                                  pl: 4,
+                                  py: 0.8,
+                                  pr: 2,
+                                  borderRadius: 2,
+                                  '&.Mui-selected': {
+                                    bgcolor: 'primary.50',
+                                    color: 'primary.main',
+                                    fontWeight: 700,
+                                    '& .MuiListItemIcon-root': {
+                                      color: 'primary.main',
+                                    },
+                                  },
+                                }}
+                              >
+                                <ListItemIcon sx={{ minWidth: 32, color: isSubSelected ? 'primary.main' : 'text.secondary' }}>
+                                  {sub.icon}
+                                </ListItemIcon>
+                                <ListItemText
+                                  primary={
+                                    <Typography
+                                      variant="body2"
+                                      sx={{ fontWeight: isSubSelected ? 700 : 500, fontSize: '0.8125rem' }}
+                                    >
+                                      {sub.label}
+                                    </Typography>
+                                  }
+                                />
+                              </ListItemButton>
+                            );
+                          })}
+                        </List>
+                      </Collapse>
+                    </React.Fragment>
+                  );
+                }
+
+                if (item.id === 'providedServices') {
+                  const providedServicesSubItems: { id: ProvidedServicesSubTab; label: string; icon: React.ReactNode }[] = [
+                    { id: 'summary', label: t('subTabSummary'), icon: <FormatListBulletedIcon fontSize="small" /> },
+                    { id: 'statistics', label: t('subTabStatistic'), icon: <BarChartIcon fontSize="small" /> },
+                  ];
+
+                  return (
+                    <React.Fragment key="provided-services-menu-group">
+                      <ListItemButton
+                        selected={isSelected}
+                        onClick={() => {
+                          if (activeTab !== 'providedServices') {
+                            onTabChange('providedServices');
+                            setIsProvidedServicesExpanded(true);
+                          } else {
+                            setIsProvidedServicesExpanded((prev) => !prev);
+                          }
+                          onMobileClose();
+                        }}
+                        sx={{
+                          borderRadius: 2,
+                          py: 1.2,
+                          px: 2,
+                          '&.Mui-selected': {
+                            bgcolor: 'primary.50',
+                            color: 'primary.main',
+                            fontWeight: 700,
+                            '& .MuiListItemIcon-root': {
+                              color: 'primary.main',
+                            },
+                          },
+                        }}
+                      >
+                        <ListItemIcon sx={{ minWidth: 40, color: isSelected ? 'primary.main' : 'text.secondary' }}>
+                          {item.icon}
+                        </ListItemIcon>
+                        <ListItemText
+                          primary={
+                            <Typography variant="body2" sx={{ fontWeight: isSelected ? 700 : 500 }}>
+                              {item.label}
+                            </Typography>
+                          }
+                        />
+                        {isProvidedServicesExpanded ? (
+                          <ExpandLessIcon fontSize="small" sx={{ color: isSelected ? 'primary.main' : 'text.secondary' }} />
+                        ) : (
+                          <ExpandMoreIcon fontSize="small" sx={{ color: isSelected ? 'primary.main' : 'text.secondary' }} />
+                        )}
+                      </ListItemButton>
+
+                      <Collapse in={isProvidedServicesExpanded || activeTab === 'providedServices'} timeout="auto">
+                        <List component="div" disablePadding sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, my: 0.25 }}>
+                          {providedServicesSubItems.map((sub) => {
+                            const isSubSelected = activeTab === 'providedServices' && providedServicesSubTab === sub.id;
+                            return (
+                              <ListItemButton
+                                key={sub.id}
+                                selected={isSubSelected}
+                                onClick={() => {
+                                  if (activeTab !== 'providedServices') {
+                                    onTabChange('providedServices');
+                                  }
+                                  if (onProvidedServicesSubTabChange) {
+                                    onProvidedServicesSubTabChange(sub.id);
                                   }
                                   onMobileClose();
                                 }}

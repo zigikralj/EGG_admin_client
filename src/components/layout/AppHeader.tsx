@@ -54,6 +54,7 @@ const tabTranslationKeys: Record<ActiveTab, keyof TranslationKeys> = {
   clients: 'tabClients',
   users: 'tabUsers',
   services: 'tabServices',
+  providedServices: 'tabProvidedServices',
   categories: 'tabCategories',
   reminders: 'tabReminders',
   invoices: 'tabInvoices',
