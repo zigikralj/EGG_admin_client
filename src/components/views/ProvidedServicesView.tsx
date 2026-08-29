@@ -60,6 +60,27 @@ import {
   ArrowDownwardIcon,
 } from '../icons';
 
+const normalizeKey = (str: string) =>
+  (str || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+
+const isKeyMatch = (key: string, field: CustomFieldDefinition) => {
+  if (key === field.id) return true;
+  const nKey = normalizeKey(key);
+  const nFieldId = normalizeKey(field.id);
+  const nFieldName = normalizeKey(field.name);
+  if (nKey === nFieldId || nKey === nFieldName) return true;
+  if (nKey.includes('kolicin') && (nFieldName.includes('kolicin') || nFieldId.includes('kolicin'))) return true;
+  if (nKey.includes('vrst') && (nFieldName.includes('vrst') || nFieldId.includes('vrst'))) return true;
+  if (nKey.includes('datum') && (nFieldName.includes('datum') || nFieldId.includes('datum'))) return true;
+  return false;
+};
+
 interface Props {
   subTab?: ProvidedServicesSubTab;
   providedServices: ProvidedService[];
@@ -80,8 +101,6 @@ interface Props {
   onSortChange?: (sort: { field: string; direction: 'asc' | 'desc' }) => void;
   quickFilter?: string;
   onQuickFilterChange?: (val: string) => void;
-  userPreferences?: Record<string, any>;
-  onPreferenceChange?: (key: string, value: any) => void;
 }
 
 const DEFAULT_COLUMNS = [
@@ -115,8 +134,6 @@ const ProvidedServicesView: React.FC<Props> = ({
   onSortChange,
   quickFilter: quickFilterProp,
   onQuickFilterChange,
-  userPreferences,
-  onPreferenceChange,
 }) => {
   const { t, getServiceLabel } = useLanguage();
   const { canManageProvidedServices } = useAuth();
@@ -138,39 +155,12 @@ const ProvidedServicesView: React.FC<Props> = ({
     if (matchedService?.customDataModel && Array.isArray(matchedService.customDataModel)) {
       return matchedService.customDataModel;
     }
-    const models = userPreferences?.custom_data_models || {};
-    if (models[serviceId] && Array.isArray(models[serviceId])) {
-      return models[serviceId];
-    }
-    try {
-      const local = localStorage.getItem('custom_data_models');
-      if (local) {
-        const parsed = JSON.parse(local);
-        if (parsed[serviceId] && Array.isArray(parsed[serviceId])) {
-          return parsed[serviceId];
-        }
-      }
-    } catch (e) {}
     return [];
   };
 
   const handleSaveCustomModel = async (serviceId: string, fields: CustomFieldDefinition[]) => {
     if (onSaveService) {
       await onSaveService({ id: serviceId, customDataModel: fields });
-    }
-    const currentModels = { ...(userPreferences?.custom_data_models || {}) };
-    try {
-      const local = localStorage.getItem('custom_data_models');
-      if (local) {
-        Object.assign(currentModels, JSON.parse(local));
-      }
-    } catch (e) {}
-    currentModels[serviceId] = fields;
-    try {
-      localStorage.setItem('custom_data_models', JSON.stringify(currentModels));
-    } catch (e) {}
-    if (onPreferenceChange) {
-      await onPreferenceChange('custom_data_models', currentModels);
     }
   };
 
@@ -290,7 +280,7 @@ const ProvidedServicesView: React.FC<Props> = ({
 
   const currentCustomFields = useMemo(() => {
     return getCustomModelForService(selectedServiceId);
-  }, [selectedServiceId, userPreferences?.custom_data_models]);
+  }, [selectedServiceId, services]);
 
   const openNew = () => {
     if (!canManageProvidedServices) return;
@@ -321,7 +311,21 @@ const ProvidedServicesView: React.FC<Props> = ({
     setScheduledDate(item.scheduledDate ? item.scheduledDate.split('T')[0] : '');
     setCompletionDate(item.completionDate ? item.completionDate.split('T')[0] : '');
     setNotes(item.notes || '');
-    setCustomData(item.customData ? JSON.parse(JSON.stringify(item.customData)) : {});
+
+    const initialCustomData: Record<string, any> = item.customData ? JSON.parse(JSON.stringify(item.customData)) : {};
+    const serviceFields = getCustomModelForService(item.serviceId);
+    serviceFields.forEach((field) => {
+      if (initialCustomData[field.id] === undefined || initialCustomData[field.id] === null || initialCustomData[field.id] === '') {
+        for (const [k, v] of Object.entries(initialCustomData)) {
+          if (v !== undefined && v !== null && v !== '' && isKeyMatch(k, field)) {
+            initialCustomData[field.id] = v;
+            break;
+          }
+        }
+      }
+    });
+
+    setCustomData(initialCustomData);
     setIsOpen(true);
   };
 
@@ -934,22 +938,33 @@ const ProvidedServicesView: React.FC<Props> = ({
                         <TableCell sx={{ maxWidth: { xs: 200, sm: 260 } }}>
                           {item.customData && Object.keys(item.customData).length > 0 ? (
                             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                              {Object.entries(item.customData).map(([k, v]) => {
-                                const fieldDef = itemFields.find((f) => f.id === k);
-                                const label = fieldDef?.name || k;
-                                const unitStr = fieldDef?.unit ? ` ${fieldDef.unit}` : '';
-                                if (v === null || v === undefined || v === '') return null;
-                                return (
-                                  <Chip
-                                    key={k}
-                                    size="small"
-                                    label={`${label}: ${v}${unitStr}`}
-                                    variant="outlined"
-                                    color="primary"
-                                    sx={{ fontSize: '0.75rem', height: 22 }}
-                                  />
-                                );
-                              })}
+                              {(() => {
+                                const renderedFields = new Set<string>();
+                                return Object.entries(item.customData).map(([k, v]) => {
+                                  if (v === null || v === undefined || v === '') return null;
+                                  const fieldDef = itemFields.find((f) => f.id === k) || itemFields.find((f) => isKeyMatch(k, f));
+                                  const keyIdentifier = fieldDef ? fieldDef.id : k;
+                                  if (renderedFields.has(keyIdentifier)) return null;
+                                  renderedFields.add(keyIdentifier);
+
+                                  const label = fieldDef?.name || k;
+                                  const unitStr = fieldDef?.unit ? ` ${fieldDef.unit}` : '';
+                                  let displayVal = String(v);
+                                  if (fieldDef?.type === 'datetime' && typeof v === 'string' && v.includes('T')) {
+                                    displayVal = v.replace('T', ' ');
+                                  }
+                                  return (
+                                    <Chip
+                                      key={k}
+                                      size="small"
+                                      label={`${label}: ${displayVal}${unitStr}`}
+                                      variant="outlined"
+                                      color="primary"
+                                      sx={{ fontSize: '0.75rem', height: 22 }}
+                                    />
+                                  );
+                                });
+                              })()}
                             </Box>
                           ) : (
                             <Typography variant="body2" color="text.secondary">
@@ -1271,6 +1286,19 @@ const ProvidedServicesView: React.FC<Props> = ({
                                 ))}
                               </Select>
                             </FormControl>
+                          )}
+                          {(field.type === 'datetime' || field.type === 'date') && (
+                            <TextField
+                              fullWidth
+                              size="small"
+                              type={field.type === 'datetime' ? 'datetime-local' : 'date'}
+                              label={field.name}
+                              value={customData[field.id] || ''}
+                              onChange={(e) =>
+                                setCustomData((prev) => ({ ...prev, [field.id]: e.target.value }))
+                              }
+                              slotProps={{ inputLabel: { shrink: true } }}
+                            />
                           )}
                         </Grid>
                       ))}

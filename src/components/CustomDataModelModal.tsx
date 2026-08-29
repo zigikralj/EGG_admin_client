@@ -192,6 +192,8 @@ export const CustomDataModelModal: React.FC<Props> = ({
                         <MenuItem value="text">{t('typeText')}</MenuItem>
                         <MenuItem value="number">{t('typeNumber')}</MenuItem>
                         <MenuItem value="list">{t('typeList')}</MenuItem>
+                        <MenuItem value="datetime">{t('typeDateTime')}</MenuItem>
+                        <MenuItem value="date">{t('typeDate')}</MenuItem>
                       </Select>
                     </FormControl>
 

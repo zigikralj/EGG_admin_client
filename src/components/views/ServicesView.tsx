@@ -55,8 +55,6 @@ interface Props {
   onVisibleColumnsChange?: (cols: string[]) => void;
   sortState?: { field: string; direction: 'asc' | 'desc' };
   onSortChange?: (sort: { field: string; direction: 'asc' | 'desc' }) => void;
-  userPreferences?: Record<string, any>;
-  onPreferenceChange?: (key: string, value: any) => void;
 }
 
 const DEFAULT_COLUMNS = ['name', 'group', 'frequency', 'description', 'customData'];
@@ -70,8 +68,6 @@ const ServicesView: React.FC<Props> = ({
   onVisibleColumnsChange,
   sortState,
   onSortChange,
-  userPreferences,
-  onPreferenceChange,
 }) => {
   const { t, getServiceLabel } = useLanguage();
   const { canManageServices } = useAuth();
@@ -94,39 +90,12 @@ const ServicesView: React.FC<Props> = ({
     if (matchedService?.customDataModel && Array.isArray(matchedService.customDataModel)) {
       return matchedService.customDataModel;
     }
-    const models = userPreferences?.custom_data_models || {};
-    if (models[serviceId] && Array.isArray(models[serviceId])) {
-      return models[serviceId];
-    }
-    try {
-      const local = localStorage.getItem('custom_data_models');
-      if (local) {
-        const parsed = JSON.parse(local);
-        if (parsed[serviceId] && Array.isArray(parsed[serviceId])) {
-          return parsed[serviceId];
-        }
-      }
-    } catch (e) {}
     return [];
   };
 
   const handleSaveCustomModel = async (serviceId: string, fields: CustomFieldDefinition[]) => {
     if (onSaveService) {
       await onSaveService({ id: serviceId, customDataModel: fields });
-    }
-    const currentModels = { ...(userPreferences?.custom_data_models || {}) };
-    try {
-      const local = localStorage.getItem('custom_data_models');
-      if (local) {
-        Object.assign(currentModels, JSON.parse(local));
-      }
-    } catch (e) {}
-    currentModels[serviceId] = fields;
-    try {
-      localStorage.setItem('custom_data_models', JSON.stringify(currentModels));
-    } catch (e) {}
-    if (onPreferenceChange) {
-      await onPreferenceChange('custom_data_models', currentModels);
     }
   };
 

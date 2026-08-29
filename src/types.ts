@@ -122,7 +122,7 @@ export interface Invoice {
   updatedAt?: string;
 }
 
-export type CustomFieldType = 'text' | 'number' | 'list';
+export type CustomFieldType = 'text' | 'number' | 'list' | 'datetime' | 'date';
 
 export interface CustomFieldDefinition {
   id: string;

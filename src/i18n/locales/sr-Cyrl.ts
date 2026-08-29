@@ -78,6 +78,8 @@ const srCyrlTranslations: TranslationKeys = {
   "typeText": "Текст",
   "typeNumber": "Број",
   "typeList": "Листа (Избор)",
+  "typeDateTime": "Датум/време",
+  "typeDate": "Датум",
   "lblListOptions": "Опције (раздвојене зарезом)",
   "phListOptions": "Опција 1, Опција 2, Опција 3",
   "customDataSection": "Прилагођени подаци",
