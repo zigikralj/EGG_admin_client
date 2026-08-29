@@ -10,6 +10,8 @@ import {
   Autocomplete,
   TextField,
   Divider,
+  ToggleButtonGroup,
+  ToggleButton,
 } from '@mui/material';
 import { LineChart } from '@mui/x-charts/LineChart';
 import type { ProvidedService, Service, Client, Category, Invoice, Project } from '../types';
@@ -21,7 +23,31 @@ import {
   BarChartIcon,
   ReceiptLongIcon,
   BusinessIcon,
+  ShowChartIcon,
 } from './icons';
+
+const YEAR_PALETTE = [
+  '#0284c7', // Sky Blue
+  '#10b981', // Emerald Green
+  '#f59e0b', // Amber
+  '#8b5cf6', // Violet
+  '#ec4899', // Pink
+  '#06b6d4', // Cyan
+  '#f97316', // Orange
+  '#6366f1', // Indigo
+];
+
+const formatCompactNumber = (val: number | null | undefined): string => {
+  if (val === null || val === undefined) return '0';
+  const abs = Math.abs(val);
+  if (abs >= 1_000_000) {
+    return `${(val / 1_000_000).toLocaleString(undefined, { maximumFractionDigits: 1 })}M`;
+  }
+  if (abs >= 1_000) {
+    return `${(val / 1_000).toLocaleString(undefined, { maximumFractionDigits: 1 })}k`;
+  }
+  return val.toLocaleString(undefined, { maximumFractionDigits: 0 });
+};
 
 interface Props {
   providedServices: ProvidedService[];
@@ -44,12 +70,15 @@ export const ProvidedServicesStatistics: React.FC<Props> = ({
     if (!srv) return false;
     const group = (srv.group || '').toLowerCase();
     const code = (srv.code || '').toLowerCase();
+    const name = (srv.name || '').toLowerCase();
     return (
       group === 'grp-waste' ||
       group.includes('waste') ||
       group.includes('otpad') ||
       code.includes('waste') ||
-      code.includes('otpad')
+      code.includes('otpad') ||
+      name.includes('waste') ||
+      name.includes('otpad')
     );
   };
 
@@ -107,164 +136,6 @@ export const ProvidedServicesStatistics: React.FC<Props> = ({
     return { paidRSD: rsd, paidEUR: eur, paidInvoicesCount: processedInvoiceIds.size };
   }, [providedServices, invoices]);
 
-  // 3. Top Clients by Provided Services
-  const topClientsChartData = useMemo(() => {
-    const map = new Map<
-      string,
-      { label: string; count: number; paidRevenueRSD: number; paidInvoiceIds: Set<string> }
-    >();
-
-    providedServices.forEach((item) => {
-      const cli = item.client || clients.find((c) => c.id === item.clientId);
-      const clientName = cli?.name || t('colClient');
-      const existing = map.get(clientName) || {
-        label: clientName,
-        count: 0,
-        paidRevenueRSD: 0,
-        paidInvoiceIds: new Set<string>(),
-      };
-      existing.count += 1;
-
-      const invId = item.invoiceId || item.invoice?.id;
-      if (invId) {
-        const inv = item.invoice || invoices.find((i) => i.id === invId);
-        if (inv && inv.status === 'Paid' && !existing.paidInvoiceIds.has(inv.id)) {
-          existing.paidInvoiceIds.add(inv.id);
-          const total =
-            inv.totalAmount !== undefined && inv.totalAmount !== null
-              ? Number(inv.totalAmount)
-              : (inv.items || []).reduce(
-                  (sum, it) => sum + (Number(it.quantity) || 0) * (Number(it.unitPrice) || 0),
-                  0
-                );
-          const curr = inv.currency || 'RSD';
-          if (curr === 'RSD') {
-            existing.paidRevenueRSD += total;
-          }
-        }
-      }
-
-      map.set(clientName, existing);
-    });
-
-    const sorted = Array.from(map.values())
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 9);
-
-    return sorted;
-  }, [providedServices, clients, invoices, t]);
-
-  // 4. Last 12 Months Timeline
-  const last12Months = useMemo(() => {
-    const months: { key: string; label: string }[] = [];
-    const now = new Date();
-
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-
-      const locale =
-        language === 'sr-Latn'
-          ? 'sr-Latn-RS'
-          : language === 'sr-Cyrl'
-          ? 'sr-Cyrl-RS'
-          : 'en-US';
-
-      const monthName = d.toLocaleDateString(locale, { month: 'short' });
-      const yearShort = String(d.getFullYear()).slice(-2);
-      const label = `${monthName.charAt(0).toUpperCase() + monthName.slice(1)} '${yearShort}`;
-
-      months.push({ key, label });
-    }
-    return months;
-  }, [language]);
-
-  const timelineData = useMemo(() => {
-    const monthlyMap: Record<string, { total: number; completed: number }> = {};
-    last12Months.forEach((m) => {
-      monthlyMap[m.key] = { total: 0, completed: 0 };
-    });
-
-    providedServices.forEach((item) => {
-      const dateStr = item.completionDate || item.scheduledDate || item.createdAt;
-      if (!dateStr) return;
-      try {
-        const d = new Date(dateStr);
-        if (isNaN(d.getTime())) return;
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        if (monthlyMap[key]) {
-          monthlyMap[key].total += 1;
-          if (item.status === 'Completed') {
-            monthlyMap[key].completed += 1;
-          }
-        }
-      } catch (e) {}
-    });
-
-    const totalSeries: number[] = [];
-    const completedSeries: number[] = [];
-
-    last12Months.forEach((m) => {
-      const data = monthlyMap[m.key] || { total: 0, completed: 0 };
-      totalSeries.push(data.total);
-      completedSeries.push(data.completed);
-    });
-
-    return {
-      labels: last12Months.map((m) => m.label),
-      totalSeries,
-      completedSeries,
-    };
-  }, [providedServices, last12Months]);
-
-  // 5. Available Years & Dynamic Waste Analysis
-  const availableYears = useMemo(() => {
-    const yearsSet = new Set<number>();
-    const curYear = new Date().getFullYear();
-    yearsSet.add(curYear);
-    yearsSet.add(curYear - 1);
-    yearsSet.add(curYear - 2);
-
-    providedServices.forEach((item) => {
-      const dateStr = item.completionDate || item.scheduledDate || item.createdAt;
-      if (!dateStr) return;
-      try {
-        const d = new Date(dateStr);
-        if (!isNaN(d.getTime())) {
-          yearsSet.add(d.getFullYear());
-        }
-      } catch (e) {}
-    });
-
-    return Array.from(yearsSet).sort((a, b) => b - a);
-  }, [providedServices]);
-
-  const [selectedWasteYear, setSelectedWasteYear] = useState<number>(new Date().getFullYear());
-
-  const selectedYearMonths = useMemo(() => {
-    const list: { key: string; monthIndex: number; label: string }[] = [];
-    const locale =
-      language === 'sr-Latn'
-        ? 'sr-Latn-RS'
-        : language === 'sr-Cyrl'
-        ? 'sr-Cyrl-RS'
-        : 'en-US';
-
-    for (let m = 0; m < 12; m++) {
-      const d = new Date(selectedWasteYear, m, 1);
-      const key = `${selectedWasteYear}-${String(m + 1).padStart(2, '0')}`;
-      const monthName = d.toLocaleDateString(locale, { month: 'long' });
-      const label = monthName.charAt(0).toUpperCase() + monthName.slice(1);
-      list.push({ key, monthIndex: m, label });
-    }
-    return list;
-  }, [language, selectedWasteYear]);
-
-  const [selectedWasteMonthIndex, setSelectedWasteMonthIndex] = useState<number>(new Date().getMonth());
-
-  const selectedMonthKey = `${selectedWasteYear}-${String(selectedWasteMonthIndex + 1).padStart(2, '0')}`;
-  const selectedMonthObj = selectedYearMonths[selectedWasteMonthIndex] || selectedYearMonths[0];
-
   const extractWasteKg = (item: ProvidedService): number => {
     if (!item.customData || typeof item.customData !== 'object') return 0;
     for (const [k, v] of Object.entries(item.customData)) {
@@ -299,8 +170,158 @@ export const ProvidedServicesStatistics: React.FC<Props> = ({
     return 0;
   };
 
+  // 3. Top Clients by Provided Services
+  const topClientsChartData = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        label: string;
+        count: number;
+        paidRevenueRSD: number;
+        totalWasteKg: number;
+        paidInvoiceIds: Set<string>;
+      }
+    >();
+
+    providedServices.forEach((item) => {
+      const cli = item.client || clients.find((c) => c.id === item.clientId);
+      const clientName = cli?.name || t('colClient');
+      const existing = map.get(clientName) || {
+        label: clientName,
+        count: 0,
+        paidRevenueRSD: 0,
+        totalWasteKg: 0,
+        paidInvoiceIds: new Set<string>(),
+      };
+      existing.count += 1;
+
+      const srv = item.service || services.find((s) => s.id === item.serviceId);
+      if (isWasteService(srv)) {
+        const kg = extractWasteKg(item);
+        existing.totalWasteKg += kg;
+      }
+
+      const invId = item.invoiceId || item.invoice?.id;
+      if (invId) {
+        const inv = item.invoice || invoices.find((i) => i.id === invId);
+        if (inv && inv.status === 'Paid' && !existing.paidInvoiceIds.has(inv.id)) {
+          existing.paidInvoiceIds.add(inv.id);
+          const total =
+            inv.totalAmount !== undefined && inv.totalAmount !== null
+              ? Number(inv.totalAmount)
+              : (inv.items || []).reduce(
+                  (sum, it) => sum + (Number(it.quantity) || 0) * (Number(it.unitPrice) || 0),
+                  0
+                );
+          const curr = inv.currency || 'RSD';
+          if (curr === 'RSD') {
+            existing.paidRevenueRSD += total;
+          }
+        }
+      }
+
+      map.set(clientName, existing);
+    });
+
+    const sorted = Array.from(map.values())
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 9);
+
+    return sorted;
+  }, [providedServices, clients, services, invoices, t]);
+
+  // 4. Available Years & Dynamic Waste Analysis (only years with data)
+  const availableYears = useMemo(() => {
+    const yearsSet = new Set<number>();
+
+    providedServices.forEach((item) => {
+      const srv = item.service || services.find((s) => s.id === item.serviceId);
+      if (!isWasteService(srv)) return;
+
+      const dateStr = item.completionDate || item.scheduledDate || item.createdAt;
+      if (!dateStr) return;
+      try {
+        const d = new Date(dateStr);
+        if (!isNaN(d.getTime())) {
+          yearsSet.add(d.getFullYear());
+        }
+      } catch (e) {}
+    });
+
+    return Array.from(yearsSet).sort((a, b) => b - a);
+  }, [providedServices, services]);
+
+  const [selectedWasteYear, setSelectedWasteYear] = useState<number | null>(null);
+
+  const currentWasteYear = useMemo(() => {
+    if (availableYears.length === 0) return null;
+    if (selectedWasteYear !== null && availableYears.includes(selectedWasteYear)) {
+      return selectedWasteYear;
+    }
+    return availableYears[0];
+  }, [availableYears, selectedWasteYear]);
+
+  // Only months with data for the selected year
+  const selectedYearMonths = useMemo(() => {
+    if (!currentWasteYear) return [];
+
+    const monthsSet = new Set<number>();
+
+    providedServices.forEach((item) => {
+      const srv = item.service || services.find((s) => s.id === item.serviceId);
+      if (!isWasteService(srv)) return;
+
+      const dateStr = item.completionDate || item.scheduledDate || item.createdAt;
+      if (!dateStr) return;
+      try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime()) || d.getFullYear() !== currentWasteYear) return;
+        monthsSet.add(d.getMonth());
+      } catch (e) {}
+    });
+
+    const sortedMonthIndices = Array.from(monthsSet).sort((a, b) => a - b);
+
+    const locale =
+      language === 'sr-Latn'
+        ? 'sr-Latn-RS'
+        : language === 'sr-Cyrl'
+        ? 'sr-Cyrl-RS'
+        : 'en-US';
+
+    return sortedMonthIndices.map((m) => {
+      const d = new Date(currentWasteYear, m, 1);
+      const key = `${currentWasteYear}-${String(m + 1).padStart(2, '0')}`;
+      const monthName = d.toLocaleDateString(locale, { month: 'long' });
+      const label = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+      return { key, monthIndex: m, label };
+    });
+  }, [language, currentWasteYear, providedServices, services]);
+
+  const [selectedWasteMonthIndex, setSelectedWasteMonthIndex] = useState<number | null>(null);
+
+  const selectedMonthObj = useMemo(() => {
+    if (selectedYearMonths.length === 0) return null;
+    if (selectedWasteMonthIndex !== null) {
+      const found = selectedYearMonths.find((m) => m.monthIndex === selectedWasteMonthIndex);
+      if (found) return found;
+    }
+    return selectedYearMonths[selectedYearMonths.length - 1];
+  }, [selectedYearMonths, selectedWasteMonthIndex]);
+
+  const selectedMonthKey = selectedMonthObj ? selectedMonthObj.key : '';
+
   // Yearly Waste Stats
   const wasteStatsForSelectedYear = useMemo(() => {
+    if (!currentWasteYear) {
+      return {
+        totalKg: 0,
+        totalTons: 0,
+        totalEntries: 0,
+        activeClientsCount: 0,
+      };
+    }
+
     let totalKg = 0;
     let totalEntries = 0;
     const clientSet = new Set<string>();
@@ -314,7 +335,7 @@ export const ProvidedServicesStatistics: React.FC<Props> = ({
       try {
         const d = new Date(dateStr);
         if (isNaN(d.getTime())) return;
-        if (d.getFullYear() !== selectedWasteYear) return;
+        if (d.getFullYear() !== currentWasteYear) return;
 
         const kg = extractWasteKg(item);
         totalKg += kg;
@@ -331,10 +352,20 @@ export const ProvidedServicesStatistics: React.FC<Props> = ({
       totalEntries,
       activeClientsCount: clientSet.size,
     };
-  }, [providedServices, services, clients, selectedWasteYear]);
+  }, [providedServices, services, clients, currentWasteYear]);
 
   // Monthly Waste Stats
   const wasteStatsForSelectedMonth = useMemo(() => {
+    if (!selectedMonthKey) {
+      return {
+        totalKg: 0,
+        totalTons: 0,
+        totalEntries: 0,
+        activeClientsCount: 0,
+        clients: [],
+      };
+    }
+
     let totalKg = 0;
     let totalEntries = 0;
     const clientMap = new Map<
@@ -390,6 +421,88 @@ export const ProvidedServicesStatistics: React.FC<Props> = ({
       clients: clientsList,
     };
   }, [providedServices, services, clients, selectedMonthKey, t]);
+
+  // 6. Year-over-Year Waste Comparison (Jan to Dec)
+  const fullYearMonthLabels = useMemo(() => {
+    const locale =
+      language === 'sr-Latn'
+        ? 'sr-Latn-RS'
+        : language === 'sr-Cyrl'
+        ? 'sr-Cyrl-RS'
+        : 'en-US';
+
+    return Array.from({ length: 12 }, (_, m) => {
+      const d = new Date(2024, m, 1);
+      const name = d.toLocaleDateString(locale, { month: 'short' });
+      return name.charAt(0).toUpperCase() + name.slice(1);
+    });
+  }, [language]);
+
+  const [wasteChartStatusFilter, setWasteChartStatusFilter] = useState<'all' | 'completed' | 'canceled'>('all');
+  const [topClientsWasteUnit, setTopClientsWasteUnit] = useState<'kg' | 't'>('kg');
+
+  const wasteComparisonSeries = useMemo(() => {
+    // Sort years ascending for chronological ordering in legend
+    const sortedYears = [...availableYears].sort((a, b) => a - b);
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    const yearDataMap: Record<number, (number | null)[]> = {};
+    sortedYears.forEach((yr) => {
+      if (yr === currentYear) {
+        // For the current year, stop data at current month
+        yearDataMap[yr] = Array.from({ length: 12 }, (_, m) => (m <= currentMonth ? 0 : null));
+      } else if (yr > currentYear) {
+        yearDataMap[yr] = new Array(12).fill(null);
+      } else {
+        yearDataMap[yr] = new Array(12).fill(0);
+      }
+    });
+
+    providedServices.forEach((item) => {
+      const srv = item.service || services.find((s) => s.id === item.serviceId);
+      if (!isWasteService(srv)) return;
+
+      const st = item.status || 'Planned';
+      if (wasteChartStatusFilter === 'completed') {
+        if (st !== 'Completed' && st !== 'Završeno' && st !== 'Завршено') return;
+      } else if (wasteChartStatusFilter === 'canceled') {
+        if (st !== 'Cancelled' && st !== 'Canceled' && st !== 'Otkazano' && st !== 'Отказано') return;
+      } else {
+        // 'all': planned, in progress, and completed (excludes canceled)
+        if (st === 'Cancelled' || st === 'Canceled' || st === 'Otkazano' || st === 'Отказано') return;
+      }
+
+      const dateStr = item.completionDate || item.scheduledDate || item.createdAt;
+      if (!dateStr) return;
+      try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return;
+        const yr = d.getFullYear();
+        if (yearDataMap[yr]) {
+          const m = d.getMonth();
+          if (m >= 0 && m < 12) {
+            const currentVal = yearDataMap[yr][m];
+            const kg = extractWasteKg(item);
+            yearDataMap[yr][m] = (currentVal ?? 0) + kg;
+          }
+        }
+      } catch (e) {}
+    });
+
+    return sortedYears.map((yr, idx) => ({
+      data: yearDataMap[yr],
+      label: String(yr),
+      color: YEAR_PALETTE[idx % YEAR_PALETTE.length],
+      curve: 'linear' as const,
+      showMark: false,
+      valueFormatter: (v: number | null) =>
+        v !== null && v !== undefined
+          ? `${v.toLocaleString(undefined, { maximumFractionDigits: 1 })} kg`
+          : '',
+    }));
+  }, [availableYears, providedServices, services, wasteChartStatusFilter]);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, width: '100%', pb: 3 }}>
@@ -599,15 +712,16 @@ export const ProvidedServicesStatistics: React.FC<Props> = ({
               {/* Year Autocomplete */}
               <Autocomplete
                 size="small"
-                disableClearable
+                disableClearable={availableYears.length > 0 && currentWasteYear !== null}
                 options={availableYears}
-                getOptionLabel={(yr) => String(yr)}
-                value={selectedWasteYear}
+                getOptionLabel={(yr) => (yr !== null && yr !== undefined ? String(yr) : '')}
+                value={currentWasteYear}
                 onChange={(_, newVal) => {
-                  if (newVal) {
+                  if (newVal !== null && newVal !== undefined) {
                     setSelectedWasteYear(Number(newVal));
                   }
                 }}
+                disabled={availableYears.length === 0}
                 renderInput={(params) => (
                   <TextField
                     {...params}
@@ -654,7 +768,7 @@ export const ProvidedServicesStatistics: React.FC<Props> = ({
                     </Typography>
                   ) : (
                     <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6875rem' }}>
-                      {selectedWasteYear}
+                      {currentWasteYear ?? '-'}
                     </Typography>
                   )}
                 </Box>
@@ -683,7 +797,7 @@ export const ProvidedServicesStatistics: React.FC<Props> = ({
                     {wasteStatsForSelectedYear.activeClientsCount}
                   </Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6875rem' }}>
-                    {selectedWasteYear}
+                    {currentWasteYear ?? '-'}
                   </Typography>
                 </Box>
               </Grid>
@@ -711,7 +825,7 @@ export const ProvidedServicesStatistics: React.FC<Props> = ({
                     {wasteStatsForSelectedYear.totalEntries}
                   </Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6875rem' }}>
-                    {selectedWasteYear}
+                    {currentWasteYear ?? '-'}
                   </Typography>
                 </Box>
               </Grid>
@@ -739,16 +853,17 @@ export const ProvidedServicesStatistics: React.FC<Props> = ({
               {/* Month Autocomplete */}
               <Autocomplete
                 size="small"
-                disableClearable
+                disableClearable={selectedYearMonths.length > 0 && selectedMonthObj !== null}
                 options={selectedYearMonths}
-                getOptionLabel={(opt) => opt.label}
-                isOptionEqualToValue={(option, value) => option.key === value.key}
+                getOptionLabel={(opt) => opt?.label || ''}
+                isOptionEqualToValue={(option, value) => option?.key === value?.key}
                 value={selectedMonthObj}
                 onChange={(_, newVal) => {
                   if (newVal) {
                     setSelectedWasteMonthIndex(newVal.monthIndex);
                   }
                 }}
+                disabled={selectedYearMonths.length === 0}
                 renderInput={(params) => (
                   <TextField
                     {...params}
@@ -795,7 +910,7 @@ export const ProvidedServicesStatistics: React.FC<Props> = ({
                     </Typography>
                   ) : (
                     <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6875rem' }}>
-                      {selectedMonthObj?.label}
+                      {selectedMonthObj?.label || '-'}
                     </Typography>
                   )}
                 </Box>
@@ -852,7 +967,7 @@ export const ProvidedServicesStatistics: React.FC<Props> = ({
                     {wasteStatsForSelectedMonth.totalEntries}
                   </Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6875rem' }}>
-                    {selectedMonthObj?.label}
+                    {selectedMonthObj?.label || '-'}
                   </Typography>
                 </Box>
               </Grid>
@@ -944,55 +1059,110 @@ export const ProvidedServicesStatistics: React.FC<Props> = ({
         </CardContent>
       </Card>
 
-      {/* CHARTS: MONTHLY TREND & TOP CLIENTS */}
+      {/* CHARTS: YEAR-OVER-YEAR WASTE & TOP CLIENTS */}
       <Grid container spacing={2.5}>
-        {/* 3. MONTHLY SERVICES TIMELINE (100% FULL WIDTH) */}
+        {/* 3. YEAR-OVER-YEAR MONTHLY WASTE COMPARISON */}
         <Grid size={{ xs: 12 }}>
           <Card variant="outlined" sx={{ borderRadius: 2.5, width: '100%', display: 'flex', flexDirection: 'column' }}>
             <CardContent sx={{ p: 2.5, flex: 1, display: 'flex', flexDirection: 'column' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <BarChartIcon fontSize="small" sx={{ color: 'primary.main' }} />
-                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                  {t('monthlyServicesTrend')}
-                </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <ShowChartIcon fontSize="small" sx={{ color: 'primary.main' }} />
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                    {t('wasteComparisonByYear')}
+                  </Typography>
+                </Box>
+                <ToggleButtonGroup
+                  size="small"
+                  value={wasteChartStatusFilter}
+                  exclusive
+                  onChange={(_, newVal) => {
+                    if (newVal) setWasteChartStatusFilter(newVal);
+                  }}
+                  aria-label="waste chart status filter"
+                  sx={{
+                    bgcolor: 'background.paper',
+                    '& .MuiToggleButton-root': {
+                      px: 1.5,
+                      py: 0.25,
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      textTransform: 'none',
+                    },
+                  }}
+                >
+                  <ToggleButton value="all">
+                    {t('filterAllStatus')}
+                  </ToggleButton>
+                  <ToggleButton value="completed" sx={{ color: 'success.main', '&.Mui-selected': { color: 'success.dark' } }}>
+                    {t('statusCompleted')}
+                  </ToggleButton>
+                  <ToggleButton value="canceled" sx={{ color: 'error.main', '&.Mui-selected': { color: 'error.dark' } }}>
+                    {t('statusCancelled')}
+                  </ToggleButton>
+                </ToggleButtonGroup>
               </Box>
 
-              <Box sx={{ width: '100%', height: 320 }}>
-                <LineChart
-                  xAxis={[{ scaleType: 'point', data: timelineData.labels }]}
-                  series={[
-                    {
-                      data: timelineData.totalSeries,
-                      label: t('totalProvidedServices'),
-                      color: '#2563eb',
-                      curve: 'linear',
-                      showMark: true,
-                    },
-                    {
-                      data: timelineData.completedSeries,
-                      label: t('statusCompleted'),
-                      color: '#10b981',
-                      curve: 'linear',
-                      showMark: true,
-                    },
-                  ]}
-                  height={320}
-                  margin={{ top: 20, bottom: 30, left: 40, right: 30 }}
-                />
-              </Box>
+              {wasteComparisonSeries.length === 0 ? (
+                <Box sx={{ py: 4, textAlign: 'center', color: 'text.secondary' }}>
+                  <Typography variant="body2">{t('emptyProvidedServices')}</Typography>
+                </Box>
+              ) : (
+                <Box sx={{ width: '100%', height: 340 }}>
+                  <LineChart
+                    xAxis={[{ scaleType: 'point', data: fullYearMonthLabels }]}
+                    yAxis={[
+                      {
+                        valueFormatter: (val: number | null) => formatCompactNumber(val),
+                      },
+                    ]}
+                    series={wasteComparisonSeries}
+                    height={340}
+                    margin={{ top: 20, bottom: 30, left: 50, right: 30 }}
+                  />
+                </Box>
+              )}
             </CardContent>
           </Card>
         </Grid>
 
-        {/* 4. TOP CLIENTS BY PROVIDED SERVICES */}
+        {/* 5. TOP CLIENTS BY PROVIDED SERVICES */}
         <Grid size={{ xs: 12 }}>
           <Card variant="outlined" sx={{ borderRadius: 2.5, width: '100%', display: 'flex', flexDirection: 'column' }}>
             <CardContent sx={{ p: 2.5, flex: 1, display: 'flex', flexDirection: 'column' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <BusinessIcon fontSize="small" sx={{ color: 'primary.main' }} />
-                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                  {t('topClientsByServices')}
-                </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <BusinessIcon fontSize="small" sx={{ color: 'primary.main' }} />
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                    {t('topClientsByServices')}
+                  </Typography>
+                </Box>
+                <ToggleButtonGroup
+                  size="small"
+                  value={topClientsWasteUnit}
+                  exclusive
+                  onChange={(_, newVal) => {
+                    if (newVal) setTopClientsWasteUnit(newVal);
+                  }}
+                  aria-label="top clients waste unit"
+                  sx={{
+                    bgcolor: 'background.paper',
+                    '& .MuiToggleButton-root': {
+                      px: 1.5,
+                      py: 0.25,
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      textTransform: 'none',
+                    },
+                  }}
+                >
+                  <ToggleButton value="kg">
+                    KG
+                  </ToggleButton>
+                  <ToggleButton value="t">
+                    T
+                  </ToggleButton>
+                </ToggleButtonGroup>
               </Box>
 
               {topClientsChartData.length === 0 ? (
@@ -1027,11 +1197,30 @@ export const ProvidedServicesStatistics: React.FC<Props> = ({
                             sx={{ fontWeight: 700, fontSize: '0.75rem', flexShrink: 0 }}
                           />
                         </Box>
-                        {item.paidRevenueRSD > 0 && (
-                          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-                            {t('totalValue')}: {item.paidRevenueRSD.toLocaleString(undefined, { maximumFractionDigits: 0 })} RSD
-                          </Typography>
-                        )}
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, mt: 0.5 }}>
+                          {item.totalWasteKg > 0 && (
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                                {t('totalWasteQuantity')}:
+                              </Typography>
+                              <Typography variant="caption" sx={{ fontWeight: 700, color: 'success.main' }}>
+                                {topClientsWasteUnit === 't'
+                                  ? `${(item.totalWasteKg / 1000).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })} t`
+                                  : `${item.totalWasteKg.toLocaleString(undefined, { maximumFractionDigits: 1 })} kg`}
+                              </Typography>
+                            </Box>
+                          )}
+                          {item.paidRevenueRSD > 0 && (
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                                {t('totalValue')}:
+                              </Typography>
+                              <Typography variant="caption" color="text.primary" sx={{ fontWeight: 700 }}>
+                                {item.paidRevenueRSD.toLocaleString(undefined, { maximumFractionDigits: 0 })} RSD
+                              </Typography>
+                            </Box>
+                          )}
+                        </Box>
                       </Box>
                     </Grid>
                   ))}

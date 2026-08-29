@@ -27,6 +27,7 @@ export interface TranslationKeys {
   servicesByCategory: string;
   topClientsByServices: string;
   monthlyServicesTrend: string;
+  wasteComparisonByYear: string;
   completionRate: string;
   tabCategories: string;
   tabReminders: string;
@@ -64,6 +65,7 @@ export interface TranslationKeys {
   wasteClientsCount: string;
   wasteEntriesCount: string;
   wasteQuantityByClient: string;
+  totalWasteQuantity: string;
   noWasteInMonth: string;
   alertServiceNameRequired: string;
   alertServiceCodeRequired: string;
