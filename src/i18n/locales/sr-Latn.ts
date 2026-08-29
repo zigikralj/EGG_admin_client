@@ -78,6 +78,8 @@ const srLatnTranslations: TranslationKeys = {
   "typeText": "Tekst",
   "typeNumber": "Broj",
   "typeList": "Lista (Izbor)",
+  "typeDateTime": "Datum/vreme",
+  "typeDate": "Datum",
   "lblListOptions": "Opcije (razdvojene zarezom)",
   "phListOptions": "Opcija 1, Opcija 2, Opcija 3",
   "customDataSection": "Prilagođeni podaci",

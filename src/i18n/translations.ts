@@ -81,6 +81,8 @@ export interface TranslationKeys {
   typeText: string;
   typeNumber: string;
   typeList: string;
+  typeDateTime: string;
+  typeDate: string;
   lblListOptions: string;
   phListOptions: string;
   customDataSection: string;

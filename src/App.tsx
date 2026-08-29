@@ -396,8 +396,6 @@ function MainApp() {
             onVisibleColumnsChange={(cols) => updatePreference('cols_services', cols)}
             sortState={userPreferences.sort_services}
             onSortChange={(sort) => updatePreference('sort_services', sort)}
-            userPreferences={userPreferences}
-            onPreferenceChange={updatePreference}
           />
         )}
 
@@ -422,8 +420,6 @@ function MainApp() {
             onSortChange={(sort) => updatePreference('sort_providedServices', sort)}
             quickFilter={userPreferences.quick_filter_providedServices || 'all'}
             onQuickFilterChange={(val) => updatePreference('quick_filter_providedServices', val)}
-            userPreferences={userPreferences}
-            onPreferenceChange={updatePreference}
           />
         )}
 

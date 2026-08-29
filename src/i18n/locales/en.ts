@@ -78,6 +78,8 @@ const enTranslations: TranslationKeys = {
   "typeText": "Text",
   "typeNumber": "Number",
   "typeList": "List (Selection)",
+  "typeDateTime": "Date/Time",
+  "typeDate": "Date",
   "lblListOptions": "Options (comma-separated)",
   "phListOptions": "Option 1, Option 2, Option 3",
   "customDataSection": "Custom Data",

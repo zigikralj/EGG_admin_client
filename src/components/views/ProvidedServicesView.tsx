@@ -80,8 +80,6 @@ interface Props {
   onSortChange?: (sort: { field: string; direction: 'asc' | 'desc' }) => void;
   quickFilter?: string;
   onQuickFilterChange?: (val: string) => void;
-  userPreferences?: Record<string, any>;
-  onPreferenceChange?: (key: string, value: any) => void;
 }
 
 const DEFAULT_COLUMNS = [
@@ -115,8 +113,6 @@ const ProvidedServicesView: React.FC<Props> = ({
   onSortChange,
   quickFilter: quickFilterProp,
   onQuickFilterChange,
-  userPreferences,
-  onPreferenceChange,
 }) => {
   const { t, getServiceLabel } = useLanguage();
   const { canManageProvidedServices } = useAuth();
@@ -138,39 +134,12 @@ const ProvidedServicesView: React.FC<Props> = ({
     if (matchedService?.customDataModel && Array.isArray(matchedService.customDataModel)) {
       return matchedService.customDataModel;
     }
-    const models = userPreferences?.custom_data_models || {};
-    if (models[serviceId] && Array.isArray(models[serviceId])) {
-      return models[serviceId];
-    }
-    try {
-      const local = localStorage.getItem('custom_data_models');
-      if (local) {
-        const parsed = JSON.parse(local);
-        if (parsed[serviceId] && Array.isArray(parsed[serviceId])) {
-          return parsed[serviceId];
-        }
-      }
-    } catch (e) {}
     return [];
   };
 
   const handleSaveCustomModel = async (serviceId: string, fields: CustomFieldDefinition[]) => {
     if (onSaveService) {
       await onSaveService({ id: serviceId, customDataModel: fields });
-    }
-    const currentModels = { ...(userPreferences?.custom_data_models || {}) };
-    try {
-      const local = localStorage.getItem('custom_data_models');
-      if (local) {
-        Object.assign(currentModels, JSON.parse(local));
-      }
-    } catch (e) {}
-    currentModels[serviceId] = fields;
-    try {
-      localStorage.setItem('custom_data_models', JSON.stringify(currentModels));
-    } catch (e) {}
-    if (onPreferenceChange) {
-      await onPreferenceChange('custom_data_models', currentModels);
     }
   };
 
@@ -290,7 +259,7 @@ const ProvidedServicesView: React.FC<Props> = ({
 
   const currentCustomFields = useMemo(() => {
     return getCustomModelForService(selectedServiceId);
-  }, [selectedServiceId, userPreferences?.custom_data_models]);
+  }, [selectedServiceId, services]);
 
   const openNew = () => {
     if (!canManageProvidedServices) return;
@@ -939,11 +908,15 @@ const ProvidedServicesView: React.FC<Props> = ({
                                 const label = fieldDef?.name || k;
                                 const unitStr = fieldDef?.unit ? ` ${fieldDef.unit}` : '';
                                 if (v === null || v === undefined || v === '') return null;
+                                let displayVal = String(v);
+                                if (fieldDef?.type === 'datetime' && typeof v === 'string' && v.includes('T')) {
+                                  displayVal = v.replace('T', ' ');
+                                }
                                 return (
                                   <Chip
                                     key={k}
                                     size="small"
-                                    label={`${label}: ${v}${unitStr}`}
+                                    label={`${label}: ${displayVal}${unitStr}`}
                                     variant="outlined"
                                     color="primary"
                                     sx={{ fontSize: '0.75rem', height: 22 }}
@@ -1271,6 +1244,19 @@ const ProvidedServicesView: React.FC<Props> = ({
                                 ))}
                               </Select>
                             </FormControl>
+                          )}
+                          {(field.type === 'datetime' || field.type === 'date') && (
+                            <TextField
+                              fullWidth
+                              size="small"
+                              type={field.type === 'datetime' ? 'datetime-local' : 'date'}
+                              label={field.name}
+                              value={customData[field.id] || ''}
+                              onChange={(e) =>
+                                setCustomData((prev) => ({ ...prev, [field.id]: e.target.value }))
+                              }
+                              slotProps={{ inputLabel: { shrink: true } }}
+                            />
                           )}
                         </Grid>
                       ))}
