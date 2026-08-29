@@ -68,6 +68,7 @@ export { default as SaveIcon } from '@mui/icons-material/Save';
 export { default as SearchIcon } from '@mui/icons-material/Search';
 export { default as SettingsBrightnessIcon } from '@mui/icons-material/SettingsBrightness';
 export { default as SettingsIcon } from '@mui/icons-material/Settings';
+export { default as ShowChartIcon } from '@mui/icons-material/ShowChart';
 export { default as SortIcon } from '@mui/icons-material/Sort';
 export { default as StrikethroughSIcon } from '@mui/icons-material/StrikethroughS';
 export { default as TitleIcon } from '@mui/icons-material/Title';
