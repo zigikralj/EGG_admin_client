@@ -23,10 +23,10 @@ import {
 import { useLanguage } from '../../context/LanguageContext';
 import { useThemeContext } from '../../context/ThemeContext';
 import { LanguageSelector } from '../LanguageSelector';
-import { ColumnSelector, type ColumnDef } from '../ColumnSelector';
+import { TableOptionsSelector, type ColumnDef } from '../ColumnSelector';
 import { CloseIcon, LightModeIcon, DarkModeIcon, SettingsBrightnessIcon } from '../icons';
 
-type EntityType = 'projects' | 'clients' | 'users' | 'services' | 'categories' | 'reminders' | 'invoices';
+type EntityType = 'projects' | 'clients' | 'users' | 'services' | 'providedServices' | 'categories' | 'reminders' | 'invoices';
 
 interface SettingsDialogProps {
   isOpen: boolean;
@@ -83,6 +83,16 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
           { id: 'frequency', label: t('colPeriodicSampling') },
           { id: 'description', label: t('colDescription') },
         ];
+      case 'providedServices':
+        return [
+          { id: 'service', label: t('colService') },
+          { id: 'client', label: t('colClient') },
+          { id: 'project', label: t('tabProjects') },
+          { id: 'status', label: t('lblInvoiceStatus') },
+          { id: 'scheduledDate', label: t('colScheduledDate') },
+          { id: 'completionDate', label: t('colCompletionDate') },
+          { id: 'location', label: t('colLocation') },
+        ];
       case 'categories':
         return [
           { id: 'name', label: t('colCategoryName') },
@@ -126,6 +136,8 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
         return ['name', 'role', 'email', 'phone'];
       case 'services':
         return ['name', 'group', 'frequency', 'description'];
+      case 'providedServices':
+        return ['service', 'client', 'project', 'status', 'scheduledDate', 'completionDate', 'location'];
       case 'categories':
         return ['name', 'description'];
       case 'reminders':
@@ -135,6 +147,22 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
       default:
         return [];
     }
+  };
+
+  const getEntityRowsPerPageOptions = (entity: EntityType): number[] => {
+    const prefKey = `rowsPerPageOptions_${entity}`;
+    if (userPreferences && userPreferences[prefKey] && Array.isArray(userPreferences[prefKey])) {
+      return userPreferences[prefKey];
+    }
+    return [15, 25, 50];
+  };
+
+  const getEntityRowsPerPage = (entity: EntityType): number => {
+    const prefKey = `rowsPerPage_${entity}`;
+    if (userPreferences && typeof userPreferences[prefKey] === 'number') {
+      return userPreferences[prefKey];
+    }
+    return 15;
   };
 
   return (
@@ -205,7 +233,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
 
           <Divider />
 
-          {/* DYNAMIC ENTITY TABLE COLUMNS SELECTOR */}
+          {/* DYNAMIC ENTITY TABLE OPTIONS SELECTOR */}
           <Box>
             <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
               {t('lblTableColumns')}
@@ -221,18 +249,31 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                   <MenuItem value="clients">{t('tabClients')}</MenuItem>
                   <MenuItem value="users">{t('tabUsers')}</MenuItem>
                   <MenuItem value="services">{t('tabServices')}</MenuItem>
+                  <MenuItem value="providedServices">{t('tabProvidedServices') || 'Provided Services'}</MenuItem>
                   <MenuItem value="categories">{t('tabCategories')}</MenuItem>
                   <MenuItem value="reminders">{t('tabReminders')}</MenuItem>
                   <MenuItem value="invoices">{t('tabInvoices')}</MenuItem>
                 </Select>
               </FormControl>
 
-              <ColumnSelector
+              <TableOptionsSelector
                 columns={getEntityColumns(prefSelectedEntity)}
                 visibleColumns={getEntityVisibleColumns(prefSelectedEntity)}
                 onChange={(cols) => {
                   if (onPreferenceChange) {
                     onPreferenceChange(`cols_${prefSelectedEntity}`, cols);
+                  }
+                }}
+                rowsPerPageOptions={getEntityRowsPerPageOptions(prefSelectedEntity)}
+                onRowsPerPageOptionsChange={(opts) => {
+                  if (onPreferenceChange) {
+                    onPreferenceChange(`rowsPerPageOptions_${prefSelectedEntity}`, opts);
+                  }
+                }}
+                rowsPerPage={getEntityRowsPerPage(prefSelectedEntity)}
+                onRowsPerPageChange={(rpp) => {
+                  if (onPreferenceChange) {
+                    onPreferenceChange(`rowsPerPage_${prefSelectedEntity}`, rpp);
                   }
                 }}
               />

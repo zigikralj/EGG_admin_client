@@ -26,12 +26,13 @@ import {
   FormControl,
   InputLabel,
   Autocomplete,
+  Tooltip,
 } from '@mui/material';
 
 import type { Service, Category, SaveResult, CustomFieldDefinition } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import { ColumnSelector, type ColumnDef } from '../ColumnSelector';
+import { TableOptionsSelector, type ColumnDef } from '../ColumnSelector';
 import { TableFilterSelector } from '../TableFilterSelector';
 import { ErrorDialog } from '../ErrorDialog';
 import { CustomDataModelModal } from '../CustomDataModelModal';
@@ -44,6 +45,7 @@ import {
   SettingsIcon,
   ArrowUpwardIcon,
   ArrowDownwardIcon,
+  RefreshIcon,
 } from '../icons';
 
 interface Props {
@@ -53,8 +55,13 @@ interface Props {
   onDeleteService: (id: string) => void;
   visibleColumns?: string[];
   onVisibleColumnsChange?: (cols: string[]) => void;
+  rowsPerPageOptions?: number[];
+  onRowsPerPageOptionsChange?: (options: number[]) => void;
+  rowsPerPage?: number;
+  onRowsPerPageChange?: (rowsPerPage: number) => void;
   sortState?: { field: string; direction: 'asc' | 'desc' };
   onSortChange?: (sort: { field: string; direction: 'asc' | 'desc' }) => void;
+  onRefresh?: () => Promise<void> | void;
 }
 
 const DEFAULT_COLUMNS = ['name', 'group', 'frequency', 'description', 'customData'];
@@ -66,14 +73,57 @@ const ServicesView: React.FC<Props> = ({
   onDeleteService,
   visibleColumns = DEFAULT_COLUMNS,
   onVisibleColumnsChange,
+  rowsPerPageOptions: rowsPerPageOptionsProp,
+  onRowsPerPageOptionsChange,
+  rowsPerPage: rowsPerPageProp,
+  onRowsPerPageChange,
   sortState,
   onSortChange,
+  onRefresh,
 }) => {
   const { t, getServiceLabel } = useLanguage();
   const { canManageServices } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [localColumns, setLocalColumns] = useState<string[]>(visibleColumns);
+  const [localRowsPerPage, setLocalRowsPerPage] = useState(rowsPerPageProp ?? 15);
+  const [localRowsPerPageOptions, setLocalRowsPerPageOptions] = useState<number[]>(rowsPerPageOptionsProp ?? [15, 25, 50]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    if (!onRefresh || isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      await onRefresh();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    if (rowsPerPageProp !== undefined) {
+      setLocalRowsPerPage(rowsPerPageProp);
+    }
+  }, [rowsPerPageProp]);
+
+  useEffect(() => {
+    if (rowsPerPageOptionsProp !== undefined) {
+      setLocalRowsPerPageOptions(rowsPerPageOptionsProp);
+    }
+  }, [rowsPerPageOptionsProp]);
+
+  const activeRowsPerPage = onRowsPerPageChange && rowsPerPageProp !== undefined ? rowsPerPageProp : localRowsPerPage;
+  const activeRowsPerPageOptions = onRowsPerPageOptionsChange && rowsPerPageOptionsProp !== undefined ? rowsPerPageOptionsProp : localRowsPerPageOptions;
+
+  const setRowsPerPageValue = (rpp: number) => {
+    setLocalRowsPerPage(rpp);
+    if (onRowsPerPageChange) onRowsPerPageChange(rpp);
+  };
+
+  const setRowsPerPageOptionsValue = (opts: number[]) => {
+    setLocalRowsPerPageOptions(opts);
+    if (onRowsPerPageOptionsChange) onRowsPerPageOptionsChange(opts);
+  };
   const [isSaving, setIsSaving] = useState(false);
   const [errorDialogState, setErrorDialogState] = useState<{ open: boolean; message: string }>({
     open: false,
@@ -312,7 +362,6 @@ const ServicesView: React.FC<Props> = ({
   });
 
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(15);
 
   useEffect(() => {
     setPage(0);
@@ -323,11 +372,12 @@ const ServicesView: React.FC<Props> = ({
   };
 
   const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
+    const val = parseInt(event.target.value, 10);
+    setRowsPerPageValue(val);
     setPage(0);
   };
 
-  const paginatedServices = sortedServices.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  const paginatedServices = sortedServices.slice(page * activeRowsPerPage, page * activeRowsPerPage + activeRowsPerPage);
 
   const sortOptions = useMemo(
     () => [
@@ -400,9 +450,38 @@ const ServicesView: React.FC<Props> = ({
             borderColor: 'divider',
           }}
         >
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>
-            {t('servicesListTitle', { count: sortedServices.length })}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+              {t('servicesListTitle', { count: sortedServices.length })}
+            </Typography>
+            {onRefresh && (
+              <Tooltip title={t('btnRefresh')}>
+                <IconButton
+                  size="small"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  color="primary"
+                  sx={{
+                    border: 1,
+                    borderColor: 'divider',
+                    borderRadius: 2,
+                    p: 0.7,
+                  }}
+                >
+                  <RefreshIcon
+                    fontSize="small"
+                    sx={{
+                      animation: isRefreshing ? 'spin 1s linear infinite' : undefined,
+                      '@keyframes spin': {
+                        '0%': { transform: 'rotate(0deg)' },
+                        '100%': { transform: 'rotate(360deg)' },
+                      },
+                    }}
+                  />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, width: { xs: '100%', sm: 'auto' } }}>
             <TextField
@@ -480,7 +559,16 @@ const ServicesView: React.FC<Props> = ({
               }
             />
 
-            <ColumnSelector columns={columnDefs} visibleColumns={activeCols} onChange={setCols} />
+            {/* TABLE OPTIONS SELECTOR */}
+            <TableOptionsSelector
+              columns={columnDefs}
+              visibleColumns={activeCols}
+              onChange={setCols}
+              rowsPerPageOptions={activeRowsPerPageOptions}
+              onRowsPerPageOptionsChange={setRowsPerPageOptionsValue}
+              rowsPerPage={activeRowsPerPage}
+              onRowsPerPageChange={setRowsPerPageValue}
+            />
           </Box>
         </Box>
 
@@ -645,10 +733,10 @@ const ServicesView: React.FC<Props> = ({
         </TableContainer>
 
         <TablePagination
-          rowsPerPageOptions={[15, 25, 50]}
+          rowsPerPageOptions={activeRowsPerPageOptions}
           component="div"
           count={sortedServices.length}
-          rowsPerPage={rowsPerPage}
+          rowsPerPage={activeRowsPerPage}
           page={page}
           onPageChange={handleChangePage}
           onRowsPerPageChange={handleChangeRowsPerPage}

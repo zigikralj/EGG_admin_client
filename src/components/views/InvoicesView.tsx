@@ -35,7 +35,7 @@ import {
 import type { Invoice, Client, Project, SaveResult, InvoiceStatus, InvoiceCurrency, InvoiceType } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import { ColumnSelector, type ColumnDef } from '../ColumnSelector';
+import { TableOptionsSelector, type ColumnDef } from '../ColumnSelector';
 import { TableFilterSelector } from '../TableFilterSelector';
 import { ErrorDialog } from '../ErrorDialog';
 import { parseInvoiceNotes, serializeInvoiceNotes, enhanceInvoicesWithLinks } from '../../utils/invoiceUtils';
@@ -51,6 +51,7 @@ import {
   KeyboardArrowUpIcon,
   ReceiptLongIcon,
   LinkIcon,
+  RefreshIcon,
 } from '../icons';
 
 interface Props {
@@ -62,8 +63,13 @@ interface Props {
   onUpdateStatus?: (id: string, status: string, paymentDate?: string) => Promise<void> | void;
   visibleColumns?: string[];
   onVisibleColumnsChange?: (cols: string[]) => void;
+  rowsPerPageOptions?: number[];
+  onRowsPerPageOptionsChange?: (options: number[]) => void;
+  rowsPerPage?: number;
+  onRowsPerPageChange?: (rowsPerPage: number) => void;
   sortState?: { field: string; direction: 'asc' | 'desc' };
   onSortChange?: (sort: { field: string; direction: 'asc' | 'desc' }) => void;
+  onRefresh?: () => Promise<void> | void;
 }
 
 const DEFAULT_COLUMNS = ['invoiceNumber', 'invoiceType', 'linkedInvoices', 'client', 'project', 'dateCreated', 'dueDate', 'totalAmount', 'status'];
@@ -77,8 +83,13 @@ const InvoicesView: React.FC<Props> = ({
   onUpdateStatus,
   visibleColumns = DEFAULT_COLUMNS,
   onVisibleColumnsChange,
+  rowsPerPageOptions: rowsPerPageOptionsProp,
+  onRowsPerPageOptionsChange,
+  rowsPerPage: rowsPerPageProp,
+  onRowsPerPageChange,
   sortState,
   onSortChange,
+  onRefresh,
 }) => {
   const { t } = useLanguage();
   const { isUser, canManageInvoices } = useAuth();
@@ -86,6 +97,44 @@ const InvoicesView: React.FC<Props> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [localColumns, setLocalColumns] = useState<string[]>(visibleColumns);
+  const [localRowsPerPage, setLocalRowsPerPage] = useState(rowsPerPageProp ?? 15);
+  const [localRowsPerPageOptions, setLocalRowsPerPageOptions] = useState<number[]>(rowsPerPageOptionsProp ?? [15, 25, 50]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    if (!onRefresh || isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      await onRefresh();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    if (rowsPerPageProp !== undefined) {
+      setLocalRowsPerPage(rowsPerPageProp);
+    }
+  }, [rowsPerPageProp]);
+
+  useEffect(() => {
+    if (rowsPerPageOptionsProp !== undefined) {
+      setLocalRowsPerPageOptions(rowsPerPageOptionsProp);
+    }
+  }, [rowsPerPageOptionsProp]);
+
+  const activeRowsPerPage = onRowsPerPageChange && rowsPerPageProp !== undefined ? rowsPerPageProp : localRowsPerPage;
+  const activeRowsPerPageOptions = onRowsPerPageOptionsChange && rowsPerPageOptionsProp !== undefined ? rowsPerPageOptionsProp : localRowsPerPageOptions;
+
+  const setRowsPerPageValue = (rpp: number) => {
+    setLocalRowsPerPage(rpp);
+    if (onRowsPerPageChange) onRowsPerPageChange(rpp);
+  };
+
+  const setRowsPerPageOptionsValue = (opts: number[]) => {
+    setLocalRowsPerPageOptions(opts);
+    if (onRowsPerPageOptionsChange) onRowsPerPageOptionsChange(opts);
+  };
   const [isSaving, setIsSaving] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const [errorDialogState, setErrorDialogState] = useState<{ open: boolean; message: string }>({
@@ -222,7 +271,6 @@ const InvoicesView: React.FC<Props> = ({
   ];
 
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
   const [search, setSearch] = useState('');
 
   // Enhance invoices with normalized link relations
@@ -621,6 +669,33 @@ const InvoicesView: React.FC<Props> = ({
             {t('invoicesListTitle')}
           </Typography>
           <Chip label={filteredInvoices.length} size="small" color="primary" sx={{ fontWeight: 700 }} />
+          {onRefresh && (
+            <Tooltip title={t('btnRefresh')}>
+              <IconButton
+                size="small"
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                color="primary"
+                sx={{
+                  border: 1,
+                  borderColor: 'divider',
+                  borderRadius: 2,
+                  p: 0.7,
+                }}
+              >
+                <RefreshIcon
+                  fontSize="small"
+                  sx={{
+                    animation: isRefreshing ? 'spin 1s linear infinite' : undefined,
+                    '@keyframes spin': {
+                      '0%': { transform: 'rotate(0deg)' },
+                      '100%': { transform: 'rotate(360deg)' },
+                    },
+                  }}
+                />
+              </IconButton>
+            </Tooltip>
+          )}
         </Box>
 
         {canManage && (
@@ -769,7 +844,16 @@ const InvoicesView: React.FC<Props> = ({
               }
             />
 
-            <ColumnSelector columns={columnDefs} visibleColumns={activeCols} onChange={setCols} />
+            {/* TABLE OPTIONS SELECTOR */}
+            <TableOptionsSelector
+              columns={columnDefs}
+              visibleColumns={activeCols}
+              onChange={setCols}
+              rowsPerPageOptions={activeRowsPerPageOptions}
+              onRowsPerPageOptionsChange={setRowsPerPageOptionsValue}
+              rowsPerPage={activeRowsPerPage}
+              onRowsPerPageChange={setRowsPerPageValue}
+            />
           </Box>
         </Box>
       </Card>
@@ -926,7 +1010,7 @@ const InvoicesView: React.FC<Props> = ({
                 </TableRow>
               ) : (
                 sortedInvoices
-                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                  .slice(page * activeRowsPerPage, page * activeRowsPerPage + activeRowsPerPage)
                   .map((inv) => {
                     const isExpanded = !!expandedRows[inv.id];
                     const itemsCount = inv.items ? inv.items.length : 0;
@@ -1283,14 +1367,15 @@ const InvoicesView: React.FC<Props> = ({
         </TableContainer>
 
         <TablePagination
-          rowsPerPageOptions={[5, 10, 25, 50]}
+          rowsPerPageOptions={activeRowsPerPageOptions}
           component="div"
           count={sortedInvoices.length}
-          rowsPerPage={rowsPerPage}
+          rowsPerPage={activeRowsPerPage}
           page={page}
           onPageChange={(_, newPage) => setPage(newPage)}
           onRowsPerPageChange={(e) => {
-            setRowsPerPage(parseInt(e.target.value, 10));
+            const val = parseInt(e.target.value, 10);
+            setRowsPerPageValue(val);
             setPage(0);
           }}
         />

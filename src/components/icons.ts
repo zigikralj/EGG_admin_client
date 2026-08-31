@@ -64,6 +64,7 @@ export { default as PhoneIcon } from '@mui/icons-material/Phone';
 export { default as PhotoCameraIcon } from '@mui/icons-material/PhotoCamera';
 export { default as ReceiptLongIcon } from '@mui/icons-material/ReceiptLong';
 export { default as RedoIcon } from '@mui/icons-material/Redo';
+export { default as RefreshIcon } from '@mui/icons-material/Refresh';
 export { default as SaveIcon } from '@mui/icons-material/Save';
 export { default as SearchIcon } from '@mui/icons-material/Search';
 export { default as SettingsBrightnessIcon } from '@mui/icons-material/SettingsBrightness';
