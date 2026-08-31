@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -70,9 +70,16 @@ const ProjectViewModal: React.FC<Props> = ({
   });
 
   // Local state for editable notes
-  const [notes, setNotes] = useState('');
+  const [notes, setNotes] = useState(project?.notes || '');
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [notesModified, setNotesModified] = useState(false);
+
+  useEffect(() => {
+    if (project) {
+      setNotes(project.notes || '');
+      setNotesModified(false);
+    }
+  }, [project?.id, project?.notes]);
 
   const { reminderState, invoiceState } = useProjectForm({
     projectToEdit: project,
@@ -110,11 +117,12 @@ const ProjectViewModal: React.FC<Props> = ({
     if (!project || !onSave) return;
     setIsSavingNotes(true);
     try {
-      const res = await onSave({ ...project, notes });
+      const res = await onSave({ ...project, notes: notes || null });
       if (res && !res.success) {
         setErrorDialogState({ open: true, message: res.error || t('errorSavingProject') });
       } else {
         setNotesModified(false);
+        window.dispatchEvent(new CustomEvent('notifications:refresh'));
       }
     } catch (err: any) {
       setErrorDialogState({ open: true, message: err?.message || t('errorSavingProject') });
@@ -345,6 +353,7 @@ const ProjectViewModal: React.FC<Props> = ({
                       setNotes(val);
                       setNotesModified(true);
                     }}
+                    users={users}
                     placeholder={t('phProjectNotes')}
                     minHeight={150}
                   />
@@ -361,6 +370,23 @@ const ProjectViewModal: React.FC<Props> = ({
                       '& p': { m: 0, mb: 0.5 },
                       '& ul, & ol': { m: 0, pl: 2.5 },
                       '& blockquote': { m: 0, pl: 1.5, borderLeft: '3px solid', borderColor: 'primary.main' },
+                      '& .mention-tag': {
+                        bgcolor: (theme) =>
+                          theme.palette.mode === 'dark' ? 'rgba(144, 202, 249, 0.18)' : 'rgba(25, 118, 210, 0.12)',
+                        color: (theme) => (theme.palette.mode === 'dark' ? '#90caf9' : 'primary.main'),
+                        border: '1px solid',
+                        borderColor: (theme) =>
+                          theme.palette.mode === 'dark' ? 'rgba(144, 202, 249, 0.35)' : 'rgba(25, 118, 210, 0.25)',
+                        borderRadius: '4px',
+                        px: 0.75,
+                        py: 0.15,
+                        fontWeight: 600,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        margin: '0 2px',
+                        userSelect: 'all',
+                        lineHeight: 1.3,
+                      },
                     }}
                     dangerouslySetInnerHTML={{ __html: notes || `<span style="color: grey; font-style: italic;">${t('noProjectNotes')}</span>` }}
                   />

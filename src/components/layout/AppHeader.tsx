@@ -29,11 +29,22 @@ import {
 import logoUrl from '../../assets/logo.svg';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import { useNotifications } from '../../context/NotificationContext';
 import { useRoleLabels } from '../../hooks/useRoleLabels';
 import type { ActiveTab } from '../../types';
 import type { TranslationKeys } from '../../i18n/translations';
 import { DRAWER_WIDTH } from './Sidebar';
-import { MenuIcon, BusinessIcon, PersonIcon, PersonAddIcon, AccountCircleIcon, SettingsIcon, LogoutIcon } from '../icons';
+import { NotificationsMenu } from './NotificationsMenu';
+import {
+  MenuIcon,
+  BusinessIcon,
+  PersonIcon,
+  PersonAddIcon,
+  AccountCircleIcon,
+  SettingsIcon,
+  LogoutIcon,
+  NotificationsIcon,
+} from '../icons';
 
 interface AppHeaderProps {
   mobileOpen: boolean;
@@ -46,6 +57,7 @@ interface AppHeaderProps {
   handleOpenPreferences: () => void;
   handleLogoutClick: () => void;
   setIsCompanyInfoOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  onOpenProject?: (projectId: string) => void;
 }
 
 const tabTranslationKeys: Record<ActiveTab, keyof TranslationKeys> = {
@@ -71,9 +83,11 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   handleOpenPreferences,
   handleLogoutClick,
   setIsCompanyInfoOpen,
+  onOpenProject,
 }) => {
   const { t } = useLanguage();
   const { getRoleBadgeLabel } = useRoleLabels();
+  const { unreadCount } = useNotifications();
   const {
     currentUser,
     users,
@@ -84,16 +98,27 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     workOnEntities,
     setWorkOnEntities,
     pendingUsersCount,
+    logout,
   } = useAuth();
 
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const isMenuOpen = Boolean(anchorEl);
+
+  const [notifAnchorEl, setNotifAnchorEl] = React.useState<null | HTMLElement>(null);
+  const isNotifMenuOpen = Boolean(notifAnchorEl);
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
   };
   const handleMenuClose = () => {
     setAnchorEl(null);
+  };
+
+  const handleNotifOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setNotifAnchorEl(event.currentTarget);
+  };
+  const handleNotifClose = () => {
+    setNotifAnchorEl(null);
   };
 
   const initials = currentUser?.name
@@ -261,6 +286,46 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               />
             </Tooltip>
           )}
+
+          {/* NOTIFICATIONS BELL BUTTON */}
+          <Tooltip title={t('notificationsTitle')} arrow>
+            <IconButton
+              onClick={handleNotifOpen}
+              size="small"
+              sx={{
+                color: isNotifMenuOpen ? 'primary.main' : 'rgba(255, 255, 255, 0.9)',
+                bgcolor: isNotifMenuOpen ? 'rgba(25, 118, 210, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                border: '1px solid',
+                borderColor: isNotifMenuOpen ? 'primary.main' : 'rgba(255, 255, 255, 0.18)',
+                p: { xs: 0.75, sm: 0.85 },
+                borderRadius: 2.5,
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  color: '#ffffff',
+                  bgcolor: 'rgba(255, 255, 255, 0.18)',
+                  borderColor: 'rgba(255, 255, 255, 0.35)',
+                  transform: 'translateY(-1px)',
+                },
+              }}
+              aria-label={t('notificationsTitle')}
+            >
+              <Badge
+                badgeContent={unreadCount}
+                color="error"
+                sx={{
+                  '& .MuiBadge-badge': {
+                    fontWeight: 700,
+                    fontSize: '0.6875rem',
+                    minWidth: 16,
+                    height: 16,
+                    px: 0.4,
+                  },
+                }}
+              >
+                <NotificationsIcon sx={{ fontSize: { xs: 20, sm: 22 } }} />
+              </Badge>
+            </IconButton>
+          </Tooltip>
 
           {/* USER INFO CONTAINER & AVATAR MENU TRIGGER */}
           <Tooltip title={`${t('menuProfile')} / ${t('menuPreferences')}`}>
@@ -471,7 +536,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
             <Divider sx={{ my: 0.5 }} />
 
-            <MenuItem onClick={() => { handleMenuClose(); handleLogoutClick(); }} sx={{ borderRadius: 1.5, py: 1.2, px: 2, color: 'error.main' }}>
+            <MenuItem
+              onClick={() => {
+                handleMenuClose();
+                if (handleLogoutClick) handleLogoutClick();
+                logout();
+              }}
+              sx={{ borderRadius: 1.5, py: 1.2, px: 2, color: 'error.main' }}
+            >
               <ListItemIcon>
                 <LogoutIcon fontSize="small" color="error" />
               </ListItemIcon>
@@ -484,6 +556,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               />
             </MenuItem>
           </Menu>
+
+          {/* NOTIFICATIONS DROPDOWN MENU */}
+          <NotificationsMenu
+            anchorEl={notifAnchorEl}
+            isOpen={isNotifMenuOpen}
+            onClose={handleNotifClose}
+            onOpenProject={onOpenProject}
+          />
         </Box>
       </Toolbar>
     </AppBar>
