@@ -40,10 +40,10 @@ import {
 import type { Reminder, Project, Client, User, SaveResult } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import { ColumnSelector, type ColumnDef } from '../ColumnSelector';
+import { TableOptionsSelector, type ColumnDef } from '../ColumnSelector';
 import { TableFilterSelector } from '../TableFilterSelector';
 import { ErrorDialog } from '../ErrorDialog';
-import { SearchIcon, AddIcon, EditIcon, DeleteIcon, CheckIcon, ArrowUpwardIcon, ArrowDownwardIcon } from '../icons';
+import { SearchIcon, AddIcon, EditIcon, DeleteIcon, CheckIcon, ArrowUpwardIcon, ArrowDownwardIcon, RefreshIcon } from '../icons';
 
 interface Props {
   reminders: Reminder[];
@@ -55,10 +55,15 @@ interface Props {
   onStatusChange?: (id: string, status: string) => void;
   visibleColumns?: string[];
   onVisibleColumnsChange?: (cols: string[]) => void;
+  rowsPerPageOptions?: number[];
+  onRowsPerPageOptionsChange?: (options: number[]) => void;
+  rowsPerPage?: number;
+  onRowsPerPageChange?: (rowsPerPage: number) => void;
   sortState?: { field: string; direction: 'asc' | 'desc' };
   onSortChange?: (sort: { field: string; direction: 'asc' | 'desc' }) => void;
   quickFilter?: 'all' | 'my' | 'pending';
   onQuickFilterChange?: (val: 'all' | 'my' | 'pending') => void;
+  onRefresh?: () => Promise<void> | void;
 }
 
 const DEFAULT_COLUMNS = ['title', 'project', 'client', 'responsible', 'status', 'notes'];
@@ -73,16 +78,59 @@ const RemindersView: React.FC<Props> = ({
   onStatusChange,
   visibleColumns = DEFAULT_COLUMNS,
   onVisibleColumnsChange,
+  rowsPerPageOptions: rowsPerPageOptionsProp,
+  onRowsPerPageOptionsChange,
+  rowsPerPage: rowsPerPageProp,
+  onRowsPerPageChange,
   sortState,
   onSortChange,
   quickFilter: quickFilterProp,
   onQuickFilterChange,
+  onRefresh,
 }) => {
   const { t, getResponsibleLabel } = useLanguage();
   const { currentUser } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [localColumns, setLocalColumns] = useState<string[]>(visibleColumns);
+  const [localRowsPerPage, setLocalRowsPerPage] = useState(rowsPerPageProp ?? 15);
+  const [localRowsPerPageOptions, setLocalRowsPerPageOptions] = useState<number[]>(rowsPerPageOptionsProp ?? [15, 25, 50]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    if (!onRefresh || isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      await onRefresh();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    if (rowsPerPageProp !== undefined) {
+      setLocalRowsPerPage(rowsPerPageProp);
+    }
+  }, [rowsPerPageProp]);
+
+  useEffect(() => {
+    if (rowsPerPageOptionsProp !== undefined) {
+      setLocalRowsPerPageOptions(rowsPerPageOptionsProp);
+    }
+  }, [rowsPerPageOptionsProp]);
+
+  const activeRowsPerPage = onRowsPerPageChange && rowsPerPageProp !== undefined ? rowsPerPageProp : localRowsPerPage;
+  const activeRowsPerPageOptions = onRowsPerPageOptionsChange && rowsPerPageOptionsProp !== undefined ? rowsPerPageOptionsProp : localRowsPerPageOptions;
+
+  const setRowsPerPageValue = (rpp: number) => {
+    setLocalRowsPerPage(rpp);
+    if (onRowsPerPageChange) onRowsPerPageChange(rpp);
+  };
+
+  const setRowsPerPageOptionsValue = (opts: number[]) => {
+    setLocalRowsPerPageOptions(opts);
+    if (onRowsPerPageOptionsChange) onRowsPerPageOptionsChange(opts);
+  };
   const [isSaving, setIsSaving] = useState(false);
   const [errorDialogState, setErrorDialogState] = useState<{ open: boolean; message: string }>({
     open: false,
@@ -443,7 +491,6 @@ const RemindersView: React.FC<Props> = ({
   });
 
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(15);
 
   useEffect(() => {
     setPage(0);
@@ -454,11 +501,12 @@ const RemindersView: React.FC<Props> = ({
   };
 
   const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
+    const val = parseInt(event.target.value, 10);
+    setRowsPerPageValue(val);
     setPage(0);
   };
 
-  const paginatedReminders = sortedReminders.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  const paginatedReminders = sortedReminders.slice(page * activeRowsPerPage, page * activeRowsPerPage + activeRowsPerPage);
 
   const getStatusChip = (st: string) => {
     switch (st.toLowerCase()) {
@@ -539,9 +587,38 @@ const RemindersView: React.FC<Props> = ({
             borderColor: 'divider',
           }}
         >
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>
-            {t('remindersAllTitle', { count: sortedReminders.length })}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+              {t('remindersAllTitle', { count: sortedReminders.length })}
+            </Typography>
+            {onRefresh && (
+              <Tooltip title={t('btnRefresh')}>
+                <IconButton
+                  size="small"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  color="primary"
+                  sx={{
+                    border: 1,
+                    borderColor: 'divider',
+                    borderRadius: 2,
+                    p: 0.7,
+                  }}
+                >
+                  <RefreshIcon
+                    fontSize="small"
+                    sx={{
+                      animation: isRefreshing ? 'spin 1s linear infinite' : undefined,
+                      '@keyframes spin': {
+                        '0%': { transform: 'rotate(0deg)' },
+                        '100%': { transform: 'rotate(360deg)' },
+                      },
+                    }}
+                  />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, width: { xs: '100%', sm: 'auto' } }}>
             {/* SEARCH INPUT FIELD */}
@@ -659,8 +736,16 @@ const RemindersView: React.FC<Props> = ({
               }
             />
 
-            {/* COLUMN SELECTOR */}
-            <ColumnSelector columns={columnDefs} visibleColumns={activeCols} onChange={setCols} />
+            {/* TABLE OPTIONS SELECTOR */}
+            <TableOptionsSelector
+              columns={columnDefs}
+              visibleColumns={activeCols}
+              onChange={setCols}
+              rowsPerPageOptions={activeRowsPerPageOptions}
+              onRowsPerPageOptionsChange={setRowsPerPageOptionsValue}
+              rowsPerPage={activeRowsPerPage}
+              onRowsPerPageChange={setRowsPerPageValue}
+            />
           </Box>
         </Box>
 
@@ -809,10 +894,10 @@ const RemindersView: React.FC<Props> = ({
         </TableContainer>
 
         <TablePagination
-          rowsPerPageOptions={[15, 25, 50]}
+          rowsPerPageOptions={activeRowsPerPageOptions}
           component="div"
           count={sortedReminders.length}
-          rowsPerPage={rowsPerPage}
+          rowsPerPage={activeRowsPerPage}
           page={page}
           onPageChange={handleChangePage}
           onRowsPerPageChange={handleChangeRowsPerPage}

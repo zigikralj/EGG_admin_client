@@ -51,10 +51,10 @@ import {
 import type { User, SaveResult } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import { ColumnSelector, type ColumnDef } from '../ColumnSelector';
+import { TableOptionsSelector, type ColumnDef } from '../ColumnSelector';
 import { TableFilterSelector } from '../TableFilterSelector';
 import { ErrorDialog } from '../ErrorDialog';
-import { SearchIcon, AddIcon, EditIcon, DeleteIcon, LockIcon, HowToRegIcon, HourglassEmptyIcon, ArrowUpwardIcon, ArrowDownwardIcon, CheckCircleIcon, HighlightOffIcon, BlockIcon, VpnKeyIcon, Visibility, VisibilityOff, ExitToAppIcon } from '../icons';
+import { SearchIcon, AddIcon, EditIcon, DeleteIcon, LockIcon, HowToRegIcon, HourglassEmptyIcon, ArrowUpwardIcon, ArrowDownwardIcon, CheckCircleIcon, HighlightOffIcon, BlockIcon, VpnKeyIcon, Visibility, VisibilityOff, ExitToAppIcon, RefreshIcon } from '../icons';
 
 interface Props {
   users: User[];
@@ -65,14 +65,19 @@ interface Props {
   onForceLogoutUser?: (userId: string) => Promise<void>;
   visibleColumns?: string[];
   onVisibleColumnsChange?: (cols: string[]) => void;
+  rowsPerPageOptions?: number[];
+  onRowsPerPageOptionsChange?: (options: number[]) => void;
+  rowsPerPage?: number;
+  onRowsPerPageChange?: (rowsPerPage: number) => void;
   sortState?: { field: string; direction: 'asc' | 'desc' };
   onSortChange?: (sort: { field: string; direction: 'asc' | 'desc' }) => void;
   initialFilterStatus?: string;
   quickFilter?: 'all' | 'pending' | 'online';
   onQuickFilterChange?: (val: 'all' | 'pending' | 'online') => void;
+  onRefresh?: () => Promise<void> | void;
 }
 
-const DEFAULT_COLUMNS = ['name', 'role', 'status', 'online', 'gender', 'email', 'phone'];
+const DEFAULT_COLUMNS = ['name', 'role', 'status', 'email', 'phone', 'gender'];
 
 const UsersView: React.FC<Props> = ({
   users,
@@ -83,17 +88,60 @@ const UsersView: React.FC<Props> = ({
   onForceLogoutUser,
   visibleColumns = DEFAULT_COLUMNS,
   onVisibleColumnsChange,
+  rowsPerPageOptions: rowsPerPageOptionsProp,
+  onRowsPerPageOptionsChange,
+  rowsPerPage: rowsPerPageProp,
+  onRowsPerPageChange,
   sortState,
   onSortChange,
   initialFilterStatus = 'all',
   quickFilter: quickFilterProp,
   onQuickFilterChange,
+  onRefresh,
 }) => {
   const { t } = useLanguage();
   const { canManageUsers, canEditUser, isAdmin, currentUser } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [localColumns, setLocalColumns] = useState<string[]>(visibleColumns);
+  const [localRowsPerPage, setLocalRowsPerPage] = useState(rowsPerPageProp ?? 15);
+  const [localRowsPerPageOptions, setLocalRowsPerPageOptions] = useState<number[]>(rowsPerPageOptionsProp ?? [15, 25, 50]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    if (!onRefresh || isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      await onRefresh();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    if (rowsPerPageProp !== undefined) {
+      setLocalRowsPerPage(rowsPerPageProp);
+    }
+  }, [rowsPerPageProp]);
+
+  useEffect(() => {
+    if (rowsPerPageOptionsProp !== undefined) {
+      setLocalRowsPerPageOptions(rowsPerPageOptionsProp);
+    }
+  }, [rowsPerPageOptionsProp]);
+
+  const activeRowsPerPage = onRowsPerPageChange && rowsPerPageProp !== undefined ? rowsPerPageProp : localRowsPerPage;
+  const activeRowsPerPageOptions = onRowsPerPageOptionsChange && rowsPerPageOptionsProp !== undefined ? rowsPerPageOptionsProp : localRowsPerPageOptions;
+
+  const setRowsPerPageValue = (rpp: number) => {
+    setLocalRowsPerPage(rpp);
+    if (onRowsPerPageChange) onRowsPerPageChange(rpp);
+  };
+
+  const setRowsPerPageOptionsValue = (opts: number[]) => {
+    setLocalRowsPerPageOptions(opts);
+    if (onRowsPerPageOptionsChange) onRowsPerPageOptionsChange(opts);
+  };
   const [isSaving, setIsSaving] = useState(false);
   const [errorDialogState, setErrorDialogState] = useState<{ open: boolean; message: string }>({
     open: false,
@@ -408,7 +456,6 @@ const UsersView: React.FC<Props> = ({
   });
 
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(15);
 
   useEffect(() => {
     setPage(0);
@@ -419,11 +466,12 @@ const UsersView: React.FC<Props> = ({
   };
 
   const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
+    const val = parseInt(event.target.value, 10);
+    setRowsPerPageValue(val);
     setPage(0);
   };
 
-  const paginatedUsers = sortedUsers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  const paginatedUsers = sortedUsers.slice(page * activeRowsPerPage, page * activeRowsPerPage + activeRowsPerPage);
 
   const sortOptions = useMemo(() => [
     { value: 'name', label: t('colFullName') },
@@ -497,9 +545,38 @@ const UsersView: React.FC<Props> = ({
       {/* TABLE CARD */}
       <Card variant="outlined" sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <Box sx={{ p: { xs: 1.5, sm: 2 }, display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>
-            {t('usersListTitle', { count: sortedUsers.length })}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+              {t('usersListTitle', { count: sortedUsers.length })}
+            </Typography>
+            {onRefresh && (
+              <Tooltip title={t('btnRefresh')}>
+                <IconButton
+                  size="small"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  color="primary"
+                  sx={{
+                    border: 1,
+                    borderColor: 'divider',
+                    borderRadius: 2,
+                    p: 0.7,
+                  }}
+                >
+                  <RefreshIcon
+                    fontSize="small"
+                    sx={{
+                      animation: isRefreshing ? 'spin 1s linear infinite' : undefined,
+                      '@keyframes spin': {
+                        '0%': { transform: 'rotate(0deg)' },
+                        '100%': { transform: 'rotate(360deg)' },
+                      },
+                    }}
+                  />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, width: { xs: '100%', sm: 'auto' } }}>
             {/* QUICK FILTERS */}
@@ -601,10 +678,15 @@ const UsersView: React.FC<Props> = ({
               }
             />
 
-            <ColumnSelector
+            {/* TABLE OPTIONS SELECTOR */}
+            <TableOptionsSelector
               columns={columnDefs}
               visibleColumns={activeCols}
               onChange={setCols}
+              rowsPerPageOptions={activeRowsPerPageOptions}
+              onRowsPerPageOptionsChange={setRowsPerPageOptionsValue}
+              rowsPerPage={activeRowsPerPage}
+              onRowsPerPageChange={setRowsPerPageValue}
             />
           </Box>
         </Box>
@@ -853,10 +935,10 @@ const UsersView: React.FC<Props> = ({
         </TableContainer>
 
         <TablePagination
-          rowsPerPageOptions={[15, 25, 50]}
+          rowsPerPageOptions={activeRowsPerPageOptions}
           component="div"
           count={sortedUsers.length}
-          rowsPerPage={rowsPerPage}
+          rowsPerPage={activeRowsPerPage}
           page={page}
           onPageChange={handleChangePage}
           onRowsPerPageChange={handleChangeRowsPerPage}

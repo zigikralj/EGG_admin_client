@@ -295,10 +295,15 @@ function MainApp() {
             onDelete={projectsHook.handleDeleteProject}
             visibleColumns={userPreferences.cols_projects}
             onVisibleColumnsChange={(cols) => updatePreference('cols_projects', cols)}
+            rowsPerPageOptions={userPreferences.rowsPerPageOptions_projects}
+            onRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_projects', opts)}
+            rowsPerPage={userPreferences.rowsPerPage_projects}
+            onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_projects', rpp)}
             sortState={userPreferences.sort_projects}
             onSortChange={(sort) => updatePreference('sort_projects', sort)}
             quickFilter={userPreferences.quick_filter_projects || 'all'}
             onQuickFilterChange={(val) => updatePreference('quick_filter_projects', val)}
+            onRefresh={fetchers.fetchProjects}
           />
         )}
 
@@ -363,8 +368,13 @@ function MainApp() {
             onDeleteClient={clientsHook.handleDeleteClient}
             visibleColumns={userPreferences.cols_clients}
             onVisibleColumnsChange={(cols) => updatePreference('cols_clients', cols)}
+            rowsPerPageOptions={userPreferences.rowsPerPageOptions_clients}
+            onRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_clients', opts)}
+            rowsPerPage={userPreferences.rowsPerPage_clients}
+            onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_clients', rpp)}
             sortState={userPreferences.sort_clients}
             onSortChange={(sort) => updatePreference('sort_clients', sort)}
+            onRefresh={fetchers.fetchClients}
           />
         )}
 
@@ -378,11 +388,16 @@ function MainApp() {
             onForceLogoutUser={usersHook.handleForceLogoutUser}
             visibleColumns={userPreferences.cols_users}
             onVisibleColumnsChange={(cols) => updatePreference('cols_users', cols)}
+            rowsPerPageOptions={userPreferences.rowsPerPageOptions_users}
+            onRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_users', opts)}
+            rowsPerPage={userPreferences.rowsPerPage_users}
+            onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_users', rpp)}
             sortState={userPreferences.sort_users}
             onSortChange={(sort) => updatePreference('sort_users', sort)}
             initialFilterStatus={usersFilterStatus}
             quickFilter={userPreferences.quick_filter_users || 'all'}
             onQuickFilterChange={(val) => updatePreference('quick_filter_users', val)}
+            onRefresh={fetchers.fetchUsers}
           />
         )}
 
@@ -394,8 +409,13 @@ function MainApp() {
             onDeleteService={servicesHook.handleDeleteService}
             visibleColumns={userPreferences.cols_services}
             onVisibleColumnsChange={(cols) => updatePreference('cols_services', cols)}
+            rowsPerPageOptions={userPreferences.rowsPerPageOptions_services}
+            onRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_services', opts)}
+            rowsPerPage={userPreferences.rowsPerPage_services}
+            onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_services', rpp)}
             sortState={userPreferences.sort_services}
             onSortChange={(sort) => updatePreference('sort_services', sort)}
+            onRefresh={fetchers.fetchServices}
           />
         )}
 
@@ -416,10 +436,15 @@ function MainApp() {
             onStatusChangeInvoice={invoicesHook.handleUpdateInvoiceStatus}
             visibleColumns={userPreferences.cols_providedServices}
             onVisibleColumnsChange={(cols) => updatePreference('cols_providedServices', cols)}
+            rowsPerPageOptions={userPreferences.rowsPerPageOptions_providedServices}
+            onRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_providedServices', opts)}
+            rowsPerPage={userPreferences.rowsPerPage_providedServices}
+            onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_providedServices', rpp)}
             sortState={userPreferences.sort_providedServices}
             onSortChange={(sort) => updatePreference('sort_providedServices', sort)}
             quickFilter={userPreferences.quick_filter_providedServices || 'all'}
             onQuickFilterChange={(val) => updatePreference('quick_filter_providedServices', val)}
+            onRefresh={fetchers.fetchProvidedServices}
           />
         )}
 
@@ -430,8 +455,13 @@ function MainApp() {
             onDeleteCategory={categoriesHook.handleDeleteCategory}
             visibleColumns={userPreferences.cols_categories}
             onVisibleColumnsChange={(cols) => updatePreference('cols_categories', cols)}
+            rowsPerPageOptions={userPreferences.rowsPerPageOptions_categories}
+            onRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_categories', opts)}
+            rowsPerPage={userPreferences.rowsPerPage_categories}
+            onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_categories', rpp)}
             sortState={userPreferences.sort_categories}
             onSortChange={(sort) => updatePreference('sort_categories', sort)}
+            onRefresh={fetchers.fetchCategories}
           />
         )}
 
@@ -445,8 +475,13 @@ function MainApp() {
             onUpdateStatus={invoicesHook.handleUpdateInvoiceStatus}
             visibleColumns={userPreferences.cols_invoices}
             onVisibleColumnsChange={(cols) => updatePreference('cols_invoices', cols)}
+            rowsPerPageOptions={userPreferences.rowsPerPageOptions_invoices}
+            onRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_invoices', opts)}
+            rowsPerPage={userPreferences.rowsPerPage_invoices}
+            onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_invoices', rpp)}
             sortState={userPreferences.sort_invoices}
             onSortChange={(sort) => updatePreference('sort_invoices', sort)}
+            onRefresh={fetchers.fetchInvoices}
           />
         )}
 
@@ -461,10 +496,15 @@ function MainApp() {
             onStatusChange={remindersHook.handleStatusChangeReminder}
             visibleColumns={userPreferences.cols_reminders}
             onVisibleColumnsChange={(cols) => updatePreference('cols_reminders', cols)}
+            rowsPerPageOptions={userPreferences.rowsPerPageOptions_reminders}
+            onRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_reminders', opts)}
+            rowsPerPage={userPreferences.rowsPerPage_reminders}
+            onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_reminders', rpp)}
             sortState={userPreferences.sort_reminders}
             onSortChange={(sort) => updatePreference('sort_reminders', sort)}
             quickFilter={userPreferences.quick_filter_reminders || 'all'}
             onQuickFilterChange={(val) => updatePreference('quick_filter_reminders', val)}
+            onRefresh={fetchers.fetchReminders}
           />
         )}
 

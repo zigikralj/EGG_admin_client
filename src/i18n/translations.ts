@@ -458,6 +458,15 @@ export interface TranslationKeys {
   btnBackToServices: string;
   btnBackToCategories: string;
   btnCustomizeColumns: string;
+  btnTableOptions: string;
+  btnRefresh: string;
+  lblTableOptions: string;
+  lblRowsPerPage: string;
+  lblRowsPerPageOptions: string;
+  lblEditOptions: string;
+  lblCustomizeRowsPerPageHelp: string;
+  btnResetDefault: string;
+  lblColumns: string;
   lblSelectColumns: string;
   menuProfile: string;
   menuPreferences: string;

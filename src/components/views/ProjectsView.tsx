@@ -32,9 +32,19 @@ import {
 import type { Project, Service } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import { ColumnSelector, type ColumnDef } from '../ColumnSelector';
+import { TableOptionsSelector, type ColumnDef } from '../ColumnSelector';
 import { TableFilterSelector } from '../TableFilterSelector';
-import { SearchIcon, AddIcon, EditIcon, DeleteIcon, VisibilityIcon, ArrowUpwardIcon, ArrowDownwardIcon, NotesIcon } from '../icons';
+import {
+  SearchIcon,
+  AddIcon,
+  EditIcon,
+  DeleteIcon,
+  VisibilityIcon,
+  ArrowUpwardIcon,
+  ArrowDownwardIcon,
+  NotesIcon,
+  RefreshIcon,
+} from '../icons';
 
 interface Props {
   projects: Project[];
@@ -49,10 +59,15 @@ interface Props {
   onDelete: (id: string) => void;
   visibleColumns?: string[];
   onVisibleColumnsChange?: (cols: string[]) => void;
+  rowsPerPageOptions?: number[];
+  onRowsPerPageOptionsChange?: (options: number[]) => void;
+  rowsPerPage?: number;
+  onRowsPerPageChange?: (rowsPerPage: number) => void;
   sortState?: { field: string; direction: 'asc' | 'desc' };
   onSortChange?: (sort: { field: string; direction: 'asc' | 'desc' }) => void;
   quickFilter?: 'all' | 'my' | 'active' | 'overdue';
   onQuickFilterChange?: (val: 'all' | 'my' | 'active' | 'overdue') => void;
+  onRefresh?: () => Promise<void> | void;
 }
 
 const DEFAULT_COLUMNS = ['name', 'client', 'category', 'responsible', 'start', 'deadline', 'progress', 'status'];
@@ -89,14 +104,57 @@ const ProjectsView: React.FC<Props> = ({
   onDelete,
   visibleColumns = DEFAULT_COLUMNS,
   onVisibleColumnsChange,
+  rowsPerPageOptions: rowsPerPageOptionsProp,
+  onRowsPerPageOptionsChange,
+  rowsPerPage: rowsPerPageProp,
+  onRowsPerPageChange,
   sortState,
   onSortChange,
   quickFilter: quickFilterProp,
   onQuickFilterChange,
+  onRefresh,
 }) => {
   const { t, getServiceLabel } = useLanguage();
   const { canEditProject, currentUser } = useAuth();
   const [localColumns, setLocalColumns] = useState<string[]>(visibleColumns);
+  const [localRowsPerPage, setLocalRowsPerPage] = useState(rowsPerPageProp ?? 15);
+  const [localRowsPerPageOptions, setLocalRowsPerPageOptions] = useState<number[]>(rowsPerPageOptionsProp ?? [15, 25, 50]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    if (!onRefresh || isRefreshing) return;
+    setIsRefreshing(true);
+    try {
+      await onRefresh();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    if (rowsPerPageProp !== undefined) {
+      setLocalRowsPerPage(rowsPerPageProp);
+    }
+  }, [rowsPerPageProp]);
+
+  useEffect(() => {
+    if (rowsPerPageOptionsProp !== undefined) {
+      setLocalRowsPerPageOptions(rowsPerPageOptionsProp);
+    }
+  }, [rowsPerPageOptionsProp]);
+
+  const activeRowsPerPage = onRowsPerPageChange && rowsPerPageProp !== undefined ? rowsPerPageProp : localRowsPerPage;
+  const activeRowsPerPageOptions = onRowsPerPageOptionsChange && rowsPerPageOptionsProp !== undefined ? rowsPerPageOptionsProp : localRowsPerPageOptions;
+
+  const setRowsPerPageValue = (rpp: number) => {
+    setLocalRowsPerPage(rpp);
+    if (onRowsPerPageChange) onRowsPerPageChange(rpp);
+  };
+
+  const setRowsPerPageOptionsValue = (opts: number[]) => {
+    setLocalRowsPerPageOptions(opts);
+    if (onRowsPerPageOptionsChange) onRowsPerPageOptionsChange(opts);
+  };
 
   const [sortColumn, setSortColumn] = useState<string>(sortState?.field || 'createdAt');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(sortState?.direction || 'desc');
@@ -349,7 +407,6 @@ const ProjectsView: React.FC<Props> = ({
   });
 
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(15);
 
   useEffect(() => {
     setPage(0);
@@ -360,11 +417,12 @@ const ProjectsView: React.FC<Props> = ({
   };
 
   const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
+    const val = parseInt(event.target.value, 10);
+    setRowsPerPageValue(val);
     setPage(0);
   };
 
-  const paginatedProjects = sortedProjects.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  const paginatedProjects = sortedProjects.slice(page * activeRowsPerPage, page * activeRowsPerPage + activeRowsPerPage);
 
   const responsibleOptions = useMemo(() => {
     const list: string[] = [];
@@ -410,9 +468,38 @@ const ProjectsView: React.FC<Props> = ({
       {/* TABLE CONTAINER CARD */}
       <Card variant="outlined" sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <Box sx={{ p: { xs: 1.5, sm: 2 }, display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>
-            {t('projectsListTitle')}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+              {t('projectsListTitle')}
+            </Typography>
+            {onRefresh && (
+              <Tooltip title={t('btnRefresh')}>
+                <IconButton
+                  size="small"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  color="primary"
+                  sx={{
+                    border: 1,
+                    borderColor: 'divider',
+                    borderRadius: 2,
+                    p: 0.7,
+                  }}
+                >
+                  <RefreshIcon
+                    fontSize="small"
+                    sx={{
+                      animation: isRefreshing ? 'spin 1s linear infinite' : undefined,
+                      '@keyframes spin': {
+                        '0%': { transform: 'rotate(0deg)' },
+                        '100%': { transform: 'rotate(360deg)' },
+                      },
+                    }}
+                  />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', width: { xs: '100%', sm: 'auto' } }}>
             {/* QUICK FILTERS */}
@@ -540,11 +627,15 @@ const ProjectsView: React.FC<Props> = ({
               }
             />
 
-            {/* COLUMN SELECTOR */}
-            <ColumnSelector
+            {/* TABLE OPTIONS SELECTOR */}
+            <TableOptionsSelector
               columns={columnDefs}
               visibleColumns={activeCols}
               onChange={setCols}
+              rowsPerPageOptions={activeRowsPerPageOptions}
+              onRowsPerPageOptionsChange={setRowsPerPageOptionsValue}
+              rowsPerPage={activeRowsPerPage}
+              onRowsPerPageChange={setRowsPerPageValue}
             />
           </Box>
         </Box>
@@ -809,10 +900,10 @@ const ProjectsView: React.FC<Props> = ({
         </TableContainer>
 
         <TablePagination
-          rowsPerPageOptions={[15, 25, 50]}
+          rowsPerPageOptions={activeRowsPerPageOptions}
           component="div"
           count={sortedProjects.length}
-          rowsPerPage={rowsPerPage}
+          rowsPerPage={activeRowsPerPage}
           page={page}
           onPageChange={handleChangePage}
           onRowsPerPageChange={handleChangeRowsPerPage}
