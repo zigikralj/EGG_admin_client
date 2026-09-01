@@ -11,7 +11,6 @@ import {
   Paper,
   Divider,
   TextField,
-  InputAdornment,
   Autocomplete,
   FormGroup,
   FormControlLabel,
@@ -30,9 +29,11 @@ import { ApproachingInvoicesPanel } from '../ApproachingInvoicesPanel';
 import { ProjectCard } from '../ProjectCard';
 
 import { TableFilterSelector } from '../TableFilterSelector';
+import { DateRangeFilter } from '../DateRangeFilter';
+import { TableSearchInput } from '../TableSearchInput';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import { ArrowForwardIcon, ArrowUpwardIcon, ArrowDownwardIcon, SearchIcon, AddIcon } from '../icons';
+import { ArrowForwardIcon, ArrowUpwardIcon, ArrowDownwardIcon, AddIcon } from '../icons';
 
 const StatisticsCharts = React.lazy(() => import('../StatisticsCharts'));
 
@@ -58,6 +59,8 @@ interface Props {
   onNavigateToProjects: () => void;
   onNavigateToInvoices?: () => void;
   onOpenNewProject?: () => void;
+  onSaveInvoice?: (invoice: Partial<Invoice>) => Promise<any> | void;
+  onDeleteInvoice?: (id: string) => void;
   onStatusChangeInvoice?: (id: string, status: string, paymentDate?: string) => Promise<void> | void;
   quickFilters?: string[];
   onQuickFiltersChange?: (filters: string[]) => void;
@@ -86,6 +89,8 @@ const DashboardView: React.FC<Props> = ({
   onNavigateToProjects,
   onNavigateToInvoices,
   onOpenNewProject,
+  onSaveInvoice,
+  onDeleteInvoice,
   onStatusChangeInvoice,
   quickFilters: quickFiltersProp,
   onQuickFiltersChange,
@@ -123,8 +128,12 @@ const DashboardView: React.FC<Props> = ({
   const [filterClient, setFilterClient] = useState<string>('all');
   const [filterResponsible, setFilterResponsible] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterDateFrom, setFilterDateFrom] = useState<string>('');
+  const [filterDateTo, setFilterDateTo] = useState<string>('');
+  const [filterDateField, setFilterDateField] = useState<string>('deadline');
   const [sortOption, setSortOption] = useState<'deadline' | 'name' | 'start' | 'progress' | 'createdAt'>('deadline');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [newInvoiceTrigger, setNewInvoiceTrigger] = useState(0);
 
   const handleToggleFilter = (filterKey: string, checked: boolean) => {
     const updated = checked
@@ -193,6 +202,9 @@ const DashboardView: React.FC<Props> = ({
     setFilterClient('all');
     setFilterResponsible('all');
     setFilterStatus('all');
+    setFilterDateFrom('');
+    setFilterDateTo('');
+    setFilterDateField('deadline');
     setSearchQuery('');
   };
 
@@ -298,6 +310,25 @@ const DashboardView: React.FC<Props> = ({
           if (filterStatus === 'creation' && (p.done || stale || late)) return false;
         }
 
+        // Date range filter
+        if (filterDateFrom || filterDateTo) {
+          let rawDate: string | null | undefined = null;
+          if (filterDateField === 'start') {
+            rawDate = p.start;
+          } else if (filterDateField === 'createdAt') {
+            rawDate = p.createdAt;
+          } else {
+            rawDate = p.deadline;
+          }
+          const dateVal = rawDate ? rawDate.slice(0, 10) : '';
+          if (dateVal) {
+            if (filterDateFrom && dateVal < filterDateFrom) return false;
+            if (filterDateTo && dateVal > filterDateTo) return false;
+          } else {
+            return false;
+          }
+        }
+
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase();
           const matchesName = p.name.toLowerCase().includes(q);
@@ -341,13 +372,14 @@ const DashboardView: React.FC<Props> = ({
         }
         return sortDirection === 'asc' ? res : -res;
       });
-  }, [projects, invoices, quickFilters, currentUser, filterCategory, filterClient, filterResponsible, filterStatus, searchQuery, getServiceLabel, sortOption, sortDirection]);
+  }, [projects, invoices, quickFilters, currentUser, filterCategory, filterClient, filterResponsible, filterStatus, filterDateFrom, filterDateTo, filterDateField, searchQuery, getServiceLabel, sortOption, sortDirection]);
 
   const activeFilterCount =
     (filterCategory !== 'all' ? 1 : 0) +
     (filterClient !== 'all' ? 1 : 0) +
     (filterResponsible !== 'all' ? 1 : 0) +
     (filterStatus !== 'all' ? 1 : 0) +
+    (filterDateFrom || filterDateTo ? 1 : 0) +
     quickFilters.length;
 
   const clearFilters = () => {
@@ -589,6 +621,9 @@ const DashboardView: React.FC<Props> = ({
       projects={projects}
       isFullHeight={isFullHeight}
       hideNotch={hideNotch}
+      openNewInvoiceTrigger={newInvoiceTrigger}
+      onSaveInvoice={onSaveInvoice}
+      onDeleteInvoice={onDeleteInvoice}
       onStatusChangeInvoice={onStatusChangeInvoice}
       onViewProject={onViewProject || onEditProject}
       onNavigateToInvoices={onNavigateToInvoices}
@@ -764,10 +799,25 @@ const DashboardView: React.FC<Props> = ({
       {/* INVOICES ONLY VIEW */}
       {dashboardSubTab === 'invoices' && (
         <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              {t('approachingInvoicesTitle')}
-            </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5, mb: 0.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                {t('tabInvoices')}
+              </Typography>
+              <Chip label={invoices.length} size="small" color="primary" sx={{ fontWeight: 700 }} />
+            </Box>
+            {onSaveInvoice && (
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<AddIcon />}
+                onClick={() => setNewInvoiceTrigger((prev) => prev + 1)}
+                size="small"
+                sx={{ borderRadius: 1.5, textTransform: 'none', fontWeight: 600 }}
+              >
+                {t('modalNewInvoice')}
+              </Button>
+            )}
           </Box>
           {renderApproachingInvoicesPanel(true, true)}
         </Box>
@@ -801,21 +851,9 @@ const DashboardView: React.FC<Props> = ({
           <Card variant="outlined" sx={{ p: 2 }}>
             <Box sx={{ display: 'flex', flexDirection: { xs: 'column', lg: 'row' }, gap: 2, alignItems: { xs: 'stretch', lg: 'center' }, justifyContent: 'space-between' }}>
               {/* SEARCH FIELD */}
-              <TextField
-                size="small"
-                placeholder={t('searchPlaceholder')}
+              <TableSearchInput
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon fontSize="small" color="action" />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-                sx={{ width: { xs: '100%', lg: 220 } }}
+                onChange={setSearchQuery}
               />
 
               {/* QUICK FILTER CHECKBOXES */}
@@ -933,6 +971,23 @@ const DashboardView: React.FC<Props> = ({
                         {sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />}
                       </IconButton>
                     </Box>
+                  }
+                  dateRangeContent={
+                    <DateRangeFilter
+                      startDate={filterDateFrom}
+                      endDate={filterDateTo}
+                      onDateChange={({ startDate, endDate }) => {
+                        setFilterDateFrom(startDate);
+                        setFilterDateTo(endDate);
+                      }}
+                      dateField={filterDateField}
+                      dateFieldOptions={[
+                        { value: 'deadline', label: t('deadline') },
+                        { value: 'start', label: t('start') },
+                        { value: 'createdAt', label: t('lblCreatedDate') },
+                      ]}
+                      onDateFieldChange={setFilterDateField}
+                    />
                   }
                   filteringContent={
                     <>

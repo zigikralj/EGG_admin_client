@@ -15,7 +15,6 @@ import {
   Chip,
   Box,
   Typography,
-  InputAdornment,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -34,10 +33,10 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { TableOptionsSelector, type ColumnDef } from '../ColumnSelector';
 import { TableFilterSelector } from '../TableFilterSelector';
+import { TableSearchInput } from '../TableSearchInput';
 import { ErrorDialog } from '../ErrorDialog';
 import { CustomDataModelModal } from '../CustomDataModelModal';
 import {
-  SearchIcon,
   AddIcon,
   EditIcon,
   DeleteIcon,
@@ -484,21 +483,9 @@ const ServicesView: React.FC<Props> = ({
           </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, width: { xs: '100%', sm: 'auto' } }}>
-            <TextField
-              size="small"
-              placeholder={t('searchPlaceholder')}
+            <TableSearchInput
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon color="action" fontSize="small" />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-              sx={{ width: { xs: '100%', sm: 200 } }}
+              onChange={setSearchQuery}
             />
 
             <TableFilterSelector

@@ -39,7 +39,7 @@ const ProjectViewModal = React.lazy(() => import('./components/ProjectViewModal'
 
 function MainApp() {
   const { t } = useLanguage();
-  const { currentUser } = useAuth();
+  const { currentUser, isAccountant } = useAuth();
 
   // ── UI State ────────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
@@ -271,8 +271,17 @@ function MainApp() {
               setActiveTab('dashboard');
               setDashboardSubTab('projects');
             }}
-            onNavigateToInvoices={() => setActiveTab('invoices')}
+            onNavigateToInvoices={() => {
+              if (isAccountant) {
+                setActiveTab('dashboard');
+                setDashboardSubTab('invoices');
+              } else {
+                setActiveTab('invoices');
+              }
+            }}
             onOpenNewProject={() => handleEditProject(null)}
+            onSaveInvoice={invoicesHook.handleSaveInvoice}
+            onDeleteInvoice={invoicesHook.handleDeleteInvoice}
             onStatusChangeInvoice={invoicesHook.handleUpdateInvoiceStatus}
             quickFilters={userPreferences.quick_filter_dashboard_projects}
             onQuickFiltersChange={(filters) => updatePreference('quick_filter_dashboard_projects', filters)}

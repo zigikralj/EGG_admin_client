@@ -20,7 +20,6 @@ import {
   Box,
   Chip,
   Paper,
-  InputAdornment,
   FormControlLabel,
   Checkbox,
   Autocomplete,
@@ -38,8 +37,10 @@ import type { Project, Reminder, Client, User, SaveResult } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { TableFilterSelector } from './TableFilterSelector';
+import { DateRangeFilter } from './DateRangeFilter';
+import { TableSearchInput } from './TableSearchInput';
 import { ErrorDialog } from './ErrorDialog';
-import { VisibilityIcon, EditIcon, DeleteIcon, CheckIcon, CalendarTodayIcon, SearchIcon, AddIcon, ArrowUpwardIcon, ArrowDownwardIcon } from './icons';
+import { VisibilityIcon, EditIcon, DeleteIcon, CheckIcon, CalendarTodayIcon, AddIcon, ArrowUpwardIcon, ArrowDownwardIcon } from './icons';
 
 interface Props {
   projects?: Project[];
@@ -141,6 +142,8 @@ export const ReminderPanel: React.FC<Props> = ({
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterClient, setFilterClient] = useState<string>('all');
   const [filterResponsible, setFilterResponsible] = useState<string>('all');
+  const [filterDateFrom, setFilterDateFrom] = useState<string>('');
+  const [filterDateTo, setFilterDateTo] = useState<string>('');
   const [sortOption, setSortOption] = useState<'dueDate' | 'title' | 'project' | 'client' | 'responsible' | 'status' | 'createdAt'>('dueDate');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
@@ -172,7 +175,7 @@ export const ReminderPanel: React.FC<Props> = ({
   // Reset pagination when filters change
   useEffect(() => {
     setPage(0);
-  }, [searchQuery, myRemindersOnly, filterStatus, filterClient, filterResponsible, sortOption, sortDirection]);
+  }, [searchQuery, myRemindersOnly, filterStatus, filterClient, filterResponsible, filterDateFrom, filterDateTo, sortOption, sortDirection]);
 
   const handleToggleMyReminders = (val: boolean) => {
     setMyRemindersOnly(val);
@@ -201,6 +204,8 @@ export const ReminderPanel: React.FC<Props> = ({
     setFilterStatus('all');
     setFilterClient('all');
     setFilterResponsible('all');
+    setFilterDateFrom('');
+    setFilterDateTo('');
     setSearchQuery('');
     setSortOption('dueDate');
     setSortDirection('asc');
@@ -338,6 +343,17 @@ export const ReminderPanel: React.FC<Props> = ({
           if (!isMyName && item.responsible !== filterResponsible) return false;
         }
 
+        // Date range filter
+        if (filterDateFrom || filterDateTo) {
+          const dateVal = item.dueDate ? item.dueDate.slice(0, 10) : '';
+          if (dateVal) {
+            if (filterDateFrom && dateVal < filterDateFrom) return false;
+            if (filterDateTo && dateVal > filterDateTo) return false;
+          } else {
+            return false;
+          }
+        }
+
         // Search query
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase();
@@ -398,13 +414,14 @@ export const ReminderPanel: React.FC<Props> = ({
         }
         return sortDirection === 'asc' ? res : -res;
       });
-  }, [rawItems, myRemindersOnly, filterStatus, filterClient, filterResponsible, searchQuery, sortOption, sortDirection, currentUser]);
+  }, [rawItems, myRemindersOnly, filterStatus, filterClient, filterResponsible, filterDateFrom, filterDateTo, searchQuery, sortOption, sortDirection, currentUser]);
 
   const activeFilterCount =
     (myRemindersOnly ? 1 : 0) +
     (filterStatus !== 'all' ? 1 : 0) +
     (filterClient !== 'all' ? 1 : 0) +
     (filterResponsible !== 'all' ? 1 : 0) +
+    (filterDateFrom || filterDateTo ? 1 : 0) +
     (sortOption !== 'dueDate' || sortDirection !== 'asc' ? 1 : 0);
 
   const canEditSelected = useMemo(() => {
@@ -621,21 +638,9 @@ export const ReminderPanel: React.FC<Props> = ({
             }}
           >
             {/* SEARCH FIELD */}
-            <TextField
-              size="small"
-              placeholder={t('searchPlaceholder')}
+            <TableSearchInput
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon fontSize="small" color="action" />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-              sx={{ width: { xs: '100%', sm: 220 } }}
+              onChange={setSearchQuery}
             />
 
             {/* RIGHT CONTROLS: MY REMINDERS + FILTER POPOVER + CREATE BUTTON */}
@@ -687,6 +692,16 @@ export const ReminderPanel: React.FC<Props> = ({
                       {sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />}
                     </IconButton>
                   </Box>
+                }
+                dateRangeContent={
+                  <DateRangeFilter
+                    startDate={filterDateFrom}
+                    endDate={filterDateTo}
+                    onDateChange={({ startDate, endDate }) => {
+                      setFilterDateFrom(startDate);
+                      setFilterDateTo(endDate);
+                    }}
+                  />
                 }
                 filteringContent={
                   <>

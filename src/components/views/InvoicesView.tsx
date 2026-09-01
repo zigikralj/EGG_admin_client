@@ -15,7 +15,6 @@ import {
   Chip,
   Box,
   Typography,
-  InputAdornment,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -37,10 +36,11 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { TableOptionsSelector, type ColumnDef } from '../ColumnSelector';
 import { TableFilterSelector } from '../TableFilterSelector';
+import { DateRangeFilter } from '../DateRangeFilter';
+import { TableSearchInput } from '../TableSearchInput';
 import { ErrorDialog } from '../ErrorDialog';
 import { parseInvoiceNotes, serializeInvoiceNotes, enhanceInvoicesWithLinks } from '../../utils/invoiceUtils';
 import {
-  SearchIcon,
   AddIcon,
   EditIcon,
   DeleteIcon,
@@ -218,6 +218,9 @@ const InvoicesView: React.FC<Props> = ({
   const [filterCurrency, setFilterCurrency] = useState<string>('all');
   const [filterInvoiceType, setFilterInvoiceType] = useState<string>('all');
   const [filterLinkedStatus, setFilterLinkedStatus] = useState<string>('all');
+  const [filterDateFrom, setFilterDateFrom] = useState<string>('');
+  const [filterDateTo, setFilterDateTo] = useState<string>('');
+  const [filterDateField, setFilterDateField] = useState<string>('dateCreated');
 
   const activeFilterCount =
     (filterStatus !== 'all' ? 1 : 0) +
@@ -225,6 +228,7 @@ const InvoicesView: React.FC<Props> = ({
     (filterCurrency !== 'all' ? 1 : 0) +
     (filterInvoiceType !== 'all' ? 1 : 0) +
     (filterLinkedStatus !== 'all' ? 1 : 0) +
+    (filterDateFrom || filterDateTo ? 1 : 0) +
     (sortColumn !== 'dateCreated' || sortDirection !== 'desc' ? 1 : 0);
 
   const clearFilters = () => {
@@ -233,6 +237,9 @@ const InvoicesView: React.FC<Props> = ({
     setFilterCurrency('all');
     setFilterInvoiceType('all');
     setFilterLinkedStatus('all');
+    setFilterDateFrom('');
+    setFilterDateTo('');
+    setFilterDateField('dateCreated');
     setSortColumn('dateCreated');
     setSortDirection('desc');
     if (onSortChange) {
@@ -588,9 +595,29 @@ const InvoicesView: React.FC<Props> = ({
         (filterLinkedStatus === 'linked' && isLinked) ||
         (filterLinkedStatus === 'independent' && !isLinked);
 
-      return matchesSearch && matchesStatus && matchesClient && matchesCurrency && matchesType && matchesLinked;
+      // Date Range filter
+      let matchesDate = true;
+      if (filterDateFrom || filterDateTo) {
+        let rawDate: string | null | undefined = null;
+        if (filterDateField === 'dueDate') {
+          rawDate = inv.dueDate;
+        } else if (filterDateField === 'paymentDate') {
+          rawDate = inv.paymentDate;
+        } else {
+          rawDate = inv.dateCreated || inv.createdAt;
+        }
+        const dateVal = rawDate ? rawDate.slice(0, 10) : '';
+        if (dateVal) {
+          if (filterDateFrom && dateVal < filterDateFrom) matchesDate = false;
+          if (filterDateTo && dateVal > filterDateTo) matchesDate = false;
+        } else {
+          matchesDate = false;
+        }
+      }
+
+      return matchesSearch && matchesStatus && matchesClient && matchesCurrency && matchesType && matchesLinked && matchesDate;
     });
-  }, [enhancedInvoices, search, filterStatus, filterClient, filterCurrency, filterInvoiceType, filterLinkedStatus]);
+  }, [enhancedInvoices, search, filterStatus, filterClient, filterCurrency, filterInvoiceType, filterLinkedStatus, filterDateFrom, filterDateTo, filterDateField]);
 
   const sortedInvoices = useMemo(() => {
     return [...filteredInvoices].sort((a, b) => {
@@ -714,21 +741,9 @@ const InvoicesView: React.FC<Props> = ({
       {/* SEARCH, COLUMNS & FILTER BAR */}
       <Card sx={{ p: 2, mb: 3, borderRadius: 3, boxShadow: 1 }}>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-          <TextField
-            size="small"
-            placeholder={t('searchPlaceholder')}
+          <TableSearchInput
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            slotProps={{
-              input: {
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon color="action" />
-                  </InputAdornment>
-                ),
-              },
-            }}
-            sx={{ width: { xs: '100%', sm: 260 } }}
+            onChange={setSearch}
           />
 
           <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -760,6 +775,23 @@ const InvoicesView: React.FC<Props> = ({
                     {sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />}
                   </IconButton>
                 </Box>
+              }
+              dateRangeContent={
+                <DateRangeFilter
+                  startDate={filterDateFrom}
+                  endDate={filterDateTo}
+                  onDateChange={({ startDate, endDate }) => {
+                    setFilterDateFrom(startDate);
+                    setFilterDateTo(endDate);
+                  }}
+                  dateField={filterDateField}
+                  dateFieldOptions={[
+                    { value: 'dateCreated', label: t('colDateCreated') },
+                    { value: 'dueDate', label: t('colDueDate') },
+                    { value: 'paymentDate', label: t('colPaymentDate') },
+                  ]}
+                  onDateFieldChange={setFilterDateField}
+                />
               }
               filteringContent={
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>

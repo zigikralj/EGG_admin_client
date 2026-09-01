@@ -46,12 +46,13 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { TableOptionsSelector, type ColumnDef } from '../ColumnSelector';
 import { TableFilterSelector } from '../TableFilterSelector';
+import { DateRangeFilter } from '../DateRangeFilter';
+import { TableSearchInput } from '../TableSearchInput';
 import { ErrorDialog } from '../ErrorDialog';
 import { CustomDataModelModal } from '../CustomDataModelModal';
 import { ProvidedServicesStatistics } from '../ProvidedServicesStatistics';
 import { ProvidedServiceInvoiceSection } from '../providedService/ProvidedServiceInvoiceSection';
 import {
-  SearchIcon,
   AddIcon,
   EditIcon,
   DeleteIcon,
@@ -271,6 +272,9 @@ const ProvidedServicesView: React.FC<Props> = ({
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterProject, setFilterProject] = useState<string>('all');
   const [filterInvoice, setFilterInvoice] = useState<string>('all');
+  const [filterDateFrom, setFilterDateFrom] = useState<string>('');
+  const [filterDateTo, setFilterDateTo] = useState<string>('');
+  const [filterDateField, setFilterDateField] = useState<string>('scheduledDate');
 
   const activeFilterCount =
     (quickFilter !== 'all' ? 1 : 0) +
@@ -279,6 +283,7 @@ const ProvidedServicesView: React.FC<Props> = ({
     (filterStatus !== 'all' ? 1 : 0) +
     (filterProject !== 'all' ? 1 : 0) +
     (filterInvoice !== 'all' ? 1 : 0) +
+    (filterDateFrom || filterDateTo ? 1 : 0) +
     (sortColumn !== 'scheduledDate' || sortDirection !== 'desc' ? 1 : 0);
 
   const clearFilters = () => {
@@ -289,6 +294,9 @@ const ProvidedServicesView: React.FC<Props> = ({
     setFilterStatus('all');
     setFilterProject('all');
     setFilterInvoice('all');
+    setFilterDateFrom('');
+    setFilterDateTo('');
+    setFilterDateField('scheduledDate');
     setSortColumn('scheduledDate');
     setSortDirection('desc');
     if (onSortChange) {
@@ -362,18 +370,32 @@ const ProvidedServicesView: React.FC<Props> = ({
     setCompletionDate(item.completionDate ? item.completionDate.split('T')[0] : '');
     setNotes(item.notes || '');
 
-    const initialCustomData: Record<string, any> = item.customData ? JSON.parse(JSON.stringify(item.customData)) : {};
+    const rawCustomData: Record<string, any> = item.customData ? JSON.parse(JSON.stringify(item.customData)) : {};
     const serviceFields = getCustomModelForService(item.serviceId);
-    serviceFields.forEach((field) => {
-      if (initialCustomData[field.id] === undefined || initialCustomData[field.id] === null || initialCustomData[field.id] === '') {
-        for (const [k, v] of Object.entries(initialCustomData)) {
-          if (v !== undefined && v !== null && v !== '' && isKeyMatch(k, field)) {
-            initialCustomData[field.id] = v;
-            break;
+    const initialCustomData: Record<string, any> = {};
+
+    if (serviceFields.length > 0) {
+      serviceFields.forEach((field) => {
+        let val = rawCustomData[field.id];
+        if (val === undefined || val === null || val === '') {
+          for (const [k, v] of Object.entries(rawCustomData)) {
+            if (v !== undefined && v !== null && v !== '' && isKeyMatch(k, field)) {
+              val = v;
+              break;
+            }
           }
         }
+        if (val !== undefined && val !== null && val !== '') {
+          initialCustomData[field.id] = val;
+        }
+      });
+    } else {
+      for (const [k, v] of Object.entries(rawCustomData)) {
+        if (!k.startsWith('field_')) {
+          initialCustomData[k] = v;
+        }
       }
-    });
+    }
 
     setCustomData(initialCustomData);
     setIsOpen(true);
@@ -397,6 +419,25 @@ const ProvidedServicesView: React.FC<Props> = ({
       return;
     }
 
+    let cleanCustomData: Record<string, any> | null = null;
+    if (customData && Object.keys(customData).length > 0) {
+      const cleaned: Record<string, any> = {};
+      for (const [k, v] of Object.entries(customData)) {
+        if (v !== undefined && v !== null && v !== '') {
+          if (currentCustomFields.length > 0) {
+            if (currentCustomFields.some((f) => f.id === k)) {
+              cleaned[k] = v;
+            }
+          } else if (!k.startsWith('field_')) {
+            cleaned[k] = v;
+          }
+        }
+      }
+      if (Object.keys(cleaned).length > 0) {
+        cleanCustomData = cleaned;
+      }
+    }
+
     setIsSaving(true);
     try {
       const payload: Partial<ProvidedService> = {
@@ -410,7 +451,7 @@ const ProvidedServicesView: React.FC<Props> = ({
         scheduledDate: scheduledDate ? scheduledDate : null,
         completionDate: completionDate ? completionDate : null,
         notes: notes.trim() ? notes.trim() : null,
-        customData: Object.keys(customData).length > 0 ? customData : null,
+        customData: cleanCustomData,
       };
 
       const res = await onSaveProvidedService(payload);
@@ -464,6 +505,25 @@ const ProvidedServicesView: React.FC<Props> = ({
     if (filterStatus !== 'all' && item.status !== filterStatus) return false;
     if (filterProject !== 'all' && item.projectId !== filterProject) return false;
     if (filterInvoice !== 'all' && item.invoiceId !== filterInvoice) return false;
+
+    // Date range filter
+    if (filterDateFrom || filterDateTo) {
+      let rawDate: string | null | undefined = null;
+      if (filterDateField === 'completionDate') {
+        rawDate = item.completionDate;
+      } else if (filterDateField === 'createdAt') {
+        rawDate = item.createdAt;
+      } else {
+        rawDate = item.scheduledDate;
+      }
+      const dateVal = rawDate ? rawDate.slice(0, 10) : '';
+      if (dateVal) {
+        if (filterDateFrom && dateVal < filterDateFrom) return false;
+        if (filterDateTo && dateVal > filterDateTo) return false;
+      } else {
+        return false;
+      }
+    }
 
     return true;
   });
@@ -749,21 +809,9 @@ const ProvidedServicesView: React.FC<Props> = ({
               sx={{ mr: 0 }}
             />
 
-            <TextField
-              size="small"
-              placeholder={t('searchPlaceholder')}
+            <TableSearchInput
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon color="action" fontSize="small" />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-              sx={{ width: { xs: '100%', sm: 200 } }}
+              onChange={setSearchQuery}
             />
 
             <TableFilterSelector
@@ -794,6 +842,23 @@ const ProvidedServicesView: React.FC<Props> = ({
                     {sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />}
                   </IconButton>
                 </Box>
+              }
+              dateRangeContent={
+                <DateRangeFilter
+                  startDate={filterDateFrom}
+                  endDate={filterDateTo}
+                  onDateChange={({ startDate, endDate }) => {
+                    setFilterDateFrom(startDate);
+                    setFilterDateTo(endDate);
+                  }}
+                  dateField={filterDateField}
+                  dateFieldOptions={[
+                    { value: 'scheduledDate', label: t('colScheduledDate') },
+                    { value: 'completionDate', label: t('colCompletionDate') },
+                    { value: 'createdAt', label: t('lblCreatedDate') },
+                  ]}
+                  onDateFieldChange={setFilterDateField}
+                />
               }
               filteringContent={
                 <>
@@ -1027,31 +1092,63 @@ const ProvidedServicesView: React.FC<Props> = ({
                           {item.customData && Object.keys(item.customData).length > 0 ? (
                             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                               {(() => {
-                                const renderedFields = new Set<string>();
-                                return Object.entries(item.customData).map(([k, v]) => {
-                                  if (v === null || v === undefined || v === '') return null;
-                                  const fieldDef = itemFields.find((f) => f.id === k) || itemFields.find((f) => isKeyMatch(k, f));
-                                  const keyIdentifier = fieldDef ? fieldDef.id : k;
-                                  if (renderedFields.has(keyIdentifier)) return null;
-                                  renderedFields.add(keyIdentifier);
+                                const chips: React.ReactNode[] = [];
 
-                                  const label = fieldDef?.name || k;
-                                  const unitStr = fieldDef?.unit ? ` ${fieldDef.unit}` : '';
-                                  let displayVal = String(v);
-                                  if (fieldDef?.type === 'datetime' && typeof v === 'string' && v.includes('T')) {
-                                    displayVal = v.replace('T', ' ');
-                                  }
+                                if (itemFields.length > 0) {
+                                  itemFields.forEach((fieldDef) => {
+                                    let val = item.customData?.[fieldDef.id];
+                                    if (val === undefined || val === null || val === '') {
+                                      for (const [k, v] of Object.entries(item.customData || {})) {
+                                        if (v !== undefined && v !== null && v !== '' && isKeyMatch(k, fieldDef)) {
+                                          val = v;
+                                          break;
+                                        }
+                                      }
+                                    }
+                                    if (val !== undefined && val !== null && val !== '') {
+                                      const label = fieldDef.name;
+                                      const unitStr = fieldDef.unit ? ` ${fieldDef.unit}` : '';
+                                      let displayVal = String(val);
+                                      if (fieldDef.type === 'datetime' && typeof val === 'string' && val.includes('T')) {
+                                        displayVal = val.replace('T', ' ');
+                                      }
+                                      chips.push(
+                                        <Chip
+                                          key={fieldDef.id}
+                                          size="small"
+                                          label={`${label}: ${displayVal}${unitStr}`}
+                                          variant="outlined"
+                                          color="primary"
+                                          sx={{ fontSize: '0.75rem', height: 22 }}
+                                        />
+                                      );
+                                    }
+                                  });
+                                } else {
+                                  Object.entries(item.customData).forEach(([k, v]) => {
+                                    if (v === null || v === undefined || v === '') return;
+                                    if (k.startsWith('field_')) return;
+                                    chips.push(
+                                      <Chip
+                                        key={k}
+                                        size="small"
+                                        label={`${k}: ${String(v)}`}
+                                        variant="outlined"
+                                        color="primary"
+                                        sx={{ fontSize: '0.75rem', height: 22 }}
+                                      />
+                                    );
+                                  });
+                                }
+
+                                if (chips.length === 0) {
                                   return (
-                                    <Chip
-                                      key={k}
-                                      size="small"
-                                      label={`${label}: ${displayVal}${unitStr}`}
-                                      variant="outlined"
-                                      color="primary"
-                                      sx={{ fontSize: '0.75rem', height: 22 }}
-                                    />
+                                    <Typography variant="body2" color="text.secondary">
+                                      —
+                                    </Typography>
                                   );
-                                });
+                                }
+                                return chips;
                               })()}
                             </Box>
                           ) : (

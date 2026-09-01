@@ -12,6 +12,10 @@ interface AuthContextType {
   logout: () => void;
   setUsersList: (users: User[]) => void;
   role: UserRole;
+  actualRole: UserRole;
+  isRealAdmin: boolean;
+  roleView: UserRole;
+  setRoleView: (role: UserRole) => void;
   isAdmin: boolean;
   isManager: boolean;
   isUser: boolean;
@@ -39,6 +43,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.removeItem('auth_user');
         localStorage.removeItem('auth_token');
         localStorage.removeItem('auth_session_expires_at');
+        localStorage.removeItem('admin_role_view');
         return null;
       }
       const stored = localStorage.getItem('auth_user');
@@ -50,6 +55,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Error loading stored auth user:', e);
     }
     return null;
+  });
+
+  const [roleViewState, setRoleViewState] = useState<UserRole>(() => {
+    try {
+      const stored = localStorage.getItem('admin_role_view');
+      if (stored && ['Administrator', 'Manager', 'User', 'Accountant'].includes(stored)) {
+        return stored as UserRole;
+      }
+    } catch (e) {}
+    return 'Administrator';
   });
 
   const [workOnEntities, setWorkOnEntitiesState] = useState<boolean>(() => {
@@ -71,6 +86,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('auth_user');
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_session_expires_at');
+    localStorage.removeItem('admin_role_view');
+    setRoleViewState('Administrator');
     setCurrentUser(null);
   }, []);
 
@@ -255,34 +272,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [users]);
 
   const actualRole: UserRole = (currentUser?.role as UserRole) || 'User';
-  const isAccountant = actualRole === 'Accountant';
-  const canToggleEntityWorkMode = actualRole === 'Administrator' || actualRole === 'Manager';
+  const isRealAdmin = actualRole === 'Administrator';
 
-  const isAdmin = actualRole === 'Administrator' && (canToggleEntityWorkMode ? workOnEntities : true);
-  const isManager = actualRole === 'Manager' && (canToggleEntityWorkMode ? workOnEntities : true);
-  const isUser = canToggleEntityWorkMode ? !workOnEntities : actualRole === 'User';
+  const roleView: UserRole = isRealAdmin ? roleViewState : actualRole;
 
-  const canManageClients = canToggleEntityWorkMode && workOnEntities;
-  const canManageServices = canToggleEntityWorkMode && workOnEntities;
-  const canManageUsers = canToggleEntityWorkMode && workOnEntities;
-  const canManageInvoices = actualRole === 'Administrator' || actualRole === 'Manager' || actualRole === 'Accountant';
-  const canManageProvidedServices = actualRole === 'Administrator' || actualRole === 'Manager' || actualRole === 'Accountant';
+  const setRoleView = React.useCallback((newRole: UserRole) => {
+    setRoleViewState(newRole);
+    try {
+      localStorage.setItem('admin_role_view', newRole);
+    } catch (e) {}
+  }, []);
+
+  const effectiveRole: UserRole = isRealAdmin ? roleView : actualRole;
+  const canToggleEntityWorkMode = !isRealAdmin && actualRole === 'Manager';
+
+  const isAdmin = effectiveRole === 'Administrator';
+  const isManager = effectiveRole === 'Manager' && (canToggleEntityWorkMode ? workOnEntities : true);
+  const isAccountant = effectiveRole === 'Accountant';
+  const isUser = canToggleEntityWorkMode ? !workOnEntities : effectiveRole === 'User';
+
+  const canManageClients = effectiveRole === 'Administrator' || (effectiveRole === 'Manager' && (canToggleEntityWorkMode ? workOnEntities : true));
+  const canManageServices = effectiveRole === 'Administrator' || (effectiveRole === 'Manager' && (canToggleEntityWorkMode ? workOnEntities : true));
+  const canManageUsers = effectiveRole === 'Administrator' || (effectiveRole === 'Manager' && (canToggleEntityWorkMode ? workOnEntities : true));
+  const canManageInvoices = effectiveRole === 'Administrator' || effectiveRole === 'Manager' || effectiveRole === 'Accountant';
+  const canManageProvidedServices = effectiveRole === 'Administrator' || effectiveRole === 'Manager' || effectiveRole === 'Accountant';
 
   const canEditUser = React.useCallback(
     (targetUser: User): boolean => {
-      if (actualRole === 'Administrator') return true;
-      if (actualRole === 'Manager') {
+      if (effectiveRole === 'Administrator') return true;
+      if (effectiveRole === 'Manager') {
         return targetUser.role !== 'Administrator';
       }
       return false;
     },
-    [actualRole]
+    [effectiveRole]
   );
 
   const canEditProject = React.useCallback(
     (project: Project): boolean => {
       // Manager and Administrator can edit projects of other users even in User View mode
-      if (actualRole === 'Administrator' || actualRole === 'Manager') return true;
+      if (effectiveRole === 'Administrator' || effectiveRole === 'Manager') return true;
       if (!currentUser) return false;
 
       const respName = (project.responsible || '').trim().toLowerCase();
@@ -293,7 +322,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       return false;
     },
-    [actualRole, currentUser]
+    [effectiveRole, currentUser]
   );
 
   const value = React.useMemo(
@@ -306,7 +335,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       register,
       logout,
       setUsersList: setUsers,
-      role: actualRole,
+      role: effectiveRole,
+      actualRole,
+      isRealAdmin,
+      roleView,
+      setRoleView,
       isAdmin,
       isManager,
       isUser,
@@ -330,7 +363,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       login,
       register,
       logout,
+      effectiveRole,
       actualRole,
+      isRealAdmin,
+      roleView,
+      setRoleView,
       isAdmin,
       isManager,
       isUser,

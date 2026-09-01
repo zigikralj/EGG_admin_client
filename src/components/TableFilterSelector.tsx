@@ -6,17 +6,18 @@ import {
   Divider,
   Box,
   Badge,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 
-
-
 import { useLanguage } from '../context/LanguageContext';
-import { FilterListIcon, SortIcon, FilterListOffIcon } from './icons';
+import { FilterListIcon, FilterListOffIcon } from './icons';
 
 interface Props {
   activeCount: number;
   onClear: () => void;
   sortingContent?: React.ReactNode;
+  dateRangeContent?: React.ReactNode;
   filteringContent?: React.ReactNode;
   children?: React.ReactNode;
 }
@@ -25,6 +26,7 @@ export const TableFilterSelector: React.FC<Props> = ({
   activeCount,
   onClear,
   sortingContent,
+  dateRangeContent,
   filteringContent,
   children,
 }) => {
@@ -42,24 +44,36 @@ export const TableFilterSelector: React.FC<Props> = ({
   const open = Boolean(anchorEl);
   const id = open ? 'table-filter-popover' : undefined;
 
-  const hasSections = Boolean(sortingContent || filteringContent);
+  const hasSections = Boolean(sortingContent || dateRangeContent || filteringContent);
 
   return (
     <>
-      <Badge badgeContent={activeCount} color="primary" sx={{ '& .MuiBadge-badge': { top: 4, right: 4 } }}>
-        <Button
-          aria-describedby={id}
-          variant={activeCount > 0 ? 'contained' : 'outlined'}
-          size="small"
-          startIcon={<FilterListIcon />}
-          endIcon={<SortIcon />}
-          onClick={handleClick}
-          color={activeCount > 0 ? 'primary' : 'inherit'}
-          sx={{ borderRadius: 2 }}
+      <Tooltip title={t('btnFilters')}>
+        <Badge
+          badgeContent={activeCount}
+          color="primary"
+          sx={{ '& .MuiBadge-badge': { top: 4, right: 4 } }}
         >
-          {t('btnFilters')}
-        </Button>
-      </Badge>
+          <IconButton
+            aria-describedby={id}
+            size="small"
+            onClick={handleClick}
+            color={activeCount > 0 ? 'primary' : 'inherit'}
+            sx={{
+              border: 1,
+              borderColor: activeCount > 0 ? 'primary.main' : 'divider',
+              borderRadius: 2,
+              p: 0.7,
+              bgcolor: activeCount > 0 ? 'action.selected' : 'transparent',
+              '&:hover': {
+                borderColor: 'primary.main',
+              },
+            }}
+          >
+            <FilterListIcon fontSize="small" />
+          </IconButton>
+        </Badge>
+      </Tooltip>
       <Popover
         id={id}
         open={open}
@@ -76,7 +90,7 @@ export const TableFilterSelector: React.FC<Props> = ({
           horizontal: 'right',
         }}
         slotProps={{
-          paper: { sx: { width: 300, p: 2, overflow: 'visible' } },
+          paper: { sx: { width: { xs: 300, sm: 320 }, maxHeight: '85vh', overflowY: 'auto', p: 2 } },
         }}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -90,7 +104,16 @@ export const TableFilterSelector: React.FC<Props> = ({
                   {sortingContent}
                 </Box>
               )}
-              {sortingContent && filteringContent && <Divider sx={{ my: 0.5 }} />}
+              {sortingContent && (dateRangeContent || filteringContent) && <Divider sx={{ my: 0.5 }} />}
+              {dateRangeContent && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                  <Typography variant="overline" color="primary.main" sx={{ fontWeight: 700, letterSpacing: 0.5, lineHeight: 1 }}>
+                    {t('lblDateRange')}
+                  </Typography>
+                  {dateRangeContent}
+                </Box>
+              )}
+              {dateRangeContent && filteringContent && <Divider sx={{ my: 0.5 }} />}
               {filteringContent && (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: 24 }}>

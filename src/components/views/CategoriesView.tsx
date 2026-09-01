@@ -14,7 +14,6 @@ import {
   IconButton,
   Box,
   Typography,
-  InputAdornment,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -29,8 +28,9 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { TableOptionsSelector, type ColumnDef } from '../ColumnSelector';
 import { TableFilterSelector } from '../TableFilterSelector';
+import { TableSearchInput } from '../TableSearchInput';
 import { ErrorDialog } from '../ErrorDialog';
-import { SearchIcon, AddIcon, EditIcon, DeleteIcon, LockIcon, ArrowUpwardIcon, ArrowDownwardIcon, RefreshIcon } from '../icons';
+import { AddIcon, EditIcon, DeleteIcon, LockIcon, ArrowUpwardIcon, ArrowDownwardIcon, RefreshIcon } from '../icons';
 
 interface Props {
   categories: Category[];
@@ -358,21 +358,9 @@ const CategoriesView: React.FC<Props> = ({
           </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, width: { xs: '100%', sm: 'auto' } }}>
-            <TextField
-              size="small"
-              placeholder={t('searchPlaceholder')}
+            <TableSearchInput
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon color="action" fontSize="small" />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-              sx={{ width: { xs: '100%', sm: 200 } }}
+              onChange={setSearchQuery}
             />
 
             <TableFilterSelector
