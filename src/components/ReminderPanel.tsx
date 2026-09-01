@@ -1,9 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
-  Card,
-  CardContent,
   Typography,
-  TablePagination,
   IconButton,
   Tooltip,
   Dialog,
@@ -19,9 +16,6 @@ import {
   MenuItem,
   Box,
   Chip,
-  Paper,
-  FormControlLabel,
-  Checkbox,
   Autocomplete,
 } from '@mui/material';
 
@@ -37,10 +31,12 @@ import type { Project, Reminder, Client, User, SaveResult } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { TableFilterSelector } from './TableFilterSelector';
+import { TableOptionsSelector } from './ColumnSelector';
 import { DateRangeFilter } from './DateRangeFilter';
 import { TableSearchInput } from './TableSearchInput';
 import { ErrorDialog } from './ErrorDialog';
-import { VisibilityIcon, EditIcon, DeleteIcon, CheckIcon, CalendarTodayIcon, AddIcon, ArrowUpwardIcon, ArrowDownwardIcon } from './icons';
+import { NotificationsActiveIcon, EditIcon, DeleteIcon, CheckIcon, CalendarTodayIcon, AddIcon, ArrowUpwardIcon, ArrowDownwardIcon, VisibilityIcon } from './icons';
+import { DashboardPanelSkeleton } from './DashboardPanelSkeleton';
 
 interface Props {
   projects?: Project[];
@@ -53,8 +49,14 @@ interface Props {
   onStatusChangeReminder?: (id: string, status: string) => void;
   isFullHeight?: boolean;
   hideNotch?: boolean;
+  openNewReminderTrigger?: number;
+  onNewReminderTriggerHandled?: () => void;
   myRemindersOnly?: boolean;
   onMyRemindersOnlyChange?: (val: boolean) => void;
+  rowsPerPageOptions?: number[];
+  onRowsPerPageOptionsChange?: (options: number[]) => void;
+  rowsPerPage?: number;
+  onRowsPerPageChange?: (rowsPerPage: number) => void;
 }
 
 interface ReminderItem {
@@ -120,8 +122,14 @@ export const ReminderPanel: React.FC<Props> = ({
   onStatusChangeReminder,
   isFullHeight = false,
   hideNotch = false,
+  openNewReminderTrigger,
+  onNewReminderTriggerHandled,
   myRemindersOnly: myRemindersOnlyProp = false,
   onMyRemindersOnlyChange,
+  rowsPerPageOptions: rowsPerPageOptionsProp,
+  onRowsPerPageOptionsChange,
+  rowsPerPage: rowsPerPageProp,
+  onRowsPerPageChange,
 }) => {
   const { t } = useLanguage();
   const { currentUser, isAdmin, isManager } = useAuth();
@@ -149,7 +157,33 @@ export const ReminderPanel: React.FC<Props> = ({
 
   // Pagination state
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [localRowsPerPage, setLocalRowsPerPage] = useState(rowsPerPageProp ?? 10);
+  const [localRowsPerPageOptions, setLocalRowsPerPageOptions] = useState<number[]>(rowsPerPageOptionsProp ?? [10, 20, 50]);
+
+  useEffect(() => {
+    if (rowsPerPageProp !== undefined) {
+      setLocalRowsPerPage(rowsPerPageProp);
+    }
+  }, [rowsPerPageProp]);
+
+  useEffect(() => {
+    if (rowsPerPageOptionsProp !== undefined) {
+      setLocalRowsPerPageOptions(rowsPerPageOptionsProp);
+    }
+  }, [rowsPerPageOptionsProp]);
+
+  const activeRowsPerPage = onRowsPerPageChange && rowsPerPageProp !== undefined ? rowsPerPageProp : localRowsPerPage;
+  const activeRowsPerPageOptions = onRowsPerPageOptionsChange && rowsPerPageOptionsProp !== undefined ? rowsPerPageOptionsProp : localRowsPerPageOptions;
+
+  const setRowsPerPageValue = (rpp: number) => {
+    setLocalRowsPerPage(rpp);
+    if (onRowsPerPageChange) onRowsPerPageChange(rpp);
+  };
+
+  const setRowsPerPageOptionsValue = (opts: number[]) => {
+    setLocalRowsPerPageOptions(opts);
+    if (onRowsPerPageOptionsChange) onRowsPerPageOptionsChange(opts);
+  };
 
   // Modal / Dialog state
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -176,6 +210,13 @@ export const ReminderPanel: React.FC<Props> = ({
   useEffect(() => {
     setPage(0);
   }, [searchQuery, myRemindersOnly, filterStatus, filterClient, filterResponsible, filterDateFrom, filterDateTo, sortOption, sortDirection]);
+
+  useEffect(() => {
+    if (openNewReminderTrigger && openNewReminderTrigger > 0) {
+      handleOpenNew();
+      if (onNewReminderTriggerHandled) onNewReminderTriggerHandled();
+    }
+  }, [openNewReminderTrigger]);
 
   const handleToggleMyReminders = (val: boolean) => {
     setMyRemindersOnly(val);
@@ -295,9 +336,13 @@ export const ReminderPanel: React.FC<Props> = ({
   ], [t]);
 
   const statusOptions = useMemo(() => [
+    { value: 'all', label: t('filterAll') },
     { value: 'Pending', label: t('statusPending') },
-    { value: 'In Progress', label: t('statusInProgress') },
-    { value: 'Overdue', label: t('statusOverdue') },
+    { value: 'Completed', label: t('statusCompleted') },
+  ], [t]);
+
+  const quickFilterOptions = useMemo(() => [
+    { value: 'all', label: t('filterAll') },
   ], [t]);
 
   const filteredAndSortedItems = useMemo(() => {
@@ -549,7 +594,8 @@ export const ReminderPanel: React.FC<Props> = ({
   };
 
   const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
+    const val = parseInt(event.target.value, 10);
+    setRowsPerPageValue(val);
     setPage(0);
   };
 
@@ -578,52 +624,40 @@ export const ReminderPanel: React.FC<Props> = ({
     }
   };
 
-  const paginatedItems = filteredAndSortedItems.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  const paginatedItems = filteredAndSortedItems.slice(page * activeRowsPerPage, page * activeRowsPerPage + activeRowsPerPage);
 
   return (
     <>
-      <Card
-        variant="outlined"
-        sx={{
-          position: 'relative',
-          height: '100%',
-          width: '100%',
-          maxWidth: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'visible',
-          mt: hideNotch ? 0 : 1,
-          boxSizing: 'border-box',
+      <DashboardPanelSkeleton
+        title={t('remindersTitle')}
+        icon={<NotificationsActiveIcon fontSize="small" sx={{ mr: 0.5 }} />}
+        isFullHeight={isFullHeight}
+        hideNotch={hideNotch}
+        isEmpty={filteredAndSortedItems.length === 0}
+        emptyMessage={t('emptyReminders')}
+        paginationProps={{
+          count: filteredAndSortedItems.length,
+          page: page,
+          rowsPerPage: activeRowsPerPage,
+          rowsPerPageOptions: activeRowsPerPageOptions,
+          onPageChange: handleChangePage,
+          onRowsPerPageChange: handleChangeRowsPerPage,
         }}
-      >
-        {/* NOTCHED TITLE */}
-        {!hideNotch && (
-          <Typography
-            variant="caption"
-            sx={{
-              position: 'absolute',
-              top: -8,
-              left: 20,
-              bgcolor: 'background.paper',
-              border: 1,
-              borderColor: 'divider',
-              borderRadius: 1,
-              px: 0.75,
-              py: 0.1,
-              color: 'text.secondary',
-              fontWeight: 700,
-              fontSize: '0.8rem',
-              letterSpacing: '0.4px',
-              lineHeight: 1,
-              zIndex: 1,
-            }}
-          >
-            {t('remindersTitle')}
-          </Typography>
-        )}
-
-        <CardContent sx={{ p: 2, pt: hideNotch ? 2 : 2.25, pb: '4px !important', flex: 1, display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '100%', minWidth: 0, boxSizing: 'border-box' }}>
-          {/* TOOLBAR: SEARCH, MY REMINDERS & POPOVER FILTER & NEW BUTTON */}
+        actionButton={
+          onSaveReminder && (
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
+              onClick={handleOpenNew}
+              size="small"
+              sx={{ borderRadius: 1.5, textTransform: 'none', fontWeight: 600, py: 0.25 }}
+            >
+              {t('btnNewReminder')}
+            </Button>
+          )
+        }
+        toolbarContent={
           <Box
             sx={{
               display: 'flex',
@@ -642,28 +676,51 @@ export const ReminderPanel: React.FC<Props> = ({
               value={searchQuery}
               onChange={setSearchQuery}
             />
+            {/* QUICK STATUS CHIPS */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+              {quickFilterOptions.map((qf) => {
+                const isSelected = filterStatus === qf.value;
+                const chipColor = qf.value === 'all' ? 'primary' : 'warning';
+                return (
+                  <Chip
+                    key={qf.value}
+                    label={qf.label}
+                    size="small"
+                    clickable
+                    color={isSelected ? chipColor : 'default'}
+                    variant={isSelected ? 'filled' : 'outlined'}
+                    onClick={() => setFilterStatus(qf.value)}
+                    sx={{
+                      fontWeight: isSelected ? 700 : 500,
+                      fontSize: '0.75rem',
+                      height: 26,
+                      transition: 'all 0.15s ease',
+                    }}
+                  />
+                );
+              })}
 
-            {/* RIGHT CONTROLS: MY REMINDERS + FILTER POPOVER + CREATE BUTTON */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, justifyContent: { xs: 'space-between', sm: 'flex-end' }, flexWrap: 'wrap' }}>
-              {/* MY REMINDERS FILTER */}
+              {/* MY REMINDERS QUICK FILTER */}
               {currentUser && (
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      size="small"
-                      checked={myRemindersOnly}
-                      onChange={(e) => handleToggleMyReminders(e.target.checked)}
-                      color="primary"
-                    />
-                  }
-                  label={
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {t('quickFilterMyReminders')}
-                    </Typography>
-                  }
-                  sx={{ mr: 0 }}
+                <Chip
+                  label={t('quickFilterMyReminders')}
+                  size="small"
+                  clickable
+                  color={myRemindersOnly ? 'info' : 'default'}
+                  variant={myRemindersOnly ? 'filled' : 'outlined'}
+                  onClick={() => handleToggleMyReminders(!myRemindersOnly)}
+                  sx={{
+                    fontWeight: myRemindersOnly ? 700 : 500,
+                    fontSize: '0.75rem',
+                    height: 26,
+                    transition: 'all 0.15s ease',
+                  }}
                 />
               )}
+            </Box>
+
+            {/* RIGHT CONTROLS: FILTER POPOVER + CREATE BUTTON */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, justifyContent: { xs: 'space-between', sm: 'flex-end' }, flexWrap: 'wrap' }}>
               <TableFilterSelector
                 activeCount={activeFilterCount}
                 onClear={handleClearAllFilters}
@@ -756,188 +813,162 @@ export const ReminderPanel: React.FC<Props> = ({
                 }
               />
 
-              {onSaveReminder && (
-                <Button
-                  size="small"
-                  variant="contained"
-                  color="primary"
-                  startIcon={<AddIcon />}
-                  onClick={handleOpenNew}
-                  sx={{ borderRadius: 1.5, textTransform: 'none', fontWeight: 600 }}
-                >
-                  {t('btnNewReminder')}
-                </Button>
-              )}
+              {/* TABLE OPTIONS SELECTOR (paging only) */}
+              <TableOptionsSelector
+                rowsPerPageOptions={activeRowsPerPageOptions}
+                onRowsPerPageOptionsChange={setRowsPerPageOptionsValue}
+                rowsPerPage={activeRowsPerPage}
+                onRowsPerPageChange={setRowsPerPageValue}
+                defaultRowsPerPageOptions={[10, 20, 50]}
+              />
             </Box>
           </Box>
+        }
+        listContent={
+          paginatedItems.map((item) => {
+            const isCompleted = isCompletedStatus(item.status);
+            const isLate = isOverdueItem(item);
+            const isApproaching = isApproachingItem(item);
 
-          {/* LIST OF REMINDERS */}
-          <Box
-            sx={{
-              maxHeight: isFullHeight ? 'none' : 320,
-              overflowY: isFullHeight ? 'visible' : 'auto',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 1,
-              width: '100%',
-              flex: 1,
-              pb: 1,
-            }}
-          >
-            {filteredAndSortedItems.length === 0 ? (
-              <Paper variant="outlined" sx={{ p: 3, textAlign: 'center' }}>
-                <Typography variant="body2" color="text.secondary">
-                  {t('emptyReminders')}
-                </Typography>
-              </Paper>
-            ) : (
-              paginatedItems.map((item) => {
-                const isCompleted = isCompletedStatus(item.status);
-                const isLate = isOverdueItem(item);
-                const isApproaching = isApproachingItem(item);
+            const itemCanEdit =
+              isAdmin ||
+              isManager ||
+              (currentUser &&
+                item.responsible &&
+                item.responsible.trim().toLowerCase() === (currentUser.name || '').trim().toLowerCase());
 
-                const itemCanEdit =
-                  isAdmin ||
-                  isManager ||
-                  (currentUser &&
-                    item.responsible &&
-                    item.responsible.trim().toLowerCase() === (currentUser.name || '').trim().toLowerCase());
+            let cardBgColor = isLate ? 'error.lighter' : isApproaching ? 'warning.lighter' : 'background.paper';
+            let borderColor = isLate ? 'error.light' : isApproaching ? '#ff9800' : 'divider';
 
-                return (
-                  <Box
-                    key={item.id}
+            if (isCompleted) {
+              cardBgColor = 'action.hover';
+              borderColor = 'divider';
+            }
+
+            return (
+              <Box
+                key={item.id}
+                onClick={() => handleOpenDetails(item)}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  p: 1.25,
+                  px: 1.5,
+                  bgcolor: cardBgColor,
+                  borderRadius: 1.5,
+                  border: '1px solid',
+                  borderColor: borderColor,
+                  opacity: isCompleted ? 0.75 : 1,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    bgcolor: isLate && !isCompleted ? 'error.lighter' : isCompleted ? 'action.selected' : 'action.hover',
+                  },
+                }}
+              >
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  <Typography
+                    variant="body2"
                     sx={{
+                      fontWeight: 700,
+                      color: isCompleted ? 'text.secondary' : 'text.primary',
+                      textDecoration: isCompleted ? 'line-through' : 'none',
+                      mb: 0.5,
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'space-between',
-                      p: 1.25,
-                      px: 1.5,
-                      bgcolor: isLate ? 'error.lighter' : isApproaching ? 'warning.lighter' : 'background.paper',
-                      borderRadius: 1.5,
-                      border: '1px solid',
-                      borderColor: isLate ? 'error.light' : isApproaching ? '#ff9800' : 'divider',
-                      opacity: isCompleted ? 0.75 : 1,
-                      transition: 'all 0.2s ease',
-                      '&:hover': {
-                        bgcolor: isLate ? 'error.lighter' : isApproaching ? 'warning.lighter' : 'action.hover',
-                      },
+                      gap: 1,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
                     }}
                   >
-                    <Box sx={{ minWidth: 0, flex: 1 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25, flexWrap: 'wrap' }}>
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            fontWeight: 600,
-                            textDecoration: isCompleted ? 'line-through' : 'none',
-                            color: isCompleted ? 'text.secondary' : 'text.primary',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {item.title || item.projectName || '—'}
+                    <NotificationsActiveIcon sx={{ fontSize: 16, color: isLate && !isCompleted ? 'error.main' : 'primary.main' }} />
+                    {item.title}
+                  </Typography>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                        color: isLate && !isCompleted ? 'error.main' : 'text.secondary',
+                        fontWeight: isLate && !isCompleted ? 700 : 400,
+                      }}
+                    >
+                      <CalendarTodayIcon sx={{ fontSize: '0.8rem' }} />
+                      {fmtDate(item.dueDate)}
+                    </Typography>
+
+                    {(item.clientName || item.projectName) && (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Typography component="span" variant="caption" sx={{ fontWeight: 600 }}>
+                          {item.clientName || item.projectName}
                         </Typography>
-                        {item.clientName && (
-                          <Chip
-                            label={item.clientName}
-                            size="small"
-                            color="primary"
-                            variant="outlined"
-                            sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600 }}
-                          />
-                        )}
-                        {item.projectName && item.projectName !== item.title && (
-                          <Chip
-                            label={item.projectName}
-                            size="small"
-                            variant="outlined"
-                            sx={{ height: 18, fontSize: '0.65rem' }}
-                          />
-                        )}
-                      </Box>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', color: 'text.secondary', fontSize: '0.75rem' }}>
-                        {item.dueDate && (
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 0.5,
-                              color: isLate ? 'error.main' : isApproaching ? '#ed6c02' : 'text.secondary',
-                              fontWeight: isLate || isApproaching ? 700 : 400,
-                            }}
-                          >
-                            <CalendarTodayIcon sx={{ fontSize: '0.8rem' }} />
-                            {fmtDate(item.dueDate)}
-                          </Typography>
-                        )}
-                        {item.responsible && item.responsible !== '—' && (
-                          <Typography variant="caption" color="text.secondary">
-                            • {item.responsible}
-                          </Typography>
-                        )}
-                        {getStatusChip(isLate && !isCompleted ? 'Overdue' : item.status)}
-                      </Box>
-                    </Box>
+                        {item.clientName && item.projectName && ` • ${item.projectName}`}
+                      </Typography>
+                    )}
 
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 1, flexShrink: 0 }}>
-                      <Tooltip title={isCompleted ? t('statusPending') : t('statusCompleted')}>
-                        <IconButton
-                          size="small"
-                          color={isCompleted ? 'default' : 'success'}
-                          onClick={() => {
-                            if (onStatusChangeReminder) {
-                              onStatusChangeReminder(item.id, isCompleted ? 'Pending' : 'Completed');
-                            } else if (onSaveReminder) {
-                              onSaveReminder({ id: item.id, status: isCompleted ? 'Pending' : 'Completed' });
-                            }
-                          }}
-                        >
-                          <CheckIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title={itemCanEdit ? t('btnEdit') : t('btnDetails')}>
-                        <IconButton
-                          size="small"
-                          color="primary"
-                          onClick={() => handleOpenDetails(item)}
-                        >
-                          {itemCanEdit ? <EditIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
-                        </IconButton>
-                      </Tooltip>
-                      {onDeleteReminder && itemCanEdit && (
-                        <Tooltip title={t('btnDelete')}>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => onDeleteReminder(item.id)}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                    </Box>
+                    {item.responsible && item.responsible !== '—' && (
+                      <Typography variant="caption" color="text.secondary">
+                        • {item.responsible}
+                      </Typography>
+                    )}
+                    {getStatusChip(isLate && !isCompleted ? 'Overdue' : item.status)}
                   </Box>
-                );
-              })
-            )}
-          </Box>
+                </Box>
 
-          {filteredAndSortedItems.length > 0 && (
-            <TablePagination
-              rowsPerPageOptions={[10, 20, 50]}
-              component="div"
-              count={filteredAndSortedItems.length}
-              rowsPerPage={rowsPerPage}
-              page={page}
-              onPageChange={handleChangePage}
-              onRowsPerPageChange={handleChangeRowsPerPage}
-              sx={{ borderTop: 1, borderColor: 'divider', mt: 0.5, flexShrink: 0 }}
-            />
-          )}
-        </CardContent>
-      </Card>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 1, flexShrink: 0 }}>
+                  <Tooltip title={isCompleted ? t('statusPending') : t('statusCompleted')}>
+                    <IconButton
+                      size="small"
+                      color={isCompleted ? 'default' : 'success'}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onStatusChangeReminder) {
+                          onStatusChangeReminder(item.id, isCompleted ? 'Pending' : 'Completed');
+                        } else if (onSaveReminder) {
+                          onSaveReminder({ id: item.id, status: isCompleted ? 'Pending' : 'Completed' });
+                        }
+                      }}
+                    >
+                      <CheckIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title={itemCanEdit ? t('btnEdit') : t('btnDetails')}>
+                    <IconButton
+                      size="small"
+                      color="primary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenDetails(item);
+                      }}
+                    >
+                      {itemCanEdit ? <EditIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+                    </IconButton>
+                  </Tooltip>
+                  {onDeleteReminder && itemCanEdit && (
+                    <Tooltip title={t('btnDelete')}>
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteReminder(item.id);
+                        }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                </Box>
+              </Box>
+            );
+          })
+        }
+      />
 
       {/* REMINDER DETAILS / EDIT / CREATE DIALOG */}
       <Dialog open={isDialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>

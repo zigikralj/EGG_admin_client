@@ -31,7 +31,7 @@ import {
   Collapse,
 } from '@mui/material';
 
-import type { Invoice, Client, Project, SaveResult, InvoiceStatus, InvoiceCurrency, InvoiceType } from '../../types';
+import type { Invoice, Client, Project, ProvidedService, SaveResult, InvoiceStatus, InvoiceCurrency, InvoiceType } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { TableOptionsSelector, type ColumnDef } from '../ColumnSelector';
@@ -58,6 +58,8 @@ interface Props {
   invoices: Invoice[];
   clients: Client[];
   projects: Project[];
+  providedServices?: ProvidedService[];
+  onSaveProvidedService?: (ps: Partial<ProvidedService>) => Promise<SaveResult | void> | void;
   onSaveInvoice: (invoice: Partial<Invoice>) => Promise<SaveResult | void> | void;
   onDeleteInvoice: (id: string) => void;
   onUpdateStatus?: (id: string, status: string, paymentDate?: string) => Promise<void> | void;
@@ -78,6 +80,8 @@ const InvoicesView: React.FC<Props> = ({
   invoices,
   clients,
   projects,
+  providedServices,
+  onSaveProvidedService,
   onSaveInvoice,
   onDeleteInvoice,
   onUpdateStatus,
@@ -154,6 +158,7 @@ const InvoicesView: React.FC<Props> = ({
     clientName: string;
     projectId: string;
     projectName: string;
+    providedServiceId: string;
     status: InvoiceStatus;
     currency: InvoiceCurrency;
     notes: string;
@@ -169,6 +174,7 @@ const InvoicesView: React.FC<Props> = ({
     clientName: '',
     projectId: '',
     projectName: '',
+    providedServiceId: '',
     status: 'Draft',
     currency: 'RSD',
     notes: '',
@@ -414,6 +420,7 @@ const InvoicesView: React.FC<Props> = ({
       clientName: '',
       projectId: '',
       projectName: '',
+      providedServiceId: '',
       status: 'Draft',
       currency: 'RSD',
       notes: '',
@@ -425,6 +432,7 @@ const InvoicesView: React.FC<Props> = ({
   // Open modal for editing invoice
   const handleOpenEdit = (inv: Invoice) => {
     const { cleanNotes, invoiceType: pType, parentInvoiceId: pParentId } = parseInvoiceNotes(inv.notes);
+    const linkedPs = providedServices?.find(ps => ps.invoiceId === inv.id);
     setEditingInvoice(inv);
     setFormData({
       invoiceNumber: inv.invoiceNumber || '',
@@ -437,6 +445,7 @@ const InvoicesView: React.FC<Props> = ({
       clientName: inv.clientName || (inv.client?.name || ''),
       projectId: inv.projectId || (inv.project?.id || ''),
       projectName: inv.projectName || (inv.project?.name || ''),
+      providedServiceId: linkedPs ? linkedPs.id : '',
       status: (inv.status as InvoiceStatus) || 'Draft',
       currency: (inv.currency as InvoiceCurrency) || 'RSD',
       notes: cleanNotes || '',
@@ -530,6 +539,19 @@ const InvoicesView: React.FC<Props> = ({
       if (res && res.error) {
         setErrorDialogState({ open: true, message: res.error });
       } else {
+        const savedInvoiceId = res?.id || editingInvoice?.id;
+        if (savedInvoiceId && onSaveProvidedService) {
+           const initialPs = editingInvoice ? providedServices?.find(ps => ps.invoiceId === editingInvoice.id) : undefined;
+           
+           if (formData.providedServiceId !== (initialPs?.id || '')) {
+             if (formData.providedServiceId) {
+               await onSaveProvidedService({ id: formData.providedServiceId, invoiceId: savedInvoiceId }).catch(() => {});
+             }
+             if (initialPs) {
+               await onSaveProvidedService({ id: initialPs.id, invoiceId: null }).catch(() => {});
+             }
+           }
+        }
         setIsOpen(false);
       }
     } catch (err: any) {
@@ -680,6 +702,13 @@ const InvoicesView: React.FC<Props> = ({
     if (!formData.clientId) return projects;
     return projects.filter((p) => p.clientId === formData.clientId);
   }, [projects, formData.clientId]);
+
+  // Filtered provided services based on selected client
+  const modalProvidedServices = useMemo(() => {
+    if (!providedServices) return [];
+    if (!formData.clientId) return providedServices;
+    return providedServices.filter((ps) => ps.clientId === formData.clientId);
+  }, [providedServices, formData.clientId]);
 
   // Available parent invoices for linking in modal
   const availableParentInvoices = useMemo(() => {
@@ -1587,6 +1616,31 @@ const InvoicesView: React.FC<Props> = ({
                   )}
                 />
               </Grid>
+
+              {/* Provided Service Selection */}
+              {providedServices && (
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Autocomplete
+                    options={modalProvidedServices}
+                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                    getOptionLabel={(option) => {
+                      const serviceName = option.service?.name || option.serviceId || 'Unknown Service';
+                      return `${serviceName}${option.location ? ` - ${option.location}` : ''}`;
+                    }}
+                    value={providedServices.find((ps) => ps.id === formData.providedServiceId) || null}
+                    onChange={(_, val) => {
+                      setFormData({
+                        ...formData,
+                        providedServiceId: val ? val.id : '',
+                        clientId: val && val.clientId ? val.clientId : formData.clientId,
+                      });
+                    }}
+                    renderInput={(params) => (
+                      <TextField {...params} size="small" label={t('tabProvidedServices')} placeholder={t('tabProvidedServices')} />
+                    )}
+                  />
+                </Grid>
+              )}
 
               {/* Date Created */}
               <Grid size={{ xs: 12, sm: 4 }}>

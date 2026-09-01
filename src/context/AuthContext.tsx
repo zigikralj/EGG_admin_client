@@ -295,7 +295,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const canManageServices = effectiveRole === 'Administrator' || (effectiveRole === 'Manager' && (canToggleEntityWorkMode ? workOnEntities : true));
   const canManageUsers = effectiveRole === 'Administrator' || (effectiveRole === 'Manager' && (canToggleEntityWorkMode ? workOnEntities : true));
   const canManageInvoices = effectiveRole === 'Administrator' || effectiveRole === 'Manager' || effectiveRole === 'Accountant';
-  const canManageProvidedServices = effectiveRole === 'Administrator' || effectiveRole === 'Manager' || effectiveRole === 'Accountant';
+  const canManageProvidedServices = effectiveRole === 'Administrator' || effectiveRole === 'Manager';
 
   const canEditUser = React.useCallback(
     (targetUser: User): boolean => {

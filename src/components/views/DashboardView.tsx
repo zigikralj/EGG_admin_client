@@ -23,7 +23,7 @@ import {
 
 
 
-import type { Project, ProjectStats, Reminder, Invoice, DashboardSubTab, User, Category, Service, Client } from '../../types';
+import type { Project, ProjectStats, Reminder, Invoice, DashboardSubTab, User, Category, Service, Client, ProvidedService, SaveResult } from '../../types';
 import { ReminderPanel } from '../ReminderPanel';
 import { ApproachingInvoicesPanel } from '../ApproachingInvoicesPanel';
 import { ProjectCard } from '../ProjectCard';
@@ -46,6 +46,7 @@ interface Props {
   users?: User[];
   categories?: Category[];
   services?: Service[];
+  providedServices?: ProvidedService[];
   reminders?: Reminder[];
   invoices?: Invoice[];
   onMarkSampled: (id: string) => void;
@@ -53,6 +54,7 @@ interface Props {
   onSaveReminder?: (reminder: Partial<Reminder>) => void;
   onDeleteReminder?: (id: string) => void;
   onStatusChangeReminder?: (id: string, status: string) => void;
+  onSaveProvidedService?: (ps: Partial<ProvidedService>) => Promise<SaveResult | void> | void;
   onViewProject?: (project: Project) => void;
   onEditProject: (project: Project) => void;
   onDeleteProject: (id: string) => void;
@@ -66,23 +68,33 @@ interface Props {
   onQuickFiltersChange?: (filters: string[]) => void;
   quickFilterDashboardReminders?: boolean;
   onQuickFilterDashboardRemindersChange?: (val: boolean) => void;
+  remindersRowsPerPageOptions?: number[];
+  onRemindersRowsPerPageOptionsChange?: (options: number[]) => void;
+  remindersRowsPerPage?: number;
+  onRemindersRowsPerPageChange?: (rowsPerPage: number) => void;
+  invoicesRowsPerPageOptions?: number[];
+  onInvoicesRowsPerPageOptionsChange?: (options: number[]) => void;
+  invoicesRowsPerPage?: number;
+  onInvoicesRowsPerPageChange?: (rowsPerPage: number) => void;
 }
 
 const DashboardView: React.FC<Props> = ({
-  dashboardSubTab = 'default',
+  dashboardSubTab = 'projects',
   stats,
   projects,
   clients = [],
   users = [],
   categories = [],
   services = [],
-  reminders,
+  providedServices = [],
+  reminders = [],
   invoices = [],
   onMarkSampled,
   onToggleDone,
   onSaveReminder,
   onDeleteReminder,
   onStatusChangeReminder,
+  onSaveProvidedService,
   onViewProject,
   onEditProject,
   onDeleteProject,
@@ -96,6 +108,14 @@ const DashboardView: React.FC<Props> = ({
   onQuickFiltersChange,
   quickFilterDashboardReminders,
   onQuickFilterDashboardRemindersChange,
+  remindersRowsPerPageOptions,
+  onRemindersRowsPerPageOptionsChange,
+  remindersRowsPerPage,
+  onRemindersRowsPerPageChange,
+  invoicesRowsPerPageOptions,
+  onInvoicesRowsPerPageOptionsChange,
+  invoicesRowsPerPage,
+  onInvoicesRowsPerPageChange,
 }) => {
   const { t, getServiceLabel } = useLanguage();
   const { currentUser, isAdmin, isManager, isAccountant } = useAuth();
@@ -134,6 +154,7 @@ const DashboardView: React.FC<Props> = ({
   const [sortOption, setSortOption] = useState<'deadline' | 'name' | 'start' | 'progress' | 'createdAt'>('deadline');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [newInvoiceTrigger, setNewInvoiceTrigger] = useState(0);
+  const [newReminderTrigger, setNewReminderTrigger] = useState(0);
 
   const handleToggleFilter = (filterKey: string, checked: boolean) => {
     const updated = checked
@@ -609,24 +630,37 @@ const DashboardView: React.FC<Props> = ({
       onStatusChangeReminder={onStatusChangeReminder}
       isFullHeight={isFullHeight}
       hideNotch={hideNotch}
+      openNewReminderTrigger={newReminderTrigger}
+      onNewReminderTriggerHandled={() => setNewReminderTrigger(0)}
       myRemindersOnly={quickFilterDashboardReminders}
       onMyRemindersOnlyChange={onQuickFilterDashboardRemindersChange}
+      rowsPerPageOptions={remindersRowsPerPageOptions}
+      onRowsPerPageOptionsChange={onRemindersRowsPerPageOptionsChange}
+      rowsPerPage={remindersRowsPerPage}
+      onRowsPerPageChange={onRemindersRowsPerPageChange}
     />
   );
 
   const renderApproachingInvoicesPanel = (isFullHeight = false, hideNotch = false) => (
     <ApproachingInvoicesPanel
       invoices={invoices}
+      providedServices={providedServices}
       clients={clients}
       projects={projects}
       isFullHeight={isFullHeight}
       hideNotch={hideNotch}
       openNewInvoiceTrigger={newInvoiceTrigger}
+      onNewInvoiceTriggerHandled={() => setNewInvoiceTrigger(0)}
       onSaveInvoice={onSaveInvoice}
+      onSaveProvidedService={onSaveProvidedService}
       onDeleteInvoice={onDeleteInvoice}
       onStatusChangeInvoice={onStatusChangeInvoice}
       onViewProject={onViewProject || onEditProject}
       onNavigateToInvoices={onNavigateToInvoices}
+      rowsPerPageOptions={invoicesRowsPerPageOptions}
+      onRowsPerPageOptionsChange={onInvoicesRowsPerPageOptionsChange}
+      rowsPerPage={invoicesRowsPerPage}
+      onRowsPerPageChange={onInvoicesRowsPerPageChange}
     />
   );
 
@@ -787,10 +821,25 @@ const DashboardView: React.FC<Props> = ({
       {/* REMINDERS ONLY VIEW */}
       {dashboardSubTab === 'reminders' && (
         <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              {t('remindersTitle')}
-            </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5, mb: 0.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                {t('remindersTitle')}
+              </Typography>
+              <Chip label={(reminders || []).length} size="small" color="primary" sx={{ fontWeight: 700 }} />
+            </Box>
+            {onSaveReminder && (
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<AddIcon />}
+                onClick={() => setNewReminderTrigger((prev) => prev + 1)}
+                size="small"
+                sx={{ borderRadius: 1.5, textTransform: 'none', fontWeight: 600 }}
+              >
+                {t('btnNewReminder')}
+              </Button>
+            )}
           </Box>
           {renderRemindersPanel(true, true)}
         </Box>
@@ -1073,28 +1122,7 @@ const DashboardView: React.FC<Props> = ({
         </Box>
       )}
 
-      {/* DEFAULT COMBINED VIEW */}
-      {dashboardSubTab === 'default' && (
-        <>
-          <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', md: 'row' }, alignItems: 'flex-start', width: '100%', maxWidth: '100%', minWidth: 0 }}>
-            <Box sx={{ width: { xs: '100%', md: 'fit-content' }, maxWidth: '100%', minWidth: 0 }}>
-              {renderStatisticsCard(false)}
-            </Box>
-            <Box sx={{ flex: 1, minWidth: 0, width: '100%', maxWidth: '100%' }}>
-              {isAccountant ? renderApproachingInvoicesPanel() : renderRemindersPanel()}
-            </Box>
-          </Box>
 
-          {isAccountant ? (
-            renderLatestProjectsSection()
-          ) : (
-            <>
-              {renderApproachingDeadlinesSection()}
-              {renderStaleProjectsSection()}
-            </>
-          )}
-        </>
-      )}
     </Stack>
   );
 };

@@ -1,9 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
-  Card,
-  CardContent,
   Typography,
-  TablePagination,
   IconButton,
   Tooltip,
   TextField,
@@ -24,11 +21,12 @@ import {
   Divider,
 } from '@mui/material';
 
-import type { Invoice, Client, Project, SaveResult, InvoiceStatus, InvoiceCurrency, InvoiceType } from '../types';
+import type { Invoice, Client, Project, ProvidedService, SaveResult, InvoiceStatus, InvoiceCurrency, InvoiceType } from '../types';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { enhanceInvoicesWithLinks, parseInvoiceNotes, serializeInvoiceNotes } from '../utils/invoiceUtils';
 import { TableFilterSelector } from './TableFilterSelector';
+import { TableOptionsSelector } from './ColumnSelector';
 import { DateRangeFilter } from './DateRangeFilter';
 import { TableSearchInput } from './TableSearchInput';
 import { ErrorDialog } from './ErrorDialog';
@@ -44,19 +42,27 @@ import {
   DeleteIcon,
   AddIcon,
 } from './icons';
+import { DashboardPanelSkeleton } from './DashboardPanelSkeleton';
 
 interface Props {
   invoices?: Invoice[];
   clients?: Client[];
   projects?: Project[];
+  providedServices?: ProvidedService[];
   isFullHeight?: boolean;
   hideNotch?: boolean;
   openNewInvoiceTrigger?: number;
+  onNewInvoiceTriggerHandled?: () => void;
+  onSaveProvidedService?: (ps: Partial<ProvidedService>) => Promise<SaveResult | void> | void;
   onSaveInvoice?: (invoice: Partial<Invoice>) => Promise<SaveResult | void> | void;
   onDeleteInvoice?: (id: string) => void;
   onStatusChangeInvoice?: (id: string, status: string, paymentDate?: string) => Promise<void> | void;
   onViewProject?: (project: Project) => void;
   onNavigateToInvoices?: () => void;
+  rowsPerPageOptions?: number[];
+  onRowsPerPageOptionsChange?: (options: number[]) => void;
+  rowsPerPage?: number;
+  onRowsPerPageChange?: (rowsPerPage: number) => void;
 }
 
 function fmtDate(d: string | null): string {
@@ -80,14 +86,21 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
   invoices = [],
   clients = [],
   projects = [],
+  providedServices = [],
   isFullHeight = false,
   hideNotch = false,
   openNewInvoiceTrigger,
+  onNewInvoiceTriggerHandled,
+  onSaveProvidedService,
   onSaveInvoice,
   onDeleteInvoice,
   onStatusChangeInvoice,
-  onViewProject,
-  onNavigateToInvoices,
+  onViewProject: _onViewProject,
+  onNavigateToInvoices: _onNavigateToInvoices,
+  rowsPerPageOptions: rowsPerPageOptionsProp,
+  onRowsPerPageOptionsChange,
+  rowsPerPage: rowsPerPageProp,
+  onRowsPerPageChange,
 }) => {
   const { t } = useLanguage();
   const { isUser, canManageInvoices } = useAuth();
@@ -106,7 +119,39 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
 
   // Pagination
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [localRowsPerPage, setLocalRowsPerPage] = useState(rowsPerPageProp ?? 10);
+  const [localRowsPerPageOptions, setLocalRowsPerPageOptions] = useState<number[]>(rowsPerPageOptionsProp ?? [5, 10, 25]);
+
+  useEffect(() => {
+    if (rowsPerPageProp !== undefined) {
+      setLocalRowsPerPage(rowsPerPageProp);
+    }
+  }, [rowsPerPageProp]);
+
+  useEffect(() => {
+    if (rowsPerPageOptionsProp !== undefined) {
+      setLocalRowsPerPageOptions(rowsPerPageOptionsProp);
+    }
+  }, [rowsPerPageOptionsProp]);
+
+  const activeRowsPerPage = onRowsPerPageChange && rowsPerPageProp !== undefined ? rowsPerPageProp : localRowsPerPage;
+  const activeRowsPerPageOptions = onRowsPerPageOptionsChange && rowsPerPageOptionsProp !== undefined ? rowsPerPageOptionsProp : localRowsPerPageOptions;
+
+  const setRowsPerPageValue = (rpp: number) => {
+    setLocalRowsPerPage(rpp);
+    if (onRowsPerPageChange) onRowsPerPageChange(rpp);
+  };
+
+  const setRowsPerPageOptionsValue = (opts: number[]) => {
+    setLocalRowsPerPageOptions(opts);
+    if (onRowsPerPageOptionsChange) onRowsPerPageOptionsChange(opts);
+  };
+
+  const handleChangeRowsPerPage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseInt(e.target.value, 10);
+    setRowsPerPageValue(val);
+    setPage(0);
+  };
 
   // Modal / Dialog state
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -130,6 +175,7 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
     clientName: '',
     projectId: '',
     projectName: '',
+    providedServiceId: '',
     status: 'Draft' as InvoiceStatus,
     currency: 'RSD' as InvoiceCurrency,
     notes: '',
@@ -143,6 +189,7 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
   useEffect(() => {
     if (openNewInvoiceTrigger && openNewInvoiceTrigger > 0) {
       handleOpenNew();
+      if (onNewInvoiceTriggerHandled) onNewInvoiceTriggerHandled();
     }
   }, [openNewInvoiceTrigger]);
 
@@ -306,6 +353,12 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
     return projects.filter((p) => p.clientId === formData.clientId);
   }, [projects, formData.clientId]);
 
+  const modalProvidedServices = useMemo(() => {
+    if (!providedServices) return [];
+    if (!formData.clientId) return providedServices;
+    return providedServices.filter((ps) => ps.clientId === formData.clientId);
+  }, [providedServices, formData.clientId]);
+
   const sortOptions = useMemo(() => [
     { value: 'dueDate', label: t('colDueDate') },
     { value: 'dateCreated', label: t('colDateCreated') },
@@ -422,8 +475,8 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
   }, [enhancedInvoices, searchQuery, filterStatus, filterClient, filterProject, filterDateFrom, filterDateTo, filterDateField, sortOption, sortDirection, t]);
 
   const paginatedItems = useMemo(() => {
-    return filteredAndSortedItems.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-  }, [filteredAndSortedItems, page, rowsPerPage]);
+    return filteredAndSortedItems.slice(page * activeRowsPerPage, page * activeRowsPerPage + activeRowsPerPage);
+  }, [filteredAndSortedItems, page, activeRowsPerPage]);
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
@@ -455,6 +508,7 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
       clientName: '',
       projectId: '',
       projectName: '',
+      providedServiceId: '',
       status: 'Draft' as InvoiceStatus,
       currency: 'RSD' as InvoiceCurrency,
       notes: '',
@@ -478,6 +532,7 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
       clientName: inv.clientName || '',
       projectId: inv.projectId || '',
       projectName: inv.projectName || '',
+      providedServiceId: providedServices?.find(ps => ps.invoiceId === inv.id)?.id || '',
       status: (inv.status as InvoiceStatus) || 'Draft',
       currency: (inv.currency as InvoiceCurrency) || 'RSD',
       notes: cleanNotes || '',
@@ -508,6 +563,7 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
       clientName: inv.clientName || '',
       projectId: inv.projectId || '',
       projectName: inv.projectName || '',
+      providedServiceId: providedServices?.find(ps => ps.invoiceId === inv.id)?.id || '',
       status: (inv.status as InvoiceStatus) || 'Draft',
       currency: (inv.currency as InvoiceCurrency) || 'RSD',
       notes: cleanNotes || '',
@@ -601,9 +657,22 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
       if (res && typeof res === 'object' && 'success' in res && !res.success) {
         setErrorDialogState({ open: true, message: res.error || t('errorSavingProject') });
       } else {
+        const savedInvoiceId = (res && typeof res === 'object' && 'id' in res) ? res.id : editingInvoice?.id;
+        if (savedInvoiceId && onSaveProvidedService) {
+           const initialPs = editingInvoice ? providedServices?.find(ps => ps.invoiceId === editingInvoice.id) : undefined;
+           
+           if (formData.providedServiceId !== (initialPs?.id || '')) {
+             if (formData.providedServiceId) {
+               await onSaveProvidedService({ id: formData.providedServiceId, invoiceId: savedInvoiceId }).catch(() => {});
+             }
+             if (initialPs) {
+               await onSaveProvidedService({ id: initialPs.id, invoiceId: null }).catch(() => {});
+             }
+           }
+        }
         setIsDialogOpen(false);
       }
-    } catch (err: any) {
+  } catch (err: any) {
       setErrorDialogState({ open: true, message: err?.message || t('errorSavingProject') });
     } finally {
       setIsSaving(false);
@@ -612,503 +681,413 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
 
   return (
     <>
-      <Card
-        variant="outlined"
-        sx={{
-          position: 'relative',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'visible',
-          height: isFullHeight ? '100%' : 'auto',
-          minHeight: isFullHeight ? 400 : 380,
-          mt: hideNotch ? 0 : 1,
-          width: '100%',
-          boxSizing: 'border-box',
+      <DashboardPanelSkeleton
+        title={t('approachingInvoicesTitle')}
+        icon={<CalendarTodayIcon fontSize="small" sx={{ mr: 0.5 }} />}
+        isFullHeight={isFullHeight}
+        hideNotch={hideNotch}
+        isEmpty={filteredAndSortedItems.length === 0}
+        emptyMessage={t('emptyInvoices')}
+        paginationProps={{
+          count: filteredAndSortedItems.length,
+          page: page,
+          rowsPerPage: activeRowsPerPage,
+          rowsPerPageOptions: activeRowsPerPageOptions,
+          onPageChange: (_, newPage) => setPage(newPage),
+          onRowsPerPageChange: handleChangeRowsPerPage,
         }}
-      >
-        {/* NOTCH TITLE & OPPOSITE BUTTON */}
-        {!hideNotch && (
-          <Box
-            sx={{
-              position: 'absolute',
-              top: -12,
-              left: 0,
-              right: 0,
-              px: 2,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              pointerEvents: 'none',
-              zIndex: 2,
-            }}
-          >
-            <Typography
-              variant="caption"
-              sx={{
-                pointerEvents: 'auto',
-                bgcolor: 'background.paper',
-                border: 1,
-                borderColor: 'divider',
-                borderRadius: 1,
-                px: 0.75,
-                py: 0.1,
-                color: 'text.secondary',
-                fontWeight: 700,
-                fontSize: '0.8rem',
-                letterSpacing: '0.4px',
-                lineHeight: 1,
-              }}
+        actionButton={
+          canManage && onSaveInvoice && (
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
+              onClick={handleOpenNew}
+              size="small"
+              sx={{ borderRadius: 1.5, textTransform: 'none', fontWeight: 600, py: 0.25 }}
             >
-              {t('approachingInvoicesTitle')}
-            </Typography>
-
-            {canManage && onSaveInvoice && (
-              <Button
-                size="small"
-                variant="contained"
-                color="primary"
-                startIcon={<AddIcon sx={{ fontSize: '15px !important' }} />}
-                onClick={handleOpenNew}
-                sx={{
-                  pointerEvents: 'auto',
-                  borderRadius: 1.5,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  fontSize: '0.75rem',
-                  py: 0.2,
-                  px: 1.25,
-                  height: 24,
-                  boxShadow: 1,
-                }}
-              >
-                {t('modalNewInvoice')}
-              </Button>
-            )}
-          </Box>
-        )}
-
-        <CardContent
+              {t('btnNewInvoice')}
+            </Button>
+          )
+        }
+        toolbarContent={
+          <Box
           sx={{
-            p: 2,
-            pt: hideNotch ? 2 : 2.25,
-            pb: '4px !important',
-            flex: 1,
             display: 'flex',
-            flexDirection: 'column',
-            width: '100%',
-            maxWidth: '100%',
-            minWidth: 0,
-            boxSizing: 'border-box',
+            flexDirection: { xs: 'column', lg: 'row' },
+            alignItems: { xs: 'stretch', lg: 'center' },
+            justifyContent: 'space-between',
+            gap: 1.5,
+            mb: 1.5,
+            pb: 1.5,
+            borderBottom: '1px solid',
+            borderColor: 'divider',
           }}
         >
-          {/* TOOLBAR */}
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: { xs: 'column', lg: 'row' },
-              alignItems: { xs: 'stretch', lg: 'center' },
-              justifyContent: 'space-between',
-              gap: 1.5,
-              mb: 1.5,
-              pb: 1.5,
-              borderBottom: '1px solid',
-              borderColor: 'divider',
-            }}
-          >
-            {/* SEARCH FIELD */}
-            <TableSearchInput
-              value={searchQuery}
-              onChange={setSearchQuery}
-            />
+          {/* SEARCH FIELD */}
+          <TableSearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+          />
 
-            {/* QUICK STATUS CHIPS */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-              {quickFilterOptions.map((qf) => {
-                const isSelected = filterStatus === qf.value;
-                const chipColor = qf.value === 'all' ? 'primary' : 'warning';
-                return (
-                  <Chip
-                    key={qf.value}
-                    label={qf.label}
+          {/* QUICK STATUS CHIPS */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+            {quickFilterOptions.map((qf) => {
+              const isSelected = filterStatus === qf.value;
+              const chipColor = qf.value === 'all' ? 'primary' : 'warning';
+              return (
+                <Chip
+                  key={qf.value}
+                  label={qf.label}
+                  size="small"
+                  clickable
+                  color={isSelected ? chipColor : 'default'}
+                  variant={isSelected ? 'filled' : 'outlined'}
+                  onClick={() => setFilterStatus(qf.value)}
+                  sx={{
+                    fontWeight: isSelected ? 700 : 500,
+                    fontSize: '0.75rem',
+                    height: 26,
+                    transition: 'all 0.15s ease',
+                  }}
+                />
+              );
+            })}
+          </Box>
+
+          {/* RIGHT CONTROLS */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, justifyContent: { xs: 'space-between', sm: 'flex-end' }, flexWrap: 'wrap' }}>
+            <TableFilterSelector
+              activeCount={activeFilterCount}
+              onClear={handleClearAllFilters}
+              sortingContent={
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <Autocomplete
                     size="small"
-                    clickable
-                    color={isSelected ? chipColor : 'default'}
-                    variant={isSelected ? 'filled' : 'outlined'}
-                    onClick={() => setFilterStatus(qf.value)}
-                    sx={{
-                      fontWeight: isSelected ? 700 : 500,
-                      fontSize: '0.75rem',
-                      height: 26,
-                      transition: 'all 0.15s ease',
+                    fullWidth
+                    disablePortal
+                    disableClearable
+                    options={sortOptions}
+                    getOptionLabel={(option) => option.label}
+                    isOptionEqualToValue={(option, val) => option.value === val.value}
+                    value={sortOptions.find((o) => o.value === sortOption) || sortOptions[0]}
+                    onChange={(_, newValue) => {
+                      if (newValue) setSortOption(newValue.value as any);
                     }}
+                    renderInput={(params) => <TextField {...params} label={t('lblSortBy')} size="small" />}
                   />
-                );
-              })}
-            </Box>
-
-            {/* RIGHT CONTROLS */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, justifyContent: { xs: 'space-between', sm: 'flex-end' }, flexWrap: 'wrap' }}>
-              <TableFilterSelector
-                activeCount={activeFilterCount}
-                onClear={handleClearAllFilters}
-                sortingContent={
-                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                    <Autocomplete
-                      size="small"
-                      fullWidth
-                      disablePortal
-                      disableClearable
-                      options={sortOptions}
-                      getOptionLabel={(option) => option.label}
-                      isOptionEqualToValue={(option, val) => option.value === val.value}
-                      value={sortOptions.find((o) => o.value === sortOption) || sortOptions[0]}
-                      onChange={(_, newValue) => {
-                        if (newValue) setSortOption(newValue.value as any);
-                      }}
-                      renderInput={(params) => <TextField {...params} label={t('lblSortBy')} size="small" />}
-                    />
-                    <IconButton
-                      size="small"
-                      onClick={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
-                      title={sortDirection === 'asc' ? t('sortAscending') : t('sortDescending')}
-                      sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0.75 }}
-                    >
-                      {sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />}
-                    </IconButton>
-                  </Box>
-                }
-                dateRangeContent={
-                  <DateRangeFilter
-                    startDate={filterDateFrom}
-                    endDate={filterDateTo}
-                    onDateChange={({ startDate, endDate }) => {
-                      setFilterDateFrom(startDate);
-                      setFilterDateTo(endDate);
-                    }}
-                    dateField={filterDateField}
-                    dateFieldOptions={[
-                      { value: 'dueDate', label: t('colDueDate') },
-                      { value: 'dateCreated', label: t('colDateCreated') },
-                    ]}
-                    onDateFieldChange={setFilterDateField}
+                  <IconButton
+                    size="small"
+                    onClick={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                    title={sortDirection === 'asc' ? t('sortAscending') : t('sortDescending')}
+                    sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0.75 }}
+                  >
+                    {sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />}
+                  </IconButton>
+                </Box>
+              }
+              dateRangeContent={
+                <DateRangeFilter
+                  startDate={filterDateFrom}
+                  endDate={filterDateTo}
+                  onDateChange={({ startDate, endDate }) => {
+                    setFilterDateFrom(startDate);
+                    setFilterDateTo(endDate);
+                  }}
+                  dateField={filterDateField}
+                  dateFieldOptions={[
+                    { value: 'dueDate', label: t('colDueDate') },
+                    { value: 'dateCreated', label: t('colDateCreated') },
+                  ]}
+                  onDateFieldChange={setFilterDateField}
+                />
+              }
+              filteringContent={
+                <>
+                  <Autocomplete
+                    size="small"
+                    fullWidth
+                    disablePortal
+                    options={statusOptions}
+                    getOptionLabel={(option) => option.label}
+                    isOptionEqualToValue={(option, val) => option.value === val.value}
+                    value={statusOptions.find((o) => o.value === filterStatus) || statusOptions[0]}
+                    onChange={(_, newValue) => setFilterStatus(newValue ? newValue.value : 'all')}
+                    renderInput={(params) => <TextField {...params} label={t('colStatus')} size="small" />}
                   />
-                }
-                filteringContent={
-                  <>
-                    <Autocomplete
-                      size="small"
-                      fullWidth
-                      disablePortal
-                      options={statusOptions}
-                      getOptionLabel={(option) => option.label}
-                      isOptionEqualToValue={(option, val) => option.value === val.value}
-                      value={statusOptions.find((o) => o.value === filterStatus) || statusOptions[0]}
-                      onChange={(_, newValue) => setFilterStatus(newValue ? newValue.value : 'all')}
-                      renderInput={(params) => <TextField {...params} label={t('colStatus')} size="small" />}
-                    />
 
+                  <Autocomplete
+                    size="small"
+                    fullWidth
+                    disablePortal
+                    options={uniqueClients}
+                    value={filterClient === 'all' ? null : filterClient}
+                    onChange={(_, newValue) => setFilterClient(newValue || 'all')}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label={t('colClient')}
+                      />
+                    )}
+                  />
+
+                  {uniqueProjects.length > 0 && (
                     <Autocomplete
                       size="small"
                       fullWidth
                       disablePortal
-                      options={uniqueClients}
-                      value={filterClient === 'all' ? null : filterClient}
-                      onChange={(_, newValue) => setFilterClient(newValue || 'all')}
+                      options={uniqueProjects}
+                      value={filterProject === 'all' ? null : filterProject}
+                      onChange={(_, newValue) => setFilterProject(newValue || 'all')}
                       renderInput={(params) => (
                         <TextField
                           {...params}
-                          label={t('colClient')}
+                          label={t('colProject')}
                         />
                       )}
                     />
+                  )}
+                </>
+              }
+            />
 
-                    {uniqueProjects.length > 0 && (
-                      <Autocomplete
-                        size="small"
-                        fullWidth
-                        disablePortal
-                        options={uniqueProjects}
-                        value={filterProject === 'all' ? null : filterProject}
-                        onChange={(_, newValue) => setFilterProject(newValue || 'all')}
-                        renderInput={(params) => (
-                          <TextField
-                            {...params}
-                            label={t('colProject')}
-                          />
-                        )}
-                      />
-                    )}
-                  </>
-                }
-              />
-            </Box>
+            <TableOptionsSelector
+              rowsPerPageOptions={activeRowsPerPageOptions}
+              onRowsPerPageOptionsChange={setRowsPerPageOptionsValue}
+              rowsPerPage={activeRowsPerPage}
+              onRowsPerPageChange={setRowsPerPageValue}
+              defaultRowsPerPageOptions={[5, 10, 25]}
+            />
           </Box>
+        </Box>
+        }
+        listContent={
+          paginatedItems.map((inv) => {
+            const isLate = isOverdueInvoice(inv);
+            const isApproaching = isApproachingInvoice(inv);
+            const isPaid = inv.status === 'Paid';
+            const isCancelled = inv.status === 'Cancelled';
 
-          {/* LIST OF INVOICES */}
-          <Box
-            sx={{
-              maxHeight: isFullHeight ? 'none' : 320,
-              overflowY: isFullHeight ? 'visible' : 'auto',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 1,
-              width: '100%',
-              flex: 1,
-              pb: 1,
-            }}
-          >
-            {filteredAndSortedItems.length === 0 ? (
-              <Paper variant="outlined" sx={{ p: 3, textAlign: 'center' }}>
-                <Typography variant="body2" color="text.secondary">
-                  {t('emptyInvoices')}
-                </Typography>
-              </Paper>
-            ) : (
-              paginatedItems.map((inv) => {
-                const isLate = isOverdueInvoice(inv);
-                const isApproaching = isApproachingInvoice(inv);
-                const isPaid = inv.status === 'Paid';
-                const isCancelled = inv.status === 'Cancelled';
-
-                const uniqueLinks: Invoice[] = [];
-                if (inv.parentInvoice) {
-                  uniqueLinks.push(inv.parentInvoice);
+            const uniqueLinks: Invoice[] = [];
+            if (inv.parentInvoice) {
+              uniqueLinks.push(inv.parentInvoice);
+            }
+            if (inv.childInvoices && inv.childInvoices.length > 0) {
+              inv.childInvoices.forEach((child) => {
+                if (!uniqueLinks.some((existing) => existing.id === child.id)) {
+                  uniqueLinks.push(child);
                 }
-                if (inv.childInvoices && inv.childInvoices.length > 0) {
-                  inv.childInvoices.forEach((child) => {
-                    if (!uniqueLinks.some((existing) => existing.id === child.id)) {
-                      uniqueLinks.push(child);
-                    }
-                  });
-                }
+              });
+            }
 
-                let cardBgColor = 'background.paper';
-                let borderColor = 'divider';
+            let cardBgColor = 'background.paper';
+            let borderColor = 'divider';
 
-                if (isCancelled) {
-                  cardBgColor = 'action.hover';
-                  borderColor = 'divider';
-                } else if (isLate) {
-                  cardBgColor = 'error.lighter';
-                  borderColor = 'error.light';
-                } else if (isApproaching) {
-                  cardBgColor = 'warning.lighter';
-                  borderColor = '#ff9800';
-                }
+            if (isCancelled) {
+              cardBgColor = 'action.hover';
+              borderColor = 'divider';
+            } else if (isLate) {
+              cardBgColor = 'error.lighter';
+              borderColor = 'error.light';
+            } else if (isApproaching) {
+              cardBgColor = 'warning.lighter';
+              borderColor = '#ff9800';
+            }
 
-                return (
-                  <Box
-                    key={inv.id}
-                    onClick={() => handleOpenView(inv)}
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      p: 1.25,
-                      px: 1.5,
-                      bgcolor: cardBgColor,
-                      borderRadius: 1.5,
-                      border: '1px solid',
-                      borderColor: borderColor,
-                      opacity: isCancelled ? 0.75 : 1,
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      '&:hover': {
-                        bgcolor: isLate ? 'error.lighter' : isApproaching ? 'warning.lighter' : isCancelled ? 'action.selected' : 'action.hover',
-                      },
-                    }}
-                  >
-                    <Box sx={{ minWidth: 0, flex: 1 }}>
-                      {/* FIRST ROW: invoice number, client(text), type (chip), status (chip) */}
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                          <ReceiptLongIcon sx={{ fontSize: 16, color: 'primary.main' }} />
-                          <Typography
-                            variant="body2"
-                            sx={{
-                              fontWeight: 700,
-                              color: 'text.primary',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {inv.invoiceNumber}
-                          </Typography>
-                        </Box>
-
-                        {inv.clientName && (
-                          <Typography
-                            variant="body2"
-                            sx={{
-                              color: 'text.secondary',
-                              fontWeight: 600,
-                              fontSize: '0.8rem',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {inv.clientName}
-                          </Typography>
-                        )}
-
-                        {getInvoiceTypeChip(inv.invoiceType)}
-
-                        <Chip
-                          label={getStatusLabel(inv.status)}
-                          size="small"
-                          color={getStatusChipColor(inv.status)}
-                          sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700 }}
-                        />
-                      </Box>
-
-                      {/* SECOND ROW: due date, total amount, chip with linked invoices */}
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', color: 'text.secondary', fontSize: '0.75rem' }}>
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 0.5,
-                            color: isLate ? 'error.main' : isApproaching ? '#ed6c02' : 'text.secondary',
-                            fontWeight: isLate || isApproaching ? 700 : 400,
-                          }}
-                        >
-                          <CalendarTodayIcon sx={{ fontSize: '0.8rem' }} />
-                          {fmtDate(inv.dueDate)}
-                        </Typography>
-
-                        <Typography variant="caption" sx={{ fontWeight: 700, color: 'primary.main' }}>
-                          {formatInvoiceAmount(inv.totalAmount, inv.currency)}
-                        </Typography>
-
-                        {uniqueLinks.length > 0 && (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
-                            {uniqueLinks.map((linked) => {
-                              const labelType = getLinkedInvoiceLabel(linked);
-                              const chipColor = getLinkedInvoiceChipColor(linked.invoiceType);
-                              return (
-                                <Chip
-                                  key={linked.id}
-                                  icon={<LinkIcon sx={{ fontSize: '12px !important' }} />}
-                                  size="small"
-                                  variant="outlined"
-                                  color={chipColor}
-                                  label={`${labelType}: ${linked.invoiceNumber || ''}`}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (linked.invoiceNumber) {
-                                      setSearchQuery(linked.invoiceNumber);
-                                    }
-                                  }}
-                                  sx={{
-                                    height: 18,
-                                    fontSize: '0.65rem',
-                                    fontWeight: 600,
-                                    cursor: 'pointer',
-                                    '&:hover': { opacity: 0.85 },
-                                  }}
-                                />
-                              );
-                            })}
-                          </Box>
-                        )}
-                      </Box>
+            return (
+              <Box
+                key={inv.id}
+                onClick={() => handleOpenView(inv)}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  p: 1.25,
+                  px: 1.5,
+                  bgcolor: cardBgColor,
+                  borderRadius: 1.5,
+                  border: '1px solid',
+                  borderColor: borderColor,
+                  opacity: isCancelled ? 0.75 : 1,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    bgcolor: isLate ? 'error.lighter' : isApproaching ? 'warning.lighter' : isCancelled ? 'action.selected' : 'action.hover',
+                  },
+                }}
+              >
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  {/* FIRST ROW: invoice number, client(text), type (chip), status (chip) */}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                      <ReceiptLongIcon sx={{ fontSize: 16, color: 'primary.main' }} />
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontWeight: 700,
+                          color: 'text.primary',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {inv.invoiceNumber}
+                      </Typography>
                     </Box>
 
-                    {/* ACTION BUTTONS ON THE RIGHT SIDE: VIEW, PAID, EDIT, DELETE */}
-                    <Box
+                    {inv.clientName && (
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: 'text.secondary',
+                          fontWeight: 600,
+                          fontSize: '0.8rem',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {inv.clientName}
+                      </Typography>
+                    )}
+
+                    {getInvoiceTypeChip(inv.invoiceType)}
+
+                    <Chip
+                      label={getStatusLabel(inv.status)}
+                      size="small"
+                      color={getStatusChipColor(inv.status)}
+                      sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700 }}
+                    />
+                  </Box>
+
+                  {/* SECOND ROW: due date, total amount, chip with linked invoices */}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', color: 'text.secondary', fontSize: '0.75rem' }}>
+                    <Typography
+                      variant="caption"
                       sx={{
                         display: 'flex',
                         alignItems: 'center',
                         gap: 0.5,
-                        ml: 1,
-                        flexShrink: 0,
+                        color: isLate ? 'error.main' : isApproaching ? '#ed6c02' : 'text.secondary',
+                        fontWeight: isLate || isApproaching ? 700 : 400,
                       }}
-                      onClick={(e) => e.stopPropagation()}
                     >
-                      {/* VIEW */}
-                      <Tooltip title={t('btnDetails')}>
+                      <CalendarTodayIcon sx={{ fontSize: '0.8rem' }} />
+                      {fmtDate(inv.dueDate || null)}
+                    </Typography>
+
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: 'primary.main' }}>
+                      {formatInvoiceAmount(inv.totalAmount, inv.currency)}
+                    </Typography>
+
+                    {uniqueLinks.length > 0 && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                        {uniqueLinks.map((linked) => {
+                          const labelType = getLinkedInvoiceLabel(linked);
+                          const chipColor = getLinkedInvoiceChipColor(linked.invoiceType);
+                          return (
+                            <Chip
+                              key={linked.id}
+                              icon={<LinkIcon sx={{ fontSize: '12px !important' }} />}
+                              size="small"
+                              variant="outlined"
+                              color={chipColor}
+                              label={`${labelType}: ${linked.invoiceNumber || ''}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (linked.invoiceNumber) {
+                                  setSearchQuery(linked.invoiceNumber);
+                                }
+                              }}
+                              sx={{
+                                height: 18,
+                                fontSize: '0.65rem',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                '&:hover': { opacity: 0.85 },
+                              }}
+                            />
+                          );
+                        })}
+                      </Box>
+                    )}
+                  </Box>
+                </Box>
+
+                {/* ACTION BUTTONS ON THE RIGHT SIDE: VIEW, PAID, EDIT, DELETE */}
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    ml: 1,
+                    flexShrink: 0,
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* VIEW */}
+                  <Tooltip title={t('btnDetails')}>
+                    <IconButton
+                      size="small"
+                      color="default"
+                      onClick={() => handleOpenView(inv)}
+                      sx={{ p: 0.5 }}
+                    >
+                      <VisibilityIcon sx={{ fontSize: 18 }} />
+                    </IconButton>
+                  </Tooltip>
+
+                  {/* PAID */}
+                  {onStatusChangeInvoice && (
+                    <Tooltip title={isPaid ? t('statusPaid') : t('markAsPaid')}>
+                      <span>
                         <IconButton
                           size="small"
-                          color="default"
-                          onClick={() => handleOpenView(inv)}
+                          color={isPaid ? 'default' : 'success'}
+                          disabled={isPaid || isCancelled}
+                          onClick={() => handleMarkAsPaid(inv)}
                           sx={{ p: 0.5 }}
                         >
-                          <VisibilityIcon sx={{ fontSize: 18 }} />
+                          <CheckCircleIcon sx={{ fontSize: 18 }} />
                         </IconButton>
-                      </Tooltip>
+                      </span>
+                    </Tooltip>
+                  )}
 
-                      {/* PAID */}
-                      {onStatusChangeInvoice && (
-                        <Tooltip title={isPaid ? t('statusPaid') : t('markAsPaid')}>
-                          <span>
-                            <IconButton
-                              size="small"
-                              color={isPaid ? 'default' : 'success'}
-                              disabled={isPaid || isCancelled}
-                              onClick={() => handleMarkAsPaid(inv)}
-                              sx={{ p: 0.5 }}
-                            >
-                              <CheckCircleIcon sx={{ fontSize: 18 }} />
-                            </IconButton>
-                          </span>
-                        </Tooltip>
-                      )}
+                  {/* EDIT */}
+                  {canManage && onSaveInvoice && (
+                    <Tooltip title={t('btnEdit')}>
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={() => handleOpenEdit(inv)}
+                        sx={{ p: 0.5 }}
+                      >
+                        <EditIcon sx={{ fontSize: 18 }} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
 
-                      {/* EDIT */}
-                      {canManage && onSaveInvoice && (
-                        <Tooltip title={t('btnEdit')}>
-                          <IconButton
-                            size="small"
-                            color="primary"
-                            onClick={() => handleOpenEdit(inv)}
-                            sx={{ p: 0.5 }}
-                          >
-                            <EditIcon sx={{ fontSize: 18 }} />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-
-                      {/* DELETE */}
-                      {canManage && onDeleteInvoice && (
-                        <Tooltip title={t('btnDelete')}>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => onDeleteInvoice(inv.id)}
-                            sx={{ p: 0.5 }}
-                          >
-                            <DeleteIcon sx={{ fontSize: 18 }} />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                    </Box>
-                  </Box>
-                );
-              })
-            )}
-          </Box>
-
-          {/* PAGINATION */}
-          {filteredAndSortedItems.length > 0 && (
-            <TablePagination
-              rowsPerPageOptions={[5, 10, 25]}
-              component="div"
-              count={filteredAndSortedItems.length}
-              rowsPerPage={rowsPerPage}
-              page={page}
-              onPageChange={(_, newPage) => setPage(newPage)}
-              onRowsPerPageChange={(e) => {
-                setRowsPerPage(parseInt(e.target.value, 10));
-                setPage(0);
-              }}
-              sx={{ borderTop: 1, borderColor: 'divider', mt: 0.5, flexShrink: 0 }}
-            />
-          )}
-        </CardContent>
-      </Card>
+                  {/* DELETE */}
+                  {canManage && onDeleteInvoice && (
+                    <Tooltip title={t('btnDelete')}>
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => onDeleteInvoice(inv.id)}
+                        sx={{ p: 0.5 }}
+                      >
+                        <DeleteIcon sx={{ fontSize: 18 }} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                </Box>
+              </Box>
+            );
+          })
+        }
+      />
 
       {/* VIEW / EDIT INVOICE DIALOG */}
       <Dialog
@@ -1445,6 +1424,31 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
                     )}
                   />
                 </Grid>
+
+                {/* Provided Service Selection */}
+                {providedServices && (
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <Autocomplete
+                      options={modalProvidedServices}
+                      isOptionEqualToValue={(option, value) => option.id === value.id}
+                      getOptionLabel={(option) => {
+                        const serviceName = option.service?.name || option.serviceId || 'Unknown Service';
+                        return `${serviceName}${option.location ? ` - ${option.location}` : ''}`;
+                      }}
+                      value={providedServices.find((ps) => ps.id === formData.providedServiceId) || null}
+                      onChange={(_, val) => {
+                        setFormData({
+                          ...formData,
+                          providedServiceId: val ? val.id : '',
+                          clientId: val && val.clientId ? val.clientId : formData.clientId,
+                        });
+                      }}
+                      renderInput={(params) => (
+                        <TextField {...params} size="small" label={t('tabProvidedServices')} placeholder={t('tabProvidedServices')} />
+                      )}
+                    />
+                  </Grid>
+                )}
 
                 {/* Date Created */}
                 <Grid size={{ xs: 12, sm: 4 }}>

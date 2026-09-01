@@ -38,7 +38,7 @@ interface Props {
 export const AdminLayout: React.FC<Props> = ({
   activeTab,
   onTabChange,
-  dashboardSubTab = 'default',
+  dashboardSubTab = 'projects',
   onDashboardSubTabChange,
   providedServicesSubTab = 'summary',
   onProvidedServicesSubTabChange,
@@ -81,7 +81,7 @@ export const AdminLayout: React.FC<Props> = ({
   useEffect(() => {
     if (isUser && activeTab !== 'dashboard') {
       onTabChange('dashboard');
-    } else if (isAccountant && !['dashboard', 'providedServices'].includes(activeTab)) {
+    } else if (isAccountant && !['dashboard'].includes(activeTab)) {
       onTabChange('dashboard');
     }
   }, [isUser, isAccountant, activeTab, onTabChange]);

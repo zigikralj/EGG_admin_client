@@ -159,27 +159,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 const isSelected = activeTab === item.id;
                 if (item.id === 'dashboard') {
                   const dashboardSubItems: { id: DashboardSubTab; label: string; icon: React.ReactNode }[] = [
-                    { id: 'default', label: t('subTabDefault'), icon: <ViewQuiltIcon fontSize="small" /> },
-                    { id: 'statistic', label: t('subTabStatistic'), icon: <BarChartIcon fontSize="small" /> },
+                    { id: 'projects', label: t('subTabProjects'), icon: <FolderIcon fontSize="small" /> },
+                    { id: 'reminders', label: t('subTabReminders'), icon: <NotificationsActiveIcon fontSize="small" /> },
                   ];
 
-                  if (canToggleEntityWorkMode || role === 'Administrator' || role === 'Manager') {
-                    dashboardSubItems.push(
-                      { id: 'reminders', label: t('subTabReminders'), icon: <NotificationsActiveIcon fontSize="small" /> },
-                      { id: 'invoices', label: t('tabInvoices'), icon: <ReceiptLongIcon fontSize="small" /> }
-                    );
-                  } else if (isAccountant) {
+                  if (canToggleEntityWorkMode || role === 'Administrator' || role === 'Manager' || isAccountant) {
                     dashboardSubItems.push(
                       { id: 'invoices', label: t('tabInvoices'), icon: <ReceiptLongIcon fontSize="small" /> }
-                    );
-                  } else {
-                    dashboardSubItems.push(
-                      { id: 'reminders', label: t('subTabReminders'), icon: <NotificationsActiveIcon fontSize="small" /> }
                     );
                   }
 
                   dashboardSubItems.push(
-                    { id: 'projects', label: t('subTabProjects'), icon: <FolderIcon fontSize="small" /> }
+                    { id: 'statistic', label: t('subTabStatistic'), icon: <BarChartIcon fontSize="small" /> }
                   );
 
                   return (
