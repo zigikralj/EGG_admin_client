@@ -26,13 +26,10 @@ import {
 
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import { useRoleLabels } from '../../hooks/useRoleLabels';
 import type { ActiveTab, DashboardSubTab, ProvidedServicesSubTab } from '../../types';
 import {
-  PersonIcon,
   ExpandMoreIcon,
   ExpandLessIcon,
-  ViewQuiltIcon,
   BarChartIcon,
   NotificationsActiveIcon,
   ReceiptLongIcon,
@@ -85,13 +82,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onPreferenceChange,
 }) => {
   const { t } = useLanguage();
-  const { getRoleBadgeLabel } = useRoleLabels();
   const {
-    currentUser,
-    users,
-    setCurrentUser,
     role,
-    isAdmin,
+    isRealAdmin,
+    roleView,
+    setRoleView,
     isAccountant,
     canToggleEntityWorkMode,
     workOnEntities,
@@ -103,29 +98,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <Toolbar />
       <Box sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1, overflow: 'hidden' }}>
         <Box sx={{ overflowY: 'auto', flexGrow: 1, p: 1.5 }}>
-          {/* USER SWITCHER & WORK MODE SWITCH */}
-          {(isAdmin || canToggleEntityWorkMode) && (
+          {/* ROLE VIEW SWITCHER & WORK MODE SWITCH */}
+          {(isRealAdmin || canToggleEntityWorkMode) && (
             <Box sx={{ mb: 2, pb: 1.5, borderBottom: '1px solid', borderColor: 'divider', display: { xs: 'flex', md: 'none' }, flexDirection: 'column', gap: 1.5 }}>
-              {isAdmin && users.length > 0 && (
+              {isRealAdmin && (
                 <Box>
                   <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', mb: 0.5 }}>
-                    {t('tabUsers')}
+                    {t('lblRoleView')}
                   </Typography>
                   <FormControl fullWidth size="small">
                     <Select
-                      value={users.some(u => u.id === currentUser?.id) ? currentUser!.id : ''}
-                      onChange={(e) => {
-                        const target = users.find((u) => u.id === e.target.value);
-                        if (target) setCurrentUser(target);
-                      }}
-                      startAdornment={<PersonIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />}
+                      value={roleView}
+                      onChange={(e) => setRoleView(e.target.value as any)}
                       sx={{ borderRadius: 2, fontSize: '0.875rem' }}
                     >
-                      {users.map((u) => (
-                        <MenuItem key={u.id} value={u.id} sx={{ fontSize: '0.875rem' }}>
-                          {u.name} ({getRoleBadgeLabel(u.role)})
-                        </MenuItem>
-                      ))}
+                      <MenuItem value="Administrator" sx={{ fontSize: '0.875rem' }}>
+                        {t('roleAdministrator')}
+                      </MenuItem>
+                      <MenuItem value="Manager" sx={{ fontSize: '0.875rem' }}>
+                        {t('roleManager')}
+                      </MenuItem>
+                      <MenuItem value="User" sx={{ fontSize: '0.875rem' }}>
+                        {t('roleUser')}
+                      </MenuItem>
+                      <MenuItem value="Accountant" sx={{ fontSize: '0.875rem' }}>
+                        {t('roleAccountant')}
+                      </MenuItem>
                     </Select>
                   </FormControl>
                 </Box>
@@ -160,27 +158,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 const isSelected = activeTab === item.id;
                 if (item.id === 'dashboard') {
                   const dashboardSubItems: { id: DashboardSubTab; label: string; icon: React.ReactNode }[] = [
-                    { id: 'default', label: t('subTabDefault'), icon: <ViewQuiltIcon fontSize="small" /> },
-                    { id: 'statistic', label: t('subTabStatistic'), icon: <BarChartIcon fontSize="small" /> },
+                    { id: 'projects', label: t('subTabProjects'), icon: <FolderIcon fontSize="small" /> },
+                    { id: 'reminders', label: t('subTabReminders'), icon: <NotificationsActiveIcon fontSize="small" /> },
                   ];
 
-                  if (canToggleEntityWorkMode || role === 'Administrator' || role === 'Manager') {
-                    dashboardSubItems.push(
-                      { id: 'reminders', label: t('subTabReminders'), icon: <NotificationsActiveIcon fontSize="small" /> },
-                      { id: 'invoices', label: t('tabInvoices'), icon: <ReceiptLongIcon fontSize="small" /> }
-                    );
-                  } else if (isAccountant) {
+                  if (canToggleEntityWorkMode || role === 'Administrator' || role === 'Manager' || isAccountant) {
                     dashboardSubItems.push(
                       { id: 'invoices', label: t('tabInvoices'), icon: <ReceiptLongIcon fontSize="small" /> }
-                    );
-                  } else {
-                    dashboardSubItems.push(
-                      { id: 'reminders', label: t('subTabReminders'), icon: <NotificationsActiveIcon fontSize="small" /> }
                     );
                   }
 
                   dashboardSubItems.push(
-                    { id: 'projects', label: t('subTabProjects'), icon: <FolderIcon fontSize="small" /> }
+                    { id: 'statistic', label: t('subTabStatistic'), icon: <BarChartIcon fontSize="small" /> }
                   );
 
                   return (

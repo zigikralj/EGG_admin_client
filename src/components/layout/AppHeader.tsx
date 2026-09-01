@@ -38,7 +38,6 @@ import { NotificationsMenu } from './NotificationsMenu';
 import {
   MenuIcon,
   BusinessIcon,
-  PersonIcon,
   PersonAddIcon,
   AccountCircleIcon,
   SettingsIcon,
@@ -90,10 +89,10 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   const { unreadCount } = useNotifications();
   const {
     currentUser,
-    users,
-    setCurrentUser,
     role,
-    isAdmin,
+    isRealAdmin,
+    roleView,
+    setRoleView,
     canToggleEntityWorkMode,
     workOnEntities,
     setWorkOnEntities,
@@ -219,16 +218,12 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
         {/* RIGHT SIDE CONTROLS */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 } }}>
-          {/* USER SWITCHER (DESKTOP ONLY - ADMIN ONLY) */}
-          {isAdmin && users.length > 0 && (
-            <FormControl size="small" sx={{ minWidth: { xs: 100, sm: 160 }, display: { xs: 'none', md: 'flex' } }}>
+          {/* ROLE VIEW SWITCHER (DESKTOP ONLY - REAL ADMIN ONLY) */}
+          {isRealAdmin && (
+            <FormControl size="small" sx={{ minWidth: { xs: 110, sm: 155 }, display: { xs: 'none', md: 'flex' } }}>
               <Select
-                value={users.some(u => u.id === currentUser?.id) ? currentUser!.id : ''}
-                onChange={(e) => {
-                  const target = users.find((u) => u.id === e.target.value);
-                  if (target) setCurrentUser(target);
-                }}
-                startAdornment={<PersonIcon fontSize="small" sx={{ mr: 0.5, color: 'rgba(255, 255, 255, 0.7)' }} />}
+                value={roleView}
+                onChange={(e) => setRoleView(e.target.value as any)}
                 sx={{
                   borderRadius: 2,
                   fontSize: '0.8125rem',
@@ -239,11 +234,18 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                   '.MuiSvgIcon-root': { color: '#ffffff' },
                 }}
               >
-                {users.map((u) => (
-                  <MenuItem key={u.id} value={u.id} sx={{ fontSize: '0.8125rem' }}>
-                    {u.name} ({getRoleBadgeLabel(u.role)})
-                  </MenuItem>
-                ))}
+                <MenuItem value="Administrator" sx={{ fontSize: '0.8125rem' }}>
+                  {t('roleAdministrator')}
+                </MenuItem>
+                <MenuItem value="Manager" sx={{ fontSize: '0.8125rem' }}>
+                  {t('roleManager')}
+                </MenuItem>
+                <MenuItem value="User" sx={{ fontSize: '0.8125rem' }}>
+                  {t('roleUser')}
+                </MenuItem>
+                <MenuItem value="Accountant" sx={{ fontSize: '0.8125rem' }}>
+                  {t('roleAccountant')}
+                </MenuItem>
               </Select>
             </FormControl>
           )}
@@ -459,10 +461,13 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             )}
             {currentUser && <Divider sx={{ my: 0.5 }} />}
 
-            {canToggleEntityWorkMode && pendingUsersCount > 0 && (
+            {(isRealAdmin || canToggleEntityWorkMode) && pendingUsersCount > 0 && (
               <MenuItem
                 onClick={() => {
                   handleMenuClose();
+                  if (isRealAdmin && roleView !== 'Administrator') {
+                    setRoleView('Administrator');
+                  }
                   if (!workOnEntities) {
                     setWorkOnEntities(true);
                     if (onPreferenceChange) {

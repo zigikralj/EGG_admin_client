@@ -122,6 +122,7 @@ export interface TranslationKeys {
   statusDraft: string;
   statusSent: string;
   statusPaid: string;
+  statusUnpaid: string;
   statusCancelled: string;
   markAsPaid: string;
   noItemsInInvoice: string;
@@ -333,6 +334,8 @@ export interface TranslationKeys {
 
   // Active User & Permissions
   switchActiveUser: string;
+  switchRoleView: string;
+  lblRoleView: string;
   switchWorkOnEntities: string;
   lblEntityWorkModeOn: string;
   lblEntityWorkModeOff: string;
@@ -514,6 +517,12 @@ export interface TranslationKeys {
   sortDescending: string;
   lblMe: string;
   btnClearFilters: string;
+  lblDateRange: string;
+  lblFromDate: string;
+  lblToDate: string;
+  lblThisMonth: string;
+  lblDateField: string;
+  btnClearDate: string;
   filterAll: string;
   quickFilterMyProjects: string;
   quickFilterMyReminders: string;

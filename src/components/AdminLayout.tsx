@@ -39,7 +39,7 @@ interface Props {
 export const AdminLayout: React.FC<Props> = ({
   activeTab,
   onTabChange,
-  dashboardSubTab = 'default',
+  dashboardSubTab = 'projects',
   onDashboardSubTabChange,
   providedServicesSubTab = 'summary',
   onProvidedServicesSubTabChange,
@@ -84,6 +84,8 @@ export const AdminLayout: React.FC<Props> = ({
   useEffect(() => {
     if (isUser && activeTab !== 'dashboard') {
       onTabChange('dashboard');
+    } else if (isAccountant && !['dashboard'].includes(activeTab)) {
+      onTabChange('dashboard');
     }
   }, [isUser, isAccountant, activeTab, onTabChange]);
 
@@ -121,7 +123,7 @@ export const AdminLayout: React.FC<Props> = ({
     { id: 'providedServices' as ActiveTab, label: t('tabProvidedServices'), icon: <HandymanIcon />, count: 0, show: canManageProvidedServices },
     { id: 'categories' as ActiveTab, label: t('tabCategories'), icon: <CategoryIcon />, count: stats.categoriesCount || 0, show: canManageServices },
     { id: 'reminders' as ActiveTab, label: t('tabReminders'), icon: <NotificationsActiveIcon />, count: stats.monitor, show: !isUser && !isAccountant, color: 'error' as const },
-    { id: 'invoices' as ActiveTab, label: t('tabInvoices'), icon: <ReceiptLongIcon />, count: stats.invoicesCount || 0, show: isAccountant || (!isUser && canManageInvoices) },
+    { id: 'invoices' as ActiveTab, label: t('tabInvoices'), icon: <ReceiptLongIcon />, count: stats.invoicesCount || 0, show: !isAccountant && (!isUser && canManageInvoices) },
   ];
 
   return (

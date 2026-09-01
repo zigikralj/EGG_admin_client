@@ -15,7 +15,6 @@ import {
   Chip,
   Box,
   Typography,
-  InputAdornment,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -32,15 +31,16 @@ import {
   Collapse,
 } from '@mui/material';
 
-import type { Invoice, Client, Project, SaveResult, InvoiceStatus, InvoiceCurrency, InvoiceType } from '../../types';
+import type { Invoice, Client, Project, ProvidedService, SaveResult, InvoiceStatus, InvoiceCurrency, InvoiceType } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { TableOptionsSelector, type ColumnDef } from '../ColumnSelector';
 import { TableFilterSelector } from '../TableFilterSelector';
+import { DateRangeFilter } from '../DateRangeFilter';
+import { TableSearchInput } from '../TableSearchInput';
 import { ErrorDialog } from '../ErrorDialog';
 import { parseInvoiceNotes, serializeInvoiceNotes, enhanceInvoicesWithLinks } from '../../utils/invoiceUtils';
 import {
-  SearchIcon,
   AddIcon,
   EditIcon,
   DeleteIcon,
@@ -58,6 +58,8 @@ interface Props {
   invoices: Invoice[];
   clients: Client[];
   projects: Project[];
+  providedServices?: ProvidedService[];
+  onSaveProvidedService?: (ps: Partial<ProvidedService>) => Promise<SaveResult | void> | void;
   onSaveInvoice: (invoice: Partial<Invoice>) => Promise<SaveResult | void> | void;
   onDeleteInvoice: (id: string) => void;
   onUpdateStatus?: (id: string, status: string, paymentDate?: string) => Promise<void> | void;
@@ -78,6 +80,8 @@ const InvoicesView: React.FC<Props> = ({
   invoices,
   clients,
   projects,
+  providedServices,
+  onSaveProvidedService,
   onSaveInvoice,
   onDeleteInvoice,
   onUpdateStatus,
@@ -154,6 +158,7 @@ const InvoicesView: React.FC<Props> = ({
     clientName: string;
     projectId: string;
     projectName: string;
+    providedServiceId: string;
     status: InvoiceStatus;
     currency: InvoiceCurrency;
     notes: string;
@@ -169,6 +174,7 @@ const InvoicesView: React.FC<Props> = ({
     clientName: '',
     projectId: '',
     projectName: '',
+    providedServiceId: '',
     status: 'Draft',
     currency: 'RSD',
     notes: '',
@@ -218,6 +224,9 @@ const InvoicesView: React.FC<Props> = ({
   const [filterCurrency, setFilterCurrency] = useState<string>('all');
   const [filterInvoiceType, setFilterInvoiceType] = useState<string>('all');
   const [filterLinkedStatus, setFilterLinkedStatus] = useState<string>('all');
+  const [filterDateFrom, setFilterDateFrom] = useState<string>('');
+  const [filterDateTo, setFilterDateTo] = useState<string>('');
+  const [filterDateField, setFilterDateField] = useState<string>('dateCreated');
 
   const activeFilterCount =
     (filterStatus !== 'all' ? 1 : 0) +
@@ -225,6 +234,7 @@ const InvoicesView: React.FC<Props> = ({
     (filterCurrency !== 'all' ? 1 : 0) +
     (filterInvoiceType !== 'all' ? 1 : 0) +
     (filterLinkedStatus !== 'all' ? 1 : 0) +
+    (filterDateFrom || filterDateTo ? 1 : 0) +
     (sortColumn !== 'dateCreated' || sortDirection !== 'desc' ? 1 : 0);
 
   const clearFilters = () => {
@@ -233,6 +243,9 @@ const InvoicesView: React.FC<Props> = ({
     setFilterCurrency('all');
     setFilterInvoiceType('all');
     setFilterLinkedStatus('all');
+    setFilterDateFrom('');
+    setFilterDateTo('');
+    setFilterDateField('dateCreated');
     setSortColumn('dateCreated');
     setSortDirection('desc');
     if (onSortChange) {
@@ -407,6 +420,7 @@ const InvoicesView: React.FC<Props> = ({
       clientName: '',
       projectId: '',
       projectName: '',
+      providedServiceId: '',
       status: 'Draft',
       currency: 'RSD',
       notes: '',
@@ -418,6 +432,7 @@ const InvoicesView: React.FC<Props> = ({
   // Open modal for editing invoice
   const handleOpenEdit = (inv: Invoice) => {
     const { cleanNotes, invoiceType: pType, parentInvoiceId: pParentId } = parseInvoiceNotes(inv.notes);
+    const linkedPs = providedServices?.find(ps => ps.invoiceId === inv.id);
     setEditingInvoice(inv);
     setFormData({
       invoiceNumber: inv.invoiceNumber || '',
@@ -430,6 +445,7 @@ const InvoicesView: React.FC<Props> = ({
       clientName: inv.clientName || (inv.client?.name || ''),
       projectId: inv.projectId || (inv.project?.id || ''),
       projectName: inv.projectName || (inv.project?.name || ''),
+      providedServiceId: linkedPs ? linkedPs.id : '',
       status: (inv.status as InvoiceStatus) || 'Draft',
       currency: (inv.currency as InvoiceCurrency) || 'RSD',
       notes: cleanNotes || '',
@@ -523,6 +539,19 @@ const InvoicesView: React.FC<Props> = ({
       if (res && res.error) {
         setErrorDialogState({ open: true, message: res.error });
       } else {
+        const savedInvoiceId = res?.id || editingInvoice?.id;
+        if (savedInvoiceId && onSaveProvidedService) {
+           const initialPs = editingInvoice ? providedServices?.find(ps => ps.invoiceId === editingInvoice.id) : undefined;
+           
+            if (formData.providedServiceId !== (initialPs?.id || '')) {
+              if (formData.providedServiceId) {
+                await Promise.resolve(onSaveProvidedService({ id: formData.providedServiceId, invoiceId: savedInvoiceId })).catch(() => {});
+              }
+              if (initialPs) {
+                await Promise.resolve(onSaveProvidedService({ id: initialPs.id, invoiceId: null })).catch(() => {});
+              }
+            }
+        }
         setIsOpen(false);
       }
     } catch (err: any) {
@@ -588,9 +617,29 @@ const InvoicesView: React.FC<Props> = ({
         (filterLinkedStatus === 'linked' && isLinked) ||
         (filterLinkedStatus === 'independent' && !isLinked);
 
-      return matchesSearch && matchesStatus && matchesClient && matchesCurrency && matchesType && matchesLinked;
+      // Date Range filter
+      let matchesDate = true;
+      if (filterDateFrom || filterDateTo) {
+        let rawDate: string | null | undefined = null;
+        if (filterDateField === 'dueDate') {
+          rawDate = inv.dueDate;
+        } else if (filterDateField === 'paymentDate') {
+          rawDate = inv.paymentDate;
+        } else {
+          rawDate = inv.dateCreated || inv.createdAt;
+        }
+        const dateVal = rawDate ? rawDate.slice(0, 10) : '';
+        if (dateVal) {
+          if (filterDateFrom && dateVal < filterDateFrom) matchesDate = false;
+          if (filterDateTo && dateVal > filterDateTo) matchesDate = false;
+        } else {
+          matchesDate = false;
+        }
+      }
+
+      return matchesSearch && matchesStatus && matchesClient && matchesCurrency && matchesType && matchesLinked && matchesDate;
     });
-  }, [enhancedInvoices, search, filterStatus, filterClient, filterCurrency, filterInvoiceType, filterLinkedStatus]);
+  }, [enhancedInvoices, search, filterStatus, filterClient, filterCurrency, filterInvoiceType, filterLinkedStatus, filterDateFrom, filterDateTo, filterDateField]);
 
   const sortedInvoices = useMemo(() => {
     return [...filteredInvoices].sort((a, b) => {
@@ -654,6 +703,13 @@ const InvoicesView: React.FC<Props> = ({
     return projects.filter((p) => p.clientId === formData.clientId);
   }, [projects, formData.clientId]);
 
+  // Filtered provided services based on selected client
+  const modalProvidedServices = useMemo(() => {
+    if (!providedServices) return [];
+    if (!formData.clientId) return providedServices;
+    return providedServices.filter((ps) => ps.clientId === formData.clientId);
+  }, [providedServices, formData.clientId]);
+
   // Available parent invoices for linking in modal
   const availableParentInvoices = useMemo(() => {
     return enhancedInvoices.filter((inv) => !editingInvoice || inv.id !== editingInvoice.id);
@@ -714,21 +770,9 @@ const InvoicesView: React.FC<Props> = ({
       {/* SEARCH, COLUMNS & FILTER BAR */}
       <Card sx={{ p: 2, mb: 3, borderRadius: 3, boxShadow: 1 }}>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-          <TextField
-            size="small"
-            placeholder={t('searchPlaceholder')}
+          <TableSearchInput
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            slotProps={{
-              input: {
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon color="action" />
-                  </InputAdornment>
-                ),
-              },
-            }}
-            sx={{ width: { xs: '100%', sm: 260 } }}
+            onChange={setSearch}
           />
 
           <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -760,6 +804,23 @@ const InvoicesView: React.FC<Props> = ({
                     {sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />}
                   </IconButton>
                 </Box>
+              }
+              dateRangeContent={
+                <DateRangeFilter
+                  startDate={filterDateFrom}
+                  endDate={filterDateTo}
+                  onDateChange={({ startDate, endDate }) => {
+                    setFilterDateFrom(startDate);
+                    setFilterDateTo(endDate);
+                  }}
+                  dateField={filterDateField}
+                  dateFieldOptions={[
+                    { value: 'dateCreated', label: t('colDateCreated') },
+                    { value: 'dueDate', label: t('colDueDate') },
+                    { value: 'paymentDate', label: t('colPaymentDate') },
+                  ]}
+                  onDateFieldChange={setFilterDateField}
+                />
               }
               filteringContent={
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
@@ -1555,6 +1616,31 @@ const InvoicesView: React.FC<Props> = ({
                   )}
                 />
               </Grid>
+
+              {/* Provided Service Selection */}
+              {providedServices && (
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Autocomplete
+                    options={modalProvidedServices}
+                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                    getOptionLabel={(option) => {
+                      const serviceName = option.service?.name || option.serviceId || 'Unknown Service';
+                      return `${serviceName}${option.location ? ` - ${option.location}` : ''}`;
+                    }}
+                    value={providedServices.find((ps) => ps.id === formData.providedServiceId) || null}
+                    onChange={(_, val) => {
+                      setFormData({
+                        ...formData,
+                        providedServiceId: val ? val.id : '',
+                        clientId: val && val.clientId ? val.clientId : formData.clientId,
+                      });
+                    }}
+                    renderInput={(params) => (
+                      <TextField {...params} size="small" label={t('tabProvidedServices')} placeholder={t('tabProvidedServices')} />
+                    )}
+                  />
+                </Grid>
+              )}
 
               {/* Date Created */}
               <Grid size={{ xs: 12, sm: 4 }}>

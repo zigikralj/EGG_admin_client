@@ -2,16 +2,13 @@ import React, { useMemo, useState, useEffect, Suspense } from 'react';
 import {
   Grid,
   Card,
-  CardContent,
   Typography,
   Button,
   Box,
   Stack,
   Chip,
   Paper,
-  Divider,
   TextField,
-  InputAdornment,
   Autocomplete,
   FormGroup,
   FormControlLabel,
@@ -24,27 +21,30 @@ import {
 
 
 
-import type { Project, ProjectStats, Reminder, Invoice, DashboardSubTab, User, Category, Service, Client } from '../../types';
+import type { Project, ProjectStats, Reminder, Invoice, DashboardSubTab, User, Category, Service, Client, ProvidedService, SaveResult } from '../../types';
 import { ReminderPanel } from '../ReminderPanel';
 import { ApproachingInvoicesPanel } from '../ApproachingInvoicesPanel';
 import { ProjectCard } from '../ProjectCard';
 
 import { TableFilterSelector } from '../TableFilterSelector';
+import { DateRangeFilter } from '../DateRangeFilter';
+import { TableSearchInput } from '../TableSearchInput';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import { ArrowForwardIcon, ArrowUpwardIcon, ArrowDownwardIcon, SearchIcon, AddIcon } from '../icons';
+import { ArrowUpwardIcon, ArrowDownwardIcon, AddIcon } from '../icons';
 
 const StatisticsCharts = React.lazy(() => import('../StatisticsCharts'));
 
 
 interface Props {
   dashboardSubTab?: DashboardSubTab;
-  stats: ProjectStats;
+  stats?: ProjectStats;
   projects: Project[];
   clients?: Client[];
   users?: User[];
   categories?: Category[];
   services?: Service[];
+  providedServices?: ProvidedService[];
   reminders?: Reminder[];
   invoices?: Invoice[];
   onMarkSampled: (id: string) => void;
@@ -52,48 +52,71 @@ interface Props {
   onSaveReminder?: (reminder: Partial<Reminder>) => void;
   onDeleteReminder?: (id: string) => void;
   onStatusChangeReminder?: (id: string, status: string) => void;
+  onSaveProvidedService?: (ps: Partial<ProvidedService>) => Promise<SaveResult | void> | void;
   onViewProject?: (project: Project) => void;
   onEditProject: (project: Project) => void;
   onDeleteProject: (id: string) => void;
-  onNavigateToProjects: () => void;
+  onNavigateToProjects?: () => void;
   onNavigateToInvoices?: () => void;
   onOpenNewProject?: () => void;
+  onSaveInvoice?: (invoice: Partial<Invoice>) => Promise<any> | void;
+  onDeleteInvoice?: (id: string) => void;
   onStatusChangeInvoice?: (id: string, status: string, paymentDate?: string) => Promise<void> | void;
   quickFilters?: string[];
   onQuickFiltersChange?: (filters: string[]) => void;
   quickFilterDashboardReminders?: boolean;
   onQuickFilterDashboardRemindersChange?: (val: boolean) => void;
+  remindersRowsPerPageOptions?: number[];
+  onRemindersRowsPerPageOptionsChange?: (options: number[]) => void;
+  remindersRowsPerPage?: number;
+  onRemindersRowsPerPageChange?: (rowsPerPage: number) => void;
+  invoicesRowsPerPageOptions?: number[];
+  onInvoicesRowsPerPageOptionsChange?: (options: number[]) => void;
+  invoicesRowsPerPage?: number;
+  onInvoicesRowsPerPageChange?: (rowsPerPage: number) => void;
 }
 
 const DashboardView: React.FC<Props> = ({
-  dashboardSubTab = 'default',
-  stats,
+  dashboardSubTab = 'projects',
+  stats: _stats,
   projects,
   clients = [],
   users = [],
   categories = [],
   services = [],
-  reminders,
+  providedServices = [],
+  reminders = [],
   invoices = [],
   onMarkSampled,
   onToggleDone,
   onSaveReminder,
   onDeleteReminder,
   onStatusChangeReminder,
+  onSaveProvidedService,
   onViewProject,
   onEditProject,
   onDeleteProject,
-  onNavigateToProjects,
+  onNavigateToProjects: _onNavigateToProjects,
   onNavigateToInvoices,
   onOpenNewProject,
+  onSaveInvoice,
+  onDeleteInvoice,
   onStatusChangeInvoice,
   quickFilters: quickFiltersProp,
   onQuickFiltersChange,
   quickFilterDashboardReminders,
   onQuickFilterDashboardRemindersChange,
+  remindersRowsPerPageOptions,
+  onRemindersRowsPerPageOptionsChange,
+  remindersRowsPerPage,
+  onRemindersRowsPerPageChange,
+  invoicesRowsPerPageOptions,
+  onInvoicesRowsPerPageOptionsChange,
+  invoicesRowsPerPage,
+  onInvoicesRowsPerPageChange,
 }) => {
   const { t, getServiceLabel } = useLanguage();
-  const { currentUser, isAdmin, isManager, isAccountant } = useAuth();
+  const { currentUser, isAccountant } = useAuth();
 
   // Projects subtab state & filtering
   const [searchQuery, setSearchQuery] = useState('');
@@ -123,8 +146,13 @@ const DashboardView: React.FC<Props> = ({
   const [filterClient, setFilterClient] = useState<string>('all');
   const [filterResponsible, setFilterResponsible] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterDateFrom, setFilterDateFrom] = useState<string>('');
+  const [filterDateTo, setFilterDateTo] = useState<string>('');
+  const [filterDateField, setFilterDateField] = useState<string>('deadline');
   const [sortOption, setSortOption] = useState<'deadline' | 'name' | 'start' | 'progress' | 'createdAt'>('deadline');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [newInvoiceTrigger, setNewInvoiceTrigger] = useState(0);
+  const [newReminderTrigger, setNewReminderTrigger] = useState(0);
 
   const handleToggleFilter = (filterKey: string, checked: boolean) => {
     const updated = checked
@@ -193,6 +221,9 @@ const DashboardView: React.FC<Props> = ({
     setFilterClient('all');
     setFilterResponsible('all');
     setFilterStatus('all');
+    setFilterDateFrom('');
+    setFilterDateTo('');
+    setFilterDateField('deadline');
     setSearchQuery('');
   };
 
@@ -298,6 +329,25 @@ const DashboardView: React.FC<Props> = ({
           if (filterStatus === 'creation' && (p.done || stale || late)) return false;
         }
 
+        // Date range filter
+        if (filterDateFrom || filterDateTo) {
+          let rawDate: string | null | undefined = null;
+          if (filterDateField === 'start') {
+            rawDate = p.start;
+          } else if (filterDateField === 'createdAt') {
+            rawDate = p.createdAt;
+          } else {
+            rawDate = p.deadline;
+          }
+          const dateVal = rawDate ? rawDate.slice(0, 10) : '';
+          if (dateVal) {
+            if (filterDateFrom && dateVal < filterDateFrom) return false;
+            if (filterDateTo && dateVal > filterDateTo) return false;
+          } else {
+            return false;
+          }
+        }
+
         if (searchQuery.trim()) {
           const q = searchQuery.toLowerCase();
           const matchesName = p.name.toLowerCase().includes(q);
@@ -341,229 +391,19 @@ const DashboardView: React.FC<Props> = ({
         }
         return sortDirection === 'asc' ? res : -res;
       });
-  }, [projects, invoices, quickFilters, currentUser, filterCategory, filterClient, filterResponsible, filterStatus, searchQuery, getServiceLabel, sortOption, sortDirection]);
+  }, [projects, invoices, quickFilters, currentUser, filterCategory, filterClient, filterResponsible, filterStatus, filterDateFrom, filterDateTo, filterDateField, searchQuery, getServiceLabel, sortOption, sortDirection]);
 
   const activeFilterCount =
     (filterCategory !== 'all' ? 1 : 0) +
     (filterClient !== 'all' ? 1 : 0) +
     (filterResponsible !== 'all' ? 1 : 0) +
     (filterStatus !== 'all' ? 1 : 0) +
+    (filterDateFrom || filterDateTo ? 1 : 0) +
     quickFilters.length;
 
   const clearFilters = () => {
     handleClearAllFilters();
   };
-
-  const { approachingDeadlineProjects, staleProjects } = useMemo(() => {
-    const now = new Date();
-    const twoMonthsMs = 60 * 24 * 60 * 60 * 1000;
-    const twoMonthsFromNow = new Date(now.getTime() + twoMonthsMs);
-
-    const hasApproachingDeadline = (p: Project): boolean => {
-      if (!p.deadline) return false;
-      const deadlineDate = new Date(p.deadline);
-      return deadlineDate <= twoMonthsFromNow;
-    };
-
-    const isOlderThan2Months = (p: Project): boolean => {
-      if (p.done || !p.start) return false;
-      const startDate = new Date(p.start);
-      const cutoff = new Date();
-      cutoff.setMonth(cutoff.getMonth() - 2);
-      return startDate < cutoff;
-    };
-
-    const userRespName = (currentUser?.name || '').trim().toLowerCase();
-
-    // Base active projects filter (not completed + role check)
-    const baseProjects = projects.filter((p) => {
-      if (p.done) return false;
-      if (!isAdmin && !isManager) {
-        const resp = (p.responsible || '').trim().toLowerCase();
-        if (!userRespName || resp !== userRespName) return false;
-      }
-      return true;
-    });
-
-    // 1) Approaching deadlines: deadline <= 2 months from now, sorted by closest deadline first
-    const approaching = baseProjects
-      .filter((p) => hasApproachingDeadline(p))
-      .sort((a, b) => {
-        const aTime = a.deadline ? new Date(a.deadline).getTime() : Infinity;
-        const bTime = b.deadline ? new Date(b.deadline).getTime() : Infinity;
-        return aTime - bTime;
-      });
-
-    // 2) Stale projects: started > 2 months ago, sorted by oldest start date first
-    const stale = baseProjects
-      .filter((p) => isOlderThan2Months(p) && !hasApproachingDeadline(p))
-      .sort((a, b) => {
-        const aStart = a.start ? new Date(a.start).getTime() : Infinity;
-        const bStart = b.start ? new Date(b.start).getTime() : Infinity;
-        return aStart - bStart;
-      });
-
-    return {
-      approachingDeadlineProjects: approaching,
-      staleProjects: stale,
-    };
-  }, [projects, currentUser, isAdmin, isManager]);
-
-  const approachingRemindersCount = useMemo(() => {
-    const today = new Date(new Date().toDateString());
-    if (reminders && reminders.length > 0) {
-      return reminders.filter((r) => {
-        const s = (r.status || '').toLowerCase();
-        if (s === 'completed' || s === 'završeno' || s === 'завршено') return false;
-        if (!r.dueDate) return false;
-        const due = new Date(r.dueDate.split('T')[0]);
-        const diffDays = (due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
-        return diffDays >= 0 && diffDays <= 10;
-      }).length;
-    }
-    return projects.filter((p) => {
-      if (p.done || !p.nextSample) return false;
-      const due = new Date(p.nextSample.split('T')[0]);
-      const diffDays = (due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
-      return diffDays >= 0 && diffDays <= 10;
-    }).length;
-  }, [reminders, projects]);
-
-  const approachingInvoicesCount = useMemo(() => {
-    const today = new Date(new Date().toDateString());
-    if (!invoices || invoices.length === 0) return 0;
-    return invoices.filter((inv) => {
-      const s = (inv.status || '').toLowerCase();
-      if (s === 'paid' || s === 'plaćeno' || s === 'плаћено' || s === 'cancelled' || s === 'otkazano' || s === 'отказано') return false;
-      if (!inv.dueDate) return true;
-      const due = new Date(inv.dueDate.split('T')[0]);
-      const diffDays = (due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
-      return diffDays <= 15;
-    }).length;
-  }, [invoices]);
-
-  const latest15Projects = useMemo(() => {
-    return [...projects]
-      .sort((a, b) => {
-        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : a.start ? new Date(a.start).getTime() : 0;
-        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : b.start ? new Date(b.start).getTime() : 0;
-        if (aTime !== bTime) return bTime - aTime;
-        return (b.id || '').localeCompare(a.id || '');
-      })
-      .slice(0, 15);
-  }, [projects]);
-
-  const urgentProjectsCount = useMemo(() => {
-    const today = new Date(new Date().toDateString());
-    return projects.filter((p) => !p.done && p.deadline && new Date(p.deadline) < today).length;
-  }, [projects]);
-
-  const kpis = [
-    { title: t('statInCreation'), value: stats.active, color: 'primary.main' },
-    { title: t('statUrgentProjects'), value: urgentProjectsCount, color: 'error.main' },
-    { title: t('statDone'), value: stats.done, color: 'info.main' },
-    { title: t('statStale'), value: stats.stale, color: 'warning.main' },
-    isAccountant
-      ? { title: t('statApproachingInvoices'), value: approachingInvoicesCount, color: '#ff9800' }
-      : { title: t('statMonitorSoon'), value: approachingRemindersCount, color: '#ff9800' },
-  ];
-
-  const renderStatisticsCard = (isFullWidth = false, showNotch = true) => (
-    <Card
-      variant="outlined"
-      sx={{
-        position: 'relative',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'visible',
-        width: isFullWidth ? '100%' : undefined,
-        mt: showNotch ? 1 : 0,
-      }}
-    >
-      {/* NOTCHED TITLE */}
-      {showNotch && (
-        <Typography
-          variant="caption"
-          sx={{
-            position: 'absolute',
-            top: -8,
-            left: isFullWidth ? '24px' : '15%',
-            bgcolor: 'background.paper',
-            border: 1,
-            borderColor: 'divider',
-            borderRadius: 1,
-            px: 0.75,
-            py: 0.1,
-            color: 'text.secondary',
-            fontWeight: 700,
-            fontSize: '0.8rem',
-            letterSpacing: '0.4px',
-            lineHeight: 1,
-            zIndex: 1,
-          }}
-        >
-          {t('projectsStatistic')}
-        </Typography>
-      )}
-
-      <CardContent
-        sx={{
-          p: 2,
-          pt: showNotch ? 2.25 : 2,
-          '&:last-child': { pb: 2 },
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-        }}
-      >
-        <Stack
-          spacing={1.5}
-          direction={isFullWidth ? { xs: 'column', sm: 'row' } : 'column'}
-          divider={<Divider flexItem orientation={isFullWidth ? 'vertical' : 'horizontal'} />}
-          sx={{ justifyContent: isFullWidth ? 'space-around' : 'flex-start', py: isFullWidth ? 1 : 0 }}
-        >
-          {kpis.map((kpi, i) => (
-            <Box
-              key={i}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 3,
-                flex: isFullWidth ? 1 : undefined,
-                px: isFullWidth ? 2 : 0,
-              }}
-            >
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{
-                  fontWeight: 600,
-                  textAlign: 'left',
-                  whiteSpace: 'pre-line',
-                  lineHeight: 1.25,
-                }}
-              >
-                {kpi.title}:
-              </Typography>
-              <Typography
-                sx={{
-                  color: kpi.color,
-                  fontWeight: 800,
-                  lineHeight: 1,
-                  fontSize: isFullWidth ? '1.5rem' : '1.25rem',
-                  textAlign: 'right',
-                }}
-              >
-                {kpi.value}
-              </Typography>
-            </Box>
-          ))}
-        </Stack>
-      </CardContent>
-    </Card>
-  );
 
   const renderRemindersPanel = (isFullHeight = false, hideNotch = false) => (
     <ReminderPanel
@@ -577,153 +417,38 @@ const DashboardView: React.FC<Props> = ({
       onStatusChangeReminder={onStatusChangeReminder}
       isFullHeight={isFullHeight}
       hideNotch={hideNotch}
+      openNewReminderTrigger={newReminderTrigger}
+      onNewReminderTriggerHandled={() => setNewReminderTrigger(0)}
       myRemindersOnly={quickFilterDashboardReminders}
       onMyRemindersOnlyChange={onQuickFilterDashboardRemindersChange}
+      rowsPerPageOptions={remindersRowsPerPageOptions}
+      onRowsPerPageOptionsChange={onRemindersRowsPerPageOptionsChange}
+      rowsPerPage={remindersRowsPerPage}
+      onRowsPerPageChange={onRemindersRowsPerPageChange}
     />
   );
 
   const renderApproachingInvoicesPanel = (isFullHeight = false, hideNotch = false) => (
     <ApproachingInvoicesPanel
       invoices={invoices}
+      providedServices={providedServices}
       clients={clients}
       projects={projects}
       isFullHeight={isFullHeight}
       hideNotch={hideNotch}
+      openNewInvoiceTrigger={newInvoiceTrigger}
+      onNewInvoiceTriggerHandled={() => setNewInvoiceTrigger(0)}
+      onSaveInvoice={onSaveInvoice}
+      onSaveProvidedService={onSaveProvidedService}
+      onDeleteInvoice={onDeleteInvoice}
       onStatusChangeInvoice={onStatusChangeInvoice}
       onViewProject={onViewProject || onEditProject}
       onNavigateToInvoices={onNavigateToInvoices}
+      rowsPerPageOptions={invoicesRowsPerPageOptions}
+      onRowsPerPageOptionsChange={onInvoicesRowsPerPageOptionsChange}
+      rowsPerPage={invoicesRowsPerPage}
+      onRowsPerPageChange={onInvoicesRowsPerPageChange}
     />
-  );
-
-  const renderLatestProjectsSection = () => (
-    <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>
-            {t('latestProjectsTitle')}
-          </Typography>
-          <Chip label={latest15Projects.length} size="small" color="primary" sx={{ fontWeight: 700 }} />
-        </Box>
-        {dashboardSubTab !== 'projects' && (
-          <Button
-            size="small"
-            variant="outlined"
-            endIcon={<ArrowForwardIcon />}
-            onClick={onNavigateToProjects}
-          >
-            {t('btnShowAllProjects')}
-          </Button>
-        )}
-      </Box>
-
-      {latest15Projects.length > 0 ? (
-        <Grid container spacing={2}>
-          {latest15Projects.map((p) => (
-            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={p.id}>
-              <ProjectCard
-                project={p}
-                services={services}
-                reminders={reminders}
-                invoices={invoices}
-                onToggleDone={onToggleDone}
-                onMarkSampled={onMarkSampled}
-                onView={onViewProject || onEditProject}
-                onEdit={onEditProject}
-                onDelete={onDeleteProject}
-              />
-            </Grid>
-          ))}
-        </Grid>
-      ) : (
-        <Paper variant="outlined" sx={{ p: 4, textAlign: 'center' }}>
-          <Typography color="text.secondary">{t('emptyProjects')}</Typography>
-        </Paper>
-      )}
-    </Box>
-  );
-
-  const renderApproachingDeadlinesSection = () => (
-    <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>
-            {t('approachingDeadlinesTitle')}
-          </Typography>
-          <Chip label={approachingDeadlineProjects.length} size="small" color="primary" sx={{ fontWeight: 700 }} />
-        </Box>
-        {dashboardSubTab !== 'projects' && (
-          <Button
-            size="small"
-            variant="outlined"
-            endIcon={<ArrowForwardIcon />}
-            onClick={onNavigateToProjects}
-          >
-            {t('btnShowAllProjects')}
-          </Button>
-        )}
-      </Box>
-
-      {approachingDeadlineProjects.length > 0 ? (
-        <Grid container spacing={2}>
-          {approachingDeadlineProjects.map((p) => (
-            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={p.id}>
-              <ProjectCard
-                project={p}
-                services={services}
-                reminders={reminders}
-                invoices={invoices}
-                onToggleDone={onToggleDone}
-                onMarkSampled={onMarkSampled}
-                onView={onViewProject || onEditProject}
-                onEdit={onEditProject}
-                onDelete={onDeleteProject}
-              />
-            </Grid>
-          ))}
-        </Grid>
-      ) : (
-        <Paper variant="outlined" sx={{ p: 4, textAlign: 'center' }}>
-          <Typography color="text.secondary">{t('emptyApproachingDeadlines')}</Typography>
-        </Paper>
-      )}
-    </Box>
-  );
-
-  const renderStaleProjectsSection = () => (
-    <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>
-            {t('staleProjectsTitle')}
-          </Typography>
-          <Chip label={staleProjects.length} size="small" color="warning" sx={{ fontWeight: 700 }} />
-        </Box>
-      </Box>
-
-      {staleProjects.length > 0 ? (
-        <Grid container spacing={2}>
-          {staleProjects.map((p) => (
-            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={p.id}>
-              <ProjectCard
-                project={p}
-                services={services}
-                reminders={reminders}
-                invoices={invoices}
-                onToggleDone={onToggleDone}
-                onMarkSampled={onMarkSampled}
-                onView={onViewProject || onEditProject}
-                onEdit={onEditProject}
-                onDelete={onDeleteProject}
-              />
-            </Grid>
-          ))}
-        </Grid>
-      ) : (
-        <Paper variant="outlined" sx={{ p: 4, textAlign: 'center' }}>
-          <Typography color="text.secondary">{t('emptyStaleProjects')}</Typography>
-        </Paper>
-      )}
-    </Box>
   );
 
   return (
@@ -752,10 +477,25 @@ const DashboardView: React.FC<Props> = ({
       {/* REMINDERS ONLY VIEW */}
       {dashboardSubTab === 'reminders' && (
         <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              {t('remindersTitle')}
-            </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5, mb: 0.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                {t('remindersTitle')}
+              </Typography>
+              <Chip label={(reminders || []).length} size="small" color="primary" sx={{ fontWeight: 700 }} />
+            </Box>
+            {onSaveReminder && (
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<AddIcon />}
+                onClick={() => setNewReminderTrigger((prev) => prev + 1)}
+                size="small"
+                sx={{ borderRadius: 1.5, textTransform: 'none', fontWeight: 600 }}
+              >
+                {t('btnNewReminder')}
+              </Button>
+            )}
           </Box>
           {renderRemindersPanel(true, true)}
         </Box>
@@ -764,10 +504,25 @@ const DashboardView: React.FC<Props> = ({
       {/* INVOICES ONLY VIEW */}
       {dashboardSubTab === 'invoices' && (
         <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              {t('approachingInvoicesTitle')}
-            </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5, mb: 0.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                {t('tabInvoices')}
+              </Typography>
+              <Chip label={invoices.length} size="small" color="primary" sx={{ fontWeight: 700 }} />
+            </Box>
+            {onSaveInvoice && (
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<AddIcon />}
+                onClick={() => setNewInvoiceTrigger((prev) => prev + 1)}
+                size="small"
+                sx={{ borderRadius: 1.5, textTransform: 'none', fontWeight: 600 }}
+              >
+                {t('modalNewInvoice')}
+              </Button>
+            )}
           </Box>
           {renderApproachingInvoicesPanel(true, true)}
         </Box>
@@ -801,21 +556,9 @@ const DashboardView: React.FC<Props> = ({
           <Card variant="outlined" sx={{ p: 2 }}>
             <Box sx={{ display: 'flex', flexDirection: { xs: 'column', lg: 'row' }, gap: 2, alignItems: { xs: 'stretch', lg: 'center' }, justifyContent: 'space-between' }}>
               {/* SEARCH FIELD */}
-              <TextField
-                size="small"
-                placeholder={t('searchPlaceholder')}
+              <TableSearchInput
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon fontSize="small" color="action" />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-                sx={{ width: { xs: '100%', lg: 220 } }}
+                onChange={setSearchQuery}
               />
 
               {/* QUICK FILTER CHECKBOXES */}
@@ -934,6 +677,23 @@ const DashboardView: React.FC<Props> = ({
                       </IconButton>
                     </Box>
                   }
+                  dateRangeContent={
+                    <DateRangeFilter
+                      startDate={filterDateFrom}
+                      endDate={filterDateTo}
+                      onDateChange={({ startDate, endDate }) => {
+                        setFilterDateFrom(startDate);
+                        setFilterDateTo(endDate);
+                      }}
+                      dateField={filterDateField}
+                      dateFieldOptions={[
+                        { value: 'deadline', label: t('deadline') },
+                        { value: 'start', label: t('start') },
+                        { value: 'createdAt', label: t('lblCreatedDate') },
+                      ]}
+                      onDateFieldChange={setFilterDateField}
+                    />
+                  }
                   filteringContent={
                     <>
                       <Autocomplete
@@ -1018,28 +778,7 @@ const DashboardView: React.FC<Props> = ({
         </Box>
       )}
 
-      {/* DEFAULT COMBINED VIEW */}
-      {dashboardSubTab === 'default' && (
-        <>
-          <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', md: 'row' }, alignItems: 'flex-start', width: '100%', maxWidth: '100%', minWidth: 0 }}>
-            <Box sx={{ width: { xs: '100%', md: 'fit-content' }, maxWidth: '100%', minWidth: 0 }}>
-              {renderStatisticsCard(false)}
-            </Box>
-            <Box sx={{ flex: 1, minWidth: 0, width: '100%', maxWidth: '100%' }}>
-              {isAccountant ? renderApproachingInvoicesPanel() : renderRemindersPanel()}
-            </Box>
-          </Box>
 
-          {isAccountant ? (
-            renderLatestProjectsSection()
-          ) : (
-            <>
-              {renderApproachingDeadlinesSection()}
-              {renderStaleProjectsSection()}
-            </>
-          )}
-        </>
-      )}
     </Stack>
   );
 };
