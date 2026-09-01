@@ -15,7 +15,6 @@ import {
   Chip,
   Box,
   Typography,
-  InputAdornment,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -42,8 +41,10 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { TableOptionsSelector, type ColumnDef } from '../ColumnSelector';
 import { TableFilterSelector } from '../TableFilterSelector';
+import { DateRangeFilter } from '../DateRangeFilter';
+import { TableSearchInput } from '../TableSearchInput';
 import { ErrorDialog } from '../ErrorDialog';
-import { SearchIcon, AddIcon, EditIcon, DeleteIcon, CheckIcon, ArrowUpwardIcon, ArrowDownwardIcon, RefreshIcon } from '../icons';
+import { AddIcon, EditIcon, DeleteIcon, CheckIcon, ArrowUpwardIcon, ArrowDownwardIcon, RefreshIcon } from '../icons';
 
 interface Props {
   reminders: Reminder[];
@@ -169,6 +170,9 @@ const RemindersView: React.FC<Props> = ({
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterClient, setFilterClient] = useState<string>('all');
   const [filterResponsible, setFilterResponsible] = useState<string>('all');
+  const [filterDateFrom, setFilterDateFrom] = useState<string>('');
+  const [filterDateTo, setFilterDateTo] = useState<string>('');
+  const [filterDateField, setFilterDateField] = useState<string>('dueDate');
 
   useEffect(() => {
     if (quickFilterProp !== undefined) {
@@ -247,6 +251,7 @@ const RemindersView: React.FC<Props> = ({
     (filterStatus !== 'all' ? 1 : 0) +
     (filterClient !== 'all' ? 1 : 0) +
     (filterResponsible !== 'all' ? 1 : 0) +
+    (filterDateFrom || filterDateTo ? 1 : 0) +
     (sortColumn !== 'title' || sortDirection !== 'asc' ? 1 : 0);
 
   const clearFilters = () => {
@@ -255,6 +260,9 @@ const RemindersView: React.FC<Props> = ({
     setFilterStatus('all');
     setFilterClient('all');
     setFilterResponsible('all');
+    setFilterDateFrom('');
+    setFilterDateTo('');
+    setFilterDateField('dueDate');
     setSortColumn('title');
     setSortDirection('asc');
     if (onSortChange) {
@@ -439,6 +447,24 @@ const RemindersView: React.FC<Props> = ({
           (rem.responsibleId && rem.responsibleId === currentUser.id));
       if (!isMyName && rem.responsible !== filterResponsible) return false;
     }
+
+    // Date range filter
+    if (filterDateFrom || filterDateTo) {
+      let rawDate: string | null | undefined = null;
+      if (filterDateField === 'createdAt') {
+        rawDate = rem.createdAt;
+      } else {
+        rawDate = rem.dueDate;
+      }
+      const dateVal = rawDate ? rawDate.slice(0, 10) : '';
+      if (dateVal) {
+        if (filterDateFrom && dateVal < filterDateFrom) return false;
+        if (filterDateTo && dateVal > filterDateTo) return false;
+      } else {
+        return false;
+      }
+    }
+
     return true;
   });
 
@@ -622,21 +648,9 @@ const RemindersView: React.FC<Props> = ({
 
           <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, width: { xs: '100%', sm: 'auto' } }}>
             {/* SEARCH INPUT FIELD */}
-            <TextField
-              size="small"
-              placeholder={t('searchPlaceholder')}
+            <TableSearchInput
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon color="action" fontSize="small" />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-              sx={{ width: { xs: '100%', sm: 180 } }}
+              onChange={setSearchQuery}
             />
 
             {/* QUICK FILTERS TOGGLE */}
@@ -692,6 +706,22 @@ const RemindersView: React.FC<Props> = ({
                     {sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />}
                   </IconButton>
                 </Box>
+              }
+              dateRangeContent={
+                <DateRangeFilter
+                  startDate={filterDateFrom}
+                  endDate={filterDateTo}
+                  onDateChange={({ startDate, endDate }) => {
+                    setFilterDateFrom(startDate);
+                    setFilterDateTo(endDate);
+                  }}
+                  dateField={filterDateField}
+                  dateFieldOptions={[
+                    { value: 'dueDate', label: t('lblDueDate') },
+                    { value: 'createdAt', label: t('lblCreatedDate') },
+                  ]}
+                  onDateFieldChange={setFilterDateField}
+                />
               }
               filteringContent={
                 <>

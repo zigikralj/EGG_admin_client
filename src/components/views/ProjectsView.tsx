@@ -15,7 +15,6 @@ import {
   IconButton,
   Box,
   Typography,
-  InputAdornment,
   Autocomplete,
   ToggleButtonGroup,
   ToggleButton,
@@ -34,8 +33,9 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { TableOptionsSelector, type ColumnDef } from '../ColumnSelector';
 import { TableFilterSelector } from '../TableFilterSelector';
+import { DateRangeFilter } from '../DateRangeFilter';
+import { TableSearchInput } from '../TableSearchInput';
 import {
-  SearchIcon,
   AddIcon,
   EditIcon,
   DeleteIcon,
@@ -197,12 +197,14 @@ const ProjectsView: React.FC<Props> = ({
   const [quickFilter, setQuickFilter] = useState<'all' | 'my' | 'active' | 'overdue'>(
     quickFilterProp || 'all'
   );
-
   // Popover Filter states
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterClient, setFilterClient] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterResponsible, setFilterResponsible] = useState<string>('all');
+  const [filterDateFrom, setFilterDateFrom] = useState<string>('');
+  const [filterDateTo, setFilterDateTo] = useState<string>('');
+  const [filterDateField, setFilterDateField] = useState<string>('deadline');
 
   useEffect(() => {
     if (quickFilterProp !== undefined) {
@@ -265,11 +267,12 @@ const ProjectsView: React.FC<Props> = ({
   };
 
   const activeFilterCount =
-    (quickFilter === 'active' ? 1 : 0) +
+    (quickFilter !== 'all' ? 1 : 0) +
     (filterCategory !== 'all' ? 1 : 0) +
     (filterClient !== 'all' ? 1 : 0) +
     (filterStatus !== 'all' ? 1 : 0) +
     (filterResponsible !== 'all' ? 1 : 0) +
+    (filterDateFrom || filterDateTo ? 1 : 0) +
     (sortColumn !== 'createdAt' || sortDirection !== 'desc' ? 1 : 0);
 
   const clearFilters = () => {
@@ -279,6 +282,9 @@ const ProjectsView: React.FC<Props> = ({
     setFilterClient('all');
     setFilterStatus('all');
     setFilterResponsible('all');
+    setFilterDateFrom('');
+    setFilterDateTo('');
+    setFilterDateField('deadline');
     setSortColumn('createdAt');
     setSortDirection('desc');
     if (onSortChange) {
@@ -343,6 +349,26 @@ const ProjectsView: React.FC<Props> = ({
       if (filterStatus === 'stale' && (!stale || p.done)) return false;
       if (filterStatus === 'creation' && (p.done || stale || late)) return false;
     }
+
+    // Date range filter
+    if (filterDateFrom || filterDateTo) {
+      let rawDate: string | null | undefined = null;
+      if (filterDateField === 'start') {
+        rawDate = p.start;
+      } else if (filterDateField === 'createdAt') {
+        rawDate = p.createdAt;
+      } else {
+        rawDate = p.deadline;
+      }
+      const dateVal = rawDate ? rawDate.slice(0, 10) : '';
+      if (dateVal) {
+        if (filterDateFrom && dateVal < filterDateFrom) return false;
+        if (filterDateTo && dateVal > filterDateTo) return false;
+      } else {
+        return false;
+      }
+    }
+
     return true;
   });
 
@@ -410,7 +436,7 @@ const ProjectsView: React.FC<Props> = ({
 
   useEffect(() => {
     setPage(0);
-  }, [searchQuery, quickFilter, filterCategory, filterStatus, filterResponsible, sortColumn, sortDirection]);
+  }, [searchQuery, quickFilter, filterCategory, filterStatus, filterResponsible, filterDateFrom, filterDateTo, filterDateField, sortColumn, sortDirection]);
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
@@ -526,21 +552,9 @@ const ProjectsView: React.FC<Props> = ({
             </ToggleButtonGroup>
 
             {/* SEARCH FIELD */}
-            <TextField
-              size="small"
-              placeholder={t('searchPlaceholder')}
+            <TableSearchInput
               value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon fontSize="small" color="action" />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-              sx={{ width: { xs: '100%', sm: 220 } }}
+              onChange={onSearchChange}
             />
 
             {/* POPOVER FILTERS */}
@@ -572,6 +586,23 @@ const ProjectsView: React.FC<Props> = ({
                     {sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />}
                   </IconButton>
                 </Box>
+              }
+              dateRangeContent={
+                <DateRangeFilter
+                  startDate={filterDateFrom}
+                  endDate={filterDateTo}
+                  onDateChange={({ startDate, endDate }) => {
+                    setFilterDateFrom(startDate);
+                    setFilterDateTo(endDate);
+                  }}
+                  dateField={filterDateField}
+                  dateFieldOptions={[
+                    { value: 'deadline', label: t('deadline') },
+                    { value: 'start', label: t('start') },
+                    { value: 'createdAt', label: t('lblCreatedDate') },
+                  ]}
+                  onDateFieldChange={setFilterDateField}
+                />
               }
               filteringContent={
                 <>

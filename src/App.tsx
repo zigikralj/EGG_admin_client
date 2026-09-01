@@ -39,11 +39,11 @@ const ProjectViewModal = React.lazy(() => import('./components/ProjectViewModal'
 
 function MainApp() {
   const { t } = useLanguage();
-  const { currentUser } = useAuth();
+  const { currentUser, isAccountant } = useAuth();
 
   // ── UI State ────────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
-  const [dashboardSubTab, setDashboardSubTab] = useState<DashboardSubTab>('default');
+  const [dashboardSubTab, setDashboardSubTab] = useState<DashboardSubTab>('projects');
   const [providedServicesSubTab, setProvidedServicesSubTab] = useState<ProvidedServicesSubTab>('summary');
   const [usersFilterStatus, setUsersFilterStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -259,6 +259,8 @@ function MainApp() {
             services={servicesHook.services}
             reminders={remindersHook.reminders}
             invoices={invoicesHook.invoices}
+            providedServices={providedServicesHook.providedServices}
+            onSaveProvidedService={providedServicesHook.handleSaveProvidedService}
             onMarkSampled={projectsHook.handleMarkSampled}
             onToggleDone={projectsHook.handleToggleDone}
             onSaveReminder={remindersHook.handleSaveReminder}
@@ -271,13 +273,30 @@ function MainApp() {
               setActiveTab('dashboard');
               setDashboardSubTab('projects');
             }}
-            onNavigateToInvoices={() => setActiveTab('invoices')}
+            onNavigateToInvoices={() => {
+              if (isAccountant) {
+                setActiveTab('dashboard');
+                setDashboardSubTab('invoices');
+              } else {
+                setActiveTab('invoices');
+              }
+            }}
             onOpenNewProject={() => handleEditProject(null)}
+            onSaveInvoice={invoicesHook.handleSaveInvoice}
+            onDeleteInvoice={invoicesHook.handleDeleteInvoice}
             onStatusChangeInvoice={invoicesHook.handleUpdateInvoiceStatus}
             quickFilters={userPreferences.quick_filter_dashboard_projects}
             onQuickFiltersChange={(filters) => updatePreference('quick_filter_dashboard_projects', filters)}
             quickFilterDashboardReminders={userPreferences.quick_filter_dashboard_reminders}
             onQuickFilterDashboardRemindersChange={(val) => updatePreference('quick_filter_dashboard_reminders', val)}
+            remindersRowsPerPageOptions={userPreferences.rowsPerPageOptions_dashboard_reminders}
+            onRemindersRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_dashboard_reminders', opts)}
+            remindersRowsPerPage={userPreferences.rowsPerPage_dashboard_reminders}
+            onRemindersRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_dashboard_reminders', rpp)}
+            invoicesRowsPerPageOptions={userPreferences.rowsPerPageOptions_dashboard_invoices}
+            onInvoicesRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_dashboard_invoices', opts)}
+            invoicesRowsPerPage={userPreferences.rowsPerPage_dashboard_invoices}
+            onInvoicesRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_dashboard_invoices', rpp)}
           />
         )}
 
@@ -470,6 +489,8 @@ function MainApp() {
             invoices={invoicesHook.invoices}
             clients={clientsHook.clients}
             projects={projectsHook.projects}
+            providedServices={providedServicesHook.providedServices}
+            onSaveProvidedService={providedServicesHook.handleSaveProvidedService}
             onSaveInvoice={invoicesHook.handleSaveInvoice}
             onDeleteInvoice={invoicesHook.handleDeleteInvoice}
             onUpdateStatus={invoicesHook.handleUpdateInvoiceStatus}
