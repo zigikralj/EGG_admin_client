@@ -543,14 +543,14 @@ const InvoicesView: React.FC<Props> = ({
         if (savedInvoiceId && onSaveProvidedService) {
            const initialPs = editingInvoice ? providedServices?.find(ps => ps.invoiceId === editingInvoice.id) : undefined;
            
-           if (formData.providedServiceId !== (initialPs?.id || '')) {
-             if (formData.providedServiceId) {
-               await onSaveProvidedService({ id: formData.providedServiceId, invoiceId: savedInvoiceId }).catch(() => {});
-             }
-             if (initialPs) {
-               await onSaveProvidedService({ id: initialPs.id, invoiceId: null }).catch(() => {});
-             }
-           }
+            if (formData.providedServiceId !== (initialPs?.id || '')) {
+              if (formData.providedServiceId) {
+                await Promise.resolve(onSaveProvidedService({ id: formData.providedServiceId, invoiceId: savedInvoiceId })).catch(() => {});
+              }
+              if (initialPs) {
+                await Promise.resolve(onSaveProvidedService({ id: initialPs.id, invoiceId: null })).catch(() => {});
+              }
+            }
         }
         setIsOpen(false);
       }

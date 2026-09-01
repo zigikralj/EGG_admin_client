@@ -663,10 +663,10 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
            
            if (formData.providedServiceId !== (initialPs?.id || '')) {
              if (formData.providedServiceId) {
-               await onSaveProvidedService({ id: formData.providedServiceId, invoiceId: savedInvoiceId }).catch(() => {});
+               await Promise.resolve(onSaveProvidedService({ id: formData.providedServiceId, invoiceId: savedInvoiceId })).catch(() => {});
              }
              if (initialPs) {
-               await onSaveProvidedService({ id: initialPs.id, invoiceId: null }).catch(() => {});
+               await Promise.resolve(onSaveProvidedService({ id: initialPs.id, invoiceId: null })).catch(() => {});
              }
            }
         }

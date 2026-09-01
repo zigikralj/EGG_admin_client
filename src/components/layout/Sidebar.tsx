@@ -30,7 +30,6 @@ import type { ActiveTab, DashboardSubTab, ProvidedServicesSubTab } from '../../t
 import {
   ExpandMoreIcon,
   ExpandLessIcon,
-  ViewQuiltIcon,
   BarChartIcon,
   NotificationsActiveIcon,
   ReceiptLongIcon,
