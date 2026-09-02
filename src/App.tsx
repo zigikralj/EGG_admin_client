@@ -9,7 +9,9 @@ import type {
 } from './types';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { NotificationProvider } from './context/NotificationContext';
 import { CustomThemeProvider } from './context/ThemeContext';
+import { apiFetch } from './api';
 import { AdminLayout } from './components/AdminLayout';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { ConfirmDeleteDialog } from './components/ConfirmDeleteDialog';
@@ -196,6 +198,28 @@ function MainApp() {
     setIsProjectViewModalOpen(true);
   };
 
+  const handleOpenProjectById = useCallback(async (projectId: string) => {
+    let target = projectsHook.projects.find((p) => p.id === projectId);
+    if (!target) {
+      try {
+        const res = await apiFetch('/api/projects', { headers: authHeaders() });
+        if (res.ok) {
+          const allProjects: Project[] = await res.json();
+          target = allProjects.find((p) => p.id === projectId);
+          if (target) {
+            projectsHook.setProjects(allProjects);
+          }
+        }
+      } catch (e) {
+        console.error('Error fetching project for notification:', e);
+      }
+    }
+    if (target) {
+      setViewingProject(target);
+      setIsProjectViewModalOpen(true);
+    }
+  }, [projectsHook, authHeaders]);
+
   const handleEditProject = (p: Project | null) => {
     setIsProjectViewModalOpen(false);
     setViewingProject(null);
@@ -210,6 +234,8 @@ function MainApp() {
       setIsProjectModalOpen(false);
       setEditingProject(null);
     }
+    // Fire notifications refresh
+    window.dispatchEvent(new CustomEvent('notifications:refresh'));
     return result;
   };
 
@@ -239,6 +265,7 @@ function MainApp() {
           setActiveTab('users');
           setUsersFilterStatus('pending');
         }}
+        onOpenProject={handleOpenProjectById}
         dashboardSubTab={dashboardSubTab}
         onDashboardSubTabChange={setDashboardSubTab}
         providedServicesSubTab={providedServicesSubTab}
@@ -556,7 +583,9 @@ export function App() {
   return (
     <LanguageProvider>
       <AuthProvider>
-        <MainApp />
+        <NotificationProvider>
+          <MainApp />
+        </NotificationProvider>
       </AuthProvider>
     </LanguageProvider>
   );

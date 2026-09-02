@@ -32,6 +32,7 @@ interface Props {
   userPreferences?: Record<string, any>;
   onPreferenceChange?: (key: string, value: any) => void;
   onNavigateToPendingUsers?: () => void;
+  onOpenProject?: (projectId: string) => void;
   children: React.ReactNode;
 }
 
@@ -46,6 +47,7 @@ export const AdminLayout: React.FC<Props> = ({
   userPreferences,
   onPreferenceChange,
   onNavigateToPendingUsers,
+  onOpenProject,
   children,
 }) => {
   const { t } = useLanguage();
@@ -60,6 +62,7 @@ export const AdminLayout: React.FC<Props> = ({
     pendingUsersCount,
     workOnEntities,
     setWorkOnEntities,
+    logout,
   } = useAuth();
 
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -134,8 +137,9 @@ export const AdminLayout: React.FC<Props> = ({
         onNavigateToPendingUsers={onNavigateToPendingUsers}
         handleOpenProfile={() => setIsProfileOpen(true)}
         handleOpenPreferences={() => setIsPreferencesOpen(true)}
-        handleLogoutClick={() => {}} // Assuming logout is handled in AuthContext directly in AppHeader, wait!
+        handleLogoutClick={logout}
         setIsCompanyInfoOpen={setIsCompanyInfoOpen}
+        onOpenProject={onOpenProject}
       />
 
       <Sidebar

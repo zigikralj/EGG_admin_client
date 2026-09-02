@@ -243,3 +243,24 @@ export interface AppFetchers {
   fetchInvoices: () => Promise<void>;
   fetchStats: () => Promise<void>;
 }
+
+export interface AppNotification {
+  id: string;
+  userId: string;
+  type: 'MENTION' | string;
+  title: string;
+  message: string;
+  read: boolean;
+  link?: string | null;
+  projectId?: string | null;
+  authorId?: string | null;
+  authorName?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  project?: {
+    id: string;
+    name: string;
+    clientName?: string;
+  } | null;
+}
+

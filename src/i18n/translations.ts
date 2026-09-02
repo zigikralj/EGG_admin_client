@@ -430,6 +430,17 @@ export interface TranslationKeys {
   editorClearFormat: string;
   editorUndo: string;
   editorRedo: string;
+  editorMentionUser: string;
+  editorMentionSearchPlaceholder: string;
+  menuNotifications: string;
+  notificationsTitle: string;
+  notificationsMarkAllRead: string;
+  notificationsClearAll: string;
+  noNotifications: string;
+  noNotificationsDesc: string;
+  notificationMentionedIn: string;
+  notificationJustNow: string;
+  notificationTimeAgo: string;
   btnCancel: string;
   btnSave: string;
   alertProjectValidation: string;

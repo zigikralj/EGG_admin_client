@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import {
   Box,
   Paper,
@@ -8,21 +8,34 @@ import {
   Menu,
   MenuItem,
   Typography,
+  Popper,
+  List,
+  ListItemButton,
+  ListItemAvatar,
+  Avatar,
+  ListItemText,
+  Chip,
+  Fade,
 } from '@mui/material';
 
-
-
-
-
-
-
-
-
-
-
-
 import { useLanguage } from '../context/LanguageContext';
-import { FormatBoldIcon, FormatItalicIcon, FormatUnderlinedIcon, StrikethroughSIcon, FormatListBulletedIcon, FormatListNumberedIcon, FormatQuoteIcon, TitleIcon, FormatClearIcon, UndoIcon, RedoIcon, ArrowDropDownIcon } from './icons';
+import { useAuth } from '../context/AuthContext';
+import type { User } from '../types';
+import {
+  FormatBoldIcon,
+  FormatItalicIcon,
+  FormatUnderlinedIcon,
+  StrikethroughSIcon,
+  FormatListBulletedIcon,
+  FormatListNumberedIcon,
+  FormatQuoteIcon,
+  TitleIcon,
+  FormatClearIcon,
+  UndoIcon,
+  RedoIcon,
+  ArrowDropDownIcon,
+  AlternateEmailIcon,
+} from './icons';
 
 interface RichTextEditorProps {
   value: string;
@@ -31,6 +44,7 @@ interface RichTextEditorProps {
   minHeight?: number | string;
   readOnly?: boolean;
   disabled?: boolean;
+  users?: User[];
 }
 
 export const RichTextEditor: React.FC<RichTextEditorProps> = ({
@@ -40,8 +54,12 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   minHeight = 160,
   readOnly = false,
   disabled = false,
+  users: propUsers,
 }) => {
   const { t } = useLanguage();
+  const auth = useAuth();
+  const availableUsers = propUsers || auth.users || [];
+
   const editorRef = useRef<HTMLDivElement>(null);
   const isInternalChangeRef = useRef(false);
 
@@ -58,6 +76,25 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
   const [headingAnchorEl, setHeadingAnchorEl] = useState<null | HTMLElement>(null);
   const [isEmpty, setIsEmpty] = useState(!value || value === '<p><br></p>' || value === '<br>');
 
+  // Mention State
+  const [mentionOpen, setMentionOpen] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const [mentionAnchorEl, setMentionAnchorEl] = useState<HTMLElement | null>(null);
+  const mentionRangeRef = useRef<Range | null>(null);
+
+  const filteredUsers = useMemo(() => {
+    const q = mentionQuery.toLowerCase().trim();
+    return availableUsers.filter((u) => {
+      if (u.status === 'BLOCKED') return false;
+      if (!q) return true;
+      const nameMatch = u.name.toLowerCase().includes(q);
+      const emailMatch = u.email ? u.email.toLowerCase().includes(q) : false;
+      const roleMatch = u.role ? u.role.toLowerCase().includes(q) : false;
+      return nameMatch || emailMatch || roleMatch;
+    }).slice(0, 8);
+  }, [availableUsers, mentionQuery]);
+
   const updateActiveFormats = useCallback(() => {
     if (!editorRef.current || readOnly || disabled) return;
     try {
@@ -73,6 +110,116 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       // ignore
     }
   }, [readOnly, disabled]);
+
+  // Check for @ mentions in current caret position
+  const checkForMention = useCallback(() => {
+    if (readOnly || disabled || !editorRef.current) return;
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) {
+      setMentionOpen(false);
+      return;
+    }
+
+    const range = selection.getRangeAt(0);
+    const node = range.startContainer;
+    if (!editorRef.current.contains(node)) {
+      setMentionOpen(false);
+      return;
+    }
+
+    // Only process text nodes
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent || '';
+      const caretPos = range.startOffset;
+      const textBeforeCaret = text.slice(0, caretPos);
+      const lastAtIndex = textBeforeCaret.lastIndexOf('@');
+
+      if (lastAtIndex !== -1) {
+        const query = textBeforeCaret.slice(lastAtIndex + 1);
+        // Ensure no whitespace in query and that @ is either at start or after whitespace/boundary
+        const charBeforeAt = lastAtIndex > 0 ? textBeforeCaret[lastAtIndex - 1] : ' ';
+        if (!/\s/.test(query) && (/\s/.test(charBeforeAt) || lastAtIndex === 0)) {
+          // Save range for replacement
+          const mentionRange = document.createRange();
+          mentionRange.setStart(node, lastAtIndex);
+          mentionRange.setEnd(node, caretPos);
+          mentionRangeRef.current = mentionRange;
+
+          setMentionQuery(query);
+          setMentionIndex(0);
+          setMentionAnchorEl(editorRef.current);
+          setMentionOpen(true);
+          return;
+        }
+      }
+    }
+
+    setMentionOpen(false);
+  }, [readOnly, disabled]);
+
+  // Insert Mention
+  const insertMention = useCallback((user: User) => {
+    if (!editorRef.current) return;
+    editorRef.current.focus();
+
+    const selection = window.getSelection();
+    let range = mentionRangeRef.current;
+
+    if (!range && selection && selection.rangeCount > 0) {
+      range = selection.getRangeAt(0);
+    }
+
+    if (range) {
+      range.deleteContents();
+
+      // Create mention span
+      const mentionSpan = document.createElement('span');
+      mentionSpan.className = 'mention-tag';
+      mentionSpan.setAttribute('data-user-id', user.id);
+      mentionSpan.setAttribute('data-user-name', user.name);
+      mentionSpan.setAttribute('contenteditable', 'false');
+      mentionSpan.textContent = `@${user.name}`;
+
+      // Style mention span
+      mentionSpan.style.backgroundColor = 'rgba(25, 118, 210, 0.12)';
+      mentionSpan.style.color = '#1976d2';
+      mentionSpan.style.padding = '2px 6px';
+      mentionSpan.style.borderRadius = '4px';
+      mentionSpan.style.fontWeight = '600';
+      mentionSpan.style.display = 'inline-flex';
+      mentionSpan.style.alignItems = 'center';
+      mentionSpan.style.margin = '0 2px';
+      mentionSpan.style.userSelect = 'all';
+
+      const spaceNode = document.createTextNode('\u00A0'); // Non-breaking space
+
+      range.insertNode(spaceNode);
+      range.insertNode(mentionSpan);
+
+      // Move cursor after space
+      const newRange = document.createRange();
+      newRange.setStartAfter(spaceNode);
+      newRange.setEndAfter(spaceNode);
+
+      if (selection) {
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+      }
+    }
+
+    setMentionOpen(false);
+    mentionRangeRef.current = null;
+
+    // Trigger input change
+    if (editorRef.current) {
+      const html = editorRef.current.innerHTML;
+      const textContent = editorRef.current.textContent || '';
+      const empty = !textContent.trim() && !editorRef.current.querySelector('img, hr, iframe, ul, ol');
+      setIsEmpty(empty);
+      isInternalChangeRef.current = true;
+      onChange(empty ? '' : html);
+    }
+  }, [onChange]);
 
   // Sync external value changes to editor DOM
   useEffect(() => {
@@ -113,6 +260,32 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     isInternalChangeRef.current = true;
     onChange(empty ? '' : html);
     updateActiveFormats();
+    checkForMention();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (mentionOpen && filteredUsers.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setMentionIndex((prev) => (prev + 1) % filteredUsers.length);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setMentionIndex((prev) => (prev - 1 + filteredUsers.length) % filteredUsers.length);
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        insertMention(filteredUsers[mentionIndex]);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setMentionOpen(false);
+        return;
+      }
+    }
   };
 
   const exec = (command: string, val: string | null = null) => {
@@ -134,6 +307,13 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     }
   };
 
+  const handleMentionButtonClick = () => {
+    if (readOnly || disabled || !editorRef.current) return;
+    editorRef.current.focus();
+    document.execCommand('insertText', false, '@');
+    handleInput();
+  };
+
   return (
     <Paper
       variant="outlined"
@@ -144,6 +324,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         bgcolor: 'background.paper',
         display: 'flex',
         flexDirection: 'column',
+        position: 'relative',
         transition: 'border-color 0.2s ease',
         '&:focus-within': {
           borderColor: 'primary.main',
@@ -261,6 +442,27 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
           <Divider orientation="vertical" flexItem sx={{ mx: 0.5, my: 0.5 }} />
 
+          {/* MENTION USER BUTTON */}
+          <Tooltip title={t('editorMentionUser')} arrow>
+            <IconButton
+              size="small"
+              color="primary"
+              onClick={handleMentionButtonClick}
+              disabled={disabled}
+              sx={{
+                borderRadius: 1,
+                bgcolor: 'rgba(25, 118, 210, 0.08)',
+                '&:hover': {
+                  bgcolor: 'rgba(25, 118, 210, 0.18)',
+                },
+              }}
+            >
+              <AlternateEmailIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+
+          <Divider orientation="vertical" flexItem sx={{ mx: 0.5, my: 0.5 }} />
+
           {/* HEADINGS / BLOCK FORMATS */}
           <Tooltip title={t('editorHeading')} arrow>
             <IconButton
@@ -370,8 +572,17 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
           ref={editorRef}
           contentEditable={!readOnly && !disabled}
           onInput={handleInput}
-          onKeyUp={updateActiveFormats}
-          onMouseUp={updateActiveFormats}
+          onKeyDown={handleKeyDown}
+          onKeyUp={(e) => {
+            updateActiveFormats();
+            if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Enter' && e.key !== 'Escape') {
+              checkForMention();
+            }
+          }}
+          onMouseUp={() => {
+            updateActiveFormats();
+            checkForMention();
+          }}
           sx={{
             p: 1.5,
             minHeight,
@@ -420,9 +631,140 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
               borderRadius: '0 4px 4px 0',
               fontStyle: 'italic',
             },
+            '& .mention-tag': {
+              bgcolor: (theme) =>
+                theme.palette.mode === 'dark' ? 'rgba(144, 202, 249, 0.18)' : 'rgba(25, 118, 210, 0.12)',
+              color: (theme) => (theme.palette.mode === 'dark' ? '#90caf9' : 'primary.main'),
+              border: '1px solid',
+              borderColor: (theme) =>
+                theme.palette.mode === 'dark' ? 'rgba(144, 202, 249, 0.35)' : 'rgba(25, 118, 210, 0.25)',
+              borderRadius: '4px',
+              px: 0.75,
+              py: 0.15,
+              fontWeight: 600,
+              display: 'inline-flex',
+              alignItems: 'center',
+              margin: '0 2px',
+              userSelect: 'all',
+              lineHeight: 1.3,
+            },
           }}
         />
       </Box>
+
+      {/* MENTION AUTOCOMPLETE POPPER */}
+      <Popper
+        open={mentionOpen && filteredUsers.length > 0}
+        anchorEl={mentionAnchorEl}
+        placement="bottom-start"
+        transition
+        style={{ zIndex: 1400 }}
+      >
+        {({ TransitionProps }) => (
+          <Fade {...TransitionProps} timeout={150}>
+            <Paper
+              elevation={6}
+              sx={{
+                mt: 0.5,
+                maxHeight: 280,
+                width: 260,
+                overflowY: 'auto',
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: 'divider',
+                bgcolor: 'background.paper',
+                boxShadow: (theme) =>
+                  theme.palette.mode === 'dark'
+                    ? '0 8px 24px rgba(0,0,0,0.5)'
+                    : '0 8px 24px rgba(0,0,0,0.12)',
+              }}
+            >
+              <Box sx={{ px: 1.5, py: 1, borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                  {t('editorMentionSearchPlaceholder')} ({filteredUsers.length})
+                </Typography>
+              </Box>
+              <List dense sx={{ p: 0.5 }}>
+                {filteredUsers.map((user, idx) => {
+                  const isSelected = idx === mentionIndex;
+                  const initials = user.name
+                    ? user.name
+                        .split(' ')
+                        .map((n) => n[0])
+                        .join('')
+                        .toUpperCase()
+                        .substring(0, 2)
+                    : 'U';
+
+                  return (
+                    <ListItemButton
+                      key={user.id}
+                      selected={isSelected}
+                      onClick={() => insertMention(user)}
+                      sx={{
+                        borderRadius: 1.5,
+                        my: 0.25,
+                        py: 0.75,
+                        '&.Mui-selected': {
+                          bgcolor: 'primary.main',
+                          color: 'primary.contrastText',
+                          '&:hover': {
+                            bgcolor: 'primary.dark',
+                          },
+                          '& .MuiTypography-root': {
+                            color: 'inherit',
+                          },
+                          '& .MuiChip-root': {
+                            bgcolor: 'rgba(255, 255, 255, 0.2)',
+                            color: '#ffffff',
+                          },
+                        },
+                      }}
+                    >
+                      <ListItemAvatar sx={{ minWidth: 36 }}>
+                        <Avatar
+                          src={user.avatarUrl || undefined}
+                          sx={{
+                            width: 28,
+                            height: 28,
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            bgcolor: isSelected ? 'rgba(255, 255, 255, 0.2)' : 'primary.main',
+                          }}
+                        >
+                          {initials}
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={
+                          <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8125rem' }}>
+                            {user.name}
+                          </Typography>
+                        }
+                        secondary={
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.25 }}>
+                            <Chip
+                              label={user.role}
+                              size="small"
+                              sx={{
+                                height: 16,
+                                fontSize: '0.65rem',
+                                fontWeight: 600,
+                                px: 0.2,
+                              }}
+                            />
+                          </Box>
+                        }
+                      />
+                    </ListItemButton>
+                  );
+                })}
+              </List>
+            </Paper>
+          </Fade>
+        )}
+      </Popper>
     </Paper>
   );
 };
+

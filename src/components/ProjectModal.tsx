@@ -450,6 +450,7 @@ const ProjectModal: React.FC<Props> = ({
                   <RichTextEditor
                     value={notes}
                     onChange={setNotes}
+                    users={users}
                     placeholder={t('phProjectNotes')}
                     minHeight={150}
                   />
