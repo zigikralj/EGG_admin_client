@@ -438,7 +438,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </Typography>
             {typeof __APP_VERSION__ !== 'undefined' && (
               <Tooltip
-                title={`${t('appVersion')} ${__APP_VERSION__}${typeof __BUILD_TIME__ !== 'undefined' && __BUILD_TIME__ ? ` (${new Date(__BUILD_TIME__).toLocaleDateString()})` : ''}`}
+                title={`${t('appVersion')} ${__APP_VERSION__}${typeof __COMMIT_HASH__ !== 'undefined' && __COMMIT_HASH__ ? ` (${__COMMIT_HASH__})` : ''}${typeof __BUILD_TIME__ !== 'undefined' && __BUILD_TIME__ ? ` • ${new Date(__BUILD_TIME__).toLocaleDateString()}` : ''}`}
                 arrow
                 placement="top"
               >
