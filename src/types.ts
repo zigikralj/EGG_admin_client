@@ -169,7 +169,7 @@ export interface ProjectStats {
 
 export type ActiveTab = 'dashboard' | 'projects' | 'clients' | 'users' | 'services' | 'providedServices' | 'categories' | 'reminders' | 'invoices';
 
-export type DashboardSubTab = 'projects' | 'reminders' | 'invoices' | 'statistic';
+export type DashboardSubTab = 'projects' | 'reminders' | 'invoices' | 'waste-disposal' | 'waste-management' | 'statistic';
 
 export type ProvidedServicesSubTab = 'summary' | 'statistics';
 

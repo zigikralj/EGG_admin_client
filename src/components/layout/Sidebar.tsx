@@ -35,6 +35,7 @@ import {
   ReceiptLongIcon,
   FolderIcon,
   FormatListBulletedIcon,
+  DeleteSweepIcon,
 } from '../icons';
 
 export const DRAWER_WIDTH = 250;
@@ -164,7 +165,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                   if (canToggleEntityWorkMode || role === 'Administrator' || role === 'Manager' || isAccountant) {
                     dashboardSubItems.push(
-                      { id: 'invoices', label: t('tabInvoices'), icon: <ReceiptLongIcon fontSize="small" /> }
+                      { id: 'invoices', label: t('tabInvoices'), icon: <ReceiptLongIcon fontSize="small" /> },
+                      { id: 'waste-disposal', label: t('subTabWasteDisposal'), icon: <DeleteSweepIcon fontSize="small" /> }
                     );
                   }
 
