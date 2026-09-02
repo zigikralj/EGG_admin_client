@@ -657,6 +657,7 @@ export const serviceTypeTranslations: Record<Language, Record<string, string>> =
 
     // Serbian fallback keys
     'zbrinjavanje': 'Waste Disposal',
+    'odlaganje': 'Waste Disposal',
     'upravljanje': 'Waste Management',
     'posebni-tokovi': 'Special Waste Streams & Eco Tax',
     'dozvole': 'Waste Management Permits',
@@ -671,7 +672,7 @@ export const serviceTypeTranslations: Record<Language, Record<string, string>> =
   },
   'sr-Latn': {
     // English codes
-    'waste-disposal': 'Zbrinjavanje otpada',
+    'waste-disposal': 'Odlaganje otpada',
     'waste-management': 'Upravljanje otpadom',
     'special-waste-streams': 'Posebni tokovi otpada, eko taksa',
     'permits': 'Dozvole za upravljanje otpadom',
@@ -690,7 +691,8 @@ export const serviceTypeTranslations: Record<Language, Record<string, string>> =
     'haccp': 'Bezbednost hrane (BRC/IFS/FSSC)',
 
     // Serbian fallback keys
-    'zbrinjavanje': 'Zbrinjavanje otpada',
+    'zbrinjavanje': 'Odlaganje otpada',
+    'odlaganje': 'Odlaganje otpada',
     'upravljanje': 'Upravljanje otpadom',
     'posebni-tokovi': 'Posebni tokovi otpada, eko taksa',
     'dozvole': 'Dozvole za upravljanje otpadom',
@@ -705,7 +707,7 @@ export const serviceTypeTranslations: Record<Language, Record<string, string>> =
   },
   'sr-Cyrl': {
     // English codes
-    'waste-disposal': 'Збрињавање отпада',
+    'waste-disposal': 'Одлагање отпада',
     'waste-management': 'Управљање отпадом',
     'special-waste-streams': 'Посебни токови отпада, еко такса',
     'permits': 'Дозволе за управљање отпадом',
@@ -724,7 +726,8 @@ export const serviceTypeTranslations: Record<Language, Record<string, string>> =
     'haccp': 'Безбедност хране (BRC/IFS/FSSC)',
 
     // Serbian fallback keys
-    'zbrinjavanje': 'Збрињавање отпада',
+    'zbrinjavanje': 'Одлагање отпада',
+    'odlaganje': 'Одлагање отпада',
     'upravljanje': 'Управљање отпадом',
     'posebni-tokovi': 'Посебни токови отпада, еко такса',
     'dozvole': 'Дозволе за управљање отпадом',

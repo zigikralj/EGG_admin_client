@@ -195,6 +195,8 @@ export const typeGroup: Record<string, string> = {
 
   // Serbian fallback keys
   'zbrinjavanje': 'grp-waste',
+  'odlaganje': 'grp-waste',
+  'odlaganje-otpada': 'grp-waste',
   'upravljanje': 'grp-waste',
   'posebni-tokovi': 'grp-waste',
   'dozvole': 'grp-legal',
