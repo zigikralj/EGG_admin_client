@@ -14,6 +14,8 @@ import {
   ListItemText,
   Collapse,
   Link,
+  Chip,
+  Tooltip,
 } from '@mui/material';
 
 
@@ -422,19 +424,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
             bgcolor: (theme) => (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.015)'),
           }}
         >
-          <Typography
-            variant="caption"
-            sx={{
-              fontWeight: 700,
-              color: 'text.primary',
-              display: 'block',
-              mb: 0.5,
-              fontSize: '0.75rem',
-              letterSpacing: '0.2px',
-            }}
-          >
-            Made by Zigi Code.
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+            <Typography
+              variant="caption"
+              sx={{
+                fontWeight: 700,
+                color: 'text.primary',
+                fontSize: '0.75rem',
+                letterSpacing: '0.2px',
+              }}
+            >
+              Made by Zigi Code.
+            </Typography>
+            {typeof __APP_VERSION__ !== 'undefined' && (
+              <Tooltip
+                title={`${t('appVersion')} ${__APP_VERSION__}${typeof __BUILD_TIME__ !== 'undefined' && __BUILD_TIME__ ? ` (${new Date(__BUILD_TIME__).toLocaleDateString()})` : ''}`}
+                arrow
+                placement="top"
+              >
+                <Chip
+                  label={`v${__APP_VERSION__}`}
+                  size="small"
+                  variant="outlined"
+                  sx={{
+                    height: 18,
+                    fontSize: '0.65rem',
+                    fontWeight: 700,
+                    color: 'text.secondary',
+                    borderColor: 'divider',
+                    cursor: 'default',
+                    '& .MuiChip-label': {
+                      px: 0.75,
+                    },
+                  }}
+                />
+              </Tooltip>
+            )}
+          </Box>
           <Typography
             variant="caption"
             sx={{
