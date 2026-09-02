@@ -586,7 +586,13 @@ const srCyrlTranslations: TranslationKeys = {
   "btnCancelEdit": "Откажи",
   "btnAddBankAccount": "Додај текући рачун",
   "msgCompanyInfoSaved": "Подаци о фирми су успешно ажурирани!",
-  "msgCompanyInfoSaveError": "Грешка при ажурирању података о фирми."
+  "msgCompanyInfoSaveError": "Грешка при ажурирању података о фирми.",
+  "appUpdateAvailable": "Доступна је нова верзија апликације.",
+  "appUpdateDescription": "Молимо освежите страницу како бисте применили најновије измене и побољшања.",
+  "btnRefreshNow": "Освежи одмах",
+  "btnDismiss": "Затвори",
+  "appVersion": "Верзија",
+  "buildTime": "Издање"
 };
 
 export default srCyrlTranslations;

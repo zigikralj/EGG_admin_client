@@ -586,7 +586,13 @@ const srLatnTranslations: TranslationKeys = {
   "btnCancelEdit": "Otkaži",
   "btnAddBankAccount": "Dodaj tekući račun",
   "msgCompanyInfoSaved": "Podaci o firmi su uspešno ažurirani!",
-  "msgCompanyInfoSaveError": "Greška pri ažuriranju podataka o firmi."
+  "msgCompanyInfoSaveError": "Greška pri ažuriranju podataka o firmi.",
+  "appUpdateAvailable": "Dostupna je nova verzija aplikacije.",
+  "appUpdateDescription": "Molimo osvežite stranicu kako biste primenili najnovije izmene i poboljšanja.",
+  "btnRefreshNow": "Osveži odmah",
+  "btnDismiss": "Zatvori",
+  "appVersion": "Verzija",
+  "buildTime": "Izdanje"
 };
 
 export default srLatnTranslations;

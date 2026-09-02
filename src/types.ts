@@ -280,3 +280,9 @@ export interface TableViewProps {
   onSortChange?: (sort: SortState) => void;
   onRefresh?: () => Promise<void> | void;
 }
+
+declare global {
+  const __APP_VERSION__: string;
+  const __COMMIT_HASH__: string;
+  const __BUILD_TIME__: string;
+}

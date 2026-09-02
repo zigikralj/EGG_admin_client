@@ -281,10 +281,27 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
           </Box>
         </Box>
       </DialogContent>
-      <DialogActions sx={{ p: 2 }}>
+      <DialogActions sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
         <Button onClick={onClose} variant="contained" fullWidth sx={{ borderRadius: 2 }}>
           {t('btnSave')}
         </Button>
+        {typeof __APP_VERSION__ !== 'undefined' && (
+          <Typography
+            variant="caption"
+            sx={{
+              color: 'text.secondary',
+              fontSize: '0.7rem',
+              textAlign: 'center',
+              mt: 0.5,
+            }}
+          >
+            {t('appVersion')} {__APP_VERSION__}
+            {typeof __COMMIT_HASH__ !== 'undefined' && __COMMIT_HASH__ ? ` (${__COMMIT_HASH__})` : ''}
+            {typeof __BUILD_TIME__ !== 'undefined' && __BUILD_TIME__
+              ? ` • ${new Date(__BUILD_TIME__).toLocaleDateString()}`
+              : ''}
+          </Typography>
+        )}
       </DialogActions>
     </Dialog>
   );

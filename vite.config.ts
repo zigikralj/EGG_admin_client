@@ -83,8 +83,8 @@ export default defineConfig({
   server: {
     port: 3000,
     proxy: {
-      '/api': {
-        target: 'http://localhost:5000',
+      "/api": {
+        target: "http://localhost:5000",
         changeOrigin: true,
       },
     },
@@ -94,21 +94,21 @@ export default defineConfig({
     cssCodeSplit: true,
     rollupOptions: {
       output: {
-        chunkFileNames: 'assets/[name]-[hash].js',
-        entryFileNames: 'assets/[name]-[hash].js',
-        assetFileNames: 'assets/[name]-[hash][extname]',
+        chunkFileNames: "assets/[name]-[hash].js",
+        entryFileNames: "assets/[name]-[hash].js",
+        assetFileNames: "assets/[name]-[hash][extname]",
         manualChunks(id: string) {
-          if (id.includes('@mui/x-charts')) {
-            return 'vendor-mui-charts';
+          if (id.includes("@mui/x-charts")) {
+            return "vendor-mui-charts";
           }
-          if (id.includes('@mui/icons-material')) {
-            return 'vendor-mui-icons';
+          if (id.includes("@mui/icons-material")) {
+            return "vendor-mui-icons";
           }
-          if (id.includes('@mui/material') || id.includes('@emotion')) {
-            return 'vendor-mui';
+          if (id.includes("@mui/material") || id.includes("@emotion")) {
+            return "vendor-mui";
           }
-          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) {
-            return 'vendor-react';
+          if (id.includes("node_modules/react/") || id.includes("node_modules/react-dom/")) {
+            return "vendor-react";
           }
         },
       },

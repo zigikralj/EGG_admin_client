@@ -624,6 +624,14 @@ export interface TranslationKeys {
   btnAddBankAccount: string;
   msgCompanyInfoSaved: string;
   msgCompanyInfoSaveError: string;
+
+  // Version & Updates
+  appUpdateAvailable: string;
+  appUpdateDescription: string;
+  btnRefreshNow: string;
+  btnDismiss: string;
+  appVersion: string;
+  buildTime: string;
 }
 
 export const serviceTypeTranslations: Record<Language, Record<string, string>> = {

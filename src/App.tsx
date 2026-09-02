@@ -15,6 +15,7 @@ import { apiFetch } from './api';
 import { AdminLayout } from './components/AdminLayout';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { ConfirmDeleteDialog } from './components/ConfirmDeleteDialog';
+import { VersionUpdatePrompt } from './components/VersionUpdatePrompt';
 import { LoginView } from './components/auth/LoginView';
 import { useProjects } from './hooks/useProjects';
 import { useClients } from './hooks/useClients';
@@ -246,6 +247,7 @@ function MainApp() {
         onThemeChange={(mode) => updatePreference('theme', mode)}
       >
         <LoginView />
+        <VersionUpdatePrompt />
       </CustomThemeProvider>
     );
   }
@@ -579,6 +581,7 @@ function MainApp() {
           onConfirm={completeConfirmState.onConfirm}
           onClose={() => setCompleteConfirmState((prev) => ({ ...prev, open: false }))}
         />
+        <VersionUpdatePrompt />
       </AdminLayout>
     </CustomThemeProvider>
   );

@@ -586,7 +586,13 @@ const enTranslations: TranslationKeys = {
   "btnCancelEdit": "Cancel",
   "btnAddBankAccount": "Add Bank Account",
   "msgCompanyInfoSaved": "Company information updated successfully!",
-  "msgCompanyInfoSaveError": "Failed to update company information."
+  "msgCompanyInfoSaveError": "Failed to update company information.",
+  "appUpdateAvailable": "A new version of the app is available.",
+  "appUpdateDescription": "Please refresh the page to apply the latest updates and improvements.",
+  "btnRefreshNow": "Refresh Now",
+  "btnDismiss": "Dismiss",
+  "appVersion": "Version",
+  "buildTime": "Build"
 };
 
 export default enTranslations;
