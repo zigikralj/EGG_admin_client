@@ -16,15 +16,14 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Divider,
 } from '@mui/material';
-import type { Invoice, InvoiceStatus, InvoiceCurrency, InvoiceType, SaveResult } from '../../types';
+import type { Invoice, SaveResult } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
-import { parseInvoiceNotes, serializeInvoiceNotes, enhanceInvoicesWithLinks } from '../../utils/invoiceUtils';
+import { useInvoiceFormState } from '../../hooks/useInvoiceFormState';
+import { InvoiceStatusChip, InvoiceTypeChip, LinkedInvoiceChip } from '../shared/InvoiceChips';
+import { InvoiceFormFields } from '../shared/InvoiceFormFields';
+import { InvoiceItemsList } from '../shared/InvoiceItemsList';
+import { serializeInvoiceNotes, enhanceInvoicesWithLinks } from '../../utils/invoiceUtils';
 import {
   ReceiptLongIcon,
   AddIcon,
@@ -68,34 +67,32 @@ export const ProvidedServiceInvoiceSection: React.FC<ProvidedServiceInvoiceSecti
   const { t } = useLanguage();
   const todayStr = new Date().toISOString().slice(0, 10);
 
-  // Add / Link State
-  const [isAddingInvoice, setIsAddingInvoice] = useState(false);
-  const [addInvoiceMode, setAddInvoiceMode] = useState<'new' | 'existing'>('new');
-
-  // New Invoice State
-  const [newInvoiceNumber, setNewInvoiceNumber] = useState('');
-  const [newInvoiceType, setNewInvoiceType] = useState<InvoiceType>('Standard');
-  const [newParentInvoiceId, setNewParentInvoiceId] = useState('');
-  const [newInvoiceDateCreated, setNewInvoiceDateCreated] = useState(todayStr);
-  const [newInvoiceDueDate, setNewInvoiceDueDate] = useState('');
-  const [newInvoiceCurrency, setNewInvoiceCurrency] = useState<InvoiceCurrency>('RSD');
-  const [newInvoiceStatus, setNewInvoiceStatus] = useState<InvoiceStatus>('Draft');
-  const [newInvoiceNotes, setNewInvoiceNotes] = useState('');
-  const [newInvoiceItems, setNewInvoiceItems] = useState<
-    { description: string; quantity: number; unitPrice: number; currency: InvoiceCurrency }[]
-  >([{ description: '', quantity: 1, unitPrice: 0, currency: 'RSD' }]);
-  const [selectedExistingInvoiceId, setSelectedExistingInvoiceId] = useState('');
-
-  // Edit Linked Invoice State
-  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
-  const [editInvoiceNumber, setEditInvoiceNumber] = useState('');
-  const [editInvoiceType, setEditInvoiceType] = useState<InvoiceType>('Standard');
-  const [editParentInvoiceId, setEditParentInvoiceId] = useState('');
-  const [editInvoiceDateCreated, setEditInvoiceDateCreated] = useState('');
-  const [editInvoiceDueDate, setEditInvoiceDueDate] = useState('');
-  const [editInvoiceStatus, setEditInvoiceStatus] = useState<InvoiceStatus>('Draft');
-  const [editInvoiceCurrency, setEditInvoiceCurrency] = useState<InvoiceCurrency>('RSD');
-  const [editInvoiceNotes, setEditInvoiceNotes] = useState('');
+  const invoiceFormState = useInvoiceFormState();
+  const {
+    isAddingInvoice, setIsAddingInvoice,
+    addInvoiceMode, setAddInvoiceMode,
+    newInvoiceNumber, setNewInvoiceNumber,
+    newInvoiceType, setNewInvoiceType,
+    newParentInvoiceId, setNewParentInvoiceId,
+    newInvoiceDateCreated, setNewInvoiceDateCreated,
+    newInvoiceDueDate, setNewInvoiceDueDate,
+    newInvoiceCurrency, setNewInvoiceCurrency,
+    newInvoiceStatus, setNewInvoiceStatus,
+    newInvoiceNotes, setNewInvoiceNotes,
+    newInvoiceItems, setNewInvoiceItems,
+    selectedExistingInvoiceId, setSelectedExistingInvoiceId,
+    editingInvoice, setEditingInvoice,
+    editInvoiceNumber, setEditInvoiceNumber,
+    editInvoiceType, setEditInvoiceType,
+    editParentInvoiceId, setEditParentInvoiceId,
+    editInvoiceDateCreated, setEditInvoiceDateCreated,
+    editInvoiceDueDate, setEditInvoiceDueDate,
+    editInvoiceStatus, setEditInvoiceStatus,
+    editInvoiceCurrency, setEditInvoiceCurrency,
+    editInvoiceNotes, setEditInvoiceNotes,
+    setEditInvoiceItems,
+    startEditInvoice
+  } = invoiceFormState;
 
   const [createdInvoiceFallback, setCreatedInvoiceFallback] = useState<Invoice | null>(null);
 
@@ -116,123 +113,6 @@ export const ProvidedServiceInvoiceSection: React.FC<ProvidedServiceInvoiceSecti
   const availableExistingInvoices = useMemo(() => {
     return linkedInvoicesList;
   }, [linkedInvoicesList]);
-
-  const getInvoiceStatusChip = (st?: string) => {
-    if (!st) return null;
-    switch (st) {
-      case 'Paid':
-        return (
-          <Chip
-            label={t('statusPaid')}
-            color="success"
-            size="small"
-            sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, px: 0.25 }}
-          />
-        );
-      case 'Sent':
-        return (
-          <Chip
-            label={t('statusSent')}
-            color="info"
-            size="small"
-            sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, px: 0.25 }}
-          />
-        );
-      case 'Overdue':
-        return (
-          <Chip
-            label={t('statusOverdue')}
-            color="error"
-            size="small"
-            sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, px: 0.25 }}
-          />
-        );
-      case 'Cancelled':
-        return (
-          <Chip
-            label={t('statusCancelled')}
-            color="default"
-            size="small"
-            sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, px: 0.25 }}
-          />
-        );
-      case 'Draft':
-      default:
-        return (
-          <Chip
-            label={t('statusDraft')}
-            color="warning"
-            size="small"
-            sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, px: 0.25 }}
-          />
-        );
-    }
-  };
-
-  const getInvoiceTypeChip = (type?: string | null) => {
-    if (!type || type === 'Standard') return null;
-    switch (type) {
-      case 'Advance':
-        return (
-          <Chip
-            label={t('badgeAdvance')}
-            size="small"
-            color="secondary"
-            variant="outlined"
-            sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700, px: 0.25 }}
-          />
-        );
-      case 'Final':
-        return (
-          <Chip
-            label={t('badgeFinal')}
-            size="small"
-            color="primary"
-            variant="outlined"
-            sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700, px: 0.25 }}
-          />
-        );
-      case 'Partial':
-        return (
-          <Chip
-            label={t('badgePartial')}
-            size="small"
-            color="info"
-            variant="outlined"
-            sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700, px: 0.25 }}
-          />
-        );
-      default:
-        return null;
-    }
-  };
-
-  const getLinkedInvoiceLabel = (linkedInv?: Invoice | null) => {
-    const type = linkedInv?.invoiceType || 'Standard';
-    switch (type) {
-      case 'Advance':
-        return t('badgeAdvance');
-      case 'Final':
-        return t('badgeFinal');
-      case 'Partial':
-        return t('badgePartial');
-      default:
-        return t('typeStandard');
-    }
-  };
-
-  const getLinkedInvoiceChipColor = (type?: string | null): 'secondary' | 'primary' | 'info' | 'default' => {
-    switch (type) {
-      case 'Advance':
-        return 'secondary';
-      case 'Final':
-        return 'primary';
-      case 'Partial':
-        return 'info';
-      default:
-        return 'default';
-    }
-  };
 
   const formatInvoiceAmount = (amount?: number | null, curr?: string | null) => {
     const val = amount || 0;
@@ -312,18 +192,6 @@ export const ProvidedServiceInvoiceSection: React.FC<ProvidedServiceInvoiceSecti
     setSelectedExistingInvoiceId('');
   };
 
-  const handleStartEditInvoice = (inv: Invoice) => {
-    const { cleanNotes, invoiceType: pType, parentInvoiceId: pParentId } = parseInvoiceNotes(inv.notes);
-    setEditingInvoice(inv);
-    setEditInvoiceNumber(inv.invoiceNumber || '');
-    setEditInvoiceType(inv.invoiceType || pType || 'Standard');
-    setEditParentInvoiceId(inv.parentInvoiceId || pParentId || '');
-    setEditInvoiceDateCreated(inv.dateCreated || '');
-    setEditInvoiceDueDate(inv.dueDate || '');
-    setEditInvoiceStatus((inv.status as InvoiceStatus) || 'Draft');
-    setEditInvoiceCurrency((inv.currency as InvoiceCurrency) || 'RSD');
-    setEditInvoiceNotes(cleanNotes || '');
-  };
 
   const handleSaveEditedInvoice = async () => {
     if (!editInvoiceNumber.trim()) {
@@ -454,185 +322,43 @@ export const ProvidedServiceInvoiceSection: React.FC<ProvidedServiceInvoiceSecti
 
             {addInvoiceMode === 'new' ? (
               <Grid container spacing={1.5}>
-                <Grid size={{ xs: 12, sm: 5 }}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label={t('lblInvoiceNumber')}
-                    placeholder={t('phInvoiceNumber')}
-                    value={newInvoiceNumber}
-                    onChange={(e) => setNewInvoiceNumber(e.target.value)}
-                    required
-                    autoFocus
-                  />
-                </Grid>
-                <Grid size={{ xs: 6, sm: 3.5 }}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>{t('lblInvoiceType')}</InputLabel>
-                    <Select
-                      value={newInvoiceType}
-                      label={t('lblInvoiceType')}
-                      onChange={(e) => setNewInvoiceType(e.target.value as InvoiceType)}
-                    >
-                      <MenuItem value="Standard">{t('typeStandard')}</MenuItem>
-                      <MenuItem value="Advance">{t('typeAdvance')}</MenuItem>
-                      <MenuItem value="Final">{t('typeFinal')}</MenuItem>
-                      <MenuItem value="Partial">{t('typePartial')}</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid size={{ xs: 6, sm: 3.5 }}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>{t('lblInvoiceStatus')}</InputLabel>
-                    <Select
-                      value={newInvoiceStatus}
-                      label={t('lblInvoiceStatus')}
-                      onChange={(e) => setNewInvoiceStatus(e.target.value as InvoiceStatus)}
-                    >
-                      <MenuItem value="Draft">{t('statusDraft')}</MenuItem>
-                      <MenuItem value="Sent">{t('statusSent')}</MenuItem>
-                      <MenuItem value="Paid">{t('statusPaid')}</MenuItem>
-                      <MenuItem value="Overdue">{t('statusOverdue')}</MenuItem>
-                      <MenuItem value="Cancelled">{t('statusCancelled')}</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-
-                {/* Parent Invoice Link */}
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <Autocomplete
-                    size="small"
-                    options={availableExistingInvoices.filter((inv) => inv.id !== selectedExistingInvoiceId)}
-                    groupBy={(inv) => {
-                      const isSameClient = inv.clientId === clientId;
-                      return isSameClient ? `${t('colClient')}: ${clientName || ''}` : t('other');
-                    }}
-                    getOptionLabel={(inv) =>
-                      `${inv.invoiceNumber}${inv.invoiceType && inv.invoiceType !== 'Standard' ? ` [${inv.invoiceType}]` : ''} (${inv.status})`
-                    }
-                    value={availableExistingInvoices.find((inv) => inv.id === newParentInvoiceId) || null}
-                    onChange={(_, val) => setNewParentInvoiceId(val ? val.id : '')}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        label={t('lblParentInvoice')}
-                        placeholder={t('phSelectParentInvoice')}
-                      />
-                    )}
-                  />
-                </Grid>
-
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>{t('lblCurrency')}</InputLabel>
-                    <Select
-                      value={newInvoiceCurrency}
-                      label={t('lblCurrency')}
-                      onChange={(e) => {
-                        const c = e.target.value as InvoiceCurrency;
-                        setNewInvoiceCurrency(c);
-                        setNewInvoiceItems((prev) => prev.map((it) => ({ ...it, currency: c })));
-                      }}
-                    >
-                      <MenuItem value="RSD">RSD (Dinar)</MenuItem>
-                      <MenuItem value="€">€ (Euro)</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    type="date"
-                    label={t('lblDateCreated')}
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    value={newInvoiceDateCreated}
-                    onChange={(e) => setNewInvoiceDateCreated(e.target.value)}
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    type="date"
-                    label={t('lblDueDate')}
-                    slotProps={{ inputLabel: { shrink: true } }}
-                    value={newInvoiceDueDate}
-                    onChange={(e) => setNewInvoiceDueDate(e.target.value)}
-                  />
-                </Grid>
-
-                {/* Item lines in creation */}
+                <InvoiceFormFields
+                  invoiceNumber={newInvoiceNumber}
+                  onInvoiceNumberChange={setNewInvoiceNumber}
+                  invoiceType={newInvoiceType}
+                  onInvoiceTypeChange={setNewInvoiceType}
+                  invoiceStatus={newInvoiceStatus}
+                  onInvoiceStatusChange={setNewInvoiceStatus}
+                  parentInvoiceOptions={availableExistingInvoices.filter((inv) => inv.id !== selectedExistingInvoiceId)}
+                  parentInvoiceGroupBy={(inv) => {
+                    const isSameClient = inv.clientId === clientId;
+                    return isSameClient ? `${t('colClient')}: ${clientName || ''}` : t('other');
+                  }}
+                  parentInvoiceGetOptionLabel={(inv) =>
+                    `${inv.invoiceNumber}${inv.invoiceType && inv.invoiceType !== 'Standard' ? ` [${inv.invoiceType}]` : ''} (${inv.status})`
+                  }
+                  parentInvoiceId={newParentInvoiceId}
+                  onParentInvoiceIdChange={setNewParentInvoiceId}
+                  currency={newInvoiceCurrency}
+                  onCurrencyChange={(c) => {
+                    setNewInvoiceCurrency(c);
+                    setNewInvoiceItems((prev) => prev.map((it) => ({ ...it, currency: c })));
+                  }}
+                  dateCreated={newInvoiceDateCreated}
+                  onDateCreatedChange={setNewInvoiceDateCreated}
+                  dueDate={newInvoiceDueDate}
+                  onDueDateChange={setNewInvoiceDueDate}
+                />
                 <Grid size={{ xs: 12 }}>
-                  <Divider sx={{ my: 1 }} />
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                    <Typography variant="caption" sx={{ fontWeight: 700 }}>
-                      {t('invoiceItemsSection')}
-                    </Typography>
-                    <Button
-                      size="small"
-                      startIcon={<AddIcon />}
-                      onClick={handleAddNewInvoiceItem}
-                      sx={{ fontSize: '0.75rem' }}
-                    >
-                      {t('btnAddInvoiceItem')}
-                    </Button>
-                  </Box>
-
-                  {newInvoiceItems.map((item, idx) => (
-                    <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
-                      <TextField
-                        size="small"
-                        placeholder={t('lblItemDescription')}
-                        value={item.description}
-                        onChange={(e) => handleNewInvoiceItemChange(idx, 'description', e.target.value)}
-                        sx={{ flexGrow: 1 }}
-                      />
-                      <TextField
-                        size="small"
-                        type="number"
-                        placeholder={t('lblItemQuantity')}
-                        slotProps={{ htmlInput: { min: 0.01, step: 'any' } }}
-                        value={item.quantity}
-                        onChange={(e) =>
-                          handleNewInvoiceItemChange(idx, 'quantity', parseFloat(e.target.value) || 0)
-                        }
-                        sx={{ width: 80 }}
-                      />
-                      <TextField
-                        size="small"
-                        type="number"
-                        placeholder={t('lblItemUnitPrice')}
-                        slotProps={{ htmlInput: { min: 0, step: 'any' } }}
-                        value={item.unitPrice}
-                        onChange={(e) =>
-                          handleNewInvoiceItemChange(idx, 'unitPrice', parseFloat(e.target.value) || 0)
-                        }
-                        sx={{ width: 100 }}
-                      />
-                      <Typography
-                        variant="caption"
-                        sx={{ minWidth: 120, fontWeight: 700, textAlign: 'right', whiteSpace: 'nowrap' }}
-                      >
-                        {formatInvoiceAmount(item.quantity * item.unitPrice, item.currency || newInvoiceCurrency)}
-                      </Typography>
-                      {newInvoiceItems.length > 1 && (
-                        <IconButton size="small" color="error" onClick={() => handleRemoveNewInvoiceItem(idx)}>
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      )}
-                    </Box>
-                  ))}
-                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 0.5 }}>
-                    <Typography variant="caption" sx={{ fontWeight: 700 }}>
-                      {t('colTotalAmount')}:
-                    </Typography>
-                    <Typography variant="caption" sx={{ fontWeight: 800, color: 'primary.main' }}>
-                      {formatInvoiceAmount(newInvoiceModalTotal, newInvoiceCurrency)}
-                    </Typography>
-                  </Box>
+                  <InvoiceItemsList
+                    items={newInvoiceItems}
+                    currency={newInvoiceCurrency}
+                    onAdd={handleAddNewInvoiceItem}
+                    onChange={handleNewInvoiceItemChange}
+                    onRemove={handleRemoveNewInvoiceItem}
+                    totalAmount={newInvoiceModalTotal}
+                  />
                 </Grid>
-
                 <Grid size={{ xs: 12 }}>
                   <TextField
                     fullWidth
@@ -699,10 +425,10 @@ export const ProvidedServiceInvoiceSection: React.FC<ProvidedServiceInvoiceSecti
                               <Typography variant="body2" sx={{ fontWeight: isMatch ? 700 : 500 }}>
                                 {inv.invoiceNumber}
                               </Typography>
-                              {getInvoiceTypeChip(inv.invoiceType)}
+                              <InvoiceTypeChip type={inv.invoiceType} />
                             </Box>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                              {getInvoiceStatusChip(inv.status)}
+                              <InvoiceStatusChip status={inv.status} />
                               {isMatch && (
                                 <Chip
                                   label={t('colClient')}
@@ -784,8 +510,8 @@ export const ProvidedServiceInvoiceSection: React.FC<ProvidedServiceInvoiceSecti
                 >
                   {linkedInvoice.invoiceNumber}
                 </Typography>
-                {getInvoiceTypeChip(linkedInvoice.invoiceType)}
-                <Box sx={{ flexShrink: 0 }}>{getInvoiceStatusChip(linkedInvoice.status)}</Box>
+                <InvoiceTypeChip type={linkedInvoice.invoiceType} />
+                <Box sx={{ flexShrink: 0 }}><InvoiceStatusChip status={linkedInvoice.status} /></Box>
                 <Typography variant="body2" sx={{ fontWeight: 700, fontSize: '0.8125rem', flexShrink: 0 }}>
                   {formatInvoiceAmount(linkedInvoice.totalAmount, linkedInvoice.currency)}
                 </Typography>
@@ -822,7 +548,7 @@ export const ProvidedServiceInvoiceSection: React.FC<ProvidedServiceInvoiceSecti
                     <IconButton
                       size="small"
                       color="primary"
-                      onClick={() => handleStartEditInvoice(linkedInvoice)}
+                      onClick={() => startEditInvoice(linkedInvoice)}
                       sx={{ p: 0.25 }}
                     >
                       <EditIcon sx={{ fontSize: 16 }} />
@@ -864,18 +590,7 @@ export const ProvidedServiceInvoiceSection: React.FC<ProvidedServiceInvoiceSecti
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap', pt: 0.25, pl: 0.5 }}>
                   <LinkIcon sx={{ fontSize: 13, color: 'text.secondary' }} />
                   {uniqueLinks.map((linked) => {
-                    const labelType = getLinkedInvoiceLabel(linked);
-                    const chipColor = getLinkedInvoiceChipColor(linked.invoiceType);
-                    return (
-                      <Chip
-                        key={linked.id}
-                        size="small"
-                        variant="outlined"
-                        color={chipColor}
-                        label={`${labelType}: ${linked.invoiceNumber || ''}`}
-                        sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600 }}
-                      />
-                    );
+                    return <LinkedInvoiceChip key={linked.id} linked={linked} />;
                   })}
                 </Box>
               );
@@ -896,111 +611,33 @@ export const ProvidedServiceInvoiceSection: React.FC<ProvidedServiceInvoiceSecti
           <DialogTitle sx={{ fontWeight: 700, pb: 1 }}>{t('modalEditInvoice')}</DialogTitle>
           <DialogContent dividers>
             <Grid container spacing={2} sx={{ pt: 1 }}>
-              <Grid size={{ xs: 12, sm: 5 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label={t('lblInvoiceNumber')}
-                  value={editInvoiceNumber}
-                  onChange={(e) => setEditInvoiceNumber(e.target.value)}
-                  required
-                  autoFocus
-                />
-              </Grid>
-              <Grid size={{ xs: 6, sm: 3.5 }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>{t('lblInvoiceType')}</InputLabel>
-                  <Select
-                    value={editInvoiceType}
-                    label={t('lblInvoiceType')}
-                    onChange={(e) => setEditInvoiceType(e.target.value as InvoiceType)}
-                  >
-                    <MenuItem value="Standard">{t('typeStandard')}</MenuItem>
-                    <MenuItem value="Advance">{t('typeAdvance')}</MenuItem>
-                    <MenuItem value="Final">{t('typeFinal')}</MenuItem>
-                    <MenuItem value="Partial">{t('typePartial')}</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid size={{ xs: 6, sm: 3.5 }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>{t('lblInvoiceStatus')}</InputLabel>
-                  <Select
-                    value={editInvoiceStatus}
-                    label={t('lblInvoiceStatus')}
-                    onChange={(e) => setEditInvoiceStatus(e.target.value as InvoiceStatus)}
-                  >
-                    <MenuItem value="Draft">{t('statusDraft')}</MenuItem>
-                    <MenuItem value="Sent">{t('statusSent')}</MenuItem>
-                    <MenuItem value="Paid">{t('statusPaid')}</MenuItem>
-                    <MenuItem value="Overdue">{t('statusOverdue')}</MenuItem>
-                    <MenuItem value="Cancelled">{t('statusCancelled')}</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              {/* Edit Parent Invoice Link */}
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Autocomplete
-                  size="small"
-                  options={availableExistingInvoices.filter((inv) => inv.id !== editingInvoice?.id)}
-                  groupBy={(inv) => {
-                    const isSameClient = inv.clientId === clientId;
-                    return isSameClient ? `${t('colClient')}: ${clientName || ''}` : t('other');
-                  }}
-                  getOptionLabel={(inv) =>
-                    `${inv.invoiceNumber}${inv.invoiceType && inv.invoiceType !== 'Standard' ? ` [${inv.invoiceType}]` : ''} (${inv.status})`
-                  }
-                  value={availableExistingInvoices.find((inv) => inv.id === editParentInvoiceId) || null}
-                  onChange={(_, val) => setEditParentInvoiceId(val ? val.id : '')}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label={t('lblParentInvoice')}
-                      placeholder={t('phSelectParentInvoice')}
-                    />
-                  )}
-                />
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>{t('lblCurrency')}</InputLabel>
-                  <Select
-                    value={editInvoiceCurrency}
-                    label={t('lblCurrency')}
-                    onChange={(e) => {
-                      const c = e.target.value as InvoiceCurrency;
-                      setEditInvoiceCurrency(c);
-                    }}
-                  >
-                    <MenuItem value="RSD">RSD (Dinar)</MenuItem>
-                    <MenuItem value="€">€ (Euro)</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="date"
-                  label={t('lblDateCreated')}
-                  slotProps={{ inputLabel: { shrink: true } }}
-                  value={editInvoiceDateCreated}
-                  onChange={(e) => setEditInvoiceDateCreated(e.target.value)}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="date"
-                  label={t('lblDueDate')}
-                  slotProps={{ inputLabel: { shrink: true } }}
-                  value={editInvoiceDueDate}
-                  onChange={(e) => setEditInvoiceDueDate(e.target.value)}
-                />
-              </Grid>
+              <InvoiceFormFields
+                invoiceNumber={editInvoiceNumber}
+                onInvoiceNumberChange={setEditInvoiceNumber}
+                invoiceType={editInvoiceType}
+                onInvoiceTypeChange={setEditInvoiceType}
+                invoiceStatus={editInvoiceStatus}
+                onInvoiceStatusChange={setEditInvoiceStatus}
+                parentInvoiceOptions={availableExistingInvoices.filter((inv) => inv.id !== editingInvoice?.id)}
+                parentInvoiceGroupBy={(inv) => {
+                  const isSameClient = inv.clientId === clientId;
+                  return isSameClient ? `${t('colClient')}: ${clientName || ''}` : t('other');
+                }}
+                parentInvoiceGetOptionLabel={(inv) =>
+                  `${inv.invoiceNumber}${inv.invoiceType && inv.invoiceType !== 'Standard' ? ` [${inv.invoiceType}]` : ''} (${inv.status})`
+                }
+                parentInvoiceId={editParentInvoiceId}
+                onParentInvoiceIdChange={setEditParentInvoiceId}
+                currency={editInvoiceCurrency}
+                onCurrencyChange={(c) => {
+                  setEditInvoiceCurrency(c);
+                  setEditInvoiceItems((prev) => prev.map((it) => ({ ...it, currency: c })));
+                }}
+                dateCreated={editInvoiceDateCreated}
+                onDateCreatedChange={setEditInvoiceDateCreated}
+                dueDate={editInvoiceDueDate}
+                onDueDateChange={setEditInvoiceDueDate}
+              />
               <Grid size={{ xs: 12 }}>
                 <TextField
                   fullWidth

@@ -24,28 +24,20 @@ import {
   Tooltip,
 } from '@mui/material';
 
-import type { Client, SaveResult } from '../../types';
+import type { Client, SaveResult, TableViewProps } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import { useTableView } from '../../hooks/useTableView';
 import { TableOptionsSelector, type ColumnDef } from '../ColumnSelector';
 import { TableFilterSelector } from '../TableFilterSelector';
 import { TableSearchInput } from '../TableSearchInput';
 import { ErrorDialog } from '../ErrorDialog';
 import { AddIcon, EditIcon, DeleteIcon, LockIcon, ArrowUpwardIcon, ArrowDownwardIcon, RefreshIcon } from '../icons';
 
-interface Props {
+interface Props extends TableViewProps {
   clients: Client[];
   onSaveClient: (client: Partial<Client>) => Promise<SaveResult | void> | void;
   onDeleteClient: (id: string) => void;
-  visibleColumns?: string[];
-  onVisibleColumnsChange?: (cols: string[]) => void;
-  rowsPerPageOptions?: number[];
-  onRowsPerPageOptionsChange?: (options: number[]) => void;
-  rowsPerPage?: number;
-  onRowsPerPageChange?: (rowsPerPage: number) => void;
-  sortState?: { field: string; direction: 'asc' | 'desc' };
-  onSortChange?: (sort: { field: string; direction: 'asc' | 'desc' }) => void;
-  onRefresh?: () => Promise<void> | void;
 }
 
 const DEFAULT_COLUMNS = ['name', 'city', 'contactPerson', 'email', 'phone', 'projectCount'];
@@ -68,88 +60,40 @@ const ClientsView: React.FC<Props> = ({
   const { canManageClients } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
-  const [localColumns, setLocalColumns] = useState<string[]>(visibleColumns);
-  const [localRowsPerPage, setLocalRowsPerPage] = useState(rowsPerPageProp ?? 15);
-  const [localRowsPerPageOptions, setLocalRowsPerPageOptions] = useState<number[]>(rowsPerPageOptionsProp ?? [15, 25, 50]);
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const handleRefresh = async () => {
-    if (!onRefresh || isRefreshing) return;
-    setIsRefreshing(true);
-    try {
-      await onRefresh();
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    if (rowsPerPageProp !== undefined) {
-      setLocalRowsPerPage(rowsPerPageProp);
-    }
-  }, [rowsPerPageProp]);
-
-  useEffect(() => {
-    if (rowsPerPageOptionsProp !== undefined) {
-      setLocalRowsPerPageOptions(rowsPerPageOptionsProp);
-    }
-  }, [rowsPerPageOptionsProp]);
-
-  const activeRowsPerPage = onRowsPerPageChange && rowsPerPageProp !== undefined ? rowsPerPageProp : localRowsPerPage;
-  const activeRowsPerPageOptions = onRowsPerPageOptionsChange && rowsPerPageOptionsProp !== undefined ? rowsPerPageOptionsProp : localRowsPerPageOptions;
-
-  const setRowsPerPageValue = (rpp: number) => {
-    setLocalRowsPerPage(rpp);
-    if (onRowsPerPageChange) onRowsPerPageChange(rpp);
-  };
-
-  const setRowsPerPageOptionsValue = (opts: number[]) => {
-    setLocalRowsPerPageOptions(opts);
-    if (onRowsPerPageOptionsChange) onRowsPerPageOptionsChange(opts);
-  };
-
-  const [isSaving, setIsSaving] = useState(false);
-  const [errorDialogState, setErrorDialogState] = useState<{ open: boolean; message: string }>({
-    open: false,
-    message: '',
+  const {
+    activeCols,
+    setCols,
+    activeRowsPerPage,
+    activeRowsPerPageOptions,
+    setRowsPerPageValue,
+    setRowsPerPageOptionsValue,
+    page,
+    setPage,
+    sortColumn,
+    sortDirection,
+    handleSort,
+    handleSortColumnChange,
+    handleToggleSortDirection,
+    resetSort,
+    isRefreshing,
+    handleRefresh,
+    isSaving,
+    setIsSaving,
+    errorDialogState,
+    setErrorDialogState,
+  } = useTableView({
+    defaultColumns: DEFAULT_COLUMNS,
+    visibleColumns,
+    onVisibleColumnsChange,
+    rowsPerPageProp,
+    onRowsPerPageChange,
+    rowsPerPageOptionsProp,
+    onRowsPerPageOptionsChange,
+    sortState,
+    onSortChange,
+    onRefresh,
   });
-
-  const [sortColumn, setSortColumn] = useState<string>(sortState?.field || 'name');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(sortState?.direction || 'asc');
-
-  useEffect(() => {
-    if (sortState) {
-      setSortColumn(sortState.field || 'name');
-      setSortDirection(sortState.direction || 'asc');
-    }
-  }, [sortState]);
-
-  const handleSort = (colId: string) => {
-    let newDir: 'asc' | 'desc' = 'asc';
-    if (sortColumn === colId) {
-      newDir = sortDirection === 'asc' ? 'desc' : 'asc';
-    }
-    setSortColumn(colId);
-    setSortDirection(newDir);
-    if (onSortChange) {
-      onSortChange({ field: colId, direction: newDir });
-    }
-  };
-
-  const handleSortColumnChange = (colId: string) => {
-    setSortColumn(colId);
-    if (onSortChange) {
-      onSortChange({ field: colId, direction: sortDirection });
-    }
-  };
-
-  const handleToggleSortDirection = () => {
-    const newDir = sortDirection === 'asc' ? 'desc' : 'asc';
-    setSortDirection(newDir);
-    if (onSortChange) {
-      onSortChange({ field: sortColumn, direction: newDir });
-    }
-  };
 
   // Filter states
   const [filterCity, setFilterCity] = useState<string>('all');
@@ -166,17 +110,7 @@ const ClientsView: React.FC<Props> = ({
     setFilterCity('all');
     setFilterProjectCountOp('all');
     setFilterProjectCountVal('');
-    setSortColumn('name');
-    setSortDirection('asc');
-    if (onSortChange) {
-      onSortChange({ field: 'name', direction: 'asc' });
-    }
-  };
-
-  const activeCols = onVisibleColumnsChange ? visibleColumns : localColumns;
-  const setCols = (cols: string[]) => {
-    setLocalColumns(cols);
-    if (onVisibleColumnsChange) onVisibleColumnsChange(cols);
+    resetSort();
   };
 
   const columnDefs: ColumnDef[] = [
@@ -329,11 +263,9 @@ const ClientsView: React.FC<Props> = ({
     return sortDirection === 'asc' ? res : -res;
   });
 
-  const [page, setPage] = useState(0);
-
   useEffect(() => {
     setPage(0);
-  }, [searchQuery, filterCity, filterProjectCountOp, filterProjectCountVal]);
+  }, [searchQuery, filterCity, filterProjectCountOp, filterProjectCountVal, setPage]);
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);

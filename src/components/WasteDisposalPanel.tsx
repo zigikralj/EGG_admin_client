@@ -55,6 +55,7 @@ import {
   DeleteIcon,
 } from './icons';
 import { DashboardPanelSkeleton } from './DashboardPanelSkeleton';
+import { useTableView } from '../hooks/useTableView';
 
 interface Props {
   providedServices?: ProvidedService[];
@@ -142,35 +143,29 @@ export const WasteDisposalPanel: React.FC<Props> = ({
   const [filterDateFrom, setFilterDateFrom] = useState<string>('');
   const [filterDateTo, setFilterDateTo] = useState<string>('');
   const [filterDateField, setFilterDateField] = useState<string>('scheduledDate');
-  const [sortOption, setSortOption] = useState<'scheduledDate' | 'completionDate' | 'client' | 'service' | 'status' | 'createdAt'>('scheduledDate');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [quickFilterMissingInvoice, setQuickFilterMissingInvoice] = useState(false);
 
-  // Pagination
-  const [page, setPage] = useState(0);
-  const [localRowsPerPage, setLocalRowsPerPage] = useState(rowsPerPageProp ?? 10);
-  const [localRowsPerPageOptions, setLocalRowsPerPageOptions] = useState<number[]>(rowsPerPageOptionsProp ?? [10, 20, 50]);
-
-  useEffect(() => {
-    if (rowsPerPageProp !== undefined) setLocalRowsPerPage(rowsPerPageProp);
-  }, [rowsPerPageProp]);
-
-  useEffect(() => {
-    if (rowsPerPageOptionsProp !== undefined) setLocalRowsPerPageOptions(rowsPerPageOptionsProp);
-  }, [rowsPerPageOptionsProp]);
-
-  const activeRowsPerPage = onRowsPerPageChange && rowsPerPageProp !== undefined ? rowsPerPageProp : localRowsPerPage;
-  const activeRowsPerPageOptions = onRowsPerPageOptionsChange && rowsPerPageOptionsProp !== undefined ? rowsPerPageOptionsProp : localRowsPerPageOptions;
-
-  const setRowsPerPageValue = (rpp: number) => {
-    setLocalRowsPerPage(rpp);
-    if (onRowsPerPageChange) onRowsPerPageChange(rpp);
-  };
-
-  const setRowsPerPageOptionsValue = (opts: number[]) => {
-    setLocalRowsPerPageOptions(opts);
-    if (onRowsPerPageOptionsChange) onRowsPerPageOptionsChange(opts);
-  };
+  const {
+    activeRowsPerPage,
+    activeRowsPerPageOptions,
+    setRowsPerPageValue,
+    setRowsPerPageOptionsValue,
+    page,
+    setPage,
+    sortColumn: sortOption,
+    sortDirection,
+    handleSortColumnChange,
+    handleToggleSortDirection,
+    resetSort,
+  } = useTableView({
+    defaultColumns: [],
+    rowsPerPageProp,
+    onRowsPerPageChange,
+    rowsPerPageOptionsProp,
+    onRowsPerPageOptionsChange,
+    defaultSortField: 'scheduledDate',
+    defaultSortDirection: 'desc',
+  });
 
   // Dialog State
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -277,8 +272,7 @@ export const WasteDisposalPanel: React.FC<Props> = ({
     setFilterDateFrom('');
     setFilterDateTo('');
     setFilterDateField('scheduledDate');
-    setSortOption('scheduledDate');
-    setSortDirection('desc');
+    resetSort();
     setQuickFilterMissingInvoice(false);
   };
 
@@ -801,13 +795,13 @@ export const WasteDisposalPanel: React.FC<Props> = ({
                         isOptionEqualToValue={(option, val) => option.value === val.value}
                         value={sortOptions.find((o) => o.value === sortOption) || sortOptions[0]}
                         onChange={(_, newValue) => {
-                          if (newValue) setSortOption(newValue.value as any);
+                          if (newValue) handleSortColumnChange(newValue.value);
                         }}
                         renderInput={(params) => <TextField {...params} label={t('lblSortBy')} size="small" />}
                       />
                       <IconButton
                         size="small"
-                        onClick={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                        onClick={handleToggleSortDirection}
                         title={sortDirection === 'asc' ? t('sortAscending') : t('sortDescending')}
                         sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0.75 }}
                       >

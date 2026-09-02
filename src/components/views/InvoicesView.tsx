@@ -31,7 +31,9 @@ import {
   Collapse,
 } from '@mui/material';
 
-import type { Invoice, Client, Project, ProvidedService, SaveResult, InvoiceStatus, InvoiceCurrency, InvoiceType } from '../../types';
+import type { Invoice, Client, Project, ProvidedService, SaveResult, InvoiceStatus, InvoiceCurrency,  InvoiceType,
+  TableViewProps,
+} from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { TableOptionsSelector, type ColumnDef } from '../ColumnSelector';
@@ -53,8 +55,9 @@ import {
   LinkIcon,
   RefreshIcon,
 } from '../icons';
+import { useTableView } from '../../hooks/useTableView';
 
-interface Props {
+interface Props extends TableViewProps {
   invoices: Invoice[];
   clients: Client[];
   projects: Project[];
@@ -63,15 +66,6 @@ interface Props {
   onSaveInvoice: (invoice: Partial<Invoice>) => Promise<SaveResult | void> | void;
   onDeleteInvoice: (id: string) => void;
   onUpdateStatus?: (id: string, status: string, paymentDate?: string) => Promise<void> | void;
-  visibleColumns?: string[];
-  onVisibleColumnsChange?: (cols: string[]) => void;
-  rowsPerPageOptions?: number[];
-  onRowsPerPageOptionsChange?: (options: number[]) => void;
-  rowsPerPage?: number;
-  onRowsPerPageChange?: (rowsPerPage: number) => void;
-  sortState?: { field: string; direction: 'asc' | 'desc' };
-  onSortChange?: (sort: { field: string; direction: 'asc' | 'desc' }) => void;
-  onRefresh?: () => Promise<void> | void;
 }
 
 const DEFAULT_COLUMNS = ['invoiceNumber', 'invoiceType', 'linkedInvoices', 'client', 'project', 'dateCreated', 'dueDate', 'totalAmount', 'status'];
@@ -100,51 +94,42 @@ const InvoicesView: React.FC<Props> = ({
   const canManage = canManageInvoices || !isUser;
   const [isOpen, setIsOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
-  const [localColumns, setLocalColumns] = useState<string[]>(visibleColumns);
-  const [localRowsPerPage, setLocalRowsPerPage] = useState(rowsPerPageProp ?? 15);
-  const [localRowsPerPageOptions, setLocalRowsPerPageOptions] = useState<number[]>(rowsPerPageOptionsProp ?? [15, 25, 50]);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const handleRefresh = async () => {
-    if (!onRefresh || isRefreshing) return;
-    setIsRefreshing(true);
-    try {
-      await onRefresh();
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    if (rowsPerPageProp !== undefined) {
-      setLocalRowsPerPage(rowsPerPageProp);
-    }
-  }, [rowsPerPageProp]);
-
-  useEffect(() => {
-    if (rowsPerPageOptionsProp !== undefined) {
-      setLocalRowsPerPageOptions(rowsPerPageOptionsProp);
-    }
-  }, [rowsPerPageOptionsProp]);
-
-  const activeRowsPerPage = onRowsPerPageChange && rowsPerPageProp !== undefined ? rowsPerPageProp : localRowsPerPage;
-  const activeRowsPerPageOptions = onRowsPerPageOptionsChange && rowsPerPageOptionsProp !== undefined ? rowsPerPageOptionsProp : localRowsPerPageOptions;
-
-  const setRowsPerPageValue = (rpp: number) => {
-    setLocalRowsPerPage(rpp);
-    if (onRowsPerPageChange) onRowsPerPageChange(rpp);
-  };
-
-  const setRowsPerPageOptionsValue = (opts: number[]) => {
-    setLocalRowsPerPageOptions(opts);
-    if (onRowsPerPageOptionsChange) onRowsPerPageOptionsChange(opts);
-  };
-  const [isSaving, setIsSaving] = useState(false);
-  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
-  const [errorDialogState, setErrorDialogState] = useState<{ open: boolean; message: string }>({
-    open: false,
-    message: '',
+  const {
+    activeCols,
+    setCols,
+    activeRowsPerPage,
+    activeRowsPerPageOptions,
+    setRowsPerPageValue,
+    setRowsPerPageOptionsValue,
+    page,
+    setPage,
+    sortColumn,
+    sortDirection,
+    handleSort,
+    handleSortColumnChange,
+    handleToggleSortDirection,
+    resetSort,
+    isRefreshing,
+    handleRefresh,
+    isSaving,
+    setIsSaving,
+    errorDialogState,
+    setErrorDialogState,
+  } = useTableView({
+    defaultColumns: DEFAULT_COLUMNS,
+    visibleColumns,
+    onVisibleColumnsChange,
+    rowsPerPageProp,
+    onRowsPerPageChange,
+    rowsPerPageOptionsProp,
+    onRowsPerPageOptionsChange,
+    sortState,
+    onSortChange,
+    onRefresh,
+    defaultSortField: 'dateCreated',
+    defaultSortDirection: 'desc',
   });
+  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
 
   // Modal form state
   const [formData, setFormData] = useState<{
@@ -181,42 +166,7 @@ const InvoicesView: React.FC<Props> = ({
     items: [{ description: '', quantity: 1, unitPrice: 0, currency: 'RSD' }],
   });
 
-  const [sortColumn, setSortColumn] = useState<string>(sortState?.field || 'dateCreated');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(sortState?.direction || 'desc');
 
-  useEffect(() => {
-    if (sortState) {
-      setSortColumn(sortState.field || 'dateCreated');
-      setSortDirection(sortState.direction || 'desc');
-    }
-  }, [sortState]);
-
-  const handleSort = (colId: string) => {
-    let newDir: 'asc' | 'desc' = 'asc';
-    if (sortColumn === colId) {
-      newDir = sortDirection === 'asc' ? 'desc' : 'asc';
-    }
-    setSortColumn(colId);
-    setSortDirection(newDir);
-    if (onSortChange) {
-      onSortChange({ field: colId, direction: newDir });
-    }
-  };
-
-  const handleSortColumnChange = (colId: string) => {
-    setSortColumn(colId);
-    if (onSortChange) {
-      onSortChange({ field: colId, direction: sortDirection });
-    }
-  };
-
-  const handleToggleSortDirection = () => {
-    const newDir = sortDirection === 'asc' ? 'desc' : 'asc';
-    setSortDirection(newDir);
-    if (onSortChange) {
-      onSortChange({ field: sortColumn, direction: newDir });
-    }
-  };
 
   // Filter states
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -246,18 +196,10 @@ const InvoicesView: React.FC<Props> = ({
     setFilterDateFrom('');
     setFilterDateTo('');
     setFilterDateField('dateCreated');
-    setSortColumn('dateCreated');
-    setSortDirection('desc');
-    if (onSortChange) {
-      onSortChange({ field: 'dateCreated', direction: 'desc' });
-    }
+    resetSort();
   };
 
-  const activeCols = onVisibleColumnsChange ? visibleColumns : localColumns;
-  const setCols = (cols: string[]) => {
-    setLocalColumns(cols);
-    if (onVisibleColumnsChange) onVisibleColumnsChange(cols);
-  };
+
 
   const columnDefs: ColumnDef[] = [
     { id: 'invoiceNumber', label: t('colInvoiceNumber') },
@@ -283,8 +225,11 @@ const InvoicesView: React.FC<Props> = ({
     { value: 'status', label: t('lblInvoiceStatus') },
   ];
 
-  const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    setPage(0);
+  }, [search, filterStatus, filterClient, filterCurrency, filterInvoiceType, filterLinkedStatus, filterDateFrom, filterDateTo, filterDateField, setPage]);
 
   // Enhance invoices with normalized link relations
   const enhancedInvoices = useMemo(() => {

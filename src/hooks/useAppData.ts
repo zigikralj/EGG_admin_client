@@ -15,6 +15,21 @@ interface AppDataSetters {
   setStats: (stats: ProjectStats) => void;
 }
 
+function useFetcher<T>(
+  path: string,
+  setter: (data: T) => void,
+  authHeaders: () => Record<string, string>
+) {
+  return useCallback(async () => {
+    try {
+      const res = await apiFetch(path, { headers: authHeaders() });
+      if (res.ok) setter(await res.json());
+    } catch (error) {
+      console.error(`Error fetching ${path}:`, error);
+    }
+  }, [path, setter, authHeaders]);
+}
+
 /**
  * Orchestrates all data-fetching and user preferences for the application.
  *
@@ -58,14 +73,7 @@ export function useAppData(
     }
   }, [searchQuery, authHeaders, setProjects]);
 
-  const fetchClients = useCallback(async () => {
-    try {
-      const res = await apiFetch('/api/clients', { headers: authHeaders() });
-      if (res.ok) setClients(await res.json());
-    } catch (error) {
-      console.error('Error fetching clients:', error);
-    }
-  }, [authHeaders, setClients]);
+  const fetchClients = useFetcher('/api/clients', setClients, authHeaders);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -91,59 +99,12 @@ export function useAppData(
     }
   }, [authHeaders, setUsers, setUsersList, currentUser, logout]);
 
-  const fetchServices = useCallback(async () => {
-    try {
-      const res = await apiFetch('/api/services', { headers: authHeaders() });
-      if (res.ok) setServices(await res.json());
-    } catch (error) {
-      console.error('Error fetching services:', error);
-    }
-  }, [authHeaders, setServices]);
-
-  const fetchProvidedServices = useCallback(async () => {
-    try {
-      const res = await apiFetch('/api/provided-services', { headers: authHeaders() });
-      if (res.ok) setProvidedServices(await res.json());
-    } catch (error) {
-      console.error('Error fetching provided services:', error);
-    }
-  }, [authHeaders, setProvidedServices]);
-
-  const fetchCategories = useCallback(async () => {
-    try {
-      const res = await apiFetch('/api/categories', { headers: authHeaders() });
-      if (res.ok) setCategories(await res.json());
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-    }
-  }, [authHeaders, setCategories]);
-
-  const fetchReminders = useCallback(async () => {
-    try {
-      const res = await apiFetch('/api/reminders', { headers: authHeaders() });
-      if (res.ok) setReminders(await res.json());
-    } catch (error) {
-      console.error('Error fetching reminders:', error);
-    }
-  }, [authHeaders, setReminders]);
-
-  const fetchInvoices = useCallback(async () => {
-    try {
-      const res = await apiFetch('/api/invoices', { headers: authHeaders() });
-      if (res.ok) setInvoices(await res.json());
-    } catch (error) {
-      console.error('Error fetching invoices:', error);
-    }
-  }, [authHeaders, setInvoices]);
-
-  const fetchStats = useCallback(async () => {
-    try {
-      const res = await apiFetch('/api/projects/stats', { headers: authHeaders() });
-      if (res.ok) setStats(await res.json());
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-    }
-  }, [authHeaders, setStats]);
+  const fetchServices = useFetcher('/api/services', setServices, authHeaders);
+  const fetchProvidedServices = useFetcher('/api/provided-services', setProvidedServices, authHeaders);
+  const fetchCategories = useFetcher('/api/categories', setCategories, authHeaders);
+  const fetchReminders = useFetcher('/api/reminders', setReminders, authHeaders);
+  const fetchInvoices = useFetcher('/api/invoices', setInvoices, authHeaders);
+  const fetchStats = useFetcher('/api/projects/stats', setStats, authHeaders);
 
   const fetchAllData = useCallback(async () => {
     await Promise.all([

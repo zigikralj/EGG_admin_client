@@ -48,34 +48,26 @@ import {
 
 
 
-import type { User, SaveResult } from '../../types';
+import type { User, SaveResult, TableViewProps } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { TableOptionsSelector, type ColumnDef } from '../ColumnSelector';
 import { TableFilterSelector } from '../TableFilterSelector';
 import { TableSearchInput } from '../TableSearchInput';
 import { ErrorDialog } from '../ErrorDialog';
+import { useTableView } from '../../hooks/useTableView';
 import { AddIcon, EditIcon, DeleteIcon, LockIcon, HowToRegIcon, HourglassEmptyIcon, ArrowUpwardIcon, ArrowDownwardIcon, CheckCircleIcon, HighlightOffIcon, BlockIcon, VpnKeyIcon, Visibility, VisibilityOff, ExitToAppIcon, RefreshIcon } from '../icons';
 
-interface Props {
+interface Props extends TableViewProps {
   users: User[];
   onSaveUser: (user: Partial<User>) => Promise<SaveResult | void> | void;
   onDeleteUser: (id: string) => void;
   onApproveUser?: (userId: string, role: string) => Promise<void>;
   onRejectUser?: (userId: string) => Promise<void>;
   onForceLogoutUser?: (userId: string) => Promise<void>;
-  visibleColumns?: string[];
-  onVisibleColumnsChange?: (cols: string[]) => void;
-  rowsPerPageOptions?: number[];
-  onRowsPerPageOptionsChange?: (options: number[]) => void;
-  rowsPerPage?: number;
-  onRowsPerPageChange?: (rowsPerPage: number) => void;
-  sortState?: { field: string; direction: 'asc' | 'desc' };
-  onSortChange?: (sort: { field: string; direction: 'asc' | 'desc' }) => void;
   initialFilterStatus?: string;
   quickFilter?: 'all' | 'pending' | 'online';
   onQuickFilterChange?: (val: 'all' | 'pending' | 'online') => void;
-  onRefresh?: () => Promise<void> | void;
 }
 
 const DEFAULT_COLUMNS = ['name', 'role', 'status', 'email', 'phone', 'gender'];
@@ -104,49 +96,38 @@ const UsersView: React.FC<Props> = ({
   const { canManageUsers, canEditUser, isAdmin, currentUser } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [localColumns, setLocalColumns] = useState<string[]>(visibleColumns);
-  const [localRowsPerPage, setLocalRowsPerPage] = useState(rowsPerPageProp ?? 15);
-  const [localRowsPerPageOptions, setLocalRowsPerPageOptions] = useState<number[]>(rowsPerPageOptionsProp ?? [15, 25, 50]);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const handleRefresh = async () => {
-    if (!onRefresh || isRefreshing) return;
-    setIsRefreshing(true);
-    try {
-      await onRefresh();
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    if (rowsPerPageProp !== undefined) {
-      setLocalRowsPerPage(rowsPerPageProp);
-    }
-  }, [rowsPerPageProp]);
-
-  useEffect(() => {
-    if (rowsPerPageOptionsProp !== undefined) {
-      setLocalRowsPerPageOptions(rowsPerPageOptionsProp);
-    }
-  }, [rowsPerPageOptionsProp]);
-
-  const activeRowsPerPage = onRowsPerPageChange && rowsPerPageProp !== undefined ? rowsPerPageProp : localRowsPerPage;
-  const activeRowsPerPageOptions = onRowsPerPageOptionsChange && rowsPerPageOptionsProp !== undefined ? rowsPerPageOptionsProp : localRowsPerPageOptions;
-
-  const setRowsPerPageValue = (rpp: number) => {
-    setLocalRowsPerPage(rpp);
-    if (onRowsPerPageChange) onRowsPerPageChange(rpp);
-  };
-
-  const setRowsPerPageOptionsValue = (opts: number[]) => {
-    setLocalRowsPerPageOptions(opts);
-    if (onRowsPerPageOptionsChange) onRowsPerPageOptionsChange(opts);
-  };
-  const [isSaving, setIsSaving] = useState(false);
-  const [errorDialogState, setErrorDialogState] = useState<{ open: boolean; message: string }>({
-    open: false,
-    message: '',
+  const {
+    activeCols,
+    setCols,
+    activeRowsPerPage,
+    activeRowsPerPageOptions,
+    setRowsPerPageValue,
+    setRowsPerPageOptionsValue,
+    page,
+    setPage,
+    sortColumn,
+    sortDirection,
+    handleSort,
+    handleSortColumnChange,
+    handleToggleSortDirection,
+    resetSort,
+    isRefreshing,
+    handleRefresh,
+    isSaving,
+    setIsSaving,
+    errorDialogState,
+    setErrorDialogState,
+  } = useTableView({
+    defaultColumns: DEFAULT_COLUMNS,
+    visibleColumns,
+    onVisibleColumnsChange,
+    rowsPerPageProp,
+    onRowsPerPageChange,
+    rowsPerPageOptionsProp,
+    onRowsPerPageOptionsChange,
+    sortState,
+    onSortChange,
+    onRefresh,
   });
 
   // Approve dialog state
@@ -158,42 +139,7 @@ const UsersView: React.FC<Props> = ({
   const [forceLogoutTarget, setForceLogoutTarget] = useState<User | null>(null);
   const [isSubmittingForceLogout, setIsSubmittingForceLogout] = useState(false);
 
-  const [sortColumn, setSortColumn] = useState<string>(sortState?.field || 'name');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(sortState?.direction || 'asc');
 
-  useEffect(() => {
-    if (sortState) {
-      setSortColumn(sortState.field || 'name');
-      setSortDirection(sortState.direction || 'asc');
-    }
-  }, [sortState]);
-
-  const handleSort = (colId: string) => {
-    let newDir: 'asc' | 'desc' = 'asc';
-    if (sortColumn === colId) {
-      newDir = sortDirection === 'asc' ? 'desc' : 'asc';
-    }
-    setSortColumn(colId);
-    setSortDirection(newDir);
-    if (onSortChange) {
-      onSortChange({ field: colId, direction: newDir });
-    }
-  };
-
-  const handleSortColumnChange = (colId: string) => {
-    setSortColumn(colId);
-    if (onSortChange) {
-      onSortChange({ field: colId, direction: sortDirection });
-    }
-  };
-
-  const handleToggleSortDirection = () => {
-    const newDir = sortDirection === 'asc' ? 'desc' : 'asc';
-    setSortDirection(newDir);
-    if (onSortChange) {
-      onSortChange({ field: sortColumn, direction: newDir });
-    }
-  };
 
   // Filter state
   const [filterRole, setFilterRole] = useState<string>('all');
@@ -223,17 +169,7 @@ const UsersView: React.FC<Props> = ({
     setFilterRole('all');
     setFilterStatus('all');
     onQuickFilterChange?.('all');
-    setSortColumn('name');
-    setSortDirection('asc');
-    if (onSortChange) {
-      onSortChange({ field: 'name', direction: 'asc' });
-    }
-  };
-
-  const activeCols = onVisibleColumnsChange ? visibleColumns : localColumns;
-  const setCols = (cols: string[]) => {
-    setLocalColumns(cols);
-    if (onVisibleColumnsChange) onVisibleColumnsChange(cols);
+    resetSort();
   };
 
   const columnDefs: ColumnDef[] = [
@@ -456,11 +392,9 @@ const UsersView: React.FC<Props> = ({
     return sortDirection === 'asc' ? res : -res;
   });
 
-  const [page, setPage] = useState(0);
-
   useEffect(() => {
     setPage(0);
-  }, [searchQuery, filterRole, filterStatus]);
+  }, [searchQuery, filterRole, filterStatus, setPage]);
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import type { Project, Client, User, Service, Reminder, Invoice, InvoiceStatus, InvoiceCurrency, InvoiceType } from '../types';
+import type { Project, Client, User, Service, Reminder, Invoice, } from '../types';
 import { enhanceInvoicesWithLinks } from '../utils/invoiceUtils';
+import { useInvoiceFormState } from './useInvoiceFormState';
 
 export function useProjectForm({
   projectToEdit,
@@ -51,32 +52,8 @@ export function useProjectForm({
   const [editReminderNotes, setEditReminderNotes] = useState('');
 
   // Invoice State
-  const [isAddingInvoice, setIsAddingInvoice] = useState(false);
-  const [addInvoiceMode, setAddInvoiceMode] = useState<'new' | 'existing'>('new');
-  const [newInvoiceNumber, setNewInvoiceNumber] = useState('');
-  const [newInvoiceType, setNewInvoiceType] = useState<InvoiceType>('Standard');
-  const [newParentInvoiceId, setNewParentInvoiceId] = useState('');
-  const [newInvoiceDateCreated, setNewInvoiceDateCreated] = useState(todayStr);
-  const [newInvoiceDueDate, setNewInvoiceDueDate] = useState('');
-  const [newInvoiceCurrency, setNewInvoiceCurrency] = useState<InvoiceCurrency>('RSD');
-  const [newInvoiceStatus, setNewInvoiceStatus] = useState<InvoiceStatus>('Draft');
-  const [newInvoiceNotes, setNewInvoiceNotes] = useState('');
-  const [newInvoiceItems, setNewInvoiceItems] = useState<{ description: string; quantity: number; unitPrice: number; currency: InvoiceCurrency }[]>([
-    { description: '', quantity: 1, unitPrice: 0, currency: 'RSD' },
-  ]);
-  const [selectedExistingInvoiceId, setSelectedExistingInvoiceId] = useState('');
-
-  const [editingProjectInvoice, setEditingProjectInvoice] = useState<Invoice | null>(null);
-  const [editInvoiceNumber, setEditInvoiceNumber] = useState('');
-  const [editInvoiceType, setEditInvoiceType] = useState<InvoiceType>('Standard');
-  const [editParentInvoiceId, setEditParentInvoiceId] = useState('');
-  const [editInvoiceDateCreated, setEditInvoiceDateCreated] = useState('');
-  const [editInvoiceDueDate, setEditInvoiceDueDate] = useState('');
-  const [editInvoicePaymentDate, setEditInvoicePaymentDate] = useState('');
-  const [editInvoiceStatus, setEditInvoiceStatus] = useState<InvoiceStatus>('Draft');
-  const [editInvoiceCurrency, setEditInvoiceCurrency] = useState<InvoiceCurrency>('RSD');
-  const [editInvoiceNotes, setEditInvoiceNotes] = useState('');
-  const [editInvoiceItems, setEditInvoiceItems] = useState<{ description: string; quantity: number; unitPrice: number; currency: InvoiceCurrency }[]>([]);
+  const invoiceFormState = useInvoiceFormState();
+  const { setIsAddingInvoice, setEditingInvoice } = invoiceFormState;
 
   useEffect(() => {
     if (projectToEdit) {
@@ -93,7 +70,7 @@ export function useProjectForm({
       setIsAddingReminder(false);
       setEditingProjectReminder(null);
       setIsAddingInvoice(false);
-      setEditingProjectInvoice(null);
+      setEditingInvoice(null);
     } else {
       const firstEligible = users.find((u) => {
         const isBlocked = u.status === 'BLOCKED' || u.status?.toLowerCase() === 'blocked' || (u.isApproved === false && u.status !== 'PENDING');
@@ -112,7 +89,7 @@ export function useProjectForm({
       setIsAddingReminder(false);
       setEditingProjectReminder(null);
       setIsAddingInvoice(false);
-      setEditingProjectInvoice(null);
+      setEditingInvoice(null);
     }
   }, [projectToEdit, clients, users, services, currentUser, isUser, todayStr]);
 
@@ -239,29 +216,9 @@ export function useProjectForm({
       availableExistingReminders,
     },
     invoiceState: {
-      isAddingInvoice, setIsAddingInvoice,
-      addInvoiceMode, setAddInvoiceMode,
-      newInvoiceNumber, setNewInvoiceNumber,
-      newInvoiceType, setNewInvoiceType,
-      newParentInvoiceId, setNewParentInvoiceId,
-      newInvoiceDateCreated, setNewInvoiceDateCreated,
-      newInvoiceDueDate, setNewInvoiceDueDate,
-      newInvoiceCurrency, setNewInvoiceCurrency,
-      newInvoiceStatus, setNewInvoiceStatus,
-      newInvoiceNotes, setNewInvoiceNotes,
-      newInvoiceItems, setNewInvoiceItems,
-      selectedExistingInvoiceId, setSelectedExistingInvoiceId,
-      editingProjectInvoice, setEditingProjectInvoice,
-      editInvoiceNumber, setEditInvoiceNumber,
-      editInvoiceType, setEditInvoiceType,
-      editParentInvoiceId, setEditParentInvoiceId,
-      editInvoiceDateCreated, setEditInvoiceDateCreated,
-      editInvoiceDueDate, setEditInvoiceDueDate,
-      editInvoicePaymentDate, setEditInvoicePaymentDate,
-      editInvoiceStatus, setEditInvoiceStatus,
-      editInvoiceCurrency, setEditInvoiceCurrency,
-      editInvoiceNotes, setEditInvoiceNotes,
-      editInvoiceItems, setEditInvoiceItems,
+      ...invoiceFormState,
+      editingProjectInvoice: invoiceFormState.editingInvoice,
+      setEditingProjectInvoice: invoiceFormState.setEditingInvoice,
       projectInvoices,
       availableExistingInvoices,
     },

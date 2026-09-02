@@ -264,3 +264,19 @@ export interface AppNotification {
   } | null;
 }
 
+export interface SortState {
+  field: string;
+  direction: 'asc' | 'desc';
+}
+
+export interface TableViewProps {
+  visibleColumns?: string[];
+  onVisibleColumnsChange?: (cols: string[]) => void;
+  rowsPerPageOptions?: number[];
+  onRowsPerPageOptionsChange?: (options: number[]) => void;
+  rowsPerPage?: number;
+  onRowsPerPageChange?: (rowsPerPage: number) => void;
+  sortState?: SortState;
+  onSortChange?: (sort: SortState) => void;
+  onRefresh?: () => Promise<void> | void;
+}

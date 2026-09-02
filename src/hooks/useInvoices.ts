@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import type { Invoice, AppFetchers } from '../types';
-import { apiFetch } from '../api';
 import { useCrudOperations } from './useCrudOperations';
+import { useStatusUpdate } from './useStatusUpdate';
 
 /**
  * Manages invoice state and all invoice-related API operations.
@@ -29,34 +29,18 @@ export function useInvoices(
     permissionDeniedMessageKey: 'permissionDeniedOnlyOwnProjects', // Generic fallback
   });
 
-  const handleUpdateInvoiceStatus = useCallback(
-    async (id: string, status: string, paymentDate?: string) => {
-      const previousInvoices = [...invoices];
-      setInvoices(invoices.map((inv) => (inv.id === id ? { ...inv, status, paymentDate } : inv)));
+  const updateStatus = useStatusUpdate<Invoice>({
+    basePath: '/api/invoices',
+    items: invoices,
+    setItems: setInvoices,
+    authHeaders,
+    onSuccess,
+  });
 
-      try {
-        const res = await apiFetch(`/api/invoices/${id}/status`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            ...authHeaders(),
-          },
-          body: JSON.stringify({ status, paymentDate }),
-        });
-        if (res.ok) {
-          fetchers.fetchInvoices();
-          fetchers.fetchStats();
-        } else {
-          setInvoices(previousInvoices);
-          const err = await res.json();
-          alert(err.error || 'Failed to update invoice status');
-        }
-      } catch (e) {
-        setInvoices(previousInvoices);
-        console.error(e);
-      }
-    },
-    [invoices, authHeaders, fetchers]
+  const handleUpdateInvoiceStatus = useCallback(
+    (id: string, status: string, paymentDate?: string) =>
+      updateStatus(id, { status, paymentDate }),
+    [updateStatus]
   );
 
   return {

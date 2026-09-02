@@ -28,7 +28,7 @@ import {
   Tooltip,
 } from '@mui/material';
 
-import type { Service, Category, SaveResult, CustomFieldDefinition } from '../../types';
+import type { Service, Category, SaveResult, CustomFieldDefinition, TableViewProps } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { TableOptionsSelector, type ColumnDef } from '../ColumnSelector';
@@ -36,6 +36,7 @@ import { TableFilterSelector } from '../TableFilterSelector';
 import { TableSearchInput } from '../TableSearchInput';
 import { ErrorDialog } from '../ErrorDialog';
 import { CustomDataModelModal } from '../CustomDataModelModal';
+import { useTableView } from '../../hooks/useTableView';
 import {
   AddIcon,
   EditIcon,
@@ -47,20 +48,11 @@ import {
   RefreshIcon,
 } from '../icons';
 
-interface Props {
+interface Props extends TableViewProps {
   services: Service[];
   categories?: Category[];
   onSaveService: (service: Partial<Service>) => Promise<SaveResult | void> | void;
   onDeleteService: (id: string) => void;
-  visibleColumns?: string[];
-  onVisibleColumnsChange?: (cols: string[]) => void;
-  rowsPerPageOptions?: number[];
-  onRowsPerPageOptionsChange?: (options: number[]) => void;
-  rowsPerPage?: number;
-  onRowsPerPageChange?: (rowsPerPage: number) => void;
-  sortState?: { field: string; direction: 'asc' | 'desc' };
-  onSortChange?: (sort: { field: string; direction: 'asc' | 'desc' }) => void;
-  onRefresh?: () => Promise<void> | void;
 }
 
 const DEFAULT_COLUMNS = ['name', 'group', 'frequency', 'description', 'customData'];
@@ -84,49 +76,38 @@ const ServicesView: React.FC<Props> = ({
   const { canManageServices } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
-  const [localColumns, setLocalColumns] = useState<string[]>(visibleColumns);
-  const [localRowsPerPage, setLocalRowsPerPage] = useState(rowsPerPageProp ?? 15);
-  const [localRowsPerPageOptions, setLocalRowsPerPageOptions] = useState<number[]>(rowsPerPageOptionsProp ?? [15, 25, 50]);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const handleRefresh = async () => {
-    if (!onRefresh || isRefreshing) return;
-    setIsRefreshing(true);
-    try {
-      await onRefresh();
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    if (rowsPerPageProp !== undefined) {
-      setLocalRowsPerPage(rowsPerPageProp);
-    }
-  }, [rowsPerPageProp]);
-
-  useEffect(() => {
-    if (rowsPerPageOptionsProp !== undefined) {
-      setLocalRowsPerPageOptions(rowsPerPageOptionsProp);
-    }
-  }, [rowsPerPageOptionsProp]);
-
-  const activeRowsPerPage = onRowsPerPageChange && rowsPerPageProp !== undefined ? rowsPerPageProp : localRowsPerPage;
-  const activeRowsPerPageOptions = onRowsPerPageOptionsChange && rowsPerPageOptionsProp !== undefined ? rowsPerPageOptionsProp : localRowsPerPageOptions;
-
-  const setRowsPerPageValue = (rpp: number) => {
-    setLocalRowsPerPage(rpp);
-    if (onRowsPerPageChange) onRowsPerPageChange(rpp);
-  };
-
-  const setRowsPerPageOptionsValue = (opts: number[]) => {
-    setLocalRowsPerPageOptions(opts);
-    if (onRowsPerPageOptionsChange) onRowsPerPageOptionsChange(opts);
-  };
-  const [isSaving, setIsSaving] = useState(false);
-  const [errorDialogState, setErrorDialogState] = useState<{ open: boolean; message: string }>({
-    open: false,
-    message: '',
+  const {
+    activeCols,
+    setCols,
+    activeRowsPerPage,
+    activeRowsPerPageOptions,
+    setRowsPerPageValue,
+    setRowsPerPageOptionsValue,
+    page,
+    setPage,
+    sortColumn,
+    sortDirection,
+    handleSort,
+    handleSortColumnChange,
+    handleToggleSortDirection,
+    resetSort,
+    isRefreshing,
+    handleRefresh,
+    isSaving,
+    setIsSaving,
+    errorDialogState,
+    setErrorDialogState,
+  } = useTableView({
+    defaultColumns: DEFAULT_COLUMNS,
+    visibleColumns,
+    onVisibleColumnsChange,
+    rowsPerPageProp,
+    onRowsPerPageChange,
+    rowsPerPageOptionsProp,
+    onRowsPerPageOptionsChange,
+    sortState,
+    onSortChange,
+    onRefresh,
   });
 
   // Custom data model state
@@ -148,42 +129,7 @@ const ServicesView: React.FC<Props> = ({
     }
   };
 
-  const [sortColumn, setSortColumn] = useState<string>(sortState?.field || 'name');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(sortState?.direction || 'asc');
 
-  useEffect(() => {
-    if (sortState) {
-      setSortColumn(sortState.field || 'name');
-      setSortDirection(sortState.direction || 'asc');
-    }
-  }, [sortState]);
-
-  const handleSort = (colId: string) => {
-    let newDir: 'asc' | 'desc' = 'asc';
-    if (sortColumn === colId) {
-      newDir = sortDirection === 'asc' ? 'desc' : 'asc';
-    }
-    setSortColumn(colId);
-    setSortDirection(newDir);
-    if (onSortChange) {
-      onSortChange({ field: colId, direction: newDir });
-    }
-  };
-
-  const handleSortColumnChange = (colId: string) => {
-    setSortColumn(colId);
-    if (onSortChange) {
-      onSortChange({ field: colId, direction: sortDirection });
-    }
-  };
-
-  const handleToggleSortDirection = () => {
-    const newDir = sortDirection === 'asc' ? 'desc' : 'asc';
-    setSortDirection(newDir);
-    if (onSortChange) {
-      onSortChange({ field: sortColumn, direction: newDir });
-    }
-  };
 
   // Filter states
   const [filterGroup, setFilterGroup] = useState<string>('all');
@@ -197,17 +143,7 @@ const ServicesView: React.FC<Props> = ({
   const clearFilters = () => {
     setFilterGroup('all');
     setFilterFrequency('all');
-    setSortColumn('name');
-    setSortDirection('asc');
-    if (onSortChange) {
-      onSortChange({ field: 'name', direction: 'asc' });
-    }
-  };
-
-  const activeCols = onVisibleColumnsChange ? visibleColumns : localColumns;
-  const setCols = (cols: string[]) => {
-    setLocalColumns(cols);
-    if (onVisibleColumnsChange) onVisibleColumnsChange(cols);
+    resetSort();
   };
 
   const columnDefs: ColumnDef[] = [
@@ -360,11 +296,9 @@ const ServicesView: React.FC<Props> = ({
     return sortDirection === 'asc' ? res : -res;
   });
 
-  const [page, setPage] = useState(0);
-
   useEffect(() => {
     setPage(0);
-  }, [searchQuery, filterGroup, filterFrequency]);
+  }, [searchQuery, filterGroup, filterFrequency, setPage]);
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
