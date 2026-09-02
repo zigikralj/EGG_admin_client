@@ -14,6 +14,12 @@ export interface TranslationKeys {
   subTabSummary: string;
   subTabReminders: string;
   subTabProjects: string;
+  subTabWasteDisposal: string;
+  emptyWasteDisposal: string;
+  btnNewWasteDisposal: string;
+  subTabWasteManagement: string;
+  emptyWasteManagement: string;
+  btnNewWasteService: string;
   tabProjects: string;
   tabClients: string;
   tabUsers: string;

@@ -169,7 +169,7 @@ export interface ProjectStats {
 
 export type ActiveTab = 'dashboard' | 'projects' | 'clients' | 'users' | 'services' | 'providedServices' | 'categories' | 'reminders' | 'invoices';
 
-export type DashboardSubTab = 'projects' | 'reminders' | 'invoices' | 'statistic';
+export type DashboardSubTab = 'projects' | 'reminders' | 'invoices' | 'waste-disposal' | 'waste-management' | 'statistic';
 
 export type ProvidedServicesSubTab = 'summary' | 'statistics';
 
@@ -264,9 +264,25 @@ export interface AppNotification {
   } | null;
 }
 
+export interface SortState {
+  field: string;
+  direction: 'asc' | 'desc';
+}
+
+export interface TableViewProps {
+  visibleColumns?: string[];
+  onVisibleColumnsChange?: (cols: string[]) => void;
+  rowsPerPageOptions?: number[];
+  onRowsPerPageOptionsChange?: (options: number[]) => void;
+  rowsPerPage?: number;
+  onRowsPerPageChange?: (rowsPerPage: number) => void;
+  sortState?: SortState;
+  onSortChange?: (sort: SortState) => void;
+  onRefresh?: () => Promise<void> | void;
+}
+
 declare global {
   const __APP_VERSION__: string;
   const __COMMIT_HASH__: string;
   const __BUILD_TIME__: string;
 }
-

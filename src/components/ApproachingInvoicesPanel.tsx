@@ -43,6 +43,7 @@ import {
   AddIcon,
 } from './icons';
 import { DashboardPanelSkeleton } from './DashboardPanelSkeleton';
+import { useTableView } from '../hooks/useTableView';
 
 interface Props {
   invoices?: Invoice[];
@@ -114,38 +115,27 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
   const [filterDateFrom, setFilterDateFrom] = useState<string>('');
   const [filterDateTo, setFilterDateTo] = useState<string>('');
   const [filterDateField, setFilterDateField] = useState<string>('dueDate');
-  const [sortOption, setSortOption] = useState<'dueDate' | 'dateCreated' | 'totalAmount' | 'invoiceNumber' | 'client' | 'project' | 'status'>('dueDate');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-
-  // Pagination
-  const [page, setPage] = useState(0);
-  const [localRowsPerPage, setLocalRowsPerPage] = useState(rowsPerPageProp ?? 10);
-  const [localRowsPerPageOptions, setLocalRowsPerPageOptions] = useState<number[]>(rowsPerPageOptionsProp ?? [5, 10, 25]);
-
-  useEffect(() => {
-    if (rowsPerPageProp !== undefined) {
-      setLocalRowsPerPage(rowsPerPageProp);
-    }
-  }, [rowsPerPageProp]);
-
-  useEffect(() => {
-    if (rowsPerPageOptionsProp !== undefined) {
-      setLocalRowsPerPageOptions(rowsPerPageOptionsProp);
-    }
-  }, [rowsPerPageOptionsProp]);
-
-  const activeRowsPerPage = onRowsPerPageChange && rowsPerPageProp !== undefined ? rowsPerPageProp : localRowsPerPage;
-  const activeRowsPerPageOptions = onRowsPerPageOptionsChange && rowsPerPageOptionsProp !== undefined ? rowsPerPageOptionsProp : localRowsPerPageOptions;
-
-  const setRowsPerPageValue = (rpp: number) => {
-    setLocalRowsPerPage(rpp);
-    if (onRowsPerPageChange) onRowsPerPageChange(rpp);
-  };
-
-  const setRowsPerPageOptionsValue = (opts: number[]) => {
-    setLocalRowsPerPageOptions(opts);
-    if (onRowsPerPageOptionsChange) onRowsPerPageOptionsChange(opts);
-  };
+  const {
+    activeRowsPerPage,
+    activeRowsPerPageOptions,
+    setRowsPerPageValue,
+    setRowsPerPageOptionsValue,
+    page,
+    setPage,
+    sortColumn: sortOption,
+    sortDirection,
+    handleSortColumnChange,
+    handleToggleSortDirection,
+    resetSort,
+  } = useTableView({
+    defaultColumns: [],
+    rowsPerPageProp,
+    onRowsPerPageChange,
+    rowsPerPageOptionsProp,
+    onRowsPerPageOptionsChange,
+    defaultSortField: 'dueDate',
+    defaultSortDirection: 'asc',
+  });
 
   const handleChangeRowsPerPage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseInt(e.target.value, 10);
@@ -201,8 +191,7 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
     setFilterDateTo('');
     setFilterDateField('dueDate');
     setSearchQuery('');
-    setSortOption('dueDate');
-    setSortDirection('asc');
+    resetSort();
   };
 
   const getStatusChipColor = (status?: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
@@ -772,13 +761,13 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
                     isOptionEqualToValue={(option, val) => option.value === val.value}
                     value={sortOptions.find((o) => o.value === sortOption) || sortOptions[0]}
                     onChange={(_, newValue) => {
-                      if (newValue) setSortOption(newValue.value as any);
+                      if (newValue) handleSortColumnChange(newValue.value);
                     }}
                     renderInput={(params) => <TextField {...params} label={t('lblSortBy')} size="small" />}
                   />
                   <IconButton
                     size="small"
-                    onClick={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                    onClick={handleToggleSortDirection}
                     title={sortDirection === 'asc' ? t('sortAscending') : t('sortDescending')}
                     sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0.75 }}
                   >

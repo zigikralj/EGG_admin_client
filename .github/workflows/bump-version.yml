@@ -43,6 +43,8 @@ jobs:
         run: |
           node -e '
             const fs = require("fs");
+            const { execSync } = require("child_process");
+            
             const eventName = process.env.EVENT_NAME;
             const dispatchBump = process.env.DISPATCH_BUMP;
             const prTitle = process.env.PR_TITLE || "";
@@ -87,7 +89,7 @@ jobs:
             } else {
               // Analyze PR title using Conventional Commits
               const title = prTitle.trim();
-              if (title.includes("BREAKING CHANGE") || /^[a-z]+(\(.*\))?!:/.test(title)) {
+              if (title.includes("BREAKING CHANGE") || /^[a-z]+(\([^)]*\))?!:/.test(title)) {
                 bump = "major";
               } else if (/^feat(\([^)]*\))?:/i.test(title)) {
                 bump = "minor";
@@ -106,21 +108,38 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_LABELS: ${{ toJson(github.event.pull_request.labels) }}
 
-      - name: Bump Version & Update Changelog
+      - name: Bump Version, Update Changelog & Prepare Tag
         if: steps.determine_bump.outputs.skip == 'false'
         id: bump
         run: |
           node -e '
             const fs = require("fs");
+            const { execSync } = require("child_process");
+            
             const bumpType = process.env.BUMP_TYPE;
             const prTitle = process.env.PR_TITLE || "Manual Release";
             const prNumber = process.env.PR_NUMBER || "";
             const prAuthor = process.env.PR_AUTHOR || "maintainer";
             const prUrl = process.env.PR_URL || "";
             
-            // 1. Read package.json
+            // 1. Determine latest version from git tags or package.json
+            let baseVersion = "1.0.0";
             const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
-            const oldVersion = pkg.version || "1.0.0";
+            try {
+              const tags = execSync("git tag -l \"v*\" --sort=-v:refname", { encoding: "utf8" })
+                .split("\n")
+                .map(t => t.trim().replace(/^v/, ""))
+                .filter(Boolean);
+              if (tags.length > 0) {
+                baseVersion = tags[0];
+              } else {
+                baseVersion = pkg.version || "1.0.0";
+              }
+            } catch (e) {
+              baseVersion = pkg.version || "1.0.0";
+            }
+            
+            const oldVersion = baseVersion;
             const parts = oldVersion.split(".").map(Number);
             let [major, minor, patch] = parts;
             if (isNaN(major)) major = 1;

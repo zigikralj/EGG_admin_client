@@ -36,7 +36,7 @@ import {
 
 
 
-import type { Reminder, Project, Client, User, SaveResult } from '../../types';
+import type { Reminder, Project, Client, User, SaveResult, TableViewProps } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { TableOptionsSelector, type ColumnDef } from '../ColumnSelector';
@@ -44,9 +44,10 @@ import { TableFilterSelector } from '../TableFilterSelector';
 import { DateRangeFilter } from '../DateRangeFilter';
 import { TableSearchInput } from '../TableSearchInput';
 import { ErrorDialog } from '../ErrorDialog';
+import { useTableView } from '../../hooks/useTableView';
 import { AddIcon, EditIcon, DeleteIcon, CheckIcon, ArrowUpwardIcon, ArrowDownwardIcon, RefreshIcon } from '../icons';
 
-interface Props {
+interface Props extends TableViewProps {
   reminders: Reminder[];
   projects: Project[];
   clients: Client[];
@@ -54,17 +55,8 @@ interface Props {
   onSaveReminder: (reminder: Partial<Reminder>) => Promise<SaveResult | void> | void;
   onDeleteReminder: (id: string) => void;
   onStatusChange?: (id: string, status: string) => void;
-  visibleColumns?: string[];
-  onVisibleColumnsChange?: (cols: string[]) => void;
-  rowsPerPageOptions?: number[];
-  onRowsPerPageOptionsChange?: (options: number[]) => void;
-  rowsPerPage?: number;
-  onRowsPerPageChange?: (rowsPerPage: number) => void;
-  sortState?: { field: string; direction: 'asc' | 'desc' };
-  onSortChange?: (sort: { field: string; direction: 'asc' | 'desc' }) => void;
   quickFilter?: 'all' | 'my' | 'pending';
   onQuickFilterChange?: (val: 'all' | 'my' | 'pending') => void;
-  onRefresh?: () => Promise<void> | void;
 }
 
 const DEFAULT_COLUMNS = ['title', 'project', 'client', 'responsible', 'status', 'notes'];
@@ -93,73 +85,44 @@ const RemindersView: React.FC<Props> = ({
   const { currentUser } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
-  const [localColumns, setLocalColumns] = useState<string[]>(visibleColumns);
-  const [localRowsPerPage, setLocalRowsPerPage] = useState(rowsPerPageProp ?? 15);
-  const [localRowsPerPageOptions, setLocalRowsPerPageOptions] = useState<number[]>(rowsPerPageOptionsProp ?? [15, 25, 50]);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const handleRefresh = async () => {
-    if (!onRefresh || isRefreshing) return;
-    setIsRefreshing(true);
-    try {
-      await onRefresh();
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    if (rowsPerPageProp !== undefined) {
-      setLocalRowsPerPage(rowsPerPageProp);
-    }
-  }, [rowsPerPageProp]);
-
-  useEffect(() => {
-    if (rowsPerPageOptionsProp !== undefined) {
-      setLocalRowsPerPageOptions(rowsPerPageOptionsProp);
-    }
-  }, [rowsPerPageOptionsProp]);
-
-  const activeRowsPerPage = onRowsPerPageChange && rowsPerPageProp !== undefined ? rowsPerPageProp : localRowsPerPage;
-  const activeRowsPerPageOptions = onRowsPerPageOptionsChange && rowsPerPageOptionsProp !== undefined ? rowsPerPageOptionsProp : localRowsPerPageOptions;
-
-  const setRowsPerPageValue = (rpp: number) => {
-    setLocalRowsPerPage(rpp);
-    if (onRowsPerPageChange) onRowsPerPageChange(rpp);
-  };
-
-  const setRowsPerPageOptionsValue = (opts: number[]) => {
-    setLocalRowsPerPageOptions(opts);
-    if (onRowsPerPageOptionsChange) onRowsPerPageOptionsChange(opts);
-  };
-  const [isSaving, setIsSaving] = useState(false);
-  const [errorDialogState, setErrorDialogState] = useState<{ open: boolean; message: string }>({
-    open: false,
-    message: '',
+  const {
+    activeCols,
+    setCols,
+    activeRowsPerPage,
+    activeRowsPerPageOptions,
+    setRowsPerPageValue,
+    setRowsPerPageOptionsValue,
+    page,
+    setPage,
+    sortColumn,
+    sortDirection,
+    handleSort,
+    handleSortColumnChange,
+    handleToggleSortDirection,
+    resetSort,
+    isRefreshing,
+    handleRefresh,
+    isSaving,
+    setIsSaving,
+    errorDialogState,
+    setErrorDialogState,
+  } = useTableView({
+    defaultColumns: DEFAULT_COLUMNS,
+    visibleColumns,
+    onVisibleColumnsChange,
+    rowsPerPageProp,
+    onRowsPerPageChange,
+    rowsPerPageOptionsProp,
+    onRowsPerPageOptionsChange,
+    sortState,
+    onSortChange,
+    onRefresh,
+    defaultSortField: 'title',
+    defaultSortDirection: 'asc',
   });
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [sortColumn, setSortColumn] = useState<string>(sortState?.field || 'title');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(sortState?.direction || 'asc');
 
-  useEffect(() => {
-    if (sortState) {
-      setSortColumn(sortState.field || 'title');
-      setSortDirection(sortState.direction || 'asc');
-    }
-  }, [sortState]);
-
-  const handleSort = (colId: string) => {
-    let newDir: 'asc' | 'desc' = 'asc';
-    if (sortColumn === colId) {
-      newDir = sortDirection === 'asc' ? 'desc' : 'asc';
-    }
-    setSortColumn(colId);
-    setSortDirection(newDir);
-    if (onSortChange) {
-      onSortChange({ field: colId, direction: newDir });
-    }
-  };
 
   // Quick Filter state ('all' | 'my' | 'pending')
   const [quickFilter, setQuickFilter] = useState<'all' | 'my' | 'pending'>(
@@ -231,20 +194,7 @@ const RemindersView: React.FC<Props> = ({
     }
   };
 
-  const handleSortColumnChange = (colId: string) => {
-    setSortColumn(colId);
-    if (onSortChange) {
-      onSortChange({ field: colId, direction: sortDirection });
-    }
-  };
 
-  const handleToggleSortDirection = () => {
-    const newDir = sortDirection === 'asc' ? 'desc' : 'asc';
-    setSortDirection(newDir);
-    if (onSortChange) {
-      onSortChange({ field: sortColumn, direction: newDir });
-    }
-  };
 
   const activeFilterCount =
     (quickFilter === 'pending' ? 1 : 0) +
@@ -263,11 +213,7 @@ const RemindersView: React.FC<Props> = ({
     setFilterDateFrom('');
     setFilterDateTo('');
     setFilterDateField('dueDate');
-    setSortColumn('title');
-    setSortDirection('asc');
-    if (onSortChange) {
-      onSortChange({ field: 'title', direction: 'asc' });
-    }
+    resetSort();
   };
 
   // Form states
@@ -282,11 +228,7 @@ const RemindersView: React.FC<Props> = ({
   const [notes, setNotes] = useState<string>('');
   const [dueDate, setDueDate] = useState<string>('');
 
-  const activeCols = onVisibleColumnsChange ? visibleColumns : localColumns;
-  const setCols = (cols: string[]) => {
-    setLocalColumns(cols);
-    if (onVisibleColumnsChange) onVisibleColumnsChange(cols);
-  };
+
 
   const columnDefs: ColumnDef[] = [
     { id: 'title', label: t('colTitle') },
@@ -516,11 +458,9 @@ const RemindersView: React.FC<Props> = ({
     return sortDirection === 'asc' ? res : -res;
   });
 
-  const [page, setPage] = useState(0);
-
   useEffect(() => {
     setPage(0);
-  }, [searchQuery, quickFilter, filterStatus, filterClient, filterResponsible]);
+  }, [searchQuery, quickFilter, filterStatus, filterClient, filterResponsible, setPage]);
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);

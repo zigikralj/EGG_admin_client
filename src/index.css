@@ -783,6 +783,10 @@ button.ghost {
 }
 
 /* MOBILE TOUCH & RESPONSIVE SCROLLING IMPROVEMENTS */
+html {
+  scrollbar-gutter: stable;
+}
+
 html, body {
   overflow-x: hidden;
   max-width: 100vw;

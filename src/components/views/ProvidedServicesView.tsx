@@ -41,6 +41,7 @@ import type {
   SaveResult,
   CustomFieldDefinition,
   ProvidedServicesSubTab,
+  TableViewProps,
 } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -62,6 +63,7 @@ import {
   ArrowDownwardIcon,
   RefreshIcon,
 } from '../icons';
+import { useTableView } from '../../hooks/useTableView';
 
 const normalizeKey = (str: string) =>
   (str || '')
@@ -84,7 +86,7 @@ const isKeyMatch = (key: string, field: CustomFieldDefinition) => {
   return false;
 };
 
-interface Props {
+interface Props extends TableViewProps {
   subTab?: ProvidedServicesSubTab;
   providedServices: ProvidedService[];
   services: Service[];
@@ -98,17 +100,8 @@ interface Props {
   onSaveInvoice?: (invoice: Partial<Invoice>) => Promise<SaveResult | void> | void;
   onDeleteInvoice?: (id: string) => void;
   onStatusChangeInvoice?: (id: string, status: string, paymentDate?: string) => void;
-  visibleColumns?: string[];
-  onVisibleColumnsChange?: (cols: string[]) => void;
-  rowsPerPageOptions?: number[];
-  onRowsPerPageOptionsChange?: (options: number[]) => void;
-  rowsPerPage?: number;
-  onRowsPerPageChange?: (rowsPerPage: number) => void;
-  sortState?: { field: string; direction: 'asc' | 'desc' };
-  onSortChange?: (sort: { field: string; direction: 'asc' | 'desc' }) => void;
   quickFilter?: string;
   onQuickFilterChange?: (val: string) => void;
-  onRefresh?: () => Promise<void> | void;
 }
 
 const DEFAULT_COLUMNS = [
@@ -152,49 +145,40 @@ const ProvidedServicesView: React.FC<Props> = ({
   const { canManageProvidedServices } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ProvidedService | null>(null);
-  const [localColumns, setLocalColumns] = useState<string[]>(visibleColumns);
-  const [localRowsPerPage, setLocalRowsPerPage] = useState(rowsPerPageProp ?? 15);
-  const [localRowsPerPageOptions, setLocalRowsPerPageOptions] = useState<number[]>(rowsPerPageOptionsProp ?? [15, 25, 50]);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const handleRefresh = async () => {
-    if (!onRefresh || isRefreshing) return;
-    setIsRefreshing(true);
-    try {
-      await onRefresh();
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    if (rowsPerPageProp !== undefined) {
-      setLocalRowsPerPage(rowsPerPageProp);
-    }
-  }, [rowsPerPageProp]);
-
-  useEffect(() => {
-    if (rowsPerPageOptionsProp !== undefined) {
-      setLocalRowsPerPageOptions(rowsPerPageOptionsProp);
-    }
-  }, [rowsPerPageOptionsProp]);
-
-  const activeRowsPerPage = onRowsPerPageChange && rowsPerPageProp !== undefined ? rowsPerPageProp : localRowsPerPage;
-  const activeRowsPerPageOptions = onRowsPerPageOptionsChange && rowsPerPageOptionsProp !== undefined ? rowsPerPageOptionsProp : localRowsPerPageOptions;
-
-  const setRowsPerPageValue = (rpp: number) => {
-    setLocalRowsPerPage(rpp);
-    if (onRowsPerPageChange) onRowsPerPageChange(rpp);
-  };
-
-  const setRowsPerPageOptionsValue = (opts: number[]) => {
-    setLocalRowsPerPageOptions(opts);
-    if (onRowsPerPageOptionsChange) onRowsPerPageOptionsChange(opts);
-  };
-  const [isSaving, setIsSaving] = useState(false);
-  const [errorDialogState, setErrorDialogState] = useState<{ open: boolean; message: string }>({
-    open: false,
-    message: '',
+  const {
+    activeCols,
+    setCols,
+    activeRowsPerPage,
+    activeRowsPerPageOptions,
+    setRowsPerPageValue,
+    setRowsPerPageOptionsValue,
+    page,
+    setPage,
+    sortColumn,
+    sortDirection,
+    handleSort,
+    handleSortColumnChange,
+    handleToggleSortDirection,
+    resetSort,
+    isRefreshing,
+    handleRefresh,
+    isSaving,
+    setIsSaving,
+    errorDialogState,
+    setErrorDialogState,
+  } = useTableView({
+    defaultColumns: DEFAULT_COLUMNS,
+    visibleColumns,
+    onVisibleColumnsChange,
+    rowsPerPageProp,
+    onRowsPerPageChange,
+    rowsPerPageOptionsProp,
+    onRowsPerPageOptionsChange,
+    sortState,
+    onSortChange,
+    onRefresh,
+    defaultSortField: 'scheduledDate',
+    defaultSortDirection: 'desc',
   });
 
   // Custom data model state
@@ -215,42 +199,7 @@ const ProvidedServicesView: React.FC<Props> = ({
     }
   };
 
-  const [sortColumn, setSortColumn] = useState<string>(sortState?.field || 'scheduledDate');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(sortState?.direction || 'desc');
 
-  useEffect(() => {
-    if (sortState) {
-      setSortColumn(sortState.field || 'scheduledDate');
-      setSortDirection(sortState.direction || 'desc');
-    }
-  }, [sortState]);
-
-  const handleSort = (colId: string) => {
-    let newDir: 'asc' | 'desc' = 'asc';
-    if (sortColumn === colId) {
-      newDir = sortDirection === 'asc' ? 'desc' : 'asc';
-    }
-    setSortColumn(colId);
-    setSortDirection(newDir);
-    if (onSortChange) {
-      onSortChange({ field: colId, direction: newDir });
-    }
-  };
-
-  const handleSortColumnChange = (colId: string) => {
-    setSortColumn(colId);
-    if (onSortChange) {
-      onSortChange({ field: colId, direction: sortDirection });
-    }
-  };
-
-  const handleToggleSortDirection = () => {
-    const newDir = sortDirection === 'asc' ? 'desc' : 'asc';
-    setSortDirection(newDir);
-    if (onSortChange) {
-      onSortChange({ field: sortColumn, direction: newDir });
-    }
-  };
 
   // Quick Filter: 'all' | 'waste-management'
   const [quickFilter, setQuickFilter] = useState<string>(quickFilterProp || 'all');
@@ -297,18 +246,10 @@ const ProvidedServicesView: React.FC<Props> = ({
     setFilterDateFrom('');
     setFilterDateTo('');
     setFilterDateField('scheduledDate');
-    setSortColumn('scheduledDate');
-    setSortDirection('desc');
-    if (onSortChange) {
-      onSortChange({ field: 'scheduledDate', direction: 'desc' });
-    }
+    resetSort();
   };
 
-  const activeCols = onVisibleColumnsChange ? visibleColumns : localColumns;
-  const setCols = (cols: string[]) => {
-    setLocalColumns(cols);
-    if (onVisibleColumnsChange) onVisibleColumnsChange(cols);
-  };
+
 
   const columnDefs: ColumnDef[] = [
     { id: 'service', label: t('colService') },
@@ -616,11 +557,9 @@ const ProvidedServicesView: React.FC<Props> = ({
     return sortDirection === 'asc' ? res : -res;
   });
 
-  const [page, setPage] = useState(0);
-
   useEffect(() => {
     setPage(0);
-  }, [searchQuery, quickFilter, filterService, filterClient, filterStatus, filterProject, filterInvoice]);
+  }, [searchQuery, quickFilter, filterService, filterClient, filterStatus, filterProject, filterInvoice, setPage]);
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);

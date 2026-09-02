@@ -24,6 +24,7 @@ import {
 import type { Project, ProjectStats, Reminder, Invoice, DashboardSubTab, User, Category, Service, Client, ProvidedService, SaveResult } from '../../types';
 import { ReminderPanel } from '../ReminderPanel';
 import { ApproachingInvoicesPanel } from '../ApproachingInvoicesPanel';
+import { WasteDisposalPanel, isWasteDisposalService } from '../WasteDisposalPanel';
 import { ProjectCard } from '../ProjectCard';
 
 import { TableFilterSelector } from '../TableFilterSelector';
@@ -53,6 +54,7 @@ interface Props {
   onDeleteReminder?: (id: string) => void;
   onStatusChangeReminder?: (id: string, status: string) => void;
   onSaveProvidedService?: (ps: Partial<ProvidedService>) => Promise<SaveResult | void> | void;
+  onDeleteProvidedService?: (id: string) => void;
   onViewProject?: (project: Project) => void;
   onEditProject: (project: Project) => void;
   onDeleteProject: (id: string) => void;
@@ -74,6 +76,10 @@ interface Props {
   onInvoicesRowsPerPageOptionsChange?: (options: number[]) => void;
   invoicesRowsPerPage?: number;
   onInvoicesRowsPerPageChange?: (rowsPerPage: number) => void;
+  wasteManagementRowsPerPageOptions?: number[];
+  onWasteManagementRowsPerPageOptionsChange?: (options: number[]) => void;
+  wasteManagementRowsPerPage?: number;
+  onWasteManagementRowsPerPageChange?: (rowsPerPage: number) => void;
 }
 
 const DashboardView: React.FC<Props> = ({
@@ -93,6 +99,7 @@ const DashboardView: React.FC<Props> = ({
   onDeleteReminder,
   onStatusChangeReminder,
   onSaveProvidedService,
+  onDeleteProvidedService,
   onViewProject,
   onEditProject,
   onDeleteProject,
@@ -114,9 +121,14 @@ const DashboardView: React.FC<Props> = ({
   onInvoicesRowsPerPageOptionsChange,
   invoicesRowsPerPage,
   onInvoicesRowsPerPageChange,
+  wasteManagementRowsPerPageOptions,
+  onWasteManagementRowsPerPageOptionsChange,
+  wasteManagementRowsPerPage,
+  onWasteManagementRowsPerPageChange,
 }) => {
   const { t, getServiceLabel } = useLanguage();
-  const { currentUser, isAccountant } = useAuth();
+  const { currentUser, isAccountant, role, canToggleEntityWorkMode } = useAuth();
+  const canViewWasteDisposal = canToggleEntityWorkMode || role === 'Administrator' || role === 'Manager' || isAccountant;
 
   // Projects subtab state & filtering
   const [searchQuery, setSearchQuery] = useState('');
@@ -153,6 +165,7 @@ const DashboardView: React.FC<Props> = ({
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [newInvoiceTrigger, setNewInvoiceTrigger] = useState(0);
   const [newReminderTrigger, setNewReminderTrigger] = useState(0);
+  const [newWasteServiceTrigger, setNewWasteServiceTrigger] = useState(0);
 
   const handleToggleFilter = (filterKey: string, checked: boolean) => {
     const updated = checked
@@ -451,6 +464,37 @@ const DashboardView: React.FC<Props> = ({
     />
   );
 
+  const wasteProvidedServices = useMemo(() => {
+    return providedServices.filter((item) => {
+      const srv = item.service || services.find((s) => s.id === item.serviceId);
+      return isWasteDisposalService(srv);
+    });
+  }, [providedServices, services]);
+
+  const renderWasteDisposalPanel = (isFullHeight = false, hideNotch = false) => (
+    <WasteDisposalPanel
+      providedServices={providedServices}
+      services={services}
+      clients={clients}
+      projects={projects}
+      invoices={invoices}
+      categories={categories}
+      isFullHeight={isFullHeight}
+      hideNotch={hideNotch}
+      openNewTrigger={newWasteServiceTrigger}
+      onNewTriggerHandled={() => setNewWasteServiceTrigger(0)}
+      onSaveProvidedService={onSaveProvidedService}
+      onDeleteProvidedService={onDeleteProvidedService}
+      onSaveInvoice={onSaveInvoice}
+      onDeleteInvoice={onDeleteInvoice}
+      onStatusChangeInvoice={onStatusChangeInvoice}
+      rowsPerPageOptions={wasteManagementRowsPerPageOptions}
+      onRowsPerPageOptionsChange={onWasteManagementRowsPerPageOptionsChange}
+      rowsPerPage={wasteManagementRowsPerPage}
+      onRowsPerPageChange={onWasteManagementRowsPerPageChange}
+    />
+  );
+
   return (
     <Stack spacing={2.5}>
       {/* STATISTIC ONLY VIEW */}
@@ -525,6 +569,33 @@ const DashboardView: React.FC<Props> = ({
             )}
           </Box>
           {renderApproachingInvoicesPanel(true, true)}
+        </Box>
+      )}
+
+      {/* WASTE DISPOSAL ONLY VIEW */}
+      {(dashboardSubTab === 'waste-disposal' || dashboardSubTab === 'waste-management') && canViewWasteDisposal && (
+        <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5, mb: 0.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                {t('subTabWasteDisposal')}
+              </Typography>
+              <Chip label={wasteProvidedServices.length} size="small" color="primary" sx={{ fontWeight: 700 }} />
+            </Box>
+            {onSaveProvidedService && (
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<AddIcon />}
+                onClick={() => setNewWasteServiceTrigger((prev) => prev + 1)}
+                size="small"
+                sx={{ borderRadius: 1.5, textTransform: 'none', fontWeight: 600 }}
+              >
+                {t('btnNewWasteDisposal')}
+              </Button>
+            )}
+          </Box>
+          {renderWasteDisposalPanel(true, true)}
         </Box>
       )}
 

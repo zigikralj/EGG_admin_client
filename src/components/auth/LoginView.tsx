@@ -214,12 +214,6 @@ export const LoginView: React.FC = () => {
           {/* TAB 0: LOGIN */}
           {tabIndex === 0 && (
             <Box component="form" onSubmit={handleLoginSubmit} noValidate>
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-                {t('loginTitle')}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                {t('loginSubtitle')}
-              </Typography>
 
               {loginError && (
                 <Alert
@@ -307,12 +301,6 @@ export const LoginView: React.FC = () => {
           {/* TAB 1: REGISTER */}
           {tabIndex === 1 && (
             <Box component="form" onSubmit={handleRegisterSubmit} noValidate>
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-                {t('tabRegister')}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
-                Fill out your details to submit a registration request.
-              </Typography>
 
               {regSuccess && (
                 <Alert
@@ -333,7 +321,7 @@ export const LoginView: React.FC = () => {
               <TextField
                 fullWidth
                 label={t('colFullName')}
-                placeholder="e.g. Marko Nikolić"
+                placeholder="Petar Petrović"
                 value={regName}
                 onChange={(e) => setRegName(e.target.value)}
                 margin="dense"
@@ -352,7 +340,7 @@ export const LoginView: React.FC = () => {
               <TextField
                 fullWidth
                 label={t('colEmail')}
-                placeholder="marko@example.com"
+                placeholder="petar@ekosgroup.rs"
                 type="email"
                 value={regEmail}
                 onChange={(e) => setRegEmail(e.target.value)}
@@ -463,8 +451,11 @@ export const LoginView: React.FC = () => {
       </Card>
 
       {/* Footer Language Selector */}
-      <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
+      <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
         <LanguageSelector />
+        <Typography variant="caption" color="text.secondary" sx={{ opacity: 0.7 }}>
+          v1.0.0
+        </Typography>
       </Box>
     </Box>
   );

@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import type { Reminder, AppFetchers } from '../types';
-import { apiFetch } from '../api';
 import { useCrudOperations } from './useCrudOperations';
+import { useStatusUpdate } from './useStatusUpdate';
 
 /**
  * Manages reminder state and all reminder-related API operations.
@@ -29,34 +29,17 @@ export function useReminders(
     // Fallback to default permissionDeniedMessageKey for generic error, or we could add 'errorSavingReminder' equivalent
   });
 
-  const handleStatusChangeReminder = useCallback(
-    async (id: string, status: string) => {
-      const previousReminders = [...reminders];
-      setReminders(reminders.map((r) => (r.id === id ? { ...r, status } : r)));
+  const updateStatus = useStatusUpdate<Reminder>({
+    basePath: '/api/reminders',
+    items: reminders,
+    setItems: setReminders,
+    authHeaders,
+    onSuccess,
+  });
 
-      try {
-        const res = await apiFetch(`/api/reminders/${id}/status`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            ...authHeaders(),
-          },
-          body: JSON.stringify({ status }),
-        });
-        if (res.ok) {
-          fetchers.fetchReminders();
-          fetchers.fetchStats();
-        } else {
-          setReminders(previousReminders);
-          const err = await res.json();
-          alert(err.error || 'Failed to update reminder status');
-        }
-      } catch (e) {
-        setReminders(previousReminders);
-        console.error(e);
-      }
-    },
-    [reminders, authHeaders, fetchers]
+  const handleStatusChangeReminder = useCallback(
+    (id: string, status: string) => updateStatus(id, { status }),
+    [updateStatus]
   );
 
   return {

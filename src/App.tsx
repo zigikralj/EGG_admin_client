@@ -290,6 +290,7 @@ function MainApp() {
             invoices={invoicesHook.invoices}
             providedServices={providedServicesHook.providedServices}
             onSaveProvidedService={providedServicesHook.handleSaveProvidedService}
+            onDeleteProvidedService={providedServicesHook.handleDeleteProvidedService}
             onMarkSampled={projectsHook.handleMarkSampled}
             onToggleDone={projectsHook.handleToggleDone}
             onSaveReminder={remindersHook.handleSaveReminder}
@@ -326,6 +327,10 @@ function MainApp() {
             onInvoicesRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_dashboard_invoices', opts)}
             invoicesRowsPerPage={userPreferences.rowsPerPage_dashboard_invoices}
             onInvoicesRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_dashboard_invoices', rpp)}
+            wasteManagementRowsPerPageOptions={userPreferences.rowsPerPageOptions_dashboard_waste_management}
+            onWasteManagementRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_dashboard_waste_management', opts)}
+            wasteManagementRowsPerPage={userPreferences.rowsPerPage_dashboard_waste_management}
+            onWasteManagementRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_dashboard_waste_management', rpp)}
           />
         )}
 

@@ -27,6 +27,8 @@ export { default as ContentCopyIcon } from '@mui/icons-material/ContentCopy';
 export { default as DarkModeIcon } from '@mui/icons-material/DarkMode';
 export { default as DashboardIcon } from '@mui/icons-material/Dashboard';
 export { default as DeleteIcon } from '@mui/icons-material/Delete';
+export { default as DeleteSweepIcon } from '@mui/icons-material/DeleteSweep';
+export { default as RecyclingIcon } from '@mui/icons-material/Recycling';
 export { default as EditIcon } from '@mui/icons-material/Edit';
 export { default as EmailIcon } from '@mui/icons-material/Email';
 export { default as ErrorIcon } from '@mui/icons-material/Error';

@@ -197,7 +197,32 @@ export const getTheme = (mode: 'light' | 'dark' = 'light') => {
           },
         },
       },
+      MuiModal: {
+        defaultProps: {
+          disableScrollLock: true,
+        },
+      },
+      MuiPopover: {
+        defaultProps: {
+          disableScrollLock: true,
+        },
+      },
+      MuiMenu: {
+        defaultProps: {
+          disableScrollLock: true,
+        },
+      },
+      MuiSelect: {
+        defaultProps: {
+          MenuProps: {
+            disableScrollLock: true,
+          },
+        },
+      },
       MuiDialog: {
+        defaultProps: {
+          disableScrollLock: true,
+        },
         styleOverrides: {
           paper: {
             overscrollBehavior: 'contain',
@@ -205,6 +230,11 @@ export const getTheme = (mode: 'light' | 'dark' = 'light') => {
         },
       },
       MuiDrawer: {
+        defaultProps: {
+          ModalProps: {
+            disableScrollLock: true,
+          },
+        },
         styleOverrides: {
           paper: {
             overscrollBehavior: 'contain',

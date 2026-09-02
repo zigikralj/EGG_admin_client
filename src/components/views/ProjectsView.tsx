@@ -28,13 +28,14 @@ import {
 
 
 
-import type { Project, Service } from '../../types';
+import type { Project, Service, TableViewProps } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { TableOptionsSelector, type ColumnDef } from '../ColumnSelector';
 import { TableFilterSelector } from '../TableFilterSelector';
 import { DateRangeFilter } from '../DateRangeFilter';
 import { TableSearchInput } from '../TableSearchInput';
+import { useTableView } from '../../hooks/useTableView';
 import {
   AddIcon,
   EditIcon,
@@ -46,7 +47,7 @@ import {
   RefreshIcon,
 } from '../icons';
 
-interface Props {
+interface Props extends TableViewProps {
   projects: Project[];
   services?: Service[];
   searchQuery: string;
@@ -57,17 +58,8 @@ interface Props {
   onView?: (project: Project) => void;
   onEdit: (project: Project) => void;
   onDelete: (id: string) => void;
-  visibleColumns?: string[];
-  onVisibleColumnsChange?: (cols: string[]) => void;
-  rowsPerPageOptions?: number[];
-  onRowsPerPageOptionsChange?: (options: number[]) => void;
-  rowsPerPage?: number;
-  onRowsPerPageChange?: (rowsPerPage: number) => void;
-  sortState?: { field: string; direction: 'asc' | 'desc' };
-  onSortChange?: (sort: { field: string; direction: 'asc' | 'desc' }) => void;
   quickFilter?: 'all' | 'my' | 'active' | 'overdue';
   onQuickFilterChange?: (val: 'all' | 'my' | 'active' | 'overdue') => void;
-  onRefresh?: () => Promise<void> | void;
 }
 
 const DEFAULT_COLUMNS = ['name', 'client', 'category', 'responsible', 'start', 'deadline', 'progress', 'status'];
@@ -116,82 +108,39 @@ const ProjectsView: React.FC<Props> = ({
 }) => {
   const { t, getServiceLabel } = useLanguage();
   const { canEditProject, currentUser } = useAuth();
-  const [localColumns, setLocalColumns] = useState<string[]>(visibleColumns);
-  const [localRowsPerPage, setLocalRowsPerPage] = useState(rowsPerPageProp ?? 15);
-  const [localRowsPerPageOptions, setLocalRowsPerPageOptions] = useState<number[]>(rowsPerPageOptionsProp ?? [15, 25, 50]);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const {
+    activeCols,
+    setCols,
+    activeRowsPerPage,
+    activeRowsPerPageOptions,
+    setRowsPerPageValue,
+    setRowsPerPageOptionsValue,
+    page,
+    setPage,
+    sortColumn,
+    sortDirection,
+    handleSort,
+    handleSortColumnChange,
+    handleToggleSortDirection,
+    resetSort,
+    isRefreshing,
+    handleRefresh,
+  } = useTableView({
+    defaultColumns: DEFAULT_COLUMNS,
+    visibleColumns,
+    onVisibleColumnsChange,
+    rowsPerPageProp,
+    onRowsPerPageChange,
+    rowsPerPageOptionsProp,
+    onRowsPerPageOptionsChange,
+    sortState,
+    onSortChange,
+    onRefresh,
+    defaultSortField: 'createdAt',
+    defaultSortDirection: 'desc',
+  });
 
-  const handleRefresh = async () => {
-    if (!onRefresh || isRefreshing) return;
-    setIsRefreshing(true);
-    try {
-      await onRefresh();
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
 
-  useEffect(() => {
-    if (rowsPerPageProp !== undefined) {
-      setLocalRowsPerPage(rowsPerPageProp);
-    }
-  }, [rowsPerPageProp]);
-
-  useEffect(() => {
-    if (rowsPerPageOptionsProp !== undefined) {
-      setLocalRowsPerPageOptions(rowsPerPageOptionsProp);
-    }
-  }, [rowsPerPageOptionsProp]);
-
-  const activeRowsPerPage = onRowsPerPageChange && rowsPerPageProp !== undefined ? rowsPerPageProp : localRowsPerPage;
-  const activeRowsPerPageOptions = onRowsPerPageOptionsChange && rowsPerPageOptionsProp !== undefined ? rowsPerPageOptionsProp : localRowsPerPageOptions;
-
-  const setRowsPerPageValue = (rpp: number) => {
-    setLocalRowsPerPage(rpp);
-    if (onRowsPerPageChange) onRowsPerPageChange(rpp);
-  };
-
-  const setRowsPerPageOptionsValue = (opts: number[]) => {
-    setLocalRowsPerPageOptions(opts);
-    if (onRowsPerPageOptionsChange) onRowsPerPageOptionsChange(opts);
-  };
-
-  const [sortColumn, setSortColumn] = useState<string>(sortState?.field || 'createdAt');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(sortState?.direction || 'desc');
-
-  useEffect(() => {
-    if (sortState) {
-      setSortColumn(sortState.field || 'createdAt');
-      setSortDirection(sortState.direction || 'desc');
-    }
-  }, [sortState]);
-
-  const handleSort = (colId: string) => {
-    let newDir: 'asc' | 'desc' = 'asc';
-    if (sortColumn === colId) {
-      newDir = sortDirection === 'asc' ? 'desc' : 'asc';
-    }
-    setSortColumn(colId);
-    setSortDirection(newDir);
-    if (onSortChange) {
-      onSortChange({ field: colId, direction: newDir });
-    }
-  };
-
-  const handleSortColumnChange = (colId: string) => {
-    setSortColumn(colId);
-    if (onSortChange) {
-      onSortChange({ field: colId, direction: sortDirection });
-    }
-  };
-
-  const handleToggleSortDirection = () => {
-    const newDir = sortDirection === 'asc' ? 'desc' : 'asc';
-    setSortDirection(newDir);
-    if (onSortChange) {
-      onSortChange({ field: sortColumn, direction: newDir });
-    }
-  };
 
   // Quick Filter state ('all' | 'my' | 'active' | 'overdue')
   const [quickFilter, setQuickFilter] = useState<'all' | 'my' | 'active' | 'overdue'>(
@@ -285,17 +234,7 @@ const ProjectsView: React.FC<Props> = ({
     setFilterDateFrom('');
     setFilterDateTo('');
     setFilterDateField('deadline');
-    setSortColumn('createdAt');
-    setSortDirection('desc');
-    if (onSortChange) {
-      onSortChange({ field: 'createdAt', direction: 'desc' });
-    }
-  };
-
-  const activeCols = onVisibleColumnsChange ? visibleColumns : localColumns;
-  const setCols = (cols: string[]) => {
-    setLocalColumns(cols);
-    if (onVisibleColumnsChange) onVisibleColumnsChange(cols);
+    resetSort();
   };
 
   const columnDefs: ColumnDef[] = [
@@ -432,11 +371,9 @@ const ProjectsView: React.FC<Props> = ({
     return sortDirection === 'asc' ? res : -res;
   });
 
-  const [page, setPage] = useState(0);
-
   useEffect(() => {
     setPage(0);
-  }, [searchQuery, quickFilter, filterCategory, filterStatus, filterResponsible, filterDateFrom, filterDateTo, filterDateField, sortColumn, sortDirection]);
+  }, [searchQuery, quickFilter, filterCategory, filterStatus, filterResponsible, filterDateFrom, filterDateTo, filterDateField, sortColumn, sortDirection, setPage]);
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
