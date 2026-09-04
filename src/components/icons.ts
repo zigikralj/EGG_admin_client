@@ -7,6 +7,9 @@ export { default as ArrowDownwardIcon } from '@mui/icons-material/ArrowDownward'
 export { default as ArrowDropDownIcon } from '@mui/icons-material/ArrowDropDown';
 export { default as ArrowForwardIcon } from '@mui/icons-material/ArrowForward';
 export { default as ArrowUpwardIcon } from '@mui/icons-material/ArrowUpward';
+export { default as AssignmentTurnedInIcon } from '@mui/icons-material/AssignmentTurnedIn';
+export { default as AssignmentIcon } from '@mui/icons-material/Assignment';
+export { default as VerifiedIcon } from '@mui/icons-material/Verified';
 export { default as BadgeIcon } from '@mui/icons-material/Badge';
 export { default as BarChartIcon } from '@mui/icons-material/BarChart';
 export { default as BlockIcon } from '@mui/icons-material/Block';
@@ -78,6 +81,8 @@ export { default as SettingsBrightnessIcon } from '@mui/icons-material/SettingsB
 export { default as SettingsIcon } from '@mui/icons-material/Settings';
 export { default as ShowChartIcon } from '@mui/icons-material/ShowChart';
 export { default as SortIcon } from '@mui/icons-material/Sort';
+export { default as StarIcon } from '@mui/icons-material/Star';
+export { default as StarBorderIcon } from '@mui/icons-material/StarBorder';
 export { default as StrikethroughSIcon } from '@mui/icons-material/StrikethroughS';
 export { default as TitleIcon } from '@mui/icons-material/Title';
 export { default as UndoIcon } from '@mui/icons-material/Undo';

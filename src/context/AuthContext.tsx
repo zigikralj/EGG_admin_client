@@ -26,6 +26,7 @@ interface AuthContextType {
   workOnEntities: boolean;
   setWorkOnEntities: (val: boolean) => void;
   canManageClients: boolean;
+  canManagePermits: boolean;
   canManageServices: boolean;
   canManageUsers: boolean;
   canEditUser: (targetUser: User) => boolean;
@@ -292,6 +293,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isUser = canToggleEntityWorkMode ? !workOnEntities : effectiveRole === 'User';
 
   const canManageClients = effectiveRole === 'Administrator' || (effectiveRole === 'Manager' && (canToggleEntityWorkMode ? workOnEntities : true));
+  const canManagePermits = effectiveRole === 'Administrator' || (effectiveRole === 'Manager' && (canToggleEntityWorkMode ? workOnEntities : true));
   const canManageServices = effectiveRole === 'Administrator' || (effectiveRole === 'Manager' && (canToggleEntityWorkMode ? workOnEntities : true));
   const canManageUsers = effectiveRole === 'Administrator' || (effectiveRole === 'Manager' && (canToggleEntityWorkMode ? workOnEntities : true));
   const canManageInvoices = effectiveRole === 'Administrator' || effectiveRole === 'Manager' || effectiveRole === 'Accountant';
@@ -350,6 +352,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       workOnEntities,
       setWorkOnEntities,
       canManageClients,
+      canManagePermits,
       canManageServices,
       canManageUsers,
       canEditUser,
@@ -378,6 +381,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       workOnEntities,
       setWorkOnEntities,
       canManageClients,
+      canManagePermits,
       canManageServices,
       canManageUsers,
       canEditUser,

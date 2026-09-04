@@ -17,6 +17,15 @@ export interface Project {
   updatedAt?: string;
 }
 
+export interface ClientExtraData {
+  id: string;
+  clientId: string;
+  permitId?: string | null;
+  permit?: Permit | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Client {
   id: string;
   name: string;
@@ -24,9 +33,62 @@ export interface Client {
   email?: string | null;
   phone?: string | null;
   city?: string | null;
+  permitId?: string | null;
+  permit?: Permit | null;
+  extraData?: ClientExtraData | null;
   projects?: Project[];
   invoices?: Invoice[];
   createdAt?: string;
+}
+
+export interface WasteCatalog {
+  id: string;
+  code: string;
+  description: string;
+  hazardListMark?: string | null;
+  isHazardous: boolean;
+  frequent?: number | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface WasteCatalogResponse {
+  items: WasteCatalog[];
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
+}
+
+export interface PermitWaste {
+  id?: string;
+  permitId?: string;
+  wasteCatalogId: string;
+  wasteCatalog?: WasteCatalog;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Permit {
+  id: string;
+  permitNumber: string;
+  indexNumber?: string;
+  indexNumbers?: string[];
+  startDate?: string | null;
+  endDate?: string | null;
+  clientId?: string | null;
+  clientName?: string | null;
+  client?: Client | null;
+  clients?: Client[];
+  notes?: string | null;
+  reminders?: Reminder[];
+  wasteCatalogId?: string | null;
+  wasteCatalog?: WasteCatalog | null;
+  permitWastes?: PermitWaste[];
+  wasteCatalogs?: WasteCatalog[];
+  wasteCatalogIds?: string[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type UserRole = 'Administrator' | 'Manager' | 'User' | 'Accountant';
@@ -78,6 +140,9 @@ export interface Reminder {
   status: string;
   notes?: string | null;
   dueDate?: string | null;
+  permitId?: string | null;
+  permitNumber?: string | null;
+  permit?: Permit | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -165,9 +230,10 @@ export interface ProjectStats {
   categoriesCount?: number;
   invoicesCount?: number;
   providedServicesCount?: number;
+  permitsCount?: number;
 }
 
-export type ActiveTab = 'dashboard' | 'projects' | 'clients' | 'users' | 'services' | 'providedServices' | 'categories' | 'reminders' | 'invoices';
+export type ActiveTab = 'dashboard' | 'projects' | 'clients' | 'permits' | 'users' | 'services' | 'providedServices' | 'categories' | 'reminders' | 'invoices';
 
 export type DashboardSubTab = 'projects' | 'reminders' | 'invoices' | 'waste-disposal' | 'waste-management' | 'statistic';
 
@@ -243,6 +309,8 @@ export interface AppFetchers {
   fetchCategories: () => Promise<void>;
   fetchReminders: () => Promise<void>;
   fetchInvoices: () => Promise<void>;
+  fetchPermits: () => Promise<void>;
+  fetchWasteCatalog: () => Promise<void>;
   fetchStats: () => Promise<void>;
 }
 

@@ -25,6 +25,7 @@ import { useProvidedServices } from './hooks/useProvidedServices';
 import { useCategories } from './hooks/useCategories';
 import { useReminders } from './hooks/useReminders';
 import { useInvoices } from './hooks/useInvoices';
+import { usePermits } from './hooks/usePermits';
 import { useAppData } from './hooks/useAppData';
 import './index.css';
 
@@ -37,6 +38,7 @@ const ProvidedServicesView = React.lazy(() => import('./components/views/Provide
 const CategoriesView = React.lazy(() => import('./components/views/CategoriesView'));
 const RemindersView = React.lazy(() => import('./components/views/RemindersView'));
 const InvoicesView = React.lazy(() => import('./components/views/InvoicesView'));
+const PermitsView = React.lazy(() => import('./components/views/PermitsView'));
 const ProjectModal = React.lazy(() => import('./components/ProjectModal'));
 const ProjectViewModal = React.lazy(() => import('./components/ProjectViewModal'));
 
@@ -90,6 +92,8 @@ function MainApp() {
     fetchCategories: () => Promise<void>;
     fetchReminders: () => Promise<void>;
     fetchInvoices: () => Promise<void>;
+    fetchPermits: () => Promise<void>;
+    fetchWasteCatalog: () => Promise<void>;
     fetchStats: () => Promise<void>;
   }>({
     fetchProjects: async () => {},
@@ -100,6 +104,8 @@ function MainApp() {
     fetchCategories: async () => {},
     fetchReminders: async () => {},
     fetchInvoices: async () => {},
+    fetchPermits: async () => {},
+    fetchWasteCatalog: async () => {},
     fetchStats: async () => {},
   });
 
@@ -112,6 +118,8 @@ function MainApp() {
     fetchCategories: () => fetchersRef.current.fetchCategories(),
     fetchReminders: () => fetchersRef.current.fetchReminders(),
     fetchInvoices: () => fetchersRef.current.fetchInvoices(),
+    fetchPermits: () => fetchersRef.current.fetchPermits(),
+    fetchWasteCatalog: () => fetchersRef.current.fetchWasteCatalog(),
     fetchStats: () => fetchersRef.current.fetchStats(),
   }), []);
 
@@ -130,6 +138,7 @@ function MainApp() {
   const categoriesHook = useCategories(authHeaders, stableFetchers, askDeleteConfirm);
   const remindersHook = useReminders(authHeaders, stableFetchers, askDeleteConfirm);
   const invoicesHook = useInvoices(authHeaders, stableFetchers, askDeleteConfirm);
+  const permitsHook = usePermits(authHeaders, stableFetchers, askDeleteConfirm);
 
   // ── Stats (kept local since it drives the sidebar badges) ────────────────────
   const [stats, setStats] = useState({
@@ -149,6 +158,8 @@ function MainApp() {
       setCategories: categoriesHook.setCategories,
       setReminders: remindersHook.setReminders,
       setInvoices: invoicesHook.setInvoices,
+      setPermits: permitsHook.setPermits,
+      setWasteCatalog: permitsHook.setWasteCatalog,
       setStats,
     },
   );
@@ -417,6 +428,7 @@ function MainApp() {
         {activeTab === 'clients' && (
           <ClientsView
             clients={clientsHook.clients}
+            permits={permitsHook.permits}
             onSaveClient={clientsHook.handleSaveClient}
             onDeleteClient={clientsHook.handleDeleteClient}
             visibleColumns={userPreferences.cols_clients}
@@ -428,6 +440,29 @@ function MainApp() {
             sortState={userPreferences.sort_clients}
             onSortChange={(sort) => updatePreference('sort_clients', sort)}
             onRefresh={fetchers.fetchClients}
+          />
+        )}
+
+        {activeTab === 'permits' && (
+          <PermitsView
+            permits={permitsHook.permits}
+            clients={clientsHook.clients}
+            wasteCatalog={permitsHook.wasteCatalog}
+            reminders={remindersHook.reminders}
+            onSavePermit={permitsHook.handleSavePermit}
+            onDeletePermit={permitsHook.handleDeletePermit}
+            onSaveReminder={remindersHook.handleSaveReminder}
+            visibleColumns={userPreferences.cols_permits}
+            onVisibleColumnsChange={(cols) => updatePreference('cols_permits', cols)}
+            rowsPerPageOptions={userPreferences.rowsPerPageOptions_permits}
+            onRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_permits', opts)}
+            rowsPerPage={userPreferences.rowsPerPage_permits}
+            onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_permits', rpp)}
+            sortState={userPreferences.sort_permits}
+            onSortChange={(sort) => updatePreference('sort_permits', sort)}
+            quickFilter={userPreferences.quick_filter_permits || 'all'}
+            onQuickFilterChange={(val) => updatePreference('quick_filter_permits', val)}
+            onRefresh={fetchers.fetchPermits}
           />
         )}
 
@@ -546,6 +581,7 @@ function MainApp() {
             projects={projectsHook.projects}
             clients={clientsHook.clients}
             users={usersHook.users}
+            permits={permitsHook.permits}
             onSaveReminder={remindersHook.handleSaveReminder}
             onDeleteReminder={remindersHook.handleDeleteReminder}
             onStatusChange={remindersHook.handleStatusChangeReminder}

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import type { Project, Client, User, Service, ProvidedService, Category, Reminder, Invoice, ProjectStats } from '../types';
+import type { Project, Client, User, Service, ProvidedService, Category, Reminder, Invoice, Permit, WasteCatalog, ProjectStats } from '../types';
 import { apiFetch } from '../api';
 import { useAuth } from '../context/AuthContext';
 
@@ -12,6 +12,8 @@ interface AppDataSetters {
   setCategories: (categories: Category[]) => void;
   setReminders: (reminders: Reminder[]) => void;
   setInvoices: (invoices: Invoice[]) => void;
+  setPermits: (permits: Permit[]) => void;
+  setWasteCatalog?: (wasteCatalog: WasteCatalog[]) => void;
   setStats: (stats: ProjectStats) => void;
 }
 
@@ -60,6 +62,8 @@ export function useAppData(
     setCategories,
     setReminders,
     setInvoices,
+    setPermits,
+    setWasteCatalog,
     setStats,
   } = setters;
 
@@ -104,6 +108,8 @@ export function useAppData(
   const fetchCategories = useFetcher('/api/categories', setCategories, authHeaders);
   const fetchReminders = useFetcher('/api/reminders', setReminders, authHeaders);
   const fetchInvoices = useFetcher('/api/invoices', setInvoices, authHeaders);
+  const fetchPermits = useFetcher('/api/permits', setPermits, authHeaders);
+  const fetchWasteCatalog = useFetcher('/api/waste-catalog', setWasteCatalog || (() => {}), authHeaders);
   const fetchStats = useFetcher('/api/projects/stats', setStats, authHeaders);
 
   const fetchAllData = useCallback(async () => {
@@ -116,6 +122,7 @@ export function useAppData(
       fetchCategories(),
       fetchReminders(),
       fetchInvoices(),
+      fetchPermits(),
       fetchStats(),
     ]);
   }, [
@@ -127,6 +134,7 @@ export function useAppData(
     fetchCategories,
     fetchReminders,
     fetchInvoices,
+    fetchPermits,
     fetchStats,
   ]);
 
@@ -175,6 +183,8 @@ export function useAppData(
       fetchCategories,
       fetchReminders,
       fetchInvoices,
+      fetchPermits,
+      fetchWasteCatalog,
       fetchStats,
     }
   };
