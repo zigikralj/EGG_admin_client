@@ -452,6 +452,8 @@ function MainApp() {
             onSavePermit={permitsHook.handleSavePermit}
             onDeletePermit={permitsHook.handleDeletePermit}
             onSaveReminder={remindersHook.handleSaveReminder}
+            onDeleteReminder={remindersHook.handleDeleteReminder}
+            onSaveClient={clientsHook.handleSaveClient}
             visibleColumns={userPreferences.cols_permits}
             onVisibleColumnsChange={(cols) => updatePreference('cols_permits', cols)}
             rowsPerPageOptions={userPreferences.rowsPerPageOptions_permits}

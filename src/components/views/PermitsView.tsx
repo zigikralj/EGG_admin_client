@@ -46,6 +46,9 @@ import {
   AddIcon,
   EditIcon,
   DeleteIcon,
+  CloseIcon,
+  LinkIcon,
+  LinkOffIcon,
   LockIcon,
   ArrowUpwardIcon,
   ArrowDownwardIcon,
@@ -67,6 +70,8 @@ interface Props extends TableViewProps {
   onSavePermit: (permit: Partial<Permit>) => Promise<SaveResult | void> | void;
   onDeletePermit: (id: string) => void;
   onSaveReminder?: (reminder: Partial<Reminder>) => Promise<SaveResult | void> | void;
+  onDeleteReminder?: (id: string) => void;
+  onSaveClient?: (client: Partial<Client>) => Promise<SaveResult | void> | void;
   quickFilter?: 'all' | 'expiring' | 'expired' | 'active';
   onQuickFilterChange?: (val: 'all' | 'expiring' | 'expired' | 'active') => void;
 }
@@ -113,6 +118,8 @@ const PermitsView: React.FC<Props> = ({
   onSavePermit,
   onDeletePermit,
   onSaveReminder,
+  onDeleteReminder,
+  onSaveClient,
   visibleColumns = DEFAULT_COLUMNS,
   onVisibleColumnsChange,
   rowsPerPageOptions: rowsPerPageOptionsProp,
@@ -130,7 +137,31 @@ const PermitsView: React.FC<Props> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [editingPermit, setEditingPermit] = useState<Permit | null>(null);
 
-  // Reminder creation modal tied to permit
+  // Selected client for permit
+  const [selectedClientId, setSelectedClientId] = useState<string>('');
+
+  // Inline reminder creation/linking in permit dialog
+  const [isAddingReminderInline, setIsAddingReminderInline] = useState(false);
+  const [addReminderMode, setAddReminderMode] = useState<'new' | 'existing'>('new');
+  const [inlineReminderTitle, setInlineReminderTitle] = useState('');
+  const [inlineReminderDueDate, setInlineReminderDueDate] = useState('');
+  const [inlineReminderNotes, setInlineReminderNotes] = useState('');
+  const [selectedExistingReminderId, setSelectedExistingReminderId] = useState('');
+
+  // Staged reminders when creating or editing a permit
+  const [stagedNewReminders, setStagedNewReminders] = useState<
+    Array<{ id: string; title: string; dueDate?: string; notes?: string }>
+  >([]);
+  const [stagedLinkReminderIds, setStagedLinkReminderIds] = useState<string[]>([]);
+
+  // Edit modal for existing reminders
+  const [editingReminderModalItem, setEditingReminderModalItem] = useState<Reminder | null>(null);
+  const [editReminderModalTitle, setEditReminderModalTitle] = useState('');
+  const [editReminderModalDueDate, setEditReminderModalDueDate] = useState('');
+  const [editReminderModalStatus, setEditReminderModalStatus] = useState('Pending');
+  const [editReminderModalNotes, setEditReminderModalNotes] = useState('');
+
+  // Quick reminder creation modal tied to permit from row action
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
   const [targetPermitForReminder, setTargetPermitForReminder] = useState<Permit | null>(null);
   const [newReminderTitle, setNewReminderTitle] = useState('');
@@ -335,10 +366,18 @@ const PermitsView: React.FC<Props> = ({
     setCatalogInputValue('');
     setCatalogSearchTerm('');
     setPermitNumber('');
+    setSelectedClientId('');
     setStartDate('');
     setEndDate('');
     setNotes('');
     setCatalogPage(1);
+    setIsAddingReminderInline(false);
+    setStagedNewReminders([]);
+    setStagedLinkReminderIds([]);
+    setInlineReminderTitle('');
+    setInlineReminderDueDate('');
+    setInlineReminderNotes('');
+    setSelectedExistingReminderId('');
     setIsOpen(true);
     fetchCatalogPage(1, '', false);
   };
@@ -346,6 +385,13 @@ const PermitsView: React.FC<Props> = ({
   const openEdit = async (p: Permit) => {
     if (!canManagePermits) return;
     setEditingPermit(p);
+    const linked = p.clients?.length
+      ? p.clients[0].id
+      : p.clientId ||
+        clients.find((c) => c.permitId === p.id || c.extraData?.permitId === p.id)?.id ||
+        '';
+    setSelectedClientId(linked);
+
     const id =
       p.wasteCatalogId ||
       (p.wasteCatalogIds && p.wasteCatalogIds[0]) ||
@@ -412,8 +458,103 @@ const PermitsView: React.FC<Props> = ({
     setNotes(p.notes || '');
     setCatalogSearchTerm('');
     setCatalogPage(1);
+    setIsAddingReminderInline(false);
+    setStagedNewReminders([]);
+    setStagedLinkReminderIds([]);
+    setInlineReminderTitle('');
+    setInlineReminderDueDate('');
+    setInlineReminderNotes('');
+    setSelectedExistingReminderId('');
     setIsOpen(true);
     fetchCatalogPage(1, '', false);
+  };
+
+  const availableExistingReminders = useMemo(() => {
+    if (!reminders) return [];
+    const currentPermitId = editingPermit?.id;
+    const stagedIds = new Set(stagedLinkReminderIds);
+    return reminders.filter((r) => {
+      if (stagedIds.has(r.id)) return false;
+      if (currentPermitId && r.permitId === currentPermitId) return false;
+      return true;
+    });
+  }, [reminders, editingPermit, stagedLinkReminderIds]);
+
+  const handleAddStagedReminder = () => {
+    if (addReminderMode === 'new') {
+      if (!inlineReminderTitle.trim()) {
+        setErrorDialogState({
+          open: true,
+          message: t('alertReminderTitleRequired') || 'Naziv podsetnika je obavezan.',
+        });
+        return;
+      }
+      setStagedNewReminders((prev) => [
+        ...prev,
+        {
+          id: `staged_${Date.now()}_${Math.random()}`,
+          title: inlineReminderTitle.trim(),
+          dueDate: inlineReminderDueDate || undefined,
+          notes: inlineReminderNotes.trim() || undefined,
+        },
+      ]);
+      setInlineReminderTitle('');
+      setInlineReminderDueDate('');
+      setInlineReminderNotes('');
+      setIsAddingReminderInline(false);
+    } else {
+      if (!selectedExistingReminderId) return;
+      if (!stagedLinkReminderIds.includes(selectedExistingReminderId)) {
+        setStagedLinkReminderIds((prev) => [...prev, selectedExistingReminderId]);
+      }
+      setSelectedExistingReminderId('');
+      setIsAddingReminderInline(false);
+    }
+  };
+
+  const handleOpenEditReminder = (rem: Reminder) => {
+    setEditingReminderModalItem(rem);
+    setEditReminderModalTitle(rem.title || '');
+    setEditReminderModalDueDate(rem.dueDate ? rem.dueDate.split('T')[0] : '');
+    setEditReminderModalStatus(rem.status || 'Pending');
+    setEditReminderModalNotes(rem.notes || '');
+  };
+
+  const handleSaveEditedReminder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingReminderModalItem || !onSaveReminder) return;
+    if (!editReminderModalTitle.trim()) {
+      setErrorDialogState({
+        open: true,
+        message: t('alertReminderTitleRequired') || 'Naziv podsetnika je obavezan.',
+      });
+      return;
+    }
+    try {
+      await onSaveReminder({
+        id: editingReminderModalItem.id,
+        title: editReminderModalTitle.trim(),
+        dueDate: editReminderModalDueDate || null,
+        status: editReminderModalStatus,
+        notes: editReminderModalNotes.trim() || null,
+      });
+      setEditingReminderModalItem(null);
+    } catch (err) {
+      console.error('Error updating reminder:', err);
+    }
+  };
+
+  const handleUnlinkReminder = async (remId: string) => {
+    if (!onSaveReminder) return;
+    try {
+      await onSaveReminder({
+        id: remId,
+        permitId: null,
+        permitNumber: null,
+      });
+    } catch (err) {
+      console.error('Error unlinking reminder:', err);
+    }
   };
 
   const openAddReminderForPermit = (p: Permit) => {
@@ -463,10 +604,18 @@ const PermitsView: React.FC<Props> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canManagePermits) return;
-    if (!permitNumber.trim() || !selectedWasteCatalogId) {
+    if (!permitNumber.trim() || !selectedWasteCatalogId || !startDate || !endDate) {
       setErrorDialogState({
         open: true,
         message: t('alertPermitRequired'),
+      });
+      return;
+    }
+
+    if (new Date(startDate) > new Date(endDate)) {
+      setErrorDialogState({
+        open: true,
+        message: t('alertPermitDatesOrder') || 'Datum početka ne može biti posle datuma isteka.',
       });
       return;
     }
@@ -480,17 +629,71 @@ const PermitsView: React.FC<Props> = ({
         startDate: startDate ? new Date(startDate).toISOString() : null,
         endDate: endDate ? new Date(endDate).toISOString() : null,
         notes: notes.trim() || null,
+        clientId: selectedClientId || null,
       });
 
-      if (res && typeof res === 'object' && 'success' in res) {
-        if (res.success) {
-          setIsOpen(false);
-        } else {
-          setErrorDialogState({
-            open: true,
-            message: res.error || t('errorSavingProject'),
-          });
+      const isSuccess = res && typeof res === 'object' && 'success' in res ? res.success : true;
+      const targetPermitId =
+        editingPermit?.id ||
+        (res && typeof res === 'object' && 'id' in res
+          ? (res as any).id
+          : (res as any)?.data?.id);
+      const targetPermitNumber = permitNumber.trim();
+
+      if (isSuccess && targetPermitId) {
+        const foundClient = clients.find((c) => c.id === selectedClientId);
+
+        // Update client link if onSaveClient is provided
+        if (onSaveClient) {
+          if (editingPermit) {
+            const prevClientId = editingPermit.clients?.length
+              ? editingPermit.clients[0].id
+              : editingPermit.clientId ||
+                clients.find((c) => c.permitId === editingPermit.id || c.extraData?.permitId === editingPermit.id)?.id;
+
+            if (prevClientId && prevClientId !== selectedClientId) {
+              await onSaveClient({ id: prevClientId, permitId: null });
+            }
+            if (selectedClientId && selectedClientId !== prevClientId) {
+              await onSaveClient({ id: selectedClientId, permitId: targetPermitId });
+            }
+          } else if (selectedClientId) {
+            await onSaveClient({ id: selectedClientId, permitId: targetPermitId });
+          }
         }
+
+        // Save staged reminders
+        if (onSaveReminder) {
+          for (const rem of stagedNewReminders) {
+            await onSaveReminder({
+              title: rem.title,
+              dueDate: rem.dueDate || null,
+              notes: rem.notes || null,
+              permitId: targetPermitId,
+              permitNumber: targetPermitNumber,
+              clientId: selectedClientId || null,
+              clientName: foundClient?.name || null,
+              status: 'Pending',
+            });
+          }
+
+          for (const remId of stagedLinkReminderIds) {
+            await onSaveReminder({
+              id: remId,
+              permitId: targetPermitId,
+              permitNumber: targetPermitNumber,
+              clientId: selectedClientId || null,
+              clientName: foundClient?.name || null,
+            });
+          }
+        }
+
+        setIsOpen(false);
+      } else if (!isSuccess) {
+        setErrorDialogState({
+          open: true,
+          message: (res as any)?.error || t('errorSavingProject'),
+        });
       } else {
         setIsOpen(false);
       }
@@ -516,6 +719,11 @@ const PermitsView: React.FC<Props> = ({
     });
     return map;
   }, [reminders]);
+
+  const totalRemindersCount = useMemo(() => {
+    const existingCount = editingPermit ? (permitRemindersMap.get(editingPermit.id) || []).length : 0;
+    return existingCount + stagedNewReminders.length + stagedLinkReminderIds.length;
+  }, [editingPermit, permitRemindersMap, stagedNewReminders.length, stagedLinkReminderIds.length]);
 
   // Filter and sort permits
   const filteredPermits = useMemo(() => {
@@ -1415,56 +1623,49 @@ const PermitsView: React.FC<Props> = ({
                 />
               </Grid>
 
-              {/* Linked Clients (Read-only if editing) */}
-              {editingPermit && (
-                <Grid size={{ xs: 12 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                    {t('colClientName')}
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                    {(() => {
-                      const linked = editingPermit.clients?.length
-                        ? editingPermit.clients
-                        : clients.filter(
-                            (c) =>
-                              c.permitId === editingPermit.id ||
-                              c.extraData?.permitId === editingPermit.id
-                          );
-                      if (!linked.length) {
-                        return (
-                          <Typography variant="body2" color="text.disabled">
-                            —
-                          </Typography>
-                        );
-                      }
-                      return linked.map((c) => (
-                        <Chip key={c.id} label={c.name} size="small" variant="outlined" />
-                      ));
-                    })()}
-                  </Box>
-                </Grid>
-              )}
+              {/* Client (Optional) */}
+              <Grid size={{ xs: 12 }}>
+                <Autocomplete
+                  size="small"
+                  options={clients}
+                  getOptionLabel={(option) => `${option.name}${option.city ? ` (${option.city})` : ''}`}
+                  value={clients.find((c) => c.id === selectedClientId) || null}
+                  onChange={(_, newValue) => {
+                    setSelectedClientId(newValue ? newValue.id : '');
+                  }}
+                  isOptionEqualToValue={(option, val) => option.id === val.id}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label={t('colClientName')}
+                      placeholder={t('phClient')}
+                    />
+                  )}
+                />
+              </Grid>
 
-              {/* Start Date */}
+              {/* Start Date (Required) */}
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
+                  required
                   type="date"
                   size="small"
-                  label={t('colStartDate')}
+                  label={`${t('colStartDate')} *`}
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                   slotProps={{ inputLabel: { shrink: true } }}
                 />
               </Grid>
 
-              {/* End Date */}
+              {/* End Date (Required) */}
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
+                  required
                   type="date"
                   size="small"
-                  label={t('colEndDate')}
+                  label={`${t('colEndDate')} *`}
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                   slotProps={{ inputLabel: { shrink: true } }}
@@ -1485,70 +1686,319 @@ const PermitsView: React.FC<Props> = ({
               </Grid>
             </Grid>
 
-            {/* If editing an existing permit, show linked reminders */}
-            {editingPermit && (
-              <>
-                <Divider sx={{ my: 1 }} />
+            {/* REMINDERS SECTION (OPTIONAL) */}
+            <Divider sx={{ my: 1 }} />
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <NotificationsActiveIcon color="warning" sx={{ fontSize: 20 }} />
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  {t('tabReminders')} ({totalRemindersCount})
+                </Typography>
+              </Box>
+              {onSaveReminder && (
+                <Button
+                  size="small"
+                  variant={isAddingReminderInline ? 'outlined' : 'contained'}
+                  color={isAddingReminderInline ? 'inherit' : 'primary'}
+                  startIcon={isAddingReminderInline ? <CloseIcon sx={{ fontSize: 14 }} /> : <AddIcon sx={{ fontSize: 14 }} />}
+                  onClick={() => {
+                    const willOpen = !isAddingReminderInline;
+                    setIsAddingReminderInline(willOpen);
+                    if (willOpen) {
+                      setAddReminderMode('new');
+                      const idxStr = catalogInputValue ? catalogInputValue.split(' - ')[0] : '';
+                      setInlineReminderTitle(
+                        permitNumber.trim()
+                          ? `${t('lblPermit')}: ${permitNumber.trim()}${idxStr ? ` (${idxStr})` : ''}`
+                          : ''
+                      );
+                      setInlineReminderDueDate(endDate || '');
+                      setInlineReminderNotes('');
+                      setSelectedExistingReminderId('');
+                    }
+                  }}
+                  sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.8rem', borderRadius: 1.5 }}
+                >
+                  {isAddingReminderInline ? t('btnCancel') : t('btnAddReminder')}
+                </Button>
+              )}
+            </Box>
+
+            {/* INLINE ADD REMINDER PANEL */}
+            {isAddingReminderInline && (
+              <Box
+                sx={{
+                  p: 2,
+                  bgcolor: 'action.hover',
+                  borderRadius: 2,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 1.5,
+                }}
+              >
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                    {t('linkedReminders')} ({(permitRemindersMap.get(editingPermit.id) || []).length})
-                  </Typography>
-                  {onSaveReminder && (
-                    <Button
-                      size="small"
-                      startIcon={<AddIcon />}
-                      onClick={() => openAddReminderForPermit(editingPermit)}
-                      sx={{ textTransform: 'none', fontWeight: 600 }}
-                    >
-                      {t('btnAddReminderForPermit')}
-                    </Button>
-                  )}
+                  <ToggleButtonGroup
+                    size="small"
+                    value={addReminderMode}
+                    exclusive
+                    onChange={(_, val) => {
+                      if (val) setAddReminderMode(val);
+                    }}
+                    color="primary"
+                  >
+                    <ToggleButton value="new" sx={{ textTransform: 'none', fontWeight: 600, px: 1.5, py: 0.25, fontSize: '0.75rem' }}>
+                      {t('btnCreateNewReminder')}
+                    </ToggleButton>
+                    <ToggleButton value="existing" sx={{ textTransform: 'none', fontWeight: 600, px: 1.5, py: 0.25, fontSize: '0.75rem' }}>
+                      {t('btnLinkExistingReminder')}
+                    </ToggleButton>
+                  </ToggleButtonGroup>
                 </Box>
 
-                {(permitRemindersMap.get(editingPermit.id) || []).length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    {t('noProjectReminders')}
-                  </Typography>
+                {addReminderMode === 'new' ? (
+                  <Grid container spacing={1.5}>
+                    <Grid size={{ xs: 12 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label={t('lblReminderTitle')}
+                        placeholder={t('phReminderTitle')}
+                        value={inlineReminderTitle}
+                        onChange={(e) => setInlineReminderTitle(e.target.value)}
+                        required
+                        autoFocus
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        type="date"
+                        label={t('colDueDate')}
+                        slotProps={{ inputLabel: { shrink: true } }}
+                        value={inlineReminderDueDate}
+                        onChange={(e) => setInlineReminderDueDate(e.target.value)}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label={t('colNotes')}
+                        placeholder={t('colNotes')}
+                        value={inlineReminderNotes}
+                        onChange={(e) => setInlineReminderNotes(e.target.value)}
+                      />
+                    </Grid>
+                  </Grid>
                 ) : (
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    {(permitRemindersMap.get(editingPermit.id) || []).map((rem) => (
-                      <Card
-                        key={rem.id}
-                        variant="outlined"
-                        sx={{
-                          p: 1.2,
-                          borderRadius: 2,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          bgcolor: 'action.hover',
-                        }}
-                      >
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <NotificationsActiveIcon fontSize="small" color="primary" />
-                          <Box>
-                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                              {rem.title}
+                    <Autocomplete
+                      size="small"
+                      options={availableExistingReminders}
+                      getOptionLabel={(option) => {
+                        const dueDatePart = option.dueDate ? ` [${formatDate(option.dueDate)}]` : '';
+                        const clientPart = option.clientName ? ` (${option.clientName})` : '';
+                        return `${option.title || option.projectName || ''}${dueDatePart}${clientPart}`;
+                      }}
+                      value={availableExistingReminders.find((r) => r.id === selectedExistingReminderId) || null}
+                      onChange={(_, newValue) => {
+                        setSelectedExistingReminderId(newValue ? newValue.id : '');
+                      }}
+                      noOptionsText={t('emptyReminders') || 'Nema dostupnih podsetnika'}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label={t('tabReminders')}
+                          placeholder={t('phSelectExistingReminder')}
+                        />
+                      )}
+                    />
+                  </Box>
+                )}
+
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 0.5 }}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="inherit"
+                    onClick={() => setIsAddingReminderInline(false)}
+                    sx={{ textTransform: 'none' }}
+                  >
+                    {t('btnCancel')}
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    color="primary"
+                    disabled={addReminderMode === 'new' ? !inlineReminderTitle.trim() : !selectedExistingReminderId}
+                    onClick={handleAddStagedReminder}
+                    sx={{ textTransform: 'none', fontWeight: 600 }}
+                  >
+                    {addReminderMode === 'new' ? t('btnAddReminder') : t('btnLink')}
+                  </Button>
+                </Box>
+              </Box>
+            )}
+
+            {/* REMINDERS LIST (Staged + Existing) */}
+            {totalRemindersCount === 0 ? (
+              <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
+                {t('noProjectReminders')}
+              </Typography>
+            ) : (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {/* Staged New Reminders */}
+                {stagedNewReminders.map((rem) => (
+                  <Card
+                    key={rem.id}
+                    variant="outlined"
+                    sx={{
+                      p: 1.2,
+                      borderRadius: 2,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      bgcolor: 'action.hover',
+                      borderStyle: 'dashed',
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: 1 }}>
+                      <NotificationsActiveIcon fontSize="small" color="primary" />
+                      <Box sx={{ minWidth: 0, flex: 1 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {rem.title}
+                        </Typography>
+                        {rem.dueDate && (
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <CalendarTodayIcon sx={{ fontSize: 13 }} />
+                            {formatDate(rem.dueDate)}
+                          </Typography>
+                        )}
+                      </Box>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Chip label={t('statusDraft') || 'Novo'} size="small" color="info" variant="outlined" sx={{ fontWeight: 600 }} />
+                      <Tooltip title={t('btnDelete')}>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => setStagedNewReminders((prev) => prev.filter((r) => r.id !== rem.id))}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  </Card>
+                ))}
+
+                {/* Staged Linked Reminders */}
+                {stagedLinkReminderIds.map((remId) => {
+                  const rem = reminders.find((r) => r.id === remId);
+                  if (!rem) return null;
+                  return (
+                    <Card
+                      key={rem.id}
+                      variant="outlined"
+                      sx={{
+                        p: 1.2,
+                        borderRadius: 2,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        bgcolor: 'action.hover',
+                        borderStyle: 'dashed',
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: 1 }}>
+                        <LinkIcon fontSize="small" color="secondary" />
+                        <Box sx={{ minWidth: 0, flex: 1 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {rem.title || rem.projectName}
+                          </Typography>
+                          {rem.dueDate && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <CalendarTodayIcon sx={{ fontSize: 13 }} />
+                              {formatDate(rem.dueDate)}
                             </Typography>
-                            {rem.dueDate && (
-                              <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                <CalendarTodayIcon sx={{ fontSize: 13 }} />
-                                {formatDate(rem.dueDate)}
-                              </Typography>
-                            )}
-                          </Box>
+                          )}
                         </Box>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Chip label="Povezano" size="small" color="secondary" variant="outlined" sx={{ fontWeight: 600 }} />
+                        <Tooltip title={t('btnCancel')}>
+                          <IconButton
+                            size="small"
+                            color="inherit"
+                            onClick={() => setStagedLinkReminderIds((prev) => prev.filter((id) => id !== remId))}
+                          >
+                            <CloseIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </Card>
+                  );
+                })}
+
+                {/* Existing linked reminders if editing an existing permit */}
+                {editingPermit &&
+                  (permitRemindersMap.get(editingPermit.id) || []).map((rem) => (
+                    <Card
+                      key={rem.id}
+                      variant="outlined"
+                      sx={{
+                        p: 1.2,
+                        borderRadius: 2,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        bgcolor: 'background.paper',
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: 1 }}>
+                        <NotificationsActiveIcon fontSize="small" color="primary" />
+                        <Box sx={{ minWidth: 0, flex: 1 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {rem.title}
+                          </Typography>
+                          {rem.dueDate && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <CalendarTodayIcon sx={{ fontSize: 13 }} />
+                              {formatDate(rem.dueDate)}
+                            </Typography>
+                          )}
+                        </Box>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                         <Chip
                           label={rem.status}
                           size="small"
-                          color={rem.status === 'Completed' ? 'success' : 'warning'}
+                          color={rem.status === 'Completed' ? 'success' : rem.status === 'Overdue' ? 'error' : 'warning'}
                           sx={{ fontWeight: 600 }}
                         />
-                      </Card>
-                    ))}
-                  </Box>
-                )}
-              </>
+                        <Tooltip title={t('btnEdit')}>
+                          <IconButton size="small" color="primary" onClick={() => handleOpenEditReminder(rem)}>
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title={t('btnUnlinkReminder')}>
+                          <IconButton size="small" color="warning" onClick={() => handleUnlinkReminder(rem.id)}>
+                            <LinkOffIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        {onDeleteReminder && (
+                          <Tooltip title={t('btnDelete')}>
+                            <IconButton size="small" color="error" onClick={() => onDeleteReminder(rem.id)}>
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Box>
+                    </Card>
+                  ))}
+              </Box>
             )}
           </DialogContent>
           <DialogActions sx={{ p: 2 }}>
@@ -1617,6 +2067,72 @@ const PermitsView: React.FC<Props> = ({
             </Button>
           </DialogActions>
         </form>
+      </Dialog>
+
+      {/* EDIT REMINDER MODAL */}
+      <Dialog
+        open={Boolean(editingReminderModalItem)}
+        onClose={() => setEditingReminderModalItem(null)}
+        maxWidth="xs"
+        fullWidth
+        slotProps={{ paper: { sx: { borderRadius: 3 } } }}
+      >
+        {editingReminderModalItem && (
+          <form onSubmit={handleSaveEditedReminder}>
+            <DialogTitle sx={{ fontWeight: 700, pb: 1 }}>
+              {t('modalEditReminder')}
+            </DialogTitle>
+            <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+              <TextField
+                fullWidth
+                required
+                size="small"
+                label={t('lblReminderTitle')}
+                value={editReminderModalTitle}
+                onChange={(e) => setEditReminderModalTitle(e.target.value)}
+              />
+              <TextField
+                fullWidth
+                type="date"
+                size="small"
+                label={t('colDueDate')}
+                value={editReminderModalDueDate}
+                onChange={(e) => setEditReminderModalDueDate(e.target.value)}
+                slotProps={{ inputLabel: { shrink: true } }}
+              />
+              <FormControl size="small" fullWidth>
+                <InputLabel>{t('colStatus')}</InputLabel>
+                <Select
+                  value={editReminderModalStatus}
+                  label={t('colStatus')}
+                  onChange={(e) => setEditReminderModalStatus(e.target.value)}
+                >
+                  <MenuItem value="Pending">{t('statusPending')}</MenuItem>
+                  <MenuItem value="In Progress">{t('statusInProgress')}</MenuItem>
+                  <MenuItem value="Completed">{t('statusCompleted')}</MenuItem>
+                  <MenuItem value="Overdue">{t('statusOverdue')}</MenuItem>
+                </Select>
+              </FormControl>
+              <TextField
+                fullWidth
+                multiline
+                rows={2}
+                size="small"
+                label={t('colNotes')}
+                value={editReminderModalNotes}
+                onChange={(e) => setEditReminderModalNotes(e.target.value)}
+              />
+            </DialogContent>
+            <DialogActions sx={{ p: 2 }}>
+              <Button onClick={() => setEditingReminderModalItem(null)} color="inherit" sx={{ textTransform: 'none' }}>
+                {t('btnCancel')}
+              </Button>
+              <Button type="submit" variant="contained" color="primary" sx={{ textTransform: 'none', fontWeight: 600 }}>
+                {t('btnSave')}
+              </Button>
+            </DialogActions>
+          </form>
+        )}
       </Dialog>
 
       {/* ERROR DIALOG */}

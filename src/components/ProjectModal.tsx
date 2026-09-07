@@ -274,6 +274,7 @@ const ProjectModal: React.FC<Props> = ({
                       <TextField
                         {...params}
                         label={t('lblClient')}
+                        placeholder={t('phClient')}
                         required
                       />
                     )}

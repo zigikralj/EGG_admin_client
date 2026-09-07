@@ -57,6 +57,7 @@ export interface TranslationKeys {
   emptyPermits: string;
   confirmDeletePermit: string;
   alertPermitRequired: string;
+  alertPermitDatesOrder: string;
   quickFilterExpiringPermits: string;
   quickFilterExpiredPermits: string;
   statusExpiring: string;
@@ -443,6 +444,7 @@ export interface TranslationKeys {
   phSelectExistingReminder: string;
   noProjectReminders: string;
   btnLink: string;
+  btnUnlinkReminder: string;
   newProjectRemindersHint: string;
   lblNextSamplingDate: string;
   lblStartDate: string;

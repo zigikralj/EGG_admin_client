@@ -35,6 +35,8 @@ export function usePermits(
 
   const onSuccess = useCallback(() => {
     fetchers.fetchPermits();
+    fetchers.fetchClients();
+    fetchers.fetchReminders();
     fetchers.fetchStats();
   }, [fetchers]);
 
