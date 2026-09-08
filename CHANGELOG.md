@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.0.3] - 2026-09-08
+
+- Permits (#25) by @zigikralj
+
+## [v1.0.2] - 2026-09-02
+
+- waste management (#24) by @zigikralj
+
+## [v1.0.1] - 2026-09-02
+
+- Versioning (#23) by @zigikralj
+
 ## [v1.0.0] - 2026-09-02
 
 - Initial baseline release with automatic version detection, update prompt, and PR-driven release workflows.
