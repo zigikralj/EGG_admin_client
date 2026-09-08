@@ -24,7 +24,7 @@ import {
   Tooltip,
 } from '@mui/material';
 
-import type { Client, SaveResult, TableViewProps } from '../../types';
+import type { Client, Permit, SaveResult, TableViewProps } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTableView } from '../../hooks/useTableView';
@@ -36,14 +36,16 @@ import { AddIcon, EditIcon, DeleteIcon, LockIcon, ArrowUpwardIcon, ArrowDownward
 
 interface Props extends TableViewProps {
   clients: Client[];
+  permits?: Permit[];
   onSaveClient: (client: Partial<Client>) => Promise<SaveResult | void> | void;
   onDeleteClient: (id: string) => void;
 }
 
-const DEFAULT_COLUMNS = ['name', 'city', 'contactPerson', 'email', 'phone', 'projectCount'];
+const DEFAULT_COLUMNS = ['name', 'city', 'contactPerson', 'email', 'phone', 'permit', 'projectCount'];
 
 const ClientsView: React.FC<Props> = ({
   clients,
+  permits = [],
   onSaveClient,
   onDeleteClient,
   visibleColumns = DEFAULT_COLUMNS,
@@ -119,6 +121,7 @@ const ClientsView: React.FC<Props> = ({
     { id: 'contactPerson', label: t('colContactPerson') },
     { id: 'email', label: t('colEmail') },
     { id: 'phone', label: t('colPhone') },
+    { id: 'permit', label: t('colPermit') },
     { id: 'projectCount', label: t('colProjectCount') },
   ];
 
@@ -127,6 +130,7 @@ const ClientsView: React.FC<Props> = ({
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
+  const [selectedPermitId, setSelectedPermitId] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
 
   const openNew = () => {
@@ -137,6 +141,7 @@ const ClientsView: React.FC<Props> = ({
     setEmail('');
     setPhone('');
     setCity('');
+    setSelectedPermitId('');
     setIsOpen(true);
   };
 
@@ -148,6 +153,7 @@ const ClientsView: React.FC<Props> = ({
     setEmail(c.email || '');
     setPhone(c.phone || '');
     setCity(c.city || '');
+    setSelectedPermitId(c.permitId || c.extraData?.permitId || '');
     setIsOpen(true);
   };
 
@@ -170,6 +176,7 @@ const ClientsView: React.FC<Props> = ({
         email: email.trim() || null,
         phone: phone.trim() || null,
         city: city.trim() || null,
+        permitId: selectedPermitId || null,
       });
 
       if (res && typeof res === 'object' && 'success' in res) {
@@ -228,7 +235,11 @@ const ClientsView: React.FC<Props> = ({
       (c.city && c.city.toLowerCase().includes(q)) ||
       (c.contactPerson && c.contactPerson.toLowerCase().includes(q)) ||
       (c.email && c.email.toLowerCase().includes(q)) ||
-      (c.phone && c.phone.toLowerCase().includes(q))
+      (c.phone && c.phone.toLowerCase().includes(q)) ||
+      (c.permit && (
+        c.permit.permitNumber.toLowerCase().includes(q) ||
+        Boolean(c.permit.indexNumber && c.permit.indexNumber.toLowerCase().includes(q))
+      ))
     );
   });
 
@@ -251,6 +262,12 @@ const ClientsView: React.FC<Props> = ({
       case 'phone':
         res = (a.phone || '').localeCompare(b.phone || '');
         break;
+      case 'permit': {
+        const pA = a.permit ? `${a.permit.permitNumber} ${a.permit.indexNumber}` : '';
+        const pB = b.permit ? `${b.permit.permitNumber} ${b.permit.indexNumber}` : '';
+        res = pA.localeCompare(pB);
+        break;
+      }
       case 'projectCount':
         res = (a.projects ? a.projects.length : 0) - (b.projects ? b.projects.length : 0);
         break;
@@ -285,6 +302,7 @@ const ClientsView: React.FC<Props> = ({
     { value: 'contactPerson', label: t('colContactPerson') },
     { value: 'email', label: t('colEmail') },
     { value: 'phone', label: t('colPhone') },
+    { value: 'permit', label: t('colPermit') },
     { value: 'projectCount', label: t('colProjectCount') },
     { value: 'createdAt', label: t('lblCreatedDate') },
   ], [t]);
@@ -500,6 +518,17 @@ const ClientsView: React.FC<Props> = ({
                     </TableSortLabel>
                   </TableCell>
                 )}
+                {activeCols.includes('permit') && (
+                  <TableCell>
+                    <TableSortLabel
+                      active={sortColumn === 'permit'}
+                      direction={sortColumn === 'permit' ? sortDirection : 'asc'}
+                      onClick={() => handleSort('permit')}
+                    >
+                      {t('colPermit')}
+                    </TableSortLabel>
+                  </TableCell>
+                )}
                 {activeCols.includes('projectCount') && (
                   <TableCell>
                     <TableSortLabel
@@ -535,6 +564,20 @@ const ClientsView: React.FC<Props> = ({
                     {activeCols.includes('contactPerson') && <TableCell>{c.contactPerson || '—'}</TableCell>}
                     {activeCols.includes('email') && <TableCell>{c.email || '—'}</TableCell>}
                     {activeCols.includes('phone') && <TableCell>{c.phone || '—'}</TableCell>}
+                    {activeCols.includes('permit') && (
+                      <TableCell>
+                        {c.permit ? (
+                          <Chip
+                            label={`${c.permit.permitNumber}${c.permit.indexNumber ? ` (${c.permit.indexNumber})` : ''}`}
+                            size="small"
+                            variant="outlined"
+                            color="secondary"
+                          />
+                        ) : (
+                          '—'
+                        )}
+                      </TableCell>
+                    )}
                     {activeCols.includes('projectCount') && (
                       <TableCell>
                         <Chip
@@ -650,6 +693,30 @@ const ClientsView: React.FC<Props> = ({
                   placeholder={t('phPhone')}
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <Autocomplete
+                  options={permits}
+                  getOptionLabel={(option) =>
+                    typeof option === 'string'
+                      ? option
+                      : `${option.permitNumber}${option.indexNumber ? ` (${option.indexNumber})` : ''}`
+                  }
+                  value={permits.find((p) => p.id === selectedPermitId) || null}
+                  onChange={(_, newValue) => {
+                    setSelectedPermitId(newValue ? newValue.id : '');
+                  }}
+                  isOptionEqualToValue={(option, val) => option.id === val.id}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      size="small"
+                      label={t('lblPermit')}
+                      placeholder={t('phSelectPermit')}
+                      helperText={!permits.length ? t('emptyPermits') : undefined}
+                    />
+                  )}
                 />
               </Grid>
             </Grid>

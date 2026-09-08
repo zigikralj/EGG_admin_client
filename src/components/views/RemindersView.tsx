@@ -36,7 +36,7 @@ import {
 
 
 
-import type { Reminder, Project, Client, User, SaveResult, TableViewProps } from '../../types';
+import type { Reminder, Project, Client, User, Permit, SaveResult, TableViewProps } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { TableOptionsSelector, type ColumnDef } from '../ColumnSelector';
@@ -52,6 +52,7 @@ interface Props extends TableViewProps {
   projects: Project[];
   clients: Client[];
   users: User[];
+  permits?: Permit[];
   onSaveReminder: (reminder: Partial<Reminder>) => Promise<SaveResult | void> | void;
   onDeleteReminder: (id: string) => void;
   onStatusChange?: (id: string, status: string) => void;
@@ -66,6 +67,7 @@ const RemindersView: React.FC<Props> = ({
   projects,
   clients,
   users,
+  permits = [],
   onSaveReminder,
   onDeleteReminder,
   onStatusChange,
@@ -234,10 +236,14 @@ const RemindersView: React.FC<Props> = ({
     { id: 'title', label: t('colTitle') },
     { id: 'project', label: t('colProject') },
     { id: 'client', label: t('colClient') },
+    { id: 'permit', label: t('lblPermit') },
     { id: 'responsible', label: t('colResponsible') },
     { id: 'status', label: t('colStatus') },
     { id: 'notes', label: t('colNotes') },
   ];
+
+  const [selectedPermitId, setSelectedPermitId] = useState('');
+  const [permitNumber, setPermitNumber] = useState('');
 
   const handleOpenNew = () => {
     setEditingReminder(null);
@@ -246,6 +252,8 @@ const RemindersView: React.FC<Props> = ({
     setProjectName('');
     setSelectedClientId('');
     setClientName('');
+    setSelectedPermitId('');
+    setPermitNumber('');
     setSelectedResponsibleId('');
     setResponsible('');
     setStatus('Pending');
@@ -261,6 +269,8 @@ const RemindersView: React.FC<Props> = ({
     setProjectName(rem.projectName || '');
     setSelectedClientId(rem.clientId || '');
     setClientName(rem.clientName || '');
+    setSelectedPermitId(rem.permitId || '');
+    setPermitNumber(rem.permitNumber || '');
     setSelectedResponsibleId(rem.responsibleId || '');
     setResponsible(rem.responsible || '');
     setStatus(rem.status || 'Pending');
@@ -328,6 +338,8 @@ const RemindersView: React.FC<Props> = ({
         projectName: projectName.trim() || null,
         clientId: selectedClientId || null,
         clientName: clientName.trim() || null,
+        permitId: selectedPermitId || null,
+        permitNumber: permitNumber.trim() || null,
         responsibleId: selectedResponsibleId || null,
         responsible: responsible || null,
         status,
@@ -820,6 +832,15 @@ const RemindersView: React.FC<Props> = ({
                       </TableCell>
                     )}
                     {activeCols.includes('client') && <TableCell>{rem.clientName || '—'}</TableCell>}
+                    {activeCols.includes('permit') && (
+                      <TableCell>
+                        {rem.permitNumber ? (
+                          <Chip label={rem.permitNumber} size="small" variant="outlined" color="primary" />
+                        ) : (
+                          '—'
+                        )}
+                      </TableCell>
+                    )}
                     {activeCols.includes('responsible') && <TableCell>{rem.responsible || '—'}</TableCell>}
                     {activeCols.includes('status') && <TableCell>{getStatusChip(rem.status)}</TableCell>}
                     {activeCols.includes('notes') && (
@@ -972,6 +993,54 @@ const RemindersView: React.FC<Props> = ({
                     <TextField
                       {...params}
                       label={t('colClient')}
+                    />
+                  )}
+                />
+              </Grid>
+
+              {/* Permit Selection (Optional) */}
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <Autocomplete
+                  freeSolo
+                  size="small"
+                  options={selectedClientId ? permits.filter((p) => p.clientId === selectedClientId) : permits}
+                  getOptionLabel={(option) => {
+                    if (typeof option === 'string') return option;
+                    return `${option.permitNumber} (${option.indexNumber})`;
+                  }}
+                  value={
+                    selectedPermitId
+                      ? permits.find((p) => p.id === selectedPermitId) || permitNumber
+                      : permitNumber
+                  }
+                  onChange={(_, newValue) => {
+                    if (typeof newValue === 'string') {
+                      setSelectedPermitId('');
+                      setPermitNumber(newValue);
+                    } else if (newValue) {
+                      setSelectedPermitId(newValue.id);
+                      setPermitNumber(newValue.permitNumber);
+                      if (newValue.clientId && !selectedClientId) {
+                        setSelectedClientId(newValue.clientId);
+                        const c = clients.find((cli) => cli.id === newValue.clientId);
+                        if (c) setClientName(c.name);
+                      }
+                    } else {
+                      setSelectedPermitId('');
+                      setPermitNumber('');
+                    }
+                  }}
+                  onInputChange={(_, newInputValue, reason) => {
+                    if (reason === 'input') {
+                      setSelectedPermitId('');
+                      setPermitNumber(newInputValue);
+                    }
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label={t('lblPermit')}
+                      placeholder={t('phSelectPermit')}
                     />
                   )}
                 />

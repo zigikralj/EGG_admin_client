@@ -69,6 +69,7 @@ const tabTranslationKeys: Record<ActiveTab, keyof TranslationKeys> = {
   categories: 'tabCategories',
   reminders: 'tabReminders',
   invoices: 'tabInvoices',
+  permits: 'tabPermits',
 };
 
 export const AppHeader: React.FC<AppHeaderProps> = ({

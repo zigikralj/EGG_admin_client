@@ -81,6 +81,10 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
     editReminderNotes, setEditReminderNotes,
     projectReminders,
     availableExistingReminders,
+    addStagedReminder,
+    removeStagedReminder,
+    updateStagedReminder,
+    toggleStagedReminderStatus,
   } = reminderState;
 
   const getStatusChip = (st?: string) => {
@@ -114,39 +118,66 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
       setErrorDialogState({ open: true, message: t('alertReminderTitleRequired') });
       return;
     }
-    if (onSaveReminder && projectToEdit) {
-      onSaveReminder({
-        title: newReminderTitle.trim(),
-        projectId: projectToEdit.id,
-        projectName: projectName.trim() || projectToEdit.name,
-        clientId: clientId || projectToEdit.clientId || null,
-        clientName: clientName.trim() || projectToEdit.clientName,
-        responsible: newReminderResponsible || responsible || null,
-        dueDate: newReminderDate || null,
-        notes: newReminderNotes || null,
-        status: 'Pending',
-      });
-      setIsAddingReminder(false);
-      setNewReminderTitle('');
-      setNewReminderDate('');
-      setNewReminderNotes('');
+    if (projectToEdit) {
+      if (onSaveReminder) {
+        onSaveReminder({
+          title: newReminderTitle.trim(),
+          projectId: projectToEdit.id,
+          projectName: projectName.trim() || projectToEdit.name,
+          clientId: clientId || projectToEdit.clientId || null,
+          clientName: clientName.trim() || projectToEdit.clientName,
+          responsible: newReminderResponsible || responsible || null,
+          dueDate: newReminderDate || null,
+          notes: newReminderNotes || null,
+          status: 'Pending',
+        });
+      }
+    } else {
+      if (addStagedReminder) {
+        addStagedReminder({
+          id: `temp-rem-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          title: newReminderTitle.trim(),
+          projectName: projectName.trim() || null,
+          clientId: clientId || null,
+          clientName: clientName.trim() || null,
+          responsible: newReminderResponsible || responsible || null,
+          dueDate: newReminderDate || null,
+          notes: newReminderNotes || null,
+          status: 'Pending',
+          isNewStaged: true,
+        });
+      }
     }
+    setIsAddingReminder(false);
+    setNewReminderTitle('');
+    setNewReminderDate('');
+    setNewReminderNotes('');
   };
 
   const handleLinkExistingReminder = () => {
     if (!selectedExistingReminderId) return;
     const existing = reminders.find((r) => r.id === selectedExistingReminderId);
-    if (existing && onSaveReminder && projectToEdit) {
-      onSaveReminder({
-        id: existing.id,
-        projectId: projectToEdit.id,
-        projectName: projectName.trim() || projectToEdit.name,
-        clientId: clientId || projectToEdit.clientId || existing.clientId || null,
-        clientName: clientName.trim() || projectToEdit.clientName || existing.clientName,
-      });
-      setIsAddingReminder(false);
-      setSelectedExistingReminderId('');
+    if (!existing) return;
+    if (projectToEdit) {
+      if (onSaveReminder) {
+        onSaveReminder({
+          id: existing.id,
+          projectId: projectToEdit.id,
+          projectName: projectName.trim() || projectToEdit.name,
+          clientId: clientId || projectToEdit.clientId || existing.clientId || null,
+          clientName: clientName.trim() || projectToEdit.clientName || existing.clientName,
+        });
+      }
+    } else {
+      if (addStagedReminder) {
+        addStagedReminder({
+          ...existing,
+          isLinkedExisting: true,
+        });
+      }
     }
+    setIsAddingReminder(false);
+    setSelectedExistingReminderId('');
   };
 
   const handleStartEditReminder = (rem: Reminder) => {
@@ -163,19 +194,33 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
       setErrorDialogState({ open: true, message: t('alertReminderTitleRequired') });
       return;
     }
-    if (onSaveReminder && editingProjectReminder && projectToEdit) {
-      onSaveReminder({
-        id: editingProjectReminder.id,
-        title: editReminderTitle.trim(),
-        projectId: projectToEdit.id,
-        projectName: projectName.trim() || projectToEdit.name,
-        clientId: clientId || projectToEdit.clientId || null,
-        clientName: clientName.trim() || projectToEdit.clientName,
-        responsible: editReminderResponsible || null,
-        dueDate: editReminderDate || null,
-        status: editReminderStatus || 'Pending',
-        notes: editReminderNotes || null,
-      });
+    if (editingProjectReminder) {
+      if (projectToEdit) {
+        if (onSaveReminder) {
+          onSaveReminder({
+            id: editingProjectReminder.id,
+            title: editReminderTitle.trim(),
+            projectId: projectToEdit.id,
+            projectName: projectName.trim() || projectToEdit.name,
+            clientId: clientId || projectToEdit.clientId || null,
+            clientName: clientName.trim() || projectToEdit.clientName,
+            responsible: editReminderResponsible || null,
+            dueDate: editReminderDate || null,
+            status: editReminderStatus || 'Pending',
+            notes: editReminderNotes || null,
+          });
+        }
+      } else {
+        if (updateStagedReminder) {
+          updateStagedReminder(editingProjectReminder.id, {
+            title: editReminderTitle.trim(),
+            responsible: editReminderResponsible || null,
+            dueDate: editReminderDate || null,
+            status: editReminderStatus || 'Pending',
+            notes: editReminderNotes || null,
+          });
+        }
+      }
       setEditingProjectReminder(null);
     }
   };
@@ -190,7 +235,7 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
               {t("reminderBoxTitle")}
             </Typography>
           </Box>
-          {projectToEdit && !disabled && (
+          {!disabled && (
             <Button
               size="small"
               variant={isAddingReminder ? "outlined" : "contained"}
@@ -386,111 +431,121 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
         )}
 
         {/* LIST OF PROJECT REMINDERS */}
-        {projectToEdit ? (
-          projectReminders.length === 0 && !isAddingReminder ? (
-            <Typography variant="caption" color="text.secondary" sx={{ py: 0.5, display: "block", textAlign: "center" }}>
-              {t("noProjectReminders")}
-            </Typography>
-          ) : (
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75 }}>
-              {projectReminders.map((rem: Reminder) => {
-                const isCompleted =
-                  rem.status?.toLowerCase() === "completed" || rem.status === "Završeno" || rem.status === "Завршено";
-                return (
-                  <Box
-                    key={rem.id}
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 1,
-                      py: 0.5,
-                      px: 1,
-                      bgcolor: "background.paper",
-                      borderRadius: 1,
-                      border: "1px solid",
-                      borderColor: "divider",
-                      opacity: isCompleted ? 0.75 : 1,
-                      transition: "all 0.15s ease",
-                    }}
-                  >
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0, flex: 1, overflow: "hidden" }}>
+        {projectReminders.length === 0 && !isAddingReminder ? (
+          <Typography variant="caption" color="text.secondary" sx={{ py: 0.5, display: "block", textAlign: "center" }}>
+            {t("noProjectReminders")}
+          </Typography>
+        ) : (
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75 }}>
+            {projectReminders.map((rem: Reminder) => {
+              const isCompleted =
+                rem.status?.toLowerCase() === "completed" || rem.status === "Završeno" || rem.status === "Завршено";
+              return (
+                <Box
+                  key={rem.id}
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 1,
+                    py: 0.5,
+                    px: 1,
+                    bgcolor: "background.paper",
+                    borderRadius: 1,
+                    border: "1px solid",
+                    borderColor: "divider",
+                    opacity: isCompleted ? 0.75 : 1,
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0, flex: 1, overflow: "hidden" }}>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontWeight: 600,
+                        fontSize: "0.8125rem",
+                        textDecoration: isCompleted ? "line-through" : "none",
+                        color: isCompleted ? "text.secondary" : "text.primary",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        flexShrink: 1,
+                      }}
+                    >
+                      {rem.title || rem.projectName || "—"}
+                    </Typography>
+                    <Box sx={{ flexShrink: 0 }}>{getStatusChip(rem.status)}</Box>
+                    {rem.dueDate && (
                       <Typography
-                        variant="body2"
-                        sx={{
-                          fontWeight: 600,
-                          fontSize: "0.8125rem",
-                          textDecoration: isCompleted ? "line-through" : "none",
-                          color: isCompleted ? "text.secondary" : "text.primary",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                          flexShrink: 1,
-                        }}
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ display: "flex", alignItems: "center", gap: 0.25, flexShrink: 0, fontSize: "0.725rem" }}
                       >
-                        {rem.title || rem.projectName || "—"}
+                        <CalendarTodayIcon sx={{ fontSize: "0.75rem" }} />
+                        {rem.dueDate}
                       </Typography>
-                      <Box sx={{ flexShrink: 0 }}>{getStatusChip(rem.status)}</Box>
-                      {rem.dueDate && (
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          sx={{ display: "flex", alignItems: "center", gap: 0.25, flexShrink: 0, fontSize: "0.725rem" }}
-                        >
-                          <CalendarTodayIcon sx={{ fontSize: "0.75rem" }} />
-                          {rem.dueDate}
-                        </Typography>
-                      )}
-                      {rem.responsible && (
-                        <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, fontSize: "0.725rem" }}>
-                          • {rem.responsible}
-                        </Typography>
-                      )}
-                    </Box>
+                    )}
+                    {rem.responsible && (
+                      <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, fontSize: "0.725rem" }}>
+                        • {rem.responsible}
+                      </Typography>
+                    )}
+                  </Box>
 
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.25, flexShrink: 0 }}>
-                      {!disabled && (
-                        <>
-                          <Tooltip title={isCompleted ? t("statusPending") : t("statusCompleted")}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.25, flexShrink: 0 }}>
+                    {!disabled && (
+                      <>
+                        <Tooltip title={isCompleted ? t("statusPending") : t("statusCompleted")}>
+                          <IconButton
+                            size="small"
+                            color={isCompleted ? "default" : "success"}
+                            onClick={() => {
+                              const newStatus = isCompleted ? "Pending" : "Completed";
+                              if (projectToEdit) {
+                                if (onStatusChangeReminder) {
+                                  onStatusChangeReminder(rem.id, newStatus);
+                                } else if (onSaveReminder) {
+                                  onSaveReminder({ id: rem.id, status: newStatus });
+                                }
+                              } else if (toggleStagedReminderStatus) {
+                                toggleStagedReminderStatus(rem.id, newStatus);
+                              }
+                            }}
+                            sx={{ p: 0.25 }}
+                          >
+                            <CheckIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title={t("btnEdit")}>
+                          <IconButton size="small" color="primary" onClick={() => handleStartEditReminder(rem)} sx={{ p: 0.25 }}>
+                            <EditIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </Tooltip>
+                        {(!projectToEdit || onDeleteReminder) && (
+                          <Tooltip title={t("btnDelete")}>
                             <IconButton
                               size="small"
-                              color={isCompleted ? "default" : "success"}
+                              color="error"
                               onClick={() => {
-                                if (onStatusChangeReminder) {
-                                  onStatusChangeReminder(rem.id, isCompleted ? "Pending" : "Completed");
-                                } else if (onSaveReminder) {
-                                  onSaveReminder({ id: rem.id, status: isCompleted ? "Pending" : "Completed" });
+                                if (projectToEdit && onDeleteReminder) {
+                                  onDeleteReminder(rem.id);
+                                } else if (!projectToEdit && removeStagedReminder) {
+                                  removeStagedReminder(rem.id);
                                 }
                               }}
                               sx={{ p: 0.25 }}
                             >
-                              <CheckIcon sx={{ fontSize: 16 }} />
+                              <DeleteIcon sx={{ fontSize: 16 }} />
                             </IconButton>
                           </Tooltip>
-                          <Tooltip title={t("btnEdit")}>
-                            <IconButton size="small" color="primary" onClick={() => handleStartEditReminder(rem)} sx={{ p: 0.25 }}>
-                              <EditIcon sx={{ fontSize: 16 }} />
-                            </IconButton>
-                          </Tooltip>
-                          {onDeleteReminder && (
-                            <Tooltip title={t("btnDelete")}>
-                              <IconButton size="small" color="error" onClick={() => onDeleteReminder(rem.id)} sx={{ p: 0.25 }}>
-                                <DeleteIcon sx={{ fontSize: 16 }} />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                        </>
-                      )}
-                    </Box>
+                        )}
+                      </>
+                    )}
                   </Box>
-                );
-              })}
-            </Box>
-          )
-        ) : (
-          <Typography variant="caption" color="text.secondary" sx={{ py: 0.5, display: "block", textAlign: "center" }}>
-            {t("newProjectRemindersHint")}
-          </Typography>
+                </Box>
+              );
+            })}
+          </Box>
         )}
       </Paper>
 

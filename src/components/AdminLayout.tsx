@@ -10,7 +10,7 @@ import { AppHeader } from './layout/AppHeader';
 import { UserProfileDialog } from './layout/UserProfileDialog';
 import { SettingsDialog } from './layout/SettingsDialog';
 import { CompanyInfoModal } from './CompanyInfoModal';
-import { DashboardIcon, FolderIcon, BusinessIcon, PeopleIcon, BuildIcon, HandymanIcon, CategoryIcon, NotificationsActiveIcon, ReceiptLongIcon } from './icons';
+import { DashboardIcon, FolderIcon, BusinessIcon, AssignmentTurnedInIcon, PeopleIcon, BuildIcon, HandymanIcon, CategoryIcon, NotificationsActiveIcon, ReceiptLongIcon } from './icons';
 
 
 
@@ -55,6 +55,7 @@ export const AdminLayout: React.FC<Props> = ({
     isUser,
     isAccountant,
     canManageClients,
+    canManagePermits,
     canManageUsers,
     canManageServices,
     canManageInvoices,
@@ -111,6 +112,7 @@ export const AdminLayout: React.FC<Props> = ({
     { id: 'dashboard' as ActiveTab, label: t('tabDashboard'), icon: <DashboardIcon />, count: 0, show: true },
     { id: 'projects' as ActiveTab, label: t('tabProjects'), icon: <FolderIcon />, count: stats.active, show: !isUser && !isAccountant },
     { id: 'clients' as ActiveTab, label: t('tabClients'), icon: <BusinessIcon />, count: stats.clientsCount, show: canManageClients },
+    { id: 'permits' as ActiveTab, label: t('tabPermits'), icon: <AssignmentTurnedInIcon />, count: 0, show: canManagePermits },
     {
       id: 'users' as ActiveTab,
       label: t('tabUsers'),
