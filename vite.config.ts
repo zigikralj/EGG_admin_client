@@ -5,7 +5,7 @@ import { execSync } from 'node:child_process';
 import pkg from './package.json' with { type: 'json' };
 
 // Resolve version: 1. VITE_APP_VERSION, 2. Git Tag, 3. package.json, 4. fallback
-let resolvedVersion = process.env.VITE_APP_VERSION || '';
+let resolvedVersion = (process.env.VITE_APP_VERSION || '').replace(/^v/, '');
 if (!resolvedVersion) {
   try {
     const gitTag = execSync('git describe --tags --abbrev=0', { stdio: ['ignore', 'pipe', 'ignore'] })
@@ -19,7 +19,7 @@ if (!resolvedVersion) {
   }
 }
 if (!resolvedVersion) {
-  resolvedVersion = pkg.version || '1.0.0';
+  resolvedVersion = (pkg.version || '1.0.0').replace(/^v/, '');
 }
 
 // Resolve commit hash

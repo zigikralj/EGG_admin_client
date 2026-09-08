@@ -19,6 +19,7 @@ on:
 permissions:
   contents: write
   pull-requests: read
+  actions: write
 
 jobs:
   bump-version:
@@ -30,6 +31,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.base.ref || github.ref_name }}
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -120,22 +122,47 @@ jobs:
             const prNumber = process.env.PR_NUMBER || "";
             const prAuthor = process.env.PR_AUTHOR || "maintainer";
             
-            // 1. Determine latest version from git tags or package.json
+            // 1. Determine latest version from git tags and package.json
             let baseVersion = "1.0.0";
+            let tagVersion = "";
+            let pkgVersion = "";
             try {
               const tags = execSync("git tag -l \"v*\" --sort=-v:refname", { encoding: "utf8" })
                 .split("\n")
                 .map(t => t.trim().replace(/^v/, ""))
                 .filter(Boolean);
               if (tags.length > 0) {
-                baseVersion = tags[0];
-              } else {
-                const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
-                baseVersion = pkg.version || "1.0.0";
+                tagVersion = tags[0];
               }
             } catch (e) {
+              console.log("Could not read git tags:", e.message);
+            }
+
+            try {
               const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
-              baseVersion = pkg.version || "1.0.0";
+              pkgVersion = (pkg.version || "").replace(/^v/, "");
+            } catch (e) {
+              console.log("Could not read package.json:", e.message);
+            }
+
+            function parseSemver(v) {
+              if (!v) return [0, 0, 0];
+              const parts = v.split(".").map(Number);
+              return [isNaN(parts[0]) ? 0 : parts[0], isNaN(parts[1]) ? 0 : parts[1], isNaN(parts[2]) ? 0 : parts[2]];
+            }
+
+            function semverCompare(a, b) {
+              const [a1, a2, a3] = parseSemver(a);
+              const [b1, b2, b3] = parseSemver(b);
+              if (a1 !== b1) return a1 - b1;
+              if (a2 !== b2) return a2 - b2;
+              return a3 - b3;
+            }
+
+            if (tagVersion && pkgVersion) {
+              baseVersion = semverCompare(tagVersion, pkgVersion) >= 0 ? tagVersion : pkgVersion;
+            } else {
+              baseVersion = tagVersion || pkgVersion || "1.0.0";
             }
             
             const parts = baseVersion.split(".").map(Number);
@@ -160,7 +187,7 @@ jobs:
             const authorReference = prAuthor ? " by @" + prAuthor : "";
             const releaseNotes = "- " + prTitle + prReference + authorReference;
             
-            console.log("Calculated next version: v" + newVersion + " (from v" + baseVersion + ")");
+            console.log("Calculated next version: v" + newVersion + " (from base v" + baseVersion + ")");
             fs.appendFileSync(process.env.GITHUB_OUTPUT, "new_version=" + newVersion + "\n");
             fs.appendFileSync(process.env.GITHUB_OUTPUT, "release_notes=" + releaseNotes + "\n");
           '
@@ -169,6 +196,49 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+
+      - name: Update package.json and CHANGELOG.md
+        if: steps.determine_bump.outputs.skip == 'false'
+        env:
+          NEW_VERSION: ${{ steps.bump.outputs.new_version }}
+          RELEASE_NOTES: ${{ steps.bump.outputs.release_notes }}
+        run: |
+          # 1. Update version in package.json and package-lock.json
+          npm version "${NEW_VERSION}" --no-git-tag-version --allow-same-version
+          
+          # 2. Prepend release notes to CHANGELOG.md
+          node -e '
+            const fs = require("fs");
+            const changelogPath = "CHANGELOG.md";
+            const newVersion = process.env.NEW_VERSION;
+            const releaseNotes = process.env.RELEASE_NOTES;
+            const today = new Date().toISOString().split("T")[0];
+            
+            if (fs.existsSync(changelogPath)) {
+              const content = fs.readFileSync(changelogPath, "utf8");
+              const newEntry = "## [v" + newVersion + "] - " + today + "\n\n" + releaseNotes + "\n\n";
+              const marker = "All notable changes to this project will be documented in this file.\n\n";
+              let updated;
+              if (content.includes(marker)) {
+                updated = content.replace(marker, marker + newEntry);
+              } else {
+                updated = "# Changelog\n\n" + newEntry + content.replace(/^# Changelog\n+/, "");
+              }
+              fs.writeFileSync(changelogPath, updated);
+              console.log("Successfully updated CHANGELOG.md for v" + newVersion);
+            }
+          '
+
+      - name: Commit and Push Version Bump to Branch
+        if: steps.determine_bump.outputs.skip == 'false'
+        run: |
+          TARGET_BRANCH="${{ github.event.pull_request.base.ref || github.ref_name }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -B "${TARGET_BRANCH}"
+          git add package.json package-lock.json CHANGELOG.md
+          git diff --staged --quiet || git commit -m "chore(release): v${{ steps.bump.outputs.new_version }} [skip release]"
+          git push origin "${TARGET_BRANCH}"
 
       - name: Create and Push Git Tag
         if: steps.determine_bump.outputs.skip == 'false'
@@ -186,3 +256,14 @@ jobs:
           gh release create "v${{ steps.bump.outputs.new_version }}" \
             --title "v${{ steps.bump.outputs.new_version }}" \
             --notes "${{ steps.bump.outputs.release_notes }}"
+
+      - name: Trigger Deployment
+        if: steps.determine_bump.outputs.skip == 'false'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TARGET_BRANCH="${{ github.event.pull_request.base.ref || github.ref_name }}"
+          echo "Triggering deployment workflow for v${{ steps.bump.outputs.new_version }} on ${TARGET_BRANCH}..."
+          gh workflow run deploy.yml --ref "${TARGET_BRANCH}" -f version="v${{ steps.bump.outputs.new_version }}" || \
+          gh workflow run deploy.yml --ref "${TARGET_BRANCH}" || \
+          echo "Deployment workflow dispatch completed or skipped."
