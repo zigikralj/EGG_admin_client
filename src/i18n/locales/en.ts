@@ -37,6 +37,7 @@ const enTranslations: TranslationKeys = {
   "tabInvoices": "Invoices",
   "tabPermits": "Permits",
   "btnNewPermit": "New Permit",
+  "permitsListTitle": "Permits List",
   "modalNewPermit": "New Permit",
   "modalEditPermit": "Edit Permit",
   "colIndexNumber": "Index Number",

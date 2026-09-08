@@ -37,6 +37,7 @@ const srCyrlTranslations: TranslationKeys = {
   "tabInvoices": "Фактуре",
   "tabPermits": "Дозволе",
   "btnNewPermit": "Нова дозвола",
+  "permitsListTitle": "Листа дозвола",
   "modalNewPermit": "Нова дозвола",
   "modalEditPermit": "Измена дозволе",
   "colIndexNumber": "Индексни број",

@@ -27,20 +27,24 @@ export function useProjectForm({
   const [name, setName] = useState('');
   const [clientId, setClientId] = useState('');
   const [clientName, setClientName] = useState('');
-  const [responsible, setResponsible] = useState('');
-  const [type, setType] = useState(services.length > 0 ? services[0].code : 'waste-management');
+  const [responsible, setResponsible] = useState(currentUser?.name || '');
+  const [type, setType] = useState('');
   const [start, setStart] = useState(todayStr);
   const [deadline, setDeadline] = useState('');
   const [progress, setProgress] = useState(0);
   const [done, setDone] = useState(false);
   const [notes, setNotes] = useState('');
 
+  // Staged reminders & invoices for new project creation
+  const [stagedReminders, setStagedReminders] = useState<Reminder[]>([]);
+  const [stagedInvoices, setStagedInvoices] = useState<Invoice[]>([]);
+
   // Reminder State
   const [isAddingReminder, setIsAddingReminder] = useState(false);
   const [addReminderMode, setAddReminderMode] = useState<'new' | 'existing'>('new');
   const [newReminderTitle, setNewReminderTitle] = useState('');
   const [newReminderDate, setNewReminderDate] = useState('');
-  const [newReminderResponsible, setNewReminderResponsible] = useState('');
+  const [newReminderResponsible, setNewReminderResponsible] = useState(currentUser?.name || '');
   const [newReminderNotes, setNewReminderNotes] = useState('');
   const [selectedExistingReminderId, setSelectedExistingReminderId] = useState('');
   
@@ -56,6 +60,8 @@ export function useProjectForm({
   const { setIsAddingInvoice, setEditingInvoice } = invoiceFormState;
 
   useEffect(() => {
+    setStagedReminders([]);
+    setStagedInvoices([]);
     if (projectToEdit) {
       setName(projectToEdit.name);
       setClientId(projectToEdit.clientId || '');
@@ -72,15 +78,11 @@ export function useProjectForm({
       setIsAddingInvoice(false);
       setEditingInvoice(null);
     } else {
-      const firstEligible = users.find((u) => {
-        const isBlocked = u.status === 'BLOCKED' || u.status?.toLowerCase() === 'blocked' || (u.isApproved === false && u.status !== 'PENDING');
-        return u.role !== 'Administrator' && !isBlocked;
-      });
       setName('');
-      setClientId(clients.length > 0 ? clients[0].id : '');
-      setClientName(clients.length > 0 ? clients[0].name : '');
-      setResponsible(isUser ? (currentUser?.name || '') : (firstEligible ? firstEligible.name : ''));
-      setType(services.length > 0 ? services[0].code : 'waste-management');
+      setClientId('');
+      setClientName('');
+      setResponsible(currentUser?.name || '');
+      setType('');
       setStart(todayStr);
       setDeadline('');
       setProgress(0);
@@ -96,17 +98,52 @@ export function useProjectForm({
   const handleClientSelectChange = (id: string) => {
     setClientId(id);
     const found = clients.find((c) => c.id === id);
-    if (found) setClientName(found.name);
+    setClientName(found ? found.name : '');
+  };
+
+  const addStagedReminder = (reminder: Reminder) => {
+    setStagedReminders((prev) => [...prev, reminder]);
+  };
+
+  const removeStagedReminder = (id: string) => {
+    setStagedReminders((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  const updateStagedReminder = (id: string, updates: Partial<Reminder>) => {
+    setStagedReminders((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, ...updates } : r))
+    );
+  };
+
+  const toggleStagedReminderStatus = (id: string, status: string) => {
+    setStagedReminders((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, status } : r))
+    );
+  };
+
+  const addStagedInvoice = (invoice: Invoice) => {
+    setStagedInvoices((prev) => [...prev, invoice]);
+  };
+
+  const removeStagedInvoice = (id: string) => {
+    setStagedInvoices((prev) => prev.filter((i) => i.id !== id));
+  };
+
+  const updateStagedInvoice = (id: string, updates: Partial<Invoice>) => {
+    setStagedInvoices((prev) =>
+      prev.map((i) => (i.id === id ? { ...i, ...updates } : i))
+    );
   };
 
   const projectReminders = useMemo(() => {
-    if (!projectToEdit || !reminders) return [];
+    if (!projectToEdit) return stagedReminders;
+    if (!reminders) return [];
     return reminders.filter((r) => {
       if (r.projectId && r.projectId === projectToEdit.id) return true;
       if (!r.projectId && r.projectName && r.projectName.trim().toLowerCase() === projectToEdit.name.trim().toLowerCase()) return true;
       return false;
     });
-  }, [reminders, projectToEdit]);
+  }, [reminders, projectToEdit, stagedReminders]);
 
   const availableExistingReminders = useMemo(() => {
     if (!reminders) return [];
@@ -146,13 +183,14 @@ export function useProjectForm({
   }, [invoices]);
 
   const projectInvoices = useMemo(() => {
-    if (!projectToEdit || !linkedInvoices) return [];
+    if (!projectToEdit) return stagedInvoices;
+    if (!linkedInvoices) return [];
     return linkedInvoices.filter((inv) => {
       if (inv.projectId && inv.projectId === projectToEdit.id) return true;
       if (!inv.projectId && inv.projectName && inv.projectName.trim().toLowerCase() === projectToEdit.name.trim().toLowerCase()) return true;
       return false;
     });
-  }, [linkedInvoices, projectToEdit]);
+  }, [linkedInvoices, projectToEdit, stagedInvoices]);
 
   const availableExistingInvoices = useMemo(() => {
     if (!linkedInvoices) return [];
@@ -214,6 +252,12 @@ export function useProjectForm({
       editReminderNotes, setEditReminderNotes,
       projectReminders,
       availableExistingReminders,
+      stagedReminders,
+      setStagedReminders,
+      addStagedReminder,
+      removeStagedReminder,
+      updateStagedReminder,
+      toggleStagedReminderStatus,
     },
     invoiceState: {
       ...invoiceFormState,
@@ -221,6 +265,11 @@ export function useProjectForm({
       setEditingProjectInvoice: invoiceFormState.setEditingInvoice,
       projectInvoices,
       availableExistingInvoices,
+      stagedInvoices,
+      setStagedInvoices,
+      addStagedInvoice,
+      removeStagedInvoice,
+      updateStagedInvoice,
     },
     handleClientSelectChange,
     todayStr,

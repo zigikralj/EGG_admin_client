@@ -104,6 +104,14 @@ const ProjectModal: React.FC<Props> = ({
       return;
     }
 
+    if (!type) {
+      setErrorDialogState({
+        open: true,
+        message: t('alertServiceRequired'),
+      });
+      return;
+    }
+
     const finalResponsible = isUser ? (currentUser?.name || responsible) : responsible;
     const finalProgress = done ? 100 : Math.max(0, Math.min(100, Number(progress) || 0));
 
@@ -125,6 +133,78 @@ const ProjectModal: React.FC<Props> = ({
 
       if (res && typeof res === 'object' && 'success' in res) {
         if (res.success) {
+          const createdProjectId = res.id || (res.data && res.data.id) || (projectToEdit ? projectToEdit.id : null);
+
+          if (!projectToEdit && createdProjectId) {
+            const { stagedReminders } = reminderState;
+            const { stagedInvoices } = invoiceState;
+
+            // Save staged reminders
+            if (stagedReminders && stagedReminders.length > 0 && onSaveReminder) {
+              for (const rem of stagedReminders) {
+                try {
+                  const savePayload = rem.isNewStaged
+                    ? {
+                        title: rem.title,
+                        projectId: createdProjectId,
+                        projectName: name.trim(),
+                        clientId: clientId || null,
+                        clientName: clientName.trim(),
+                        responsible: rem.responsible || null,
+                        dueDate: rem.dueDate || null,
+                        notes: rem.notes || null,
+                        status: rem.status || 'Pending',
+                      }
+                    : {
+                        id: rem.id,
+                        projectId: createdProjectId,
+                        projectName: name.trim(),
+                        clientId: clientId || rem.clientId || null,
+                        clientName: clientName.trim() || rem.clientName,
+                      };
+                  await onSaveReminder(savePayload);
+                } catch (e) {
+                  console.error('Error saving staged reminder:', e);
+                }
+              }
+            }
+
+            // Save staged invoices
+            if (stagedInvoices && stagedInvoices.length > 0 && onSaveInvoice) {
+              for (const inv of stagedInvoices) {
+                try {
+                  const invPayload = inv.isNewStaged
+                    ? {
+                        invoiceNumber: inv.invoiceNumber,
+                        invoiceType: inv.invoiceType,
+                        parentInvoiceId: inv.parentInvoiceId || null,
+                        projectId: createdProjectId,
+                        projectName: name.trim(),
+                        clientId: clientId || null,
+                        clientName: clientName.trim(),
+                        dateCreated: inv.dateCreated || null,
+                        dueDate: inv.dueDate || null,
+                        status: inv.status,
+                        currency: inv.currency,
+                        notes: inv.notes,
+                        items: inv.items,
+                        totalAmount: inv.totalAmount,
+                      }
+                    : {
+                        id: inv.id,
+                        projectId: createdProjectId,
+                        projectName: name.trim(),
+                        clientId: clientId || inv.clientId || null,
+                        clientName: clientName.trim() || inv.clientName,
+                      };
+                  await onSaveInvoice(invPayload);
+                } catch (e) {
+                  console.error('Error saving staged invoice:', e);
+                }
+              }
+            }
+          }
+
           onClose();
         } else {
           setErrorDialogState({
@@ -265,9 +345,7 @@ const ProjectModal: React.FC<Props> = ({
                     getOptionLabel={(option) => `${option.name}${option.city ? ` (${option.city})` : ''}`}
                     value={clients.find((c) => c.id === clientId) || null}
                     onChange={(_, newValue) => {
-                      if (newValue) {
-                        handleClientSelectChange(newValue.id);
-                      }
+                      handleClientSelectChange(newValue ? newValue.id : '');
                     }}
                     isOptionEqualToValue={(option, value) => option.id === value.id}
                     renderInput={(params) => (
@@ -297,8 +375,9 @@ const ProjectModal: React.FC<Props> = ({
                 {(() => {
                   const respLabel = getResponsibleLabel(responsible || (isUser ? currentUser?.name : ''), users);
                   const selectableUsers = users.filter((u) => {
+                    const isMe = Boolean(currentUser?.name) && u.name.trim().toLowerCase() === currentUser?.name?.trim().toLowerCase();
                     const isSelected = Boolean(responsible) && u.name.trim().toLowerCase() === responsible.trim().toLowerCase();
-                    if (isSelected) return true;
+                    if (isSelected || isMe) return true;
                     const isBlocked = u.status === 'BLOCKED' || u.status?.toLowerCase() === 'blocked' || (u.isApproved === false && u.status !== 'PENDING');
                     if (isBlocked) return false;
                     if (u.role === 'Administrator') return false;
@@ -354,15 +433,14 @@ const ProjectModal: React.FC<Props> = ({
                   getOptionLabel={(option) => option.name || getServiceLabel(option.code, services)}
                   value={services.find((s) => s.code === type) || null}
                   onChange={(_, newValue) => {
-                    if (newValue) {
-                      setType(newValue.code);
-                    }
+                    setType(newValue ? newValue.code : '');
                   }}
                   isOptionEqualToValue={(option, value) => option.code === value.code}
                   renderInput={(params) => (
                     <TextField
                       {...params}
                       label={t('lblService')}
+                      required
                     />
                   )}
                 />

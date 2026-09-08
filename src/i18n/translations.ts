@@ -40,6 +40,7 @@ export interface TranslationKeys {
   tabInvoices: string;
   tabPermits: string;
   btnNewPermit: string;
+  permitsListTitle: string;
   modalNewPermit: string;
   modalEditPermit: string;
   colIndexNumber: string;

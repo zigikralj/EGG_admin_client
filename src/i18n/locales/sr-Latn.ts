@@ -37,6 +37,7 @@ const srLatnTranslations: TranslationKeys = {
   "tabInvoices": "Fakture",
   "tabPermits": "Dozvole",
   "btnNewPermit": "Nova dozvola",
+  "permitsListTitle": "Lista dozvola",
   "modalNewPermit": "Nova dozvola",
   "modalEditPermit": "Izmena dozvole",
   "colIndexNumber": "Indeksni broj",

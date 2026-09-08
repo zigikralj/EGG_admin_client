@@ -143,6 +143,8 @@ export interface Reminder {
   permitId?: string | null;
   permitNumber?: string | null;
   permit?: Permit | null;
+  isNewStaged?: boolean;
+  isLinkedExisting?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -183,6 +185,8 @@ export interface Invoice {
   items?: InvoiceItem[];
   client?: Client | null;
   project?: Project | null;
+  isNewStaged?: boolean;
+  isLinkedExisting?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }

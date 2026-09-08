@@ -239,13 +239,9 @@ function MainApp() {
     setIsProjectModalOpen(true);
   };
 
-  // Thin wrapper: hook handles the API call; App.tsx handles closing the modal
+  // Thin wrapper: hook handles the API call; modal closes itself upon completing save
   const handleSaveProject = async (data: Partial<Project>): Promise<SaveResult> => {
     const result = await projectsHook.handleSaveProject(data);
-    if (result.success && isProjectModalOpen) {
-      setIsProjectModalOpen(false);
-      setEditingProject(null);
-    }
     // Fire notifications refresh
     window.dispatchEvent(new CustomEvent('notifications:refresh'));
     return result;

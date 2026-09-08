@@ -87,6 +87,9 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
     setEditInvoiceItems,
     projectInvoices,
     availableExistingInvoices,
+    addStagedInvoice,
+    removeStagedInvoice,
+    updateStagedInvoice,
   } = invoiceState;
 
   const formatInvoiceAmount = (amount?: number | null, curr?: string | null) => {
@@ -116,42 +119,75 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
       setErrorDialogState({ open: true, message: t('alertInvoiceNumberRequired') });
       return;
     }
-    if (onSaveInvoice && projectToEdit) {
-      const combinedNotes = serializeInvoiceNotes(newInvoiceNotes, newInvoiceType, newParentInvoiceId);
-      onSaveInvoice({
-        invoiceNumber: newInvoiceNumber.trim(),
-        invoiceType: newInvoiceType,
-        parentInvoiceId: newParentInvoiceId || null,
-        projectId: projectToEdit.id,
-        projectName: projectName.trim() || projectToEdit.name,
-        clientId: clientId || projectToEdit.clientId || null,
-        clientName: clientName.trim() || projectToEdit.clientName,
-        dateCreated: newInvoiceDateCreated || null,
-        dueDate: newInvoiceDueDate || null,
-        status: newInvoiceStatus,
-        currency: newInvoiceCurrency,
-        notes: combinedNotes,
-        items: newInvoiceItems.filter((it: any) => it.description.trim() !== '' || it.unitPrice > 0),
-        totalAmount: newInvoiceModalTotal,
-      });
-      setIsAddingInvoice(false);
+    const combinedNotes = serializeInvoiceNotes(newInvoiceNotes, newInvoiceType, newParentInvoiceId);
+    if (projectToEdit) {
+      if (onSaveInvoice) {
+        onSaveInvoice({
+          invoiceNumber: newInvoiceNumber.trim(),
+          invoiceType: newInvoiceType,
+          parentInvoiceId: newParentInvoiceId || null,
+          projectId: projectToEdit.id,
+          projectName: projectName.trim() || projectToEdit.name,
+          clientId: clientId || projectToEdit.clientId || null,
+          clientName: clientName.trim() || projectToEdit.clientName,
+          dateCreated: newInvoiceDateCreated || null,
+          dueDate: newInvoiceDueDate || null,
+          status: newInvoiceStatus,
+          currency: newInvoiceCurrency,
+          notes: combinedNotes,
+          items: newInvoiceItems.filter((it: any) => it.description.trim() !== '' || it.unitPrice > 0),
+          totalAmount: newInvoiceModalTotal,
+        });
+      }
+    } else {
+      if (addStagedInvoice) {
+        addStagedInvoice({
+          id: `temp-inv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          invoiceNumber: newInvoiceNumber.trim(),
+          invoiceType: newInvoiceType,
+          parentInvoiceId: newParentInvoiceId || null,
+          projectId: null,
+          projectName: projectName.trim() || null,
+          clientId: clientId || null,
+          clientName: clientName.trim() || null,
+          dateCreated: newInvoiceDateCreated || null,
+          dueDate: newInvoiceDueDate || null,
+          status: newInvoiceStatus,
+          currency: newInvoiceCurrency,
+          notes: combinedNotes,
+          items: newInvoiceItems.filter((it: any) => it.description.trim() !== '' || it.unitPrice > 0),
+          totalAmount: newInvoiceModalTotal,
+          isNewStaged: true,
+        });
+      }
     }
+    setIsAddingInvoice(false);
   };
 
   const handleLinkExistingInvoice = () => {
     if (!selectedExistingInvoiceId) return;
     const existing = invoices.find((inv) => inv.id === selectedExistingInvoiceId);
-    if (existing && onSaveInvoice && projectToEdit) {
-      onSaveInvoice({
-        id: existing.id,
-        projectId: projectToEdit.id,
-        projectName: projectName.trim() || projectToEdit.name,
-        clientId: clientId || projectToEdit.clientId || existing.clientId || null,
-        clientName: clientName.trim() || projectToEdit.clientName || existing.clientName,
-      });
-      setIsAddingInvoice(false);
-      setSelectedExistingInvoiceId('');
+    if (!existing) return;
+    if (projectToEdit) {
+      if (onSaveInvoice) {
+        onSaveInvoice({
+          id: existing.id,
+          projectId: projectToEdit.id,
+          projectName: projectName.trim() || projectToEdit.name,
+          clientId: clientId || projectToEdit.clientId || existing.clientId || null,
+          clientName: clientName.trim() || projectToEdit.clientName || existing.clientName,
+        });
+      }
+    } else {
+      if (addStagedInvoice) {
+        addStagedInvoice({
+          ...existing,
+          isLinkedExisting: true,
+        });
+      }
     }
+    setIsAddingInvoice(false);
+    setSelectedExistingInvoiceId('');
   };
 
   const handleStartEditInvoice = (inv: Invoice) => {
@@ -173,34 +209,57 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
       setErrorDialogState({ open: true, message: t('alertInvoiceNumberRequired') });
       return;
     }
-    if (onSaveInvoice && editingProjectInvoice && projectToEdit) {
+    if (editingProjectInvoice) {
       const combinedNotes = serializeInvoiceNotes(editInvoiceNotes, editInvoiceType, editParentInvoiceId);
-      onSaveInvoice({
-        id: editingProjectInvoice.id,
-        invoiceNumber: editInvoiceNumber.trim(),
-        invoiceType: editInvoiceType,
-        parentInvoiceId: editParentInvoiceId || null,
-        projectId: projectToEdit.id,
-        projectName: projectName.trim() || projectToEdit.name,
-        clientId: clientId || projectToEdit.clientId || null,
-        clientName: clientName.trim() || projectToEdit.clientName,
-        dateCreated: editInvoiceDateCreated || null,
-        dueDate: editInvoiceDueDate || null,
-        status: editInvoiceStatus,
-        currency: editInvoiceCurrency,
-        notes: combinedNotes,
-      });
+      if (projectToEdit) {
+        if (onSaveInvoice) {
+          onSaveInvoice({
+            id: editingProjectInvoice.id,
+            invoiceNumber: editInvoiceNumber.trim(),
+            invoiceType: editInvoiceType,
+            parentInvoiceId: editParentInvoiceId || null,
+            projectId: projectToEdit.id,
+            projectName: projectName.trim() || projectToEdit.name,
+            clientId: clientId || projectToEdit.clientId || null,
+            clientName: clientName.trim() || projectToEdit.clientName,
+            dateCreated: editInvoiceDateCreated || null,
+            dueDate: editInvoiceDueDate || null,
+            status: editInvoiceStatus,
+            currency: editInvoiceCurrency,
+            notes: combinedNotes,
+          });
+        }
+      } else {
+        if (updateStagedInvoice) {
+          updateStagedInvoice(editingProjectInvoice.id, {
+            invoiceNumber: editInvoiceNumber.trim(),
+            invoiceType: editInvoiceType,
+            parentInvoiceId: editParentInvoiceId || null,
+            dateCreated: editInvoiceDateCreated || null,
+            dueDate: editInvoiceDueDate || null,
+            status: editInvoiceStatus,
+            currency: editInvoiceCurrency,
+            notes: combinedNotes,
+          });
+        }
+      }
       setEditingProjectInvoice(null);
     }
   };
 
   const handleUnlinkInvoice = (invoiceId: string) => {
-    if (onSaveInvoice) {
-      onSaveInvoice({
-        id: invoiceId,
-        projectId: null,
-        projectName: null,
-      });
+    if (projectToEdit) {
+      if (onSaveInvoice) {
+        onSaveInvoice({
+          id: invoiceId,
+          projectId: null,
+          projectName: null,
+        });
+      }
+    } else {
+      if (removeStagedInvoice) {
+        removeStagedInvoice(invoiceId);
+      }
     }
   };
 
@@ -214,7 +273,7 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
               {t("invoiceBoxTitle")}
             </Typography>
           </Box>
-          {projectToEdit && !disabled && (
+          {!disabled && (
             <Button
               size="small"
               variant={isAddingInvoice ? "outlined" : "contained"}
@@ -404,131 +463,146 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
         )}
 
         {/* LIST OF PROJECT INVOICES */}
-        {projectToEdit ? (
-          projectInvoices.length === 0 && !isAddingInvoice ? (
-            <Typography variant="caption" color="text.secondary" sx={{ py: 0.5, display: "block", textAlign: "center" }}>
-              {t("noProjectInvoices")}
-            </Typography>
-          ) : (
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75 }}>
-              {projectInvoices.map((inv: Invoice) => {
-                const isPaid = inv.status === "Paid";
-                return (
-                  <Box
-                    key={inv.id}
-                    sx={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 0.5,
-                      py: 0.75,
-                      px: 1,
-                      bgcolor: "background.paper",
-                      borderRadius: 1,
-                      border: "1px solid",
-                      borderColor: "divider",
-                      transition: "all 0.15s ease",
-                    }}
-                  >
-                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, minWidth: 0, flex: 1, flexWrap: "wrap" }}>
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            fontWeight: 700,
-                            fontSize: "0.8125rem",
-                            color: "primary.main",
-                            flexShrink: 0,
-                          }}
-                        >
-                          {inv.invoiceNumber}
+        {projectInvoices.length === 0 && !isAddingInvoice ? (
+          <Typography variant="caption" color="text.secondary" sx={{ py: 0.5, display: "block", textAlign: "center" }}>
+            {t("noProjectInvoices")}
+          </Typography>
+        ) : (
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75 }}>
+            {projectInvoices.map((inv: Invoice) => {
+              const isPaid = inv.status === "Paid";
+              return (
+                <Box
+                  key={inv.id}
+                  sx={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 0.5,
+                    py: 0.75,
+                    px: 1,
+                    bgcolor: "background.paper",
+                    borderRadius: 1,
+                    border: "1px solid",
+                    borderColor: "divider",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, minWidth: 0, flex: 1, flexWrap: "wrap" }}>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontWeight: 700,
+                          fontSize: "0.8125rem",
+                          color: "primary.main",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {inv.invoiceNumber}
+                      </Typography>
+                      <InvoiceTypeChip type={inv.invoiceType} />
+                      <Box sx={{ flexShrink: 0 }}><InvoiceStatusChip status={inv.status} /></Box>
+                      <Typography variant="body2" sx={{ fontWeight: 700, fontSize: "0.8125rem", flexShrink: 0 }}>
+                        {formatInvoiceAmount(inv.totalAmount, inv.currency)}
+                      </Typography>
+                      {inv.dueDate && (
+                        <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, fontSize: "0.725rem" }}>
+                          • {inv.dueDate}
                         </Typography>
-                        <InvoiceTypeChip type={inv.invoiceType} />
-                        <Box sx={{ flexShrink: 0 }}><InvoiceStatusChip status={inv.status} /></Box>
-                        <Typography variant="body2" sx={{ fontWeight: 700, fontSize: "0.8125rem", flexShrink: 0 }}>
-                          {formatInvoiceAmount(inv.totalAmount, inv.currency)}
+                      )}
+                      {inv.items && inv.items.length > 0 && (
+                        <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, fontSize: "0.725rem" }}>
+                          ({inv.items.length} {t("colItemsCount").toLowerCase()})
                         </Typography>
-                        {inv.dueDate && (
-                          <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, fontSize: "0.725rem" }}>
-                            • {inv.dueDate}
-                          </Typography>
-                        )}
-                        {inv.items && inv.items.length > 0 && (
-                          <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, fontSize: "0.725rem" }}>
-                            ({inv.items.length} {t("colItemsCount").toLowerCase()})
-                          </Typography>
-                        )}
-                      </Box>
-
-                      {/* ACTIONS */}
-                      {!disabled && (
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.25, flexShrink: 0 }}>
-                          {!isPaid && onStatusChangeInvoice && (
-                            <Tooltip title={t("markAsPaid")}>
-                              <IconButton
-                                size="small"
-                                color="success"
-                                onClick={() => onStatusChangeInvoice(inv.id, "Paid", new Date().toISOString().slice(0, 10))}
-                                sx={{ p: 0.25 }}
-                              >
-                                <CheckCircleIcon sx={{ fontSize: 16 }} />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                          <Tooltip title={t("btnEdit")}>
-                            <IconButton size="small" color="primary" onClick={() => handleStartEditInvoice(inv)} sx={{ p: 0.25 }}>
-                              <EditIcon sx={{ fontSize: 16 }} />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title={t("btnUnlinkInvoice")}>
-                            <IconButton size="small" color="warning" onClick={() => handleUnlinkInvoice(inv.id)} sx={{ p: 0.25 }}>
-                              <LinkOffIcon sx={{ fontSize: 16 }} />
-                            </IconButton>
-                          </Tooltip>
-                          {onDeleteInvoice && (
-                            <Tooltip title={t("btnDelete")}>
-                              <IconButton size="small" color="error" onClick={() => onDeleteInvoice(inv.id)} sx={{ p: 0.25 }}>
-                                <DeleteIcon sx={{ fontSize: 16 }} />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                        </Box>
                       )}
                     </Box>
 
-                    {/* Linked Invoices indicators */}
-                    {(() => {
-                      const uniqueLinks: Invoice[] = [];
-                      if (inv.parentInvoice) {
-                        uniqueLinks.push(inv.parentInvoice);
-                      }
-                      if (inv.childInvoices && inv.childInvoices.length > 0) {
-                        inv.childInvoices.forEach((child) => {
-                          if (!uniqueLinks.some((existing) => existing.id === child.id)) {
-                            uniqueLinks.push(child);
-                          }
-                        });
-                      }
-
-                      if (uniqueLinks.length === 0) return null;
-
-                      return (
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexWrap: "wrap", pt: 0.25, pl: 0.5 }}>
-                          <LinkIcon sx={{ fontSize: 13, color: "text.secondary" }} />
-                          {uniqueLinks.map((linked) => {
-                            return <LinkedInvoiceChip key={linked.id} linked={linked} />;
-                          })}
-                        </Box>
-                      );
-                    })()}
+                    {/* ACTIONS */}
+                    {!disabled && (
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.25, flexShrink: 0 }}>
+                        {!isPaid && (
+                          <Tooltip title={t("markAsPaid")}>
+                            <IconButton
+                              size="small"
+                              color="success"
+                              onClick={() => {
+                                if (projectToEdit) {
+                                  if (onStatusChangeInvoice) {
+                                    onStatusChangeInvoice(inv.id, "Paid", new Date().toISOString().slice(0, 10));
+                                  }
+                                } else {
+                                  if (updateStagedInvoice) {
+                                    updateStagedInvoice(inv.id, { status: "Paid", paymentDate: new Date().toISOString().slice(0, 10) });
+                                  }
+                                }
+                              }}
+                              sx={{ p: 0.25 }}
+                            >
+                              <CheckCircleIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        <Tooltip title={t("btnEdit")}>
+                          <IconButton size="small" color="primary" onClick={() => handleStartEditInvoice(inv)} sx={{ p: 0.25 }}>
+                            <EditIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title={t("btnUnlinkInvoice")}>
+                          <IconButton size="small" color="warning" onClick={() => handleUnlinkInvoice(inv.id)} sx={{ p: 0.25 }}>
+                            <LinkOffIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </Tooltip>
+                        {(!projectToEdit || onDeleteInvoice) && (
+                          <Tooltip title={t("btnDelete")}>
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => {
+                                if (projectToEdit && onDeleteInvoice) {
+                                  onDeleteInvoice(inv.id);
+                                } else if (!projectToEdit && removeStagedInvoice) {
+                                  removeStagedInvoice(inv.id);
+                                }
+                              }}
+                              sx={{ p: 0.25 }}
+                            >
+                              <DeleteIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Box>
+                    )}
                   </Box>
-                );
-              })}
-            </Box>
-          )
-        ) : (
-          <Typography variant="caption" color="text.secondary" sx={{ py: 0.5, display: "block", textAlign: "center" }}>
-            {t("newProjectInvoicesHint")}
-          </Typography>
+
+                  {/* Linked Invoices indicators */}
+                  {(() => {
+                    const uniqueLinks: Invoice[] = [];
+                    if (inv.parentInvoice) {
+                      uniqueLinks.push(inv.parentInvoice);
+                    }
+                    if (inv.childInvoices && inv.childInvoices.length > 0) {
+                      inv.childInvoices.forEach((child) => {
+                        if (!uniqueLinks.some((existing) => existing.id === child.id)) {
+                          uniqueLinks.push(child);
+                        }
+                      });
+                    }
+
+                    if (uniqueLinks.length === 0) return null;
+
+                    return (
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexWrap: "wrap", pt: 0.25, pl: 0.5 }}>
+                        <LinkIcon sx={{ fontSize: 13, color: "text.secondary" }} />
+                        {uniqueLinks.map((linked) => {
+                          return <LinkedInvoiceChip key={linked.id} linked={linked} />;
+                        })}
+                      </Box>
+                    );
+                  })()}
+                </Box>
+              );
+            })}
+          </Box>
         )}
       </Paper>
 

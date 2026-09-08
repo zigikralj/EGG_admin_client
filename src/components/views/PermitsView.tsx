@@ -923,248 +923,245 @@ const PermitsView: React.FC<Props> = ({
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      {/* HEADER & CONTROLS */}
-      <Card
-        sx={{
-          p: 2,
-          display: 'flex',
-          flexDirection: { xs: 'column', md: 'row' },
-          justifyContent: 'space-between',
-          alignItems: { xs: 'stretch', md: 'center' },
-          gap: 2,
-          borderRadius: 3,
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>
-            {t('tabPermits')}
-          </Typography>
-          <Chip
-            label={`${filteredPermits.length} / ${permits.length}`}
-            size="small"
-            color="primary"
-            variant="outlined"
-            sx={{ fontWeight: 600 }}
-          />
-          {onRefresh && (
-            <Tooltip title={t('btnRefresh') || 'Refresh'}>
-              <IconButton
-                size="small"
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                color="primary"
-                sx={{
-                  border: 1,
-                  borderColor: 'divider',
-                  borderRadius: 2,
-                  p: 0.7,
-                }}
-              >
-                <RefreshIcon
-                  fontSize="small"
-                  sx={{
-                    animation: isRefreshing ? 'spin 1s linear infinite' : undefined,
-                    '@keyframes spin': {
-                      '0%': { transform: 'rotate(0deg)' },
-                      '100%': { transform: 'rotate(360deg)' },
-                    },
-                  }}
-                />
-              </IconButton>
-            </Tooltip>
-          )}
-        </Box>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%', flex: 1, minHeight: 0 }}>
+      {/* TOP ACTION BAR */}
+      <Box sx={{ display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' }, alignItems: 'center' }}>
+        <Button
+          variant="contained"
+          color="primary"
+          startIcon={canManagePermits ? <AddIcon /> : <LockIcon />}
+          onClick={openNew}
+          disabled={!canManagePermits}
+          sx={{ width: { xs: '100%', sm: 'auto' } }}
+        >
+          {t('btnNewPermit')}
+        </Button>
+      </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-          {/* QUICK FILTERS */}
-          <ToggleButtonGroup
-            value={quickFilter}
-            exclusive
-            onChange={(_, val) => val && handleQuickFilterChange(val)}
-            size="small"
-            color="primary"
-            sx={{ width: { xs: '100%', sm: 'auto' } }}
-          >
-            <ToggleButton
-              value="all"
-              sx={{ flex: { xs: 1, sm: 'none' }, px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600 }}
-            >
-              {t('quickFilterAll')}
-            </ToggleButton>
-            <ToggleButton
-              value="expiring"
-              sx={{
-                flex: { xs: 1, sm: 'none' },
-                px: 1.5,
-                py: 0.5,
-                textTransform: 'none',
-                fontWeight: 600,
-                color: 'warning.main',
-              }}
-            >
-              {t('quickFilterExpiringPermits')}
-            </ToggleButton>
-            <ToggleButton
-              value="expired"
-              sx={{
-                flex: { xs: 1, sm: 'none' },
-                px: 1.5,
-                py: 0.5,
-                textTransform: 'none',
-                fontWeight: 600,
-                color: 'error.main',
-              }}
-            >
-              {t('quickFilterExpiredPermits')}
-            </ToggleButton>
-            <ToggleButton
-              value="active"
-              sx={{ flex: { xs: 1, sm: 'none' }, px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600 }}
-            >
-              {t('statusActivePermit')}
-            </ToggleButton>
-          </ToggleButtonGroup>
-
-          {/* SEARCH FIELD */}
-          <TableSearchInput
-            value={searchQuery}
-            onChange={(val) => {
-              setSearchQuery(val);
-              setPage(0);
-            }}
-          />
-
-          {/* POPOVER FILTERS */}
-          <TableFilterSelector
-            activeCount={activeFilterCount}
-            onClear={clearFilters}
-            sortingContent={
-              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                <Autocomplete
-                  size="small"
-                  fullWidth
-                  disablePortal
-                  disableClearable
-                  options={sortOptions}
-                  getOptionLabel={(option) => option.label}
-                  isOptionEqualToValue={(option, val) => option.value === val.value}
-                  value={sortOptions.find((o) => o.value === sortColumn) || sortOptions[0]}
-                  onChange={(_, newValue) => {
-                    if (newValue) handleSortColumnChange(newValue.value as any);
-                  }}
-                  renderInput={(params) => <TextField {...params} label={t('lblSortBy')} size="small" />}
-                />
+      {/* TABLE CONTAINER CARD */}
+      <Card variant="outlined" sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        <Box
+          sx={{
+            p: { xs: 1.5, sm: 2 },
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: { xs: 'stretch', sm: 'center' },
+            flexDirection: { xs: 'column', sm: 'row' },
+            gap: 1.5,
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+              {t('permitsListTitle') || t('tabPermits')}
+            </Typography>
+            {onRefresh && (
+              <Tooltip title={t('btnRefresh') || 'Refresh'}>
                 <IconButton
                   size="small"
-                  onClick={handleToggleSortDirection}
-                  title={sortDirection === 'asc' ? t('sortAscending') : t('sortDescending')}
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  color="primary"
                   sx={{
                     border: 1,
                     borderColor: 'divider',
                     borderRadius: 2,
-                    p: 0.8,
+                    p: 0.7,
                   }}
                 >
-                  {sortDirection === 'asc' ? (
-                    <ArrowUpwardIcon fontSize="small" />
-                  ) : (
-                    <ArrowDownwardIcon fontSize="small" />
-                  )}
+                  <RefreshIcon
+                    fontSize="small"
+                    sx={{
+                      animation: isRefreshing ? 'spin 1s linear infinite' : undefined,
+                      '@keyframes spin': {
+                        '0%': { transform: 'rotate(0deg)' },
+                        '100%': { transform: 'rotate(360deg)' },
+                      },
+                    }}
+                  />
                 </IconButton>
-              </Box>
-            }
-          >
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {/* Filter by Client */}
-              <Autocomplete
-                size="small"
-                fullWidth
-                options={[{ id: 'all', name: t('quickFilterAll') }, ...clients]}
-                getOptionLabel={(option) => option.name}
-                isOptionEqualToValue={(option, val) => option.id === val.id}
-                value={
-                  filterClient === 'all'
-                    ? { id: 'all', name: t('quickFilterAll') }
-                    : clients.find((c) => c.id === filterClient) || { id: 'all', name: t('quickFilterAll') }
-                }
-                onChange={(_, newValue) => {
-                  setFilterClient(newValue ? newValue.id : 'all');
-                  setPage(0);
-                }}
-                renderInput={(params) => <TextField {...params} label={t('lblClient')} size="small" />}
-              />
+              </Tooltip>
+            )}
+          </Box>
 
-              {/* Filter by Status */}
-              <FormControl size="small" fullWidth>
-                <InputLabel>{t('colStatus')}</InputLabel>
-                <Select
-                  value={filterStatus}
-                  label={t('colStatus')}
-                  onChange={(e) => {
-                    setFilterStatus(e.target.value);
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', width: { xs: '100%', sm: 'auto' } }}>
+            {/* QUICK FILTERS */}
+            <ToggleButtonGroup
+              value={quickFilter}
+              exclusive
+              onChange={(_, val) => val && handleQuickFilterChange(val)}
+              size="small"
+              color="primary"
+              sx={{ width: { xs: '100%', sm: 'auto' } }}
+            >
+              <ToggleButton
+                value="all"
+                sx={{ flex: { xs: 1, sm: 'none' }, px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600 }}
+              >
+                {t('quickFilterAll')}
+              </ToggleButton>
+              <ToggleButton
+                value="expiring"
+                sx={{
+                  flex: { xs: 1, sm: 'none' },
+                  px: 1.5,
+                  py: 0.5,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  color: 'warning.main',
+                }}
+              >
+                {t('quickFilterExpiringPermits')}
+              </ToggleButton>
+              <ToggleButton
+                value="expired"
+                sx={{
+                  flex: { xs: 1, sm: 'none' },
+                  px: 1.5,
+                  py: 0.5,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  color: 'error.main',
+                }}
+              >
+                {t('quickFilterExpiredPermits')}
+              </ToggleButton>
+              <ToggleButton
+                value="active"
+                sx={{ flex: { xs: 1, sm: 'none' }, px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600 }}
+              >
+                {t('statusActivePermit')}
+              </ToggleButton>
+            </ToggleButtonGroup>
+
+            {/* SEARCH FIELD */}
+            <TableSearchInput
+              value={searchQuery}
+              onChange={(val) => {
+                setSearchQuery(val);
+                setPage(0);
+              }}
+            />
+
+            {/* POPOVER FILTERS */}
+            <TableFilterSelector
+              activeCount={activeFilterCount}
+              onClear={clearFilters}
+              sortingContent={
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  <Autocomplete
+                    size="small"
+                    fullWidth
+                    disablePortal
+                    disableClearable
+                    options={sortOptions}
+                    getOptionLabel={(option) => option.label}
+                    isOptionEqualToValue={(option, val) => option.value === val.value}
+                    value={sortOptions.find((o) => o.value === sortColumn) || sortOptions[0]}
+                    onChange={(_, newValue) => {
+                      if (newValue) handleSortColumnChange(newValue.value as any);
+                    }}
+                    renderInput={(params) => <TextField {...params} label={t('lblSortBy')} size="small" />}
+                  />
+                  <IconButton
+                    size="small"
+                    onClick={handleToggleSortDirection}
+                    title={sortDirection === 'asc' ? t('sortAscending') : t('sortDescending')}
+                    sx={{
+                      border: 1,
+                      borderColor: 'divider',
+                      borderRadius: 2,
+                      p: 0.8,
+                    }}
+                  >
+                    {sortDirection === 'asc' ? (
+                      <ArrowUpwardIcon fontSize="small" />
+                    ) : (
+                      <ArrowDownwardIcon fontSize="small" />
+                    )}
+                  </IconButton>
+                </Box>
+              }
+            >
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {/* Filter by Client */}
+                <Autocomplete
+                  size="small"
+                  fullWidth
+                  options={[{ id: 'all', name: t('quickFilterAll') }, ...clients]}
+                  getOptionLabel={(option) => option.name}
+                  isOptionEqualToValue={(option, val) => option.id === val.id}
+                  value={
+                    filterClient === 'all'
+                      ? { id: 'all', name: t('quickFilterAll') }
+                      : clients.find((c) => c.id === filterClient) || { id: 'all', name: t('quickFilterAll') }
+                  }
+                  onChange={(_, newValue) => {
+                    setFilterClient(newValue ? newValue.id : 'all');
                     setPage(0);
                   }}
-                >
-                  <MenuItem value="all">{t('filterAllStatus')}</MenuItem>
-                  <MenuItem value="active">{t('statusActivePermit')}</MenuItem>
-                  <MenuItem value="expiring">{t('statusExpiring')}</MenuItem>
-                  <MenuItem value="expired">{t('statusExpired')}</MenuItem>
-                </Select>
-              </FormControl>
+                  renderInput={(params) => <TextField {...params} label={t('lblClient')} size="small" />}
+                />
 
-              {/* Date range filter */}
-              <DateRangeFilter
-                startDate={filterDateFrom}
-                endDate={filterDateTo}
-                onDateChange={(range) => {
-                  setFilterDateFrom(range.startDate);
-                  setFilterDateTo(range.endDate);
-                  setPage(0);
-                }}
-                dateField={filterDateField}
-                onDateFieldChange={(val) => {
-                  setFilterDateField(val);
-                  setPage(0);
-                }}
-                dateFieldOptions={[
-                  { value: 'endDate', label: t('colEndDate') },
-                  { value: 'startDate', label: t('colStartDate') },
-                ]}
-              />
-            </Box>
-          </TableFilterSelector>
+                {/* Filter by Status */}
+                <FormControl size="small" fullWidth>
+                  <InputLabel>{t('colStatus')}</InputLabel>
+                  <Select
+                    value={filterStatus}
+                    label={t('colStatus')}
+                    onChange={(e) => {
+                      setFilterStatus(e.target.value);
+                      setPage(0);
+                    }}
+                  >
+                    <MenuItem value="all">{t('filterAllStatus')}</MenuItem>
+                    <MenuItem value="active">{t('statusActivePermit')}</MenuItem>
+                    <MenuItem value="expiring">{t('statusExpiring')}</MenuItem>
+                    <MenuItem value="expired">{t('statusExpired')}</MenuItem>
+                  </Select>
+                </FormControl>
 
-          {/* TABLE OPTIONS SELECTOR (Columns, Rows per page) */}
-          <TableOptionsSelector
-            columns={columnDefs}
-            visibleColumns={activeCols}
-            onVisibleColumnsChange={setCols}
-            rowsPerPage={activeRowsPerPage}
-            onRowsPerPageChange={setRowsPerPageValue}
-            rowsPerPageOptions={activeRowsPerPageOptions}
-            onRowsPerPageOptionsChange={setRowsPerPageOptionsValue}
-          />
+                {/* Date range filter */}
+                <DateRangeFilter
+                  startDate={filterDateFrom}
+                  endDate={filterDateTo}
+                  onDateChange={(range) => {
+                    setFilterDateFrom(range.startDate);
+                    setFilterDateTo(range.endDate);
+                    setPage(0);
+                  }}
+                  dateField={filterDateField}
+                  onDateFieldChange={(val) => {
+                    setFilterDateField(val);
+                    setPage(0);
+                  }}
+                  dateFieldOptions={[
+                    { value: 'endDate', label: t('colEndDate') },
+                    { value: 'startDate', label: t('colStartDate') },
+                  ]}
+                />
+              </Box>
+            </TableFilterSelector>
 
-          {/* ADD BUTTON */}
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={canManagePermits ? <AddIcon /> : <LockIcon />}
-            onClick={openNew}
-            disabled={!canManagePermits}
-            sx={{ fontWeight: 600, textTransform: 'none', borderRadius: 2 }}
-          >
-            {t('btnNewPermit')}
-          </Button>
+            {/* TABLE OPTIONS SELECTOR (Columns, Rows per page) */}
+            <TableOptionsSelector
+              columns={columnDefs}
+              visibleColumns={activeCols}
+              onChange={setCols}
+              onVisibleColumnsChange={setCols}
+              rowsPerPage={activeRowsPerPage}
+              onRowsPerPageChange={setRowsPerPageValue}
+              rowsPerPageOptions={activeRowsPerPageOptions}
+              onRowsPerPageOptionsChange={setRowsPerPageOptionsValue}
+            />
+          </Box>
         </Box>
-      </Card>
 
-      {/* TABLE */}
-      <Card sx={{ borderRadius: 3, overflow: 'hidden' }}>
-        <TableContainer>
-          <Table size="medium">
-            <TableHead sx={{ bgcolor: 'action.hover' }}>
+        {/* TABLE */}
+        <TableContainer sx={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
+          <Table stickyHeader sx={{ width: '100%', minWidth: 650 }}>
+            <TableHead>
               <TableRow>
                 {activeCols.includes('indexNumber') && (
                   <TableCell>
@@ -1173,9 +1170,7 @@ const PermitsView: React.FC<Props> = ({
                       direction={sortColumn === 'indexNumber' ? sortDirection : 'asc'}
                       onClick={() => handleSort('indexNumber')}
                     >
-                      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                        {t('colIndexNumber')}
-                      </Typography>
+                      {t('colIndexNumber')}
                     </TableSortLabel>
                   </TableCell>
                 )}
@@ -1186,9 +1181,7 @@ const PermitsView: React.FC<Props> = ({
                       direction={sortColumn === 'permitNumber' ? sortDirection : 'asc'}
                       onClick={() => handleSort('permitNumber')}
                     >
-                      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                        {t('colPermitNumber')}
-                      </Typography>
+                      {t('colPermitNumber')}
                     </TableSortLabel>
                   </TableCell>
                 )}
@@ -1199,9 +1192,7 @@ const PermitsView: React.FC<Props> = ({
                       direction={sortColumn === 'client' ? sortDirection : 'asc'}
                       onClick={() => handleSort('client')}
                     >
-                      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                        {t('colClientName')}
-                      </Typography>
+                      {t('colClientName')}
                     </TableSortLabel>
                   </TableCell>
                 )}
@@ -1212,9 +1203,7 @@ const PermitsView: React.FC<Props> = ({
                       direction={sortColumn === 'startDate' ? sortDirection : 'asc'}
                       onClick={() => handleSort('startDate')}
                     >
-                      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                        {t('colStartDate')}
-                      </Typography>
+                      {t('colStartDate')}
                     </TableSortLabel>
                   </TableCell>
                 )}
@@ -1225,37 +1214,27 @@ const PermitsView: React.FC<Props> = ({
                       direction={sortColumn === 'endDate' ? sortDirection : 'asc'}
                       onClick={() => handleSort('endDate')}
                     >
-                      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                        {t('colEndDate')}
-                      </Typography>
+                      {t('colEndDate')}
                     </TableSortLabel>
                   </TableCell>
                 )}
                 {activeCols.includes('status') && (
                   <TableCell>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                      {t('colStatus')}
-                    </Typography>
+                    {t('colStatus')}
                   </TableCell>
                 )}
                 {activeCols.includes('reminders') && (
                   <TableCell>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                      {t('linkedReminders')}
-                    </Typography>
+                    {t('linkedReminders')}
                   </TableCell>
                 )}
                 {activeCols.includes('notes') && (
                   <TableCell>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                      {t('colNotes')}
-                    </Typography>
+                    {t('colNotes')}
                   </TableCell>
                 )}
-                <TableCell align="right">
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                    {t('colActions')}
-                  </Typography>
+                <TableCell align="right" sx={{ width: 120 }}>
+                  {t('colActions')}
                 </TableCell>
               </TableRow>
             </TableHead>
