@@ -421,10 +421,11 @@ const PermitsView: React.FC<Props> = ({
         }
       }
     } else if (p.indexNumber) {
+      const cleanIndex = p.indexNumber.replace(/\*/g, '').trim();
       const matched = (wasteCatalog || []).find(
         (wc) =>
           wc.code === p.indexNumber ||
-          wc.code.replace('*', '') === p.indexNumber?.replace('*', '')
+          wc.code.replace(/\*/g, '').trim() === cleanIndex
       );
       if (matched) {
         setSelectedWasteCatalogId(matched.id);
