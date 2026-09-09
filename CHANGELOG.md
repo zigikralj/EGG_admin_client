@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.0.4] - 2026-09-09
+
+- refactor: update version resolution logic and enhance automated PR br… (#27) by @zigikralj
+
 ## [v1.0.3] - 2026-09-08
 
 - Permits (#25) by @zigikralj

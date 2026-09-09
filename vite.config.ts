@@ -4,8 +4,11 @@ import { visualizer } from 'rollup-plugin-visualizer';
 import { execSync } from 'node:child_process';
 import pkg from './package.json' with { type: 'json' };
 
-// Resolve version: 1. VITE_APP_VERSION, 2. Git Tag, 3. package.json, 4. fallback
+// Resolve version: 1. VITE_APP_VERSION, 2. package.json, 3. Git Tag, 4. fallback
 let resolvedVersion = (process.env.VITE_APP_VERSION || '').replace(/^v/, '');
+if (!resolvedVersion && pkg.version) {
+  resolvedVersion = pkg.version.replace(/^v/, '');
+}
 if (!resolvedVersion) {
   try {
     const gitTag = execSync('git describe --tags --abbrev=0', { stdio: ['ignore', 'pipe', 'ignore'] })
@@ -19,7 +22,7 @@ if (!resolvedVersion) {
   }
 }
 if (!resolvedVersion) {
-  resolvedVersion = (pkg.version || '1.0.0').replace(/^v/, '');
+  resolvedVersion = '1.0.0';
 }
 
 // Resolve commit hash
