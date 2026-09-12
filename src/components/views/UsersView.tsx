@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Card,
   Table,
@@ -25,7 +25,6 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  Alert,
   Tooltip,
   Paper,
   ToggleButton,
@@ -66,8 +65,8 @@ interface Props extends TableViewProps {
   onRejectUser?: (userId: string) => Promise<void>;
   onForceLogoutUser?: (userId: string) => Promise<void>;
   initialFilterStatus?: string;
-  quickFilter?: 'all' | 'pending' | 'online';
-  onQuickFilterChange?: (val: 'all' | 'pending' | 'online') => void;
+  quickFilter?: string;
+  onQuickFilterChange?: (val: string) => void;
 }
 
 const DEFAULT_COLUMNS = ['name', 'role', 'status', 'email', 'phone', 'gender'];
@@ -144,20 +143,26 @@ const UsersView: React.FC<Props> = ({
   // Filter state
   const [filterRole, setFilterRole] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>(
-    initialFilterStatus !== 'all' ? initialFilterStatus : (quickFilterProp || 'all')
+    quickFilterProp || (initialFilterStatus !== 'all' ? initialFilterStatus : 'all')
   );
 
   useEffect(() => {
-    if (initialFilterStatus && initialFilterStatus !== 'all') {
-      setFilterStatus(initialFilterStatus);
-    } else if (quickFilterProp !== undefined) {
+    if (quickFilterProp !== undefined) {
       setFilterStatus(quickFilterProp);
     }
-  }, [initialFilterStatus, quickFilterProp]);
+  }, [quickFilterProp]);
+
+  const prevInitialFilterStatus = useRef(initialFilterStatus);
+  useEffect(() => {
+    if (initialFilterStatus && initialFilterStatus !== prevInitialFilterStatus.current) {
+      prevInitialFilterStatus.current = initialFilterStatus;
+      setFilterStatus(initialFilterStatus);
+    }
+  }, [initialFilterStatus]);
 
   const handleFilterStatusChange = (val: string) => {
     setFilterStatus(val);
-    onQuickFilterChange?.(val === 'pending' ? 'pending' : 'all');
+    onQuickFilterChange?.(val);
   };
 
   const activeFilterCount =
@@ -427,42 +432,8 @@ const UsersView: React.FC<Props> = ({
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%', flex: 1, minHeight: 0 }}>
-      {/* PENDING USERS BANNER */}
-      {pendingUsers.length > 0 && (
-        <Alert
-          severity="warning"
-          icon={<HourglassEmptyIcon />}
-          action={
-            <Button
-              color="inherit"
-              size="small"
-              onClick={() => setFilterStatus(filterStatus === 'pending' ? 'all' : 'pending')}
-              sx={{ fontWeight: 700 }}
-            >
-              {filterStatus === 'pending' ? t('filterAll') : t('badgePendingUsers', { count: pendingUsers.length })}
-            </Button>
-          }
-          sx={{ borderRadius: 2 }}
-        >
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-            {t('msgPendingUsersBanner', { count: pendingUsers.length })}
-          </Typography>
-        </Alert>
-      )}
-
       {/* TOP ACTION BAR */}
-      <Box sx={{ display: 'flex', justifyContent: { xs: 'stretch', sm: 'space-between' }, alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {filterStatus === 'pending' && (
-            <Chip
-              label={t('lblPendingApprovals')}
-              color="warning"
-              onDelete={() => setFilterStatus('all')}
-              sx={{ fontWeight: 600 }}
-            />
-          )}
-        </Box>
-
+      <Box sx={{ display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' }, alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
         {canManageUsers ? (
           <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={openNew} sx={{ width: { xs: '100%', sm: 'auto' } }}>
             {t('btnNewUser')}
@@ -516,12 +487,12 @@ const UsersView: React.FC<Props> = ({
           <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, width: { xs: '100%', sm: 'auto' } }}>
             {/* QUICK FILTERS */}
             <ToggleButtonGroup
-              value={filterStatus === 'pending' ? 'pending' : filterStatus === 'online' ? 'online' : 'all'}
+              value={['all', 'online', 'pending'].includes(filterStatus) ? filterStatus : null}
               exclusive
               onChange={(_, val) => {
                 if (val) {
                   setFilterStatus(val);
-                  onQuickFilterChange?.(val as any);
+                  onQuickFilterChange?.(val);
                 }
               }}
               size="small"
@@ -531,10 +502,58 @@ const UsersView: React.FC<Props> = ({
               <ToggleButton value="all" sx={{ flex: { xs: 1, sm: 'none' }, px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600 }}>
                 {t('quickFilterAll')}
               </ToggleButton>
-              <ToggleButton value="online" sx={{ flex: { xs: 1, sm: 'none' }, px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600, color: 'success.main' }}>
-                {t('quickFilterOnline')}{onlineUsers.length > 0 ? ` (${onlineUsers.length})` : ''}
+              <ToggleButton
+                value="online"
+                sx={{
+                  flex: { xs: 1, sm: 'none' },
+                  px: 1.5,
+                  py: 0.5,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  '&.Mui-selected': {
+                    color: 'success.main',
+                    bgcolor: (theme) =>
+                      theme.palette.mode === 'dark' ? 'rgba(46, 125, 50, 0.2)' : 'rgba(46, 125, 50, 0.12)',
+                    '&:hover': {
+                      bgcolor: (theme) =>
+                        theme.palette.mode === 'dark' ? 'rgba(46, 125, 50, 0.3)' : 'rgba(46, 125, 50, 0.18)',
+                    },
+                  },
+                }}
+              >
+                <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+                  <Box
+                    component="span"
+                    sx={{
+                      width: 7,
+                      height: 7,
+                      borderRadius: '50%',
+                      bgcolor: 'success.main',
+                      display: 'inline-block',
+                    }}
+                  />
+                  {t('quickFilterOnline')}{onlineUsers.length > 0 ? ` (${onlineUsers.length})` : ''}
+                </Box>
               </ToggleButton>
-              <ToggleButton value="pending" sx={{ flex: { xs: 1, sm: 'none' }, px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600 }}>
+              <ToggleButton
+                value="pending"
+                sx={{
+                  flex: { xs: 1, sm: 'none' },
+                  px: 1.5,
+                  py: 0.5,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  '&.Mui-selected': {
+                    color: 'warning.main',
+                    bgcolor: (theme) =>
+                      theme.palette.mode === 'dark' ? 'rgba(237, 108, 2, 0.2)' : 'rgba(237, 108, 2, 0.12)',
+                    '&:hover': {
+                      bgcolor: (theme) =>
+                        theme.palette.mode === 'dark' ? 'rgba(237, 108, 2, 0.3)' : 'rgba(237, 108, 2, 0.18)',
+                    },
+                  },
+                }}
+              >
                 {t('statusPending')}{pendingUsers.length > 0 ? ` (${pendingUsers.length})` : ''}
               </ToggleButton>
             </ToggleButtonGroup>

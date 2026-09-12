@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Toolbar } from '@mui/material';
 
-import type { ActiveTab, DashboardSubTab, ProvidedServicesSubTab, ProjectStats } from '../types';
+import type { ActiveTab, AppSection, DashboardSubTab, ProvidedServicesSubTab, ProjectStats } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -12,16 +12,9 @@ import { SettingsDialog } from './layout/SettingsDialog';
 import { CompanyInfoModal } from './CompanyInfoModal';
 import { DashboardIcon, FolderIcon, BusinessIcon, AssignmentTurnedInIcon, PeopleIcon, BuildIcon, HandymanIcon, CategoryIcon, NotificationsActiveIcon, ReceiptLongIcon } from './icons';
 
-
-
-
-
-
-
-
-
-
 interface Props {
+  currentApp: AppSection;
+  onAppChange: (app: AppSection) => void;
   activeTab: ActiveTab;
   onTabChange: (tab: ActiveTab) => void;
   dashboardSubTab?: DashboardSubTab;
@@ -37,6 +30,8 @@ interface Props {
 }
 
 export const AdminLayout: React.FC<Props> = ({
+  currentApp,
+  onAppChange,
   activeTab,
   onTabChange,
   dashboardSubTab = 'projects',
@@ -52,6 +47,7 @@ export const AdminLayout: React.FC<Props> = ({
 }) => {
   const { t } = useLanguage();
   const {
+    role,
     isUser,
     isAccountant,
     canManageClients,
@@ -61,13 +57,11 @@ export const AdminLayout: React.FC<Props> = ({
     canManageInvoices,
     canManageProvidedServices,
     pendingUsersCount,
-    workOnEntities,
-    setWorkOnEntities,
     logout,
   } = useAuth();
 
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [isDashboardExpanded, setIsDashboardExpanded] = useState(true);
+  const [isStatisticExpanded, setIsStatisticExpanded] = useState(true);
   const [isProvidedServicesExpanded, setIsProvidedServicesExpanded] = useState(true);
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -75,12 +69,11 @@ export const AdminLayout: React.FC<Props> = ({
   const [isCompanyInfoOpen, setIsCompanyInfoOpen] = useState(false);
 
   useEffect(() => {
-    if (userPreferences && typeof userPreferences.work_on_entities === 'boolean') {
-      if (userPreferences.work_on_entities !== workOnEntities) {
-        setWorkOnEntities(userPreferences.work_on_entities);
-      }
+    if (currentApp === 'data-management' && (isUser || isAccountant || !(role === 'Administrator' || role === 'Manager'))) {
+      onAppChange('project-tracker');
+      onTabChange('dashboard');
     }
-  }, [userPreferences?.work_on_entities, workOnEntities, setWorkOnEntities]);
+  }, [currentApp, role, isUser, isAccountant, onAppChange, onTabChange]);
 
   useEffect(() => {
     if (isUser && activeTab !== 'dashboard') {
@@ -133,8 +126,11 @@ export const AdminLayout: React.FC<Props> = ({
       <AppHeader
         mobileOpen={mobileOpen}
         setMobileOpen={setMobileOpen}
+        currentApp={currentApp}
+        onAppChange={onAppChange}
         activeTab={activeTab}
         onTabChange={onTabChange}
+        dashboardSubTab={dashboardSubTab}
         onPreferenceChange={onPreferenceChange}
         onNavigateToPendingUsers={onNavigateToPendingUsers}
         handleOpenProfile={() => setIsProfileOpen(true)}
@@ -147,14 +143,15 @@ export const AdminLayout: React.FC<Props> = ({
       <Sidebar
         mobileOpen={mobileOpen}
         onMobileClose={() => setMobileOpen(false)}
+        currentApp={currentApp}
         activeTab={activeTab}
         onTabChange={onTabChange}
         dashboardSubTab={dashboardSubTab}
         onDashboardSubTabChange={onDashboardSubTabChange}
-        isDashboardExpanded={isDashboardExpanded}
-        setIsDashboardExpanded={setIsDashboardExpanded}
         providedServicesSubTab={providedServicesSubTab}
         onProvidedServicesSubTabChange={onProvidedServicesSubTabChange}
+        isStatisticExpanded={isStatisticExpanded}
+        setIsStatisticExpanded={setIsStatisticExpanded}
         isProvidedServicesExpanded={isProvidedServicesExpanded}
         setIsProvidedServicesExpanded={setIsProvidedServicesExpanded}
         navItems={navItems}

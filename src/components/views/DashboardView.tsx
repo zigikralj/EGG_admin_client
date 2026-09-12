@@ -35,6 +35,9 @@ import { useAuth } from '../../context/AuthContext';
 import { ArrowUpwardIcon, ArrowDownwardIcon, AddIcon } from '../icons';
 
 const StatisticsCharts = React.lazy(() => import('../StatisticsCharts'));
+const ProvidedServicesStatistics = React.lazy(() =>
+  import('../ProvidedServicesStatistics').then((m) => ({ default: m.ProvidedServicesStatistics }))
+);
 
 
 interface Props {
@@ -127,8 +130,8 @@ const DashboardView: React.FC<Props> = ({
   onWasteManagementRowsPerPageChange,
 }) => {
   const { t, getServiceLabel } = useLanguage();
-  const { currentUser, isAccountant, role, canToggleEntityWorkMode } = useAuth();
-  const canViewWasteDisposal = canToggleEntityWorkMode || role === 'Administrator' || role === 'Manager' || isAccountant;
+  const { currentUser, isAccountant, role } = useAuth();
+  const canViewWasteDisposal = role === 'Administrator' || role === 'Manager' || isAccountant;
 
   // Projects subtab state & filtering
   const [searchQuery, setSearchQuery] = useState('');
@@ -518,6 +521,23 @@ const DashboardView: React.FC<Props> = ({
         </Box>
       )}
 
+      {/* WASTE MANAGEMENT STATISTIC VIEW */}
+      {(dashboardSubTab === 'statistic-waste-management' || dashboardSubTab === 'waste-management') && (
+        <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>}>
+            <ProvidedServicesStatistics
+              providedServices={providedServices}
+              services={services}
+              clients={clients}
+              categories={categories}
+              projects={projects}
+              invoices={invoices}
+              title={t('subTabWasteManagement')}
+            />
+          </Suspense>
+        </Box>
+      )}
+
       {/* REMINDERS ONLY VIEW */}
       {dashboardSubTab === 'reminders' && (
         <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -573,7 +593,7 @@ const DashboardView: React.FC<Props> = ({
       )}
 
       {/* WASTE DISPOSAL ONLY VIEW */}
-      {(dashboardSubTab === 'waste-disposal' || dashboardSubTab === 'waste-management') && canViewWasteDisposal && (
+      {dashboardSubTab === 'waste-disposal' && canViewWasteDisposal && (
         <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5, mb: 0.5 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>

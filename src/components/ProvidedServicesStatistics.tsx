@@ -56,6 +56,7 @@ interface Props {
   categories?: Category[];
   projects?: Project[];
   invoices?: Invoice[];
+  title?: string;
 }
 
 export const ProvidedServicesStatistics: React.FC<Props> = ({
@@ -63,6 +64,7 @@ export const ProvidedServicesStatistics: React.FC<Props> = ({
   services,
   clients,
   invoices = [],
+  title,
 }) => {
   const { t, language } = useLanguage();
 
@@ -523,7 +525,7 @@ export const ProvidedServicesStatistics: React.FC<Props> = ({
         </Box>
         <Box>
           <Typography variant="h6" sx={{ fontWeight: 700 }}>
-            {t('providedServicesStatistics')}
+            {title || t('providedServicesStatistics')}
           </Typography>
           <Typography variant="caption" color="text.secondary">
             {t('totalProvidedServices')}: {totalCount}

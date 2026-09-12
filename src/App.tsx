@@ -3,6 +3,7 @@ import { CircularProgress, Box } from '@mui/material';
 import type {
   Project,
   ActiveTab,
+  AppSection,
   DashboardSubTab,
   ProvidedServicesSubTab,
   SaveResult,
@@ -47,11 +48,20 @@ function MainApp() {
   const { currentUser, isAccountant } = useAuth();
 
   // ── UI State ────────────────────────────────────────────────────────────────
+  const [currentApp, setCurrentApp] = useState<AppSection>('project-tracker');
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [dashboardSubTab, setDashboardSubTab] = useState<DashboardSubTab>('projects');
   const [providedServicesSubTab, setProvidedServicesSubTab] = useState<ProvidedServicesSubTab>('summary');
-  const [usersFilterStatus, setUsersFilterStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  const handleAppChange = useCallback((app: AppSection) => {
+    setCurrentApp(app);
+    if (app === 'project-tracker') {
+      setActiveTab('dashboard');
+    } else if (app === 'data-management') {
+      setActiveTab((prev) => (prev === 'dashboard' ? 'projects' : prev));
+    }
+  }, []);
 
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -265,14 +275,16 @@ function MainApp() {
       onThemeChange={(mode) => updatePreference('theme', mode)}
     >
       <AdminLayout
+        currentApp={currentApp}
+        onAppChange={handleAppChange}
         activeTab={activeTab}
         onTabChange={(tab) => {
           setActiveTab(tab);
-          if (tab === 'users') setUsersFilterStatus('all');
         }}
         onNavigateToPendingUsers={() => {
+          setCurrentApp('data-management');
           setActiveTab('users');
-          setUsersFilterStatus('pending');
+          updatePreference('quick_filter_users', 'pending');
         }}
         onOpenProject={handleOpenProjectById}
         dashboardSubTab={dashboardSubTab}
@@ -307,14 +319,17 @@ function MainApp() {
             onEditProject={handleEditProject}
             onDeleteProject={projectsHook.handleDeleteProject}
             onNavigateToProjects={() => {
+              setCurrentApp('project-tracker');
               setActiveTab('dashboard');
               setDashboardSubTab('projects');
             }}
             onNavigateToInvoices={() => {
               if (isAccountant) {
+                setCurrentApp('project-tracker');
                 setActiveTab('dashboard');
                 setDashboardSubTab('invoices');
               } else {
+                setCurrentApp('data-management');
                 setActiveTab('invoices');
               }
             }}
@@ -480,7 +495,6 @@ function MainApp() {
             onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_users', rpp)}
             sortState={userPreferences.sort_users}
             onSortChange={(sort) => updatePreference('sort_users', sort)}
-            initialFilterStatus={usersFilterStatus}
             quickFilter={userPreferences.quick_filter_users || 'all'}
             onQuickFilterChange={(val) => updatePreference('quick_filter_users', val)}
             onRefresh={fetchers.fetchUsers}

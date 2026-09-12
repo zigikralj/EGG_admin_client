@@ -36,7 +36,7 @@ The client talks to a separate Express 5 REST API server (see `../server/`).
 ### Context Providers (`src/context/`)
 | File | Provider | Hook | Key Responsibilities |
 |---|---|---|---|
-| `AuthContext.tsx` | `AuthProvider` | `useAuth()` | Login/register/logout, JWT token & session expiry, role resolution (effective role via admin `roleView` switch), work-on-entities toggle for Managers, RBAC booleans (`isAdmin`, `isManager`, `isUser`, `isAccountant`, `canManage*`), `canEditUser()`, `canEditProject()`, periodic auth polling with Page Visibility API. |
+| `AuthContext.tsx` | `AuthProvider` | `useAuth()` | Login/register/logout, JWT token & session expiry, role resolution (effective role via admin `roleView` switch), RBAC booleans (`isAdmin`, `isManager`, `isUser`, `isAccountant`, `canManage*`), `canEditUser()`, `canEditProject()`, periodic auth polling with Page Visibility API. |
 | `LanguageContext.tsx` | `LanguageProvider` | `useLanguage()` | `t(key, params)` translation, `getServiceLabel()`, `getResponsibleLabel()` (gender-aware), `getErrorMessage()` — lazy-loads locale dictionaries. Default language: `sr-Latn`. |
 | `ThemeContext.tsx` | `CustomThemeProvider` | `useThemeContext()` | Light/dark/system theme mode, system preference listener via `matchMedia`, syncs `data-theme` attribute on `<html>`. |
 | `NotificationContext.tsx` | `NotificationProvider` | `useNotifications()` | Fetches, polls (25s intervals with Page Visibility pausing), and manages @mention notifications. Optimistic UI for mark-read/delete/clear-all. |
@@ -157,13 +157,17 @@ App.tsx (root orchestrator)
   └── Views receive data + handlers as props
 ```
 
-### RBAC Pattern
+### RBAC Pattern & Developer Admin Rule
 Roles are resolved through `AuthContext`:
 1. `actualRole` — the user's real role from the server
 2. `roleView` — admin can simulate any role (stored in `admin_role_view` localStorage)
 3. `effectiveRole` — what's actually used for permission checks
-4. Manager `workOnEntities` toggle — switches between Manager mode and User view mode
-5. Boolean flags: `isAdmin`, `isManager`, `isUser`, `isAccountant`, `canManage*`
+4. Boolean flags: `isAdmin`, `isManager`, `isUser`, `isAccountant`, `canManage*`
+
+> [!IMPORTANT]
+> **CRITICAL RULE — Developer Administrator Visibility:**
+> The developer operates using an Administrator account. Administrator level **MUST see everything and have full access to all features**.
+> **NEVER hide any options, switches, menus, or features from Administrator.** If something is available to Manager, Accountant, or User, Administrator MUST have full access and visibility.
 
 ### API Calls
 - Always use `apiFetch()` from `src/api.ts` — never raw `fetch()`

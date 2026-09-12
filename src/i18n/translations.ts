@@ -6,6 +6,12 @@ export interface TranslationKeys {
   brandLocation: string;
   headerProjectTracker: string;
   adminRole: string;
+  appsTitle: string;
+  appProjectTracker: string;
+  appProjectTrackerDesc: string;
+  appDataManagement: string;
+  appDataManagementDesc: string;
+  appCurrentActive: string;
 
   // Tabs
   tabDashboard: string;

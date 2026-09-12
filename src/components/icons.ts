@@ -3,6 +3,7 @@ export { default as AccountBalanceIcon } from '@mui/icons-material/AccountBalanc
 export { default as AccountCircleIcon } from '@mui/icons-material/AccountCircle';
 export { default as AddIcon } from '@mui/icons-material/Add';
 export { default as AlternateEmailIcon } from '@mui/icons-material/AlternateEmail';
+export { default as AppsIcon } from '@mui/icons-material/Apps';
 export { default as ArrowDownwardIcon } from '@mui/icons-material/ArrowDownward';
 export { default as ArrowDropDownIcon } from '@mui/icons-material/ArrowDropDown';
 export { default as ArrowForwardIcon } from '@mui/icons-material/ArrowForward';
@@ -83,6 +84,7 @@ export { default as ShowChartIcon } from '@mui/icons-material/ShowChart';
 export { default as SortIcon } from '@mui/icons-material/Sort';
 export { default as StarIcon } from '@mui/icons-material/Star';
 export { default as StarBorderIcon } from '@mui/icons-material/StarBorder';
+export { default as StorageIcon } from '@mui/icons-material/Storage';
 export { default as StrikethroughSIcon } from '@mui/icons-material/StrikethroughS';
 export { default as TitleIcon } from '@mui/icons-material/Title';
 export { default as UndoIcon } from '@mui/icons-material/Undo';

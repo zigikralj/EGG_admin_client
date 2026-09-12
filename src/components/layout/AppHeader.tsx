@@ -9,14 +9,13 @@ import {
   FormControl,
   Select,
   MenuItem,
-  FormControlLabel,
-  Switch,
   Badge,
   Avatar,
   Menu,
   Divider,
   ListItemIcon,
   ListItemText,
+  Chip,
 } from '@mui/material';
 
 
@@ -31,18 +30,19 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { useRoleLabels } from '../../hooks/useRoleLabels';
-import type { ActiveTab } from '../../types';
-import type { TranslationKeys } from '../../i18n/translations';
+import type { ActiveTab, AppSection, DashboardSubTab } from '../../types';
 import { DRAWER_WIDTH } from './Sidebar';
 import { NotificationsMenu } from './NotificationsMenu';
 import {
   MenuIcon,
   BusinessIcon,
-  PersonAddIcon,
   AccountCircleIcon,
   SettingsIcon,
   LogoutIcon,
   NotificationsIcon,
+  AppsIcon,
+  StorageIcon,
+  DashboardIcon,
 } from '../icons';
 
 interface AppHeaderProps {
@@ -50,6 +50,9 @@ interface AppHeaderProps {
   setMobileOpen: React.Dispatch<React.SetStateAction<boolean>>;
   activeTab: ActiveTab;
   onTabChange: (tab: ActiveTab) => void;
+  currentApp: AppSection;
+  onAppChange: (app: AppSection) => void;
+  dashboardSubTab?: DashboardSubTab;
   onPreferenceChange?: (key: string, value: any) => void;
   onNavigateToPendingUsers?: () => void;
   handleOpenProfile: () => void;
@@ -59,25 +62,13 @@ interface AppHeaderProps {
   onOpenProject?: (projectId: string) => void;
 }
 
-const tabTranslationKeys: Record<ActiveTab, keyof TranslationKeys> = {
-  dashboard: 'tabDashboard',
-  projects: 'tabProjects',
-  clients: 'tabClients',
-  users: 'tabUsers',
-  services: 'tabServices',
-  providedServices: 'tabProvidedServices',
-  categories: 'tabCategories',
-  reminders: 'tabReminders',
-  invoices: 'tabInvoices',
-  permits: 'tabPermits',
-};
-
 export const AppHeader: React.FC<AppHeaderProps> = ({
   mobileOpen,
   setMobileOpen,
   activeTab,
   onTabChange,
-  onPreferenceChange,
+  currentApp,
+  onAppChange,
   onNavigateToPendingUsers,
   handleOpenProfile,
   handleOpenPreferences,
@@ -94,12 +85,24 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     isRealAdmin,
     roleView,
     setRoleView,
-    canToggleEntityWorkMode,
-    workOnEntities,
-    setWorkOnEntities,
+    isUser,
+    isAccountant,
     pendingUsersCount,
     logout,
   } = useAuth();
+
+  const canSeePendingUsers = (isRealAdmin || role === 'Manager') && pendingUsersCount > 0;
+  const totalNotificationsCount = unreadCount + (canSeePendingUsers ? pendingUsersCount : 0);
+
+  const [appsAnchorEl, setAppsAnchorEl] = React.useState<null | HTMLElement>(null);
+  const isAppsMenuOpen = Boolean(appsAnchorEl);
+
+  const handleAppsMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAppsAnchorEl(event.currentTarget);
+  };
+  const handleAppsMenuClose = () => {
+    setAppsAnchorEl(null);
+  };
 
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const isMenuOpen = Boolean(anchorEl);
@@ -136,7 +139,13 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
       }}
     >
-      <Toolbar sx={{ justifyContent: 'space-between', gap: { xs: 1, sm: 2 }, px: { xs: 1.5, sm: 3 } }}>
+      <Toolbar
+        sx={{
+          justifyContent: 'space-between',
+          gap: { xs: 1, md: 0 },
+          px: { xs: 1.5, sm: 3 },
+        }}
+      >
         {/* HAMBURGER MENU BUTTON FOR MOBILE */}
         <IconButton
           color="inherit"
@@ -148,38 +157,44 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           <MenuIcon />
         </IconButton>
 
-        {/* BRAND LOGO & COMPANY INFO */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.75, sm: 1.25 } }}>
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              cursor: 'pointer',
-              minWidth: { xs: 'auto', md: DRAWER_WIDTH - 24 - 44 },
-              py: 0.5,
-            }}
-            onClick={() => {
-              onTabChange('dashboard');
-              setMobileOpen(false);
-            }}
-          >
-            <Box
-              component="img"
-              src={logoUrl}
-              alt="Ekos Green Group"
+        {/* LEFT: APPS SWITCHER, COMPANY INFO, BRAND LOGO */}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: { xs: 0.75, sm: 1.25 },
+            width: { xs: 'auto', md: DRAWER_WIDTH - 24 },
+            minWidth: { xs: 'auto', md: DRAWER_WIDTH - 24 },
+            flexShrink: 0,
+          }}
+        >
+          {/* APPS SWITCHER BUTTON */}
+          <Tooltip title={t('appsTitle')} arrow>
+            <IconButton
+              onClick={handleAppsMenuOpen}
+              size="small"
               sx={{
-                height: { xs: 32, sm: 38 },
-                maxHeight: 42,
-                width: 'auto',
-                objectFit: 'contain',
-                transition: 'opacity 0.2s ease',
+                color: isAppsMenuOpen ? '#ffffff' : 'rgba(255, 255, 255, 0.9)',
+                bgcolor: isAppsMenuOpen ? 'rgba(46, 125, 50, 0.35)' : 'rgba(255, 255, 255, 0.1)',
+                border: '1px solid',
+                borderColor: isAppsMenuOpen ? 'primary.main' : 'rgba(255, 255, 255, 0.2)',
+                p: { xs: 0.6, sm: 0.75 },
+                borderRadius: 2,
+                transition: 'all 0.2s ease',
                 '&:hover': {
-                  opacity: 0.85,
+                  color: '#ffffff',
+                  bgcolor: 'rgba(255, 255, 255, 0.22)',
+                  borderColor: 'rgba(255, 255, 255, 0.4)',
+                  transform: 'translateY(-1px)',
                 },
               }}
-            />
-          </Box>
+              aria-label={t('appsTitle')}
+            >
+              <AppsIcon sx={{ fontSize: { xs: 18, sm: 20 } }} />
+            </IconButton>
+          </Tooltip>
 
+          {/* COMPANY INFO BUTTON */}
           <Tooltip title={t('companyInfoTitle')} arrow>
             <IconButton
               onClick={(e) => {
@@ -206,15 +221,66 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               <BusinessIcon sx={{ fontSize: { xs: 18, sm: 20 } }} />
             </IconButton>
           </Tooltip>
+
+          {/* BRAND LOGO */}
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexGrow: 1,
+              cursor: 'pointer',
+              py: 0.5,
+            }}
+            onClick={() => {
+              onAppChange('project-tracker');
+              onTabChange('dashboard');
+              setMobileOpen(false);
+            }}
+          >
+            <Box
+              component="img"
+              src={logoUrl}
+              alt="Ekos Green Group"
+              sx={{
+                height: { xs: 32, sm: 38 },
+                maxHeight: 42,
+                width: 'auto',
+                objectFit: 'contain',
+                transition: 'opacity 0.2s ease',
+                '&:hover': {
+                  opacity: 0.85,
+                },
+              }}
+            />
+          </Box>
         </Box>
 
-        {/* PAGE TITLE */}
-        <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'block' } }}>
-          {activeTab !== 'dashboard' && (
-            <Typography variant="h6" sx={{ fontWeight: 700, color: '#ffffff' }}>
-              {t(tabTranslationKeys[activeTab])}
-            </Typography>
-          )}
+        {/* MIDDLE: APP NAME */}
+        <Box
+          sx={{
+            flexGrow: 1,
+            display: { xs: 'none', sm: 'flex' },
+            alignItems: 'center',
+            justifyContent: 'flex-start',
+            pl: { sm: 2, md: 3 },
+            pr: { sm: 2, md: 3 },
+            minWidth: 0,
+          }}
+        >
+          <Typography
+            variant="h6"
+            noWrap
+            sx={{
+              fontWeight: 700,
+              fontSize: { sm: '1.05rem', md: '1.2rem' },
+              color: '#ffffff',
+              letterSpacing: '0.02em',
+              textAlign: 'left',
+            }}
+          >
+            {currentApp === 'project-tracker' ? t('appProjectTracker') : t('appDataManagement')}
+          </Typography>
         </Box>
 
         {/* RIGHT SIDE CONTROLS */}
@@ -251,44 +317,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             </FormControl>
           )}
 
-          {/* ENTITY WORK MODE SWITCH FOR MANAGER / ADMIN (DESKTOP ONLY) */}
-          {canToggleEntityWorkMode && (
-            <Tooltip title={workOnEntities ? t('lblEntityWorkModeOn') : t('lblEntityWorkModeOff')}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={workOnEntities}
-                    onChange={(e) => {
-                      const nextVal = e.target.checked;
-                      setWorkOnEntities(nextVal);
-                      if (onPreferenceChange) {
-                        onPreferenceChange('work_on_entities', nextVal);
-                      }
-                    }}
-                    color="primary"
-                    size="small"
-                  />
-                }
-                label={
-                  <Typography variant="body2" sx={{ color: '#ffffff', fontWeight: 600, fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
-                    {t('switchWorkOnEntities')}
-                  </Typography>
-                }
-                sx={{
-                  mr: 0,
-                  ml: 0,
-                  bgcolor: workOnEntities ? 'rgba(25, 118, 210, 0.25)' : 'rgba(255, 255, 255, 0.08)',
-                  border: '1px solid',
-                  borderColor: workOnEntities ? 'primary.main' : 'rgba(255, 255, 255, 0.2)',
-                  borderRadius: 2,
-                  px: 1.2,
-                  py: 0.2,
-                  transition: 'all 0.2s ease',
-                  display: { xs: 'none', md: 'inline-flex' },
-                }}
-              />
-            </Tooltip>
-          )}
 
           {/* NOTIFICATIONS BELL BUTTON */}
           <Tooltip title={t('notificationsTitle')} arrow>
@@ -313,8 +341,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               aria-label={t('notificationsTitle')}
             >
               <Badge
-                badgeContent={unreadCount}
-                color="error"
+                badgeContent={totalNotificationsCount}
+                color={unreadCount > 0 ? 'error' : 'warning'}
                 sx={{
                   '& .MuiBadge-badge': {
                     fontWeight: 700,
@@ -376,35 +404,20 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 </Typography>
               </Box>
 
-              <Badge
-                badgeContent={pendingUsersCount}
-                color="warning"
-                overlap="circular"
-                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                invisible={!canToggleEntityWorkMode || pendingUsersCount <= 0}
+              <Avatar
+                src={currentUser?.avatarUrl || undefined}
                 sx={{
-                  '& .MuiBadge-badge': {
-                    fontWeight: 700,
-                    fontSize: '0.7rem',
-                    boxShadow: '0 0 0 2px #121a16',
-                  },
+                  bgcolor: currentUser ? 'primary.main' : 'grey.400',
+                  width: 38,
+                  height: 38,
+                  fontWeight: 700,
+                  fontSize: '0.875rem',
+                  boxShadow: isMenuOpen ? '0 0 0 2px rgba(25, 118, 210, 0.4)' : 'none',
+                  transition: 'all 0.2s ease-in-out',
                 }}
               >
-                <Avatar
-                  src={currentUser?.avatarUrl || undefined}
-                  sx={{
-                    bgcolor: currentUser ? 'primary.main' : 'grey.400',
-                    width: 38,
-                    height: 38,
-                    fontWeight: 700,
-                    fontSize: '0.875rem',
-                    boxShadow: isMenuOpen ? '0 0 0 2px rgba(25, 118, 210, 0.4)' : 'none',
-                    transition: 'all 0.2s ease-in-out',
-                  }}
-                >
-                  {initials}
-                </Avatar>
-              </Badge>
+                {initials}
+              </Avatar>
             </Box>
           </Tooltip>
 
@@ -462,58 +475,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             )}
             {currentUser && <Divider sx={{ my: 0.5 }} />}
 
-            {(isRealAdmin || canToggleEntityWorkMode) && pendingUsersCount > 0 && (
-              <MenuItem
-                onClick={() => {
-                  handleMenuClose();
-                  if (isRealAdmin && roleView !== 'Administrator') {
-                    setRoleView('Administrator');
-                  }
-                  if (!workOnEntities) {
-                    setWorkOnEntities(true);
-                    if (onPreferenceChange) {
-                      onPreferenceChange('work_on_entities', true);
-                    }
-                  }
-                  if (onNavigateToPendingUsers) {
-                    onNavigateToPendingUsers();
-                  } else {
-                    onTabChange('users');
-                  }
-                }}
-                sx={{
-                  borderRadius: 1.5,
-                  py: 1.2,
-                  px: 2,
-                  my: 0.5,
-                  bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(237, 108, 2, 0.15)' : 'warning.50',
-                  border: '1px solid',
-                  borderColor: 'warning.main',
-                  '&:hover': {
-                    bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(237, 108, 2, 0.25)' : 'warning.100',
-                  },
-                }}
-              >
-                <ListItemIcon>
-                  <Badge badgeContent={pendingUsersCount} color="warning">
-                    <PersonAddIcon fontSize="small" color="warning" />
-                  </Badge>
-                </ListItemIcon>
-                <ListItemText
-                  primary={
-                    <Typography variant="body2" sx={{ fontWeight: 700, color: 'warning.main' }}>
-                      {t('menuPendingUsers', { count: pendingUsersCount })}
-                    </Typography>
-                  }
-                  secondary={
-                    <Typography variant="caption" color="text.secondary">
-                      {t('menuPendingUsersSub')}
-                    </Typography>
-                  }
-                />
-              </MenuItem>
-            )}
-
             <MenuItem onClick={() => { handleMenuClose(); handleOpenProfile(); }} sx={{ borderRadius: 1.5, py: 1.2, px: 2 }}>
               <ListItemIcon>
                 <AccountCircleIcon fontSize="small" color="action" />
@@ -563,12 +524,150 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             </MenuItem>
           </Menu>
 
+          {/* APPS DROPDOWN MENU */}
+          <Menu
+            id="apps-menu"
+            anchorEl={appsAnchorEl}
+            open={isAppsMenuOpen}
+            onClose={handleAppsMenuClose}
+            slotProps={{
+              paper: {
+                elevation: 6,
+                sx: {
+                  overflow: 'visible',
+                  filter: 'drop-shadow(0px 8px 24px rgba(0,0,0,0.25))',
+                  mt: 1.5,
+                  minWidth: 290,
+                  borderRadius: 3,
+                  p: 1,
+                  bgcolor: (theme) => (theme.palette.mode === 'dark' ? '#1a231f' : '#ffffff'),
+                },
+              },
+            }}
+            transformOrigin={{ horizontal: 'left', vertical: 'top' }}
+            anchorOrigin={{ horizontal: 'left', vertical: 'bottom' }}
+          >
+
+            {/* APP: PROJECT TRACKER */}
+            <MenuItem
+              onClick={() => {
+                handleAppsMenuClose();
+                onAppChange('project-tracker');
+                onTabChange('dashboard');
+                setMobileOpen(false);
+              }}
+              selected={currentApp === 'project-tracker'}
+              sx={{
+                borderRadius: 2,
+                py: 1.2,
+                px: 1.5,
+                my: 0.5,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                bgcolor: currentApp === 'project-tracker' ? 'action.selected' : 'transparent',
+              }}
+            >
+              <Box
+                sx={{
+                  p: 1,
+                  borderRadius: 2,
+                  bgcolor: currentApp === 'project-tracker' ? 'primary.main' : 'action.hover',
+                  color: currentApp === 'project-tracker' ? '#ffffff' : 'primary.main',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <DashboardIcon fontSize="small" />
+              </Box>
+              <Box sx={{ flexGrow: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="body2" sx={{ fontWeight: currentApp === 'project-tracker' ? 700 : 600 }}>
+                    {t('appProjectTracker')}
+                  </Typography>
+                  {currentApp === 'project-tracker' && (
+                    <Chip
+                      label={t('appCurrentActive')}
+                      size="small"
+                      color="primary"
+                      sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700 }}
+                    />
+                  )}
+                </Box>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.725rem' }}>
+                  {t('appProjectTrackerDesc')}
+                </Typography>
+              </Box>
+            </MenuItem>
+
+            {/* APP: DATA MANAGEMENT (ADMIN AND MANAGER ONLY) */}
+            {!isUser && !isAccountant && (role === 'Administrator' || role === 'Manager') && (
+              <MenuItem
+                onClick={() => {
+                  handleAppsMenuClose();
+                  onAppChange('data-management');
+                  if (activeTab === 'dashboard') {
+                    onTabChange('projects');
+                  }
+                  setMobileOpen(false);
+                }}
+                selected={currentApp === 'data-management'}
+                sx={{
+                  borderRadius: 2,
+                  py: 1.2,
+                  px: 1.5,
+                  my: 0.5,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1.5,
+                  bgcolor: currentApp === 'data-management' ? 'action.selected' : 'transparent',
+                }}
+              >
+                <Box
+                  sx={{
+                    p: 1,
+                    borderRadius: 2,
+                    bgcolor: currentApp === 'data-management' ? 'primary.main' : 'action.hover',
+                    color: currentApp === 'data-management' ? '#ffffff' : 'primary.main',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <StorageIcon fontSize="small" />
+                </Box>
+                <Box sx={{ flexGrow: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="body2" sx={{ fontWeight: currentApp === 'data-management' ? 700 : 600 }}>
+                      {t('appDataManagement')}
+                    </Typography>
+                    {currentApp === 'data-management' && (
+                      <Chip
+                        label={t('appCurrentActive')}
+                        size="small"
+                        color="primary"
+                        sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700 }}
+                      />
+                    )}
+                  </Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.725rem' }}>
+                    {t('appDataManagementDesc')}
+                  </Typography>
+                </Box>
+              </MenuItem>
+            )}
+          </Menu>
+
           {/* NOTIFICATIONS DROPDOWN MENU */}
           <NotificationsMenu
             anchorEl={notifAnchorEl}
             isOpen={isNotifMenuOpen}
             onClose={handleNotifClose}
             onOpenProject={onOpenProject}
+            onNavigateToPendingUsers={onNavigateToPendingUsers}
+            onAppChange={onAppChange}
+            onTabChange={onTabChange}
           />
         </Box>
       </Toolbar>
