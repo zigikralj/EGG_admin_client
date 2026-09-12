@@ -22,8 +22,8 @@ import {
 
 import { useLanguage } from '../../context/LanguageContext';
 import { useThemeContext } from '../../context/ThemeContext';
-import { LanguageSelector } from '../LanguageSelector';
-import { TableOptionsSelector, type ColumnDef } from '../ColumnSelector';
+import { LanguageSelector } from '../common/LanguageSelector';
+import { TableOptionsSelector, type ColumnDef } from '../common/ColumnSelector';
 import { CloseIcon, LightModeIcon, DarkModeIcon, SettingsBrightnessIcon } from '../icons';
 
 type EntityType = 'projects' | 'clients' | 'users' | 'services' | 'providedServices' | 'categories' | 'reminders' | 'invoices';

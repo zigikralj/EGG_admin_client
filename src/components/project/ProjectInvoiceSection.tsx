@@ -27,9 +27,9 @@ import {
 import type { Invoice, Project } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { parseInvoiceNotes, serializeInvoiceNotes } from '../../utils/invoiceUtils';
-import { InvoiceStatusChip, InvoiceTypeChip, LinkedInvoiceChip } from '../shared/InvoiceChips';
-import { InvoiceFormFields } from '../shared/InvoiceFormFields';
-import { InvoiceItemsList } from '../shared/InvoiceItemsList';
+import { InvoiceStatusChip, InvoiceTypeChip, LinkedInvoiceChip } from '../invoice/InvoiceChips';
+import { InvoiceFormFields } from '../invoice/InvoiceFormFields';
+import { InvoiceItemsList } from '../invoice/InvoiceItemsList';
 import { ReceiptLongIcon, AddIcon, CloseIcon, CheckCircleIcon, EditIcon, LinkOffIcon, DeleteIcon, LinkIcon } from '../icons';
 
 interface ProjectInvoiceSectionProps {

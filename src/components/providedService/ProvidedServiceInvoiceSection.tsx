@@ -20,9 +20,9 @@ import {
 import type { Invoice, SaveResult } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useInvoiceFormState } from '../../hooks/useInvoiceFormState';
-import { InvoiceStatusChip, InvoiceTypeChip, LinkedInvoiceChip } from '../shared/InvoiceChips';
-import { InvoiceFormFields } from '../shared/InvoiceFormFields';
-import { InvoiceItemsList } from '../shared/InvoiceItemsList';
+import { InvoiceStatusChip, InvoiceTypeChip, LinkedInvoiceChip } from '../invoice/InvoiceChips';
+import { InvoiceFormFields } from '../invoice/InvoiceFormFields';
+import { InvoiceItemsList } from '../invoice/InvoiceItemsList';
 import { serializeInvoiceNotes, enhanceInvoicesWithLinks } from '../../utils/invoiceUtils';
 import {
   ReceiptLongIcon,

@@ -1,8 +1,8 @@
-name: Version Bump & Release
+name: Bump Version on PR Merge
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, labeled, closed]
+    types: [closed]
     branches: ["main"]
   workflow_dispatch:
     inputs:
@@ -18,26 +18,20 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
+  pull-requests: read
   actions: write
 
 jobs:
-  # ------------------------------------------------------------------
-  # JOB 1: Precondition - Bump version on the PR branch (merging branch)
-  # Runs while the PR is open / synchronized / labeled
-  # Pushes the version bump commit directly to github.head_ref (NOT to main)
-  # ------------------------------------------------------------------
-  bump-pr-branch:
-    name: Bump Version on PR Branch
+  bump-version:
     if: |
-      (github.event_name == 'pull_request' && github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository) ||
-      (github.event_name == 'workflow_dispatch' && github.ref_name != 'main')
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true) ||
+      github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout PR branch
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref || github.ref_name }}
+          ref: ${{ github.event.pull_request.base.ref || github.ref_name }}
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -46,76 +40,114 @@ jobs:
         with:
           node-version: 20
 
-      - name: Fetch origin main
-        run: |
-          git fetch origin main --tags || true
-
-      - name: Evaluate Version Bump
-        id: check_bump
+      - name: Determine Version Bump Type
+        id: determine_bump
         run: |
           node -e '
             const fs = require("fs");
-            const { execSync } = require("child_process");
-
+            
             const eventName = process.env.EVENT_NAME;
             const dispatchBump = process.env.DISPATCH_BUMP;
             const prTitle = process.env.PR_TITLE || "";
-            const prNumber = process.env.PR_NUMBER || "";
-            const prAuthor = process.env.PR_AUTHOR || "contributor";
             const prLabelsJson = process.env.PR_LABELS || "[]";
-
+            
+            if (eventName === "workflow_dispatch") {
+              console.log("Bump type from dispatch:", dispatchBump);
+              fs.appendFileSync(process.env.GITHUB_OUTPUT, "bump_type=" + dispatchBump + "\n");
+              fs.appendFileSync(process.env.GITHUB_OUTPUT, "skip=false\n");
+              process.exit(0);
+            }
+            
             let labels = [];
             try {
               labels = JSON.parse(prLabelsJson).map(l => (typeof l === "string" ? l : l.name).toLowerCase());
             } catch (e) {
               console.log("Error parsing labels:", e.message);
             }
-
+            
             console.log("PR Labels:", labels);
             console.log("PR Title:", prTitle);
-
-            // 1. Check for skip indicators (only in PR events)
-            if (eventName === "pull_request") {
-              if (
-                labels.includes("no-release") ||
-                labels.includes("skip-release") ||
-                prTitle.toLowerCase().startsWith("chore(release)") ||
-                prTitle.toLowerCase().includes("[skip release]") ||
-                prTitle.toLowerCase().includes("[skip ci]")
-              ) {
-                console.log("Skipping version bump due to skip label or title marker.");
-                fs.appendFileSync(process.env.GITHUB_OUTPUT, "should_bump=false\n");
-                process.exit(0);
-              }
+            
+            // Check for skip indicators
+            if (
+              labels.includes("no-release") ||
+              labels.includes("skip-release") ||
+              prTitle.toLowerCase().startsWith("chore(release)") ||
+              prTitle.toLowerCase().includes("[skip release]")
+            ) {
+              console.log("Skipping version bump as requested.");
+              fs.appendFileSync(process.env.GITHUB_OUTPUT, "skip=true\n");
+              process.exit(0);
             }
-
-            // 2. Determine bump type
-            let bumpType = "patch";
-            if (eventName === "workflow_dispatch" && dispatchBump) {
-              bumpType = dispatchBump;
-            } else if (labels.includes("release:major") || labels.includes("major")) {
-              bumpType = "major";
+            
+            let bump = "patch";
+            if (labels.includes("release:major") || labels.includes("major")) {
+              bump = "major";
             } else if (labels.includes("release:minor") || labels.includes("minor")) {
-              bumpType = "minor";
+              bump = "minor";
             } else if (labels.includes("release:patch") || labels.includes("patch")) {
-              bumpType = "patch";
+              bump = "patch";
             } else {
+              // Analyze PR title using Conventional Commits
               const title = prTitle.trim();
               if (title.includes("BREAKING CHANGE") || /^[a-z]+(\([^)]*\))?!:/.test(title)) {
-                bumpType = "major";
+                bump = "major";
               } else if (/^feat(\([^)]*\))?:/i.test(title)) {
-                bumpType = "minor";
+                bump = "minor";
               } else {
-                bumpType = "patch";
+                bump = "patch";
               }
             }
-            console.log("Determined bump type:", bumpType);
+            
+            console.log("Determined bump type:", bump);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, "bump_type=" + bump + "\n");
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, "skip=false\n");
+          '
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_BUMP: ${{ github.event.inputs.bump_type }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels) }}
 
-            // 3. Helper functions for semver comparison
+      - name: Calculate New Version & Prepare Release Notes
+        if: steps.determine_bump.outputs.skip == 'false'
+        id: bump
+        run: |
+          node -e '
+            const fs = require("fs");
+            const { execSync } = require("child_process");
+            
+            const bumpType = process.env.BUMP_TYPE;
+            const prTitle = process.env.PR_TITLE || "Manual Release";
+            const prNumber = process.env.PR_NUMBER || "";
+            const prAuthor = process.env.PR_AUTHOR || "maintainer";
+            
+            // 1. Determine latest version from git tags and package.json
+            let baseVersion = "1.0.0";
+            let tagVersion = "";
+            let pkgVersion = "";
+            try {
+              const tags = execSync("git tag -l \"v*\" --sort=-v:refname", { encoding: "utf8" })
+                .split("\n")
+                .map(t => t.trim().replace(/^v/, ""))
+                .filter(Boolean);
+              if (tags.length > 0) {
+                tagVersion = tags[0];
+              }
+            } catch (e) {
+              console.log("Could not read git tags:", e.message);
+            }
+
+            try {
+              const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+              pkgVersion = (pkg.version || "").replace(/^v/, "");
+            } catch (e) {
+              console.log("Could not read package.json:", e.message);
+            }
+
             function parseSemver(v) {
               if (!v) return [0, 0, 0];
-              const clean = v.replace(/^v/, "");
-              const parts = clean.split(".").map(Number);
+              const parts = v.split(".").map(Number);
               return [isNaN(parts[0]) ? 0 : parts[0], isNaN(parts[1]) ? 0 : parts[1], isNaN(parts[2]) ? 0 : parts[2]];
             }
 
@@ -127,229 +159,111 @@ jobs:
               return a3 - b3;
             }
 
-            // 4. Determine base version from origin/main and tags
-            let mainVersion = "1.0.0";
-            try {
-              const mainPkg = JSON.parse(execSync("git show origin/main:package.json", { encoding: "utf8" }));
-              mainVersion = (mainPkg.version || "1.0.0").replace(/^v/, "");
-            } catch (e) {
-              console.log("Could not read package.json from origin/main:", e.message);
-            }
-
-            let latestTag = "";
-            try {
-              const tags = execSync("git tag -l \"v*\" --sort=-v:refname", { encoding: "utf8" })
-                .split("\n")
-                .map(t => t.trim().replace(/^v/, ""))
-                .filter(Boolean);
-              if (tags.length > 0) {
-                latestTag = tags[0];
-              }
-            } catch (e) {
-              console.log("Could not read tags:", e.message);
-            }
-
-            const baseVersion = (latestTag && semverCompare(latestTag, mainVersion) > 0) ? latestTag : mainVersion;
-            console.log("Base version from main/tags:", baseVersion);
-
-            // 5. Calculate expected target version
-            const [bMaj, bMin, bPat] = parseSemver(baseVersion);
-            let tMaj = bMaj, tMin = bMin, tPat = bPat;
-            if (bumpType === "major") {
-              tMaj += 1;
-              tMin = 0;
-              tPat = 0;
-            } else if (bumpType === "minor") {
-              tMin += 1;
-              tPat = 0;
+            if (tagVersion && pkgVersion) {
+              baseVersion = semverCompare(tagVersion, pkgVersion) >= 0 ? tagVersion : pkgVersion;
             } else {
-              tPat += 1;
+              baseVersion = tagVersion || pkgVersion || "1.0.0";
             }
-            const targetVersion = [tMaj, tMin, tPat].join(".");
-            console.log("Calculated target version:", targetVersion);
-
-            // 6. Check current branch version in package.json
-            let currentBranchVersion = "";
-            try {
-              const prPkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
-              currentBranchVersion = (prPkg.version || "").replace(/^v/, "");
-            } catch (e) {
-              console.log("Could not read branch package.json:", e.message);
+            
+            const parts = baseVersion.split(".").map(Number);
+            let [major, minor, patch] = parts;
+            if (isNaN(major)) major = 1;
+            if (isNaN(minor)) minor = 0;
+            if (isNaN(patch)) patch = 0;
+            
+            if (bumpType === "major") {
+              major += 1;
+              minor = 0;
+              patch = 0;
+            } else if (bumpType === "minor") {
+              minor += 1;
+              patch = 0;
+            } else {
+              patch += 1;
             }
-            console.log("Current branch version:", currentBranchVersion);
-
-            if (currentBranchVersion === targetVersion) {
-              console.log("Branch is already at target version v" + targetVersion + ". Skipping bump.");
-              fs.appendFileSync(process.env.GITHUB_OUTPUT, "should_bump=false\n");
-              process.exit(0);
-            }
-
-            // If already bumped higher than main and matches/exceeds target, do not revert
-            if (semverCompare(currentBranchVersion, baseVersion) > 0 && semverCompare(currentBranchVersion, targetVersion) >= 0) {
-              console.log("Branch version (v" + currentBranchVersion + ") is already ahead of base (v" + baseVersion + "). Skipping bump.");
-              fs.appendFileSync(process.env.GITHUB_OUTPUT, "should_bump=false\n");
-              process.exit(0);
-            }
-
+            
+            const newVersion = [major, minor, patch].join(".");
             const prReference = prNumber ? " (#" + prNumber + ")" : "";
             const authorReference = prAuthor ? " by @" + prAuthor : "";
-            const releaseNotes = "- " + (prTitle || "Release v" + targetVersion) + prReference + authorReference;
-
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, "should_bump=true\n");
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, "target_version=" + targetVersion + "\n");
+            const releaseNotes = "- " + prTitle + prReference + authorReference;
+            
+            console.log("Calculated next version: v" + newVersion + " (from base v" + baseVersion + ")");
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, "new_version=" + newVersion + "\n");
             fs.appendFileSync(process.env.GITHUB_OUTPUT, "release_notes=" + releaseNotes + "\n");
           '
         env:
-          EVENT_NAME: ${{ github.event_name }}
-          DISPATCH_BUMP: ${{ github.event.inputs.bump_type }}
+          BUMP_TYPE: ${{ steps.determine_bump.outputs.bump_type }}
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
-          PR_LABELS: ${{ toJson(github.event.pull_request.labels) }}
 
-      - name: Apply Bump to PR Branch & Push
-        if: steps.check_bump.outputs.should_bump == 'true'
+      - name: Update package.json and CHANGELOG.md
+        if: steps.determine_bump.outputs.skip == 'false'
         env:
-          TARGET_VERSION: ${{ steps.check_bump.outputs.target_version }}
-          RELEASE_NOTES: ${{ steps.check_bump.outputs.release_notes }}
-          TARGET_BRANCH: ${{ github.head_ref || github.ref_name }}
+          NEW_VERSION: ${{ steps.bump.outputs.new_version }}
+          RELEASE_NOTES: ${{ steps.bump.outputs.release_notes }}
         run: |
-          echo "Bumping version to v${TARGET_VERSION} on branch ${TARGET_BRANCH}..."
-
-          # 1. Update package.json and package-lock.json
-          npm version "${TARGET_VERSION}" --no-git-tag-version --allow-same-version
-
+          # 1. Update version in package.json and package-lock.json
+          npm version "${NEW_VERSION}" --no-git-tag-version --allow-same-version
+          
           # 2. Prepend release notes to CHANGELOG.md
           node -e '
             const fs = require("fs");
             const changelogPath = "CHANGELOG.md";
-            const targetVersion = process.env.TARGET_VERSION;
+            const newVersion = process.env.NEW_VERSION;
             const releaseNotes = process.env.RELEASE_NOTES;
             const today = new Date().toISOString().split("T")[0];
-
+            
             if (fs.existsSync(changelogPath)) {
-              let content = fs.readFileSync(changelogPath, "utf8");
-              const versionHeader = "## [v" + targetVersion + "]";
-              if (!content.includes(versionHeader)) {
-                const newEntry = "## [v" + targetVersion + "] - " + today + "\n\n" + releaseNotes + "\n\n";
-                const marker = "All notable changes to this project will be documented in this file.\n\n";
-                if (content.includes(marker)) {
-                  content = content.replace(marker, marker + newEntry);
-                } else {
-                  content = "# Changelog\n\n" + newEntry + content.replace(/^# Changelog\n+/, "");
-                }
-                fs.writeFileSync(changelogPath, content);
-                console.log("Updated CHANGELOG.md with v" + targetVersion);
+              const content = fs.readFileSync(changelogPath, "utf8");
+              const newEntry = "## [v" + newVersion + "] - " + today + "\n\n" + releaseNotes + "\n\n";
+              const marker = "All notable changes to this project will be documented in this file.\n\n";
+              let updated;
+              if (content.includes(marker)) {
+                updated = content.replace(marker, marker + newEntry);
               } else {
-                console.log("CHANGELOG.md already has header for v" + targetVersion);
+                updated = "# Changelog\n\n" + newEntry + content.replace(/^# Changelog\n+/, "");
               }
+              fs.writeFileSync(changelogPath, updated);
+              console.log("Successfully updated CHANGELOG.md for v" + newVersion);
             }
           '
 
-          # 3. Commit and push directly to the PR branch (merging branch)
+      - name: Commit and Push Version Bump to Branch
+        if: steps.determine_bump.outputs.skip == 'false'
+        run: |
+          TARGET_BRANCH="${{ github.event.pull_request.base.ref || github.ref_name }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -B "${TARGET_BRANCH}"
           git add package.json package-lock.json CHANGELOG.md
-          git diff --staged --quiet || git commit -m "chore(release): bump version to v${TARGET_VERSION} [skip ci]"
+          git diff --staged --quiet || git commit -m "chore(release): v${{ steps.bump.outputs.new_version }} [skip release]"
           git push origin "${TARGET_BRANCH}"
 
-          echo "### 🚀 Version Bump Applied to PR Branch" >> $GITHUB_STEP_SUMMARY
-          echo "Updated \`package.json\`, \`package-lock.json\`, and \`CHANGELOG.md\` to **v${TARGET_VERSION}** on branch \`${TARGET_BRANCH}\`." >> $GITHUB_STEP_SUMMARY
-          echo "When this PR is merged to \`main\`, version **v${TARGET_VERSION}** will land directly in \`main\` and publish release **v${TARGET_VERSION}** automatically." >> $GITHUB_STEP_SUMMARY
-
-  # ------------------------------------------------------------------
-  # JOB 2: Post-merge Tag & Release
-  # Runs when the PR is merged into main (or manual dispatch on main)
-  # Reads the already-bumped version from package.json on main
-  # Creates git tag, GitHub Release, and triggers deployment
-  # NEVER pushes commits to main (avoiding branch protection violations)
-  # ------------------------------------------------------------------
-  release-on-merge:
-    name: Tag & Release on Merge
-    if: |
-      (github.event_name == 'pull_request' && github.event.pull_request.merged == true) ||
-      (github.event_name == 'workflow_dispatch' && github.ref_name == 'main')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout main
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Read Version from package.json
-        id: pkg_info
+      - name: Create and Push Git Tag
+        if: steps.determine_bump.outputs.skip == 'false'
         run: |
-          node -e '
-            const fs = require("fs");
-            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
-            const version = (pkg.version || "").replace(/^v/, "");
-            console.log("Package version on main:", version);
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, "version=" + version + "\n");
-          '
-
-      - name: Check if Tag Already Exists
-        id: tag_check
-        run: |
-          VERSION="${{ steps.pkg_info.outputs.version }}"
-          if [ -z "$VERSION" ]; then
-            echo "No version found in package.json. Skipping."
-            echo "tag_exists=true" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
-            echo "Tag v${VERSION} already exists. Skipping release."
-            echo "tag_exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "Tag v${VERSION} does not exist yet. Ready for release."
-            echo "tag_exists=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Create Git Tag and GitHub Release
-        if: steps.tag_check.outputs.tag_exists == 'false'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.pkg_info.outputs.version }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
-        run: |
-          TAG="v${VERSION}"
-          PR_REF=""
-          if [ -n "$PR_NUMBER" ]; then
-            PR_REF=" (#${PR_NUMBER})"
-          fi
-          AUTHOR_REF=""
-          if [ -n "$PR_AUTHOR" ]; then
-            AUTHOR_REF=" by @${PR_AUTHOR}"
-          fi
-          TITLE="${PR_TITLE:-Release ${TAG}}"
-          NOTES="- ${TITLE}${PR_REF}${AUTHOR_REF}"
-
-          echo "Creating Git Tag ${TAG}..."
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "${TAG}" -m "Release ${TAG}"
-          git push origin "${TAG}" || echo "Git tag push via CLI skipped or failed; GitHub Release API will create tag."
+          git tag -a "v${{ steps.bump.outputs.new_version }}" -m "Release v${{ steps.bump.outputs.new_version }}"
+          git push origin "v${{ steps.bump.outputs.new_version }}"
 
-          echo "Creating GitHub Release ${TAG}..."
-          gh release create "${TAG}" \
-            --title "${TAG}" \
-            --target main \
-            --notes "${NOTES}" || echo "GitHub release creation skipped or already exists."
-
-          echo "### 🎉 Release Published" >> $GITHUB_STEP_SUMMARY
-          echo "Successfully published **${TAG}** to GitHub Releases!" >> $GITHUB_STEP_SUMMARY
-
-      - name: Trigger Deployment
-        if: steps.tag_check.outputs.tag_exists == 'false'
+      - name: Create GitHub Release
+        if: steps.determine_bump.outputs.skip == 'false'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.pkg_info.outputs.version }}
         run: |
-          echo "Triggering deployment workflow for v${VERSION} on main..."
-          gh workflow run deploy.yml --ref main -f version="v${VERSION}" || \
-          gh workflow run deploy.yml --ref main || \
+          gh release create "v${{ steps.bump.outputs.new_version }}" \
+            --title "v${{ steps.bump.outputs.new_version }}" \
+            --notes "${{ steps.bump.outputs.release_notes }}"
+
+      - name: Trigger Deployment
+        if: steps.determine_bump.outputs.skip == 'false'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TARGET_BRANCH="${{ github.event.pull_request.base.ref || github.ref_name }}"
+          echo "Triggering deployment workflow for v${{ steps.bump.outputs.new_version }} on ${TARGET_BRANCH}..."
+          gh workflow run deploy.yml --ref "${TARGET_BRANCH}" -f version="v${{ steps.bump.outputs.new_version }}" || \
+          gh workflow run deploy.yml --ref "${TARGET_BRANCH}" || \
           echo "Deployment workflow dispatch completed or skipped."

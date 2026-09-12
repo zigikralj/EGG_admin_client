@@ -6,6 +6,12 @@ export interface TranslationKeys {
   brandLocation: string;
   headerProjectTracker: string;
   adminRole: string;
+  appsTitle: string;
+  appProjectTracker: string;
+  appProjectTrackerDesc: string;
+  appDataManagement: string;
+  appDataManagementDesc: string;
+  appCurrentActive: string;
 
   // Tabs
   tabDashboard: string;
@@ -17,6 +23,8 @@ export interface TranslationKeys {
   subTabWasteDisposal: string;
   emptyWasteDisposal: string;
   btnNewWasteDisposal: string;
+  modalNewWasteDisposal: string;
+  modalEditWasteDisposal: string;
   subTabWasteManagement: string;
   emptyWasteManagement: string;
   btnNewWasteService: string;

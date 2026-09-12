@@ -12,10 +12,12 @@ import {
   Avatar,
   ListItemText,
   Badge,
+  Chip,
 } from '@mui/material';
-import type { AppNotification } from '../../types';
+import type { AppNotification, ActiveTab, AppSection } from '../../types';
 import type { TranslationKeys } from '../../i18n/translations';
 import { useNotifications } from '../../context/NotificationContext';
+import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import {
   NotificationsIcon,
@@ -24,6 +26,7 @@ import {
   ClearAllIcon,
   DeleteIcon,
   FolderIcon,
+  PersonAddIcon,
 } from '../icons';
 
 interface NotificationsMenuProps {
@@ -31,6 +34,9 @@ interface NotificationsMenuProps {
   isOpen: boolean;
   onClose: () => void;
   onOpenProject?: (projectId: string) => void;
+  onNavigateToPendingUsers?: () => void;
+  onAppChange?: (app: AppSection) => void;
+  onTabChange?: (tab: ActiveTab) => void;
 }
 
 function formatRelativeTime(dateString: string, t: (k: keyof TranslationKeys, params?: Record<string, string | number>) => string): string {
@@ -57,8 +63,13 @@ export const NotificationsMenu: React.FC<NotificationsMenuProps> = ({
   isOpen,
   onClose,
   onOpenProject,
+  onNavigateToPendingUsers,
+  onAppChange,
+  onTabChange,
 }) => {
   const { t } = useLanguage();
+  const { role, isRealAdmin, roleView, setRoleView, pendingUsersCount } = useAuth();
+  const hasPendingUsers = (isRealAdmin || role === 'Manager') && pendingUsersCount > 0;
   const {
     notifications,
     unreadCount,
@@ -68,6 +79,8 @@ export const NotificationsMenu: React.FC<NotificationsMenuProps> = ({
     clearAllNotifications,
   } = useNotifications();
 
+  const totalBadgeCount = unreadCount + (hasPendingUsers ? pendingUsersCount : 0);
+
   const handleNotificationClick = async (notif: AppNotification) => {
     if (!notif.read) {
       await markAsRead(notif.id);
@@ -75,6 +88,19 @@ export const NotificationsMenu: React.FC<NotificationsMenuProps> = ({
     onClose();
     if (notif.projectId && onOpenProject) {
       onOpenProject(notif.projectId);
+    }
+  };
+
+  const handlePendingUsersClick = () => {
+    onClose();
+    if (isRealAdmin && roleView !== 'Administrator') {
+      setRoleView('Administrator');
+    }
+    if (onNavigateToPendingUsers) {
+      onNavigateToPendingUsers();
+    } else if (onAppChange && onTabChange) {
+      onAppChange('data-management');
+      onTabChange('users');
     }
   };
 
@@ -121,10 +147,10 @@ export const NotificationsMenu: React.FC<NotificationsMenuProps> = ({
           <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
             {t('notificationsTitle')}
           </Typography>
-          {unreadCount > 0 && (
+          {totalBadgeCount > 0 && (
             <Badge
-              badgeContent={unreadCount}
-              color="primary"
+              badgeContent={totalBadgeCount}
+              color={unreadCount > 0 ? 'primary' : 'warning'}
               sx={{
                 '& .MuiBadge-badge': {
                   position: 'static',
@@ -159,7 +185,7 @@ export const NotificationsMenu: React.FC<NotificationsMenuProps> = ({
 
       {/* NOTIFICATIONS LIST */}
       <Box sx={{ flex: 1, overflowY: 'auto', maxHeight: 380 }}>
-        {notifications.length === 0 ? (
+        {notifications.length === 0 && !hasPendingUsers ? (
           <Box
             sx={{
               py: 5,
@@ -182,6 +208,75 @@ export const NotificationsMenu: React.FC<NotificationsMenuProps> = ({
           </Box>
         ) : (
           <List disablePadding>
+            {/* PENDING USERS NOTIFICATION ITEM */}
+            {hasPendingUsers && (
+              <>
+                <ListItemButton
+                  onClick={handlePendingUsersClick}
+                  sx={{
+                    py: 1.5,
+                    px: 2,
+                    alignItems: 'flex-start',
+                    bgcolor: (theme) =>
+                      theme.palette.mode === 'dark' ? 'rgba(237, 108, 2, 0.15)' : 'warning.50',
+                    borderLeft: '4px solid',
+                    borderLeftColor: 'warning.main',
+                    transition: 'background-color 0.2s ease',
+                    '&:hover': {
+                      bgcolor: (theme) =>
+                        theme.palette.mode === 'dark' ? 'rgba(237, 108, 2, 0.25)' : 'warning.100',
+                    },
+                  }}
+                >
+                  <ListItemAvatar sx={{ minWidth: 44, mt: 0.25 }}>
+                    <Avatar
+                      sx={{
+                        width: 34,
+                        height: 34,
+                        bgcolor: 'warning.main',
+                        color: '#ffffff',
+                      }}
+                    >
+                      <PersonAddIcon sx={{ fontSize: '1.15rem' }} />
+                    </Avatar>
+                  </ListItemAvatar>
+
+                  <ListItemText
+                    primary={
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                        <Typography
+                          variant="subtitle2"
+                          sx={{
+                            fontWeight: 700,
+                            fontSize: '0.8125rem',
+                            lineHeight: 1.3,
+                            color: 'warning.main',
+                          }}
+                        >
+                          {t('menuPendingUsers', { count: pendingUsersCount })}
+                        </Typography>
+                        <Chip
+                          label={pendingUsersCount}
+                          size="small"
+                          color="warning"
+                          sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700 }}
+                        />
+                      </Box>
+                    }
+                    secondary={
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ fontSize: '0.75rem', mt: 0.25, display: 'block', lineHeight: 1.3 }}
+                      >
+                        {t('menuPendingUsersSub')}
+                      </Typography>
+                    }
+                  />
+                </ListItemButton>
+                {notifications.length > 0 && <Divider component="li" />}
+              </>
+            )}
             {notifications.map((notif, index) => {
               const isUnread = !notif.read;
               const initials = notif.authorName

@@ -22,9 +22,6 @@ interface AuthContextType {
   isAccountant: boolean;
   canManageInvoices: boolean;
   canManageProvidedServices: boolean;
-  canToggleEntityWorkMode: boolean;
-  workOnEntities: boolean;
-  setWorkOnEntities: (val: boolean) => void;
   canManageClients: boolean;
   canManagePermits: boolean;
   canManageServices: boolean;
@@ -68,20 +65,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return 'Administrator';
   });
 
-  const [workOnEntities, setWorkOnEntitiesState] = useState<boolean>(() => {
-    try {
-      const stored = localStorage.getItem('work_on_entities');
-      if (stored !== null) return JSON.parse(stored);
-    } catch (e) {}
-    return true;
-  });
 
-  const setWorkOnEntities = React.useCallback((val: boolean) => {
-    setWorkOnEntitiesState(val);
-    try {
-      localStorage.setItem('work_on_entities', JSON.stringify(val));
-    } catch (e) {}
-  }, []);
 
   const logout = React.useCallback(() => {
     localStorage.removeItem('auth_user');
@@ -285,17 +269,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const effectiveRole: UserRole = isRealAdmin ? roleView : actualRole;
-  const canToggleEntityWorkMode = !isRealAdmin && actualRole === 'Manager';
 
   const isAdmin = effectiveRole === 'Administrator';
-  const isManager = effectiveRole === 'Manager' && (canToggleEntityWorkMode ? workOnEntities : true);
+  const isManager = effectiveRole === 'Manager';
   const isAccountant = effectiveRole === 'Accountant';
-  const isUser = canToggleEntityWorkMode ? !workOnEntities : effectiveRole === 'User';
+  const isUser = effectiveRole === 'User';
 
-  const canManageClients = effectiveRole === 'Administrator' || (effectiveRole === 'Manager' && (canToggleEntityWorkMode ? workOnEntities : true));
-  const canManagePermits = effectiveRole === 'Administrator' || (effectiveRole === 'Manager' && (canToggleEntityWorkMode ? workOnEntities : true));
-  const canManageServices = effectiveRole === 'Administrator' || (effectiveRole === 'Manager' && (canToggleEntityWorkMode ? workOnEntities : true));
-  const canManageUsers = effectiveRole === 'Administrator' || (effectiveRole === 'Manager' && (canToggleEntityWorkMode ? workOnEntities : true));
+  const canManageClients = effectiveRole === 'Administrator' || effectiveRole === 'Manager';
+  const canManagePermits = effectiveRole === 'Administrator' || effectiveRole === 'Manager';
+  const canManageServices = effectiveRole === 'Administrator' || effectiveRole === 'Manager';
+  const canManageUsers = effectiveRole === 'Administrator' || effectiveRole === 'Manager';
   const canManageInvoices = effectiveRole === 'Administrator' || effectiveRole === 'Manager' || effectiveRole === 'Accountant';
   const canManageProvidedServices = effectiveRole === 'Administrator' || effectiveRole === 'Manager';
 
@@ -348,9 +331,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isAccountant,
       canManageInvoices,
       canManageProvidedServices,
-      canToggleEntityWorkMode,
-      workOnEntities,
-      setWorkOnEntities,
       canManageClients,
       canManagePermits,
       canManageServices,
@@ -377,9 +357,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isAccountant,
       canManageInvoices,
       canManageProvidedServices,
-      canToggleEntityWorkMode,
-      workOnEntities,
-      setWorkOnEntities,
       canManageClients,
       canManagePermits,
       canManageServices,

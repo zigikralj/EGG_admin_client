@@ -239,7 +239,9 @@ export interface ProjectStats {
 
 export type ActiveTab = 'dashboard' | 'projects' | 'clients' | 'permits' | 'users' | 'services' | 'providedServices' | 'categories' | 'reminders' | 'invoices';
 
-export type DashboardSubTab = 'projects' | 'reminders' | 'invoices' | 'waste-disposal' | 'waste-management' | 'statistic';
+export type AppSection = 'project-tracker' | 'data-management';
+
+export type DashboardSubTab = 'projects' | 'reminders' | 'invoices' | 'waste-disposal' | 'waste-management' | 'statistic' | 'statistic-waste-management';
 
 export type ProvidedServicesSubTab = 'summary' | 'statistics';
 
