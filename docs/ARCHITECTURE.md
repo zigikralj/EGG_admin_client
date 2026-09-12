@@ -66,7 +66,7 @@ graph TD
     A -->|"fetchersRef"| D["Stable Fetcher Proxy<br/>(breaks circular dep)"]
     D -->|"delegates to"| C
     B -->|"calls fetchers via"| D
-    A -->|"props"| E["View Components<br/>(ProjectsView, ClientsView...)"]
+    A -->|"props"| E["Page Components<br/>(ProjectsPage, ClientsPage...)"]
     E -->|"CRUD callbacks"| B
 ```
 
@@ -97,7 +97,7 @@ type ActiveTab = 'dashboard' | 'projects' | 'clients' | 'permits' |
 
 Views are **lazy-loaded** via `React.lazy()` + `<Suspense>`:
 ```typescript
-const DashboardView = React.lazy(() => import('./components/views/DashboardView'));
+const TrackerPage = React.lazy(() => import('./pages/tracker/TrackerPage'));
 ```
 
 Sub-tabs exist for:
@@ -113,7 +113,7 @@ Sub-tabs exist for:
 ```mermaid
 sequenceDiagram
     participant U as User
-    participant L as LoginView
+    participant L as LoginPage
     participant API as Server API
     participant LS as localStorage
     participant AC as AuthContext
@@ -248,17 +248,17 @@ graph TD
         NM[NotificationsMenu]
     end
 
-    subgraph "Views (Lazy-loaded)"
-        DV[DashboardView]
-        PV[ProjectsView]
-        CV[ClientsView]
-        PeV[PermitsView]
-        UV[UsersView]
-        SV[ServicesView]
-        PSV[ProvidedServicesView]
-        CaV[CategoriesView]
-        RV[RemindersView]
-        IV[InvoicesView]
+    subgraph "Views (Pages, Lazy-loaded)"
+        DV[TrackerPage]
+        PV[ProjectsPage]
+        CV[ClientsPage]
+        PeV[PermitsPage]
+        UV[UsersPage]
+        SV[ServicesPage]
+        PSV[ProvidedServicesPage]
+        CaV[CategoriesPage]
+        RV[RemindersPage]
+        IV[InvoicesPage]
     end
 
     subgraph "Dashboard Panels"
@@ -267,7 +267,6 @@ graph TD
         AIP[ApproachingInvoicesPanel]
         WDP[WasteDisposalPanel]
         PSS[ProvidedServicesStatistics]
-        HS[HeaderStats]
     end
 
     subgraph "Project Components"
@@ -305,7 +304,7 @@ graph TD
 All 11 table-based views/panels follow this architecture:
 
 ```typescript
-function MyView(props: ViewProps & TableViewProps) {
+function MyPage(props: ViewProps & TableViewProps) {
   // 1. Table infrastructure
   const tableView = useTableView({
     defaultColumns: ['col1', 'col2'],
@@ -468,7 +467,7 @@ client/
 │   ├── api.ts                     # API client (apiFetch)
 │   ├── types.ts                   # All TypeScript types
 │   ├── main.tsx                   # Entry point
-│   ├── App.tsx                    # Root orchestrator (640 lines)
+│   ├── App.tsx                    # Root orchestrator
 │   ├── App.css                    # Component styles
 │   ├── index.css                  # Global styles + CSS variables
 │   ├── assets/                    # SVG logos
@@ -508,68 +507,72 @@ client/
 │   │   └── theme.ts               # MUI theme config
 │   ├── utils/
 │   │   └── invoiceUtils.ts        # Invoice note metadata
-│   └── components/
-│       ├── icons.ts               # MUI icon barrel (~90 icons)
-│       ├── AdminLayout.tsx        # Page shell
-│       ├── auth/
-│       │   └── LoginView.tsx
-│       ├── layout/
-│       │   ├── AppHeader.tsx
-│       │   ├── Sidebar.tsx
-│       │   ├── SettingsDialog.tsx
-│       │   ├── UserProfileDialog.tsx
-│       │   └── NotificationsMenu.tsx
-│       ├── views/
-│       │   ├── DashboardView.tsx
-│       │   ├── ProjectsView.tsx
-│       │   ├── ClientsView.tsx
-│       │   ├── PermitsView.tsx
-│       │   ├── UsersView.tsx
-│       │   ├── ServicesView.tsx
-│       │   ├── ProvidedServicesView.tsx
-│       │   ├── CategoriesView.tsx
-│       │   ├── RemindersView.tsx
-│       │   └── InvoicesView.tsx
-│       ├── project/
-│       │   ├── ProjectInvoiceSection.tsx
-│       │   ├── ProjectReminderSection.tsx
-│       │   └── ProjectProgressSlider.tsx
-│       ├── shared/
-│       │   ├── InvoiceChips.tsx
-│       │   ├── InvoiceFormFields.tsx
-│       │   └── InvoiceItemsList.tsx
-│       ├── providedService/
-│       │   └── ProvidedServiceInvoiceSection.tsx
-│       ├── ProjectCard.tsx
-│       ├── ProjectModal.tsx
-│       ├── ProjectViewModal.tsx
-│       ├── StatisticsCharts.tsx
-│       ├── ReminderPanel.tsx
-│       ├── ApproachingInvoicesPanel.tsx
-│       ├── WasteDisposalPanel.tsx
-│       ├── ProvidedServicesStatistics.tsx
-│       ├── RichTextEditor.tsx
-│       ├── CompanyInfoModal.tsx
-│       ├── ColumnSelector.tsx
-│       ├── DateRangeFilter.tsx
-│       ├── TableSearchInput.tsx
-│       ├── TableFilterSelector.tsx
-│       ├── ConfirmDialog.tsx
-│       ├── ConfirmDeleteDialog.tsx
-│       ├── ErrorDialog.tsx
-│       ├── HeaderStats.tsx
-│       ├── CustomDataModelModal.tsx
-│       ├── DashboardPanelSkeleton.tsx
-│       └── VersionUpdatePrompt.tsx
-├── package.json
-├── tsconfig.json
-├── tsconfig.app.json
-├── tsconfig.node.json
-├── vite.config.ts
-├── .oxlintrc.json
-├── CHANGELOG.md
-├── README.md
-├── REFACTOR.md
-├── SECURITY.md
-└── VERSIONING.md
+│   ├── components/                # Modular UI components
+│   │   ├── icons.ts               # MUI icon barrel (~90 icons)
+│   │   ├── common/
+│   │   │   ├── ColumnSelector.tsx
+│   │   │   ├── DateRangeFilter.tsx
+│   │   │   ├── LanguageSelector.tsx
+│   │   │   ├── RichTextEditor.tsx
+│   │   │   ├── TableFilterSelector.tsx
+│   │   │   └── TableSearchInput.tsx
+│   │   ├── dialogs/
+│   │   │   ├── CompanyInfoModal.tsx
+│   │   │   ├── ConfirmDeleteDialog.tsx
+│   │   │   ├── ConfirmDialog.tsx
+│   │   │   ├── CustomDataModelModal.tsx
+│   │   │   ├── ErrorDialog.tsx
+│   │   │   └── VersionUpdatePrompt.tsx
+│   │   ├── invoice/
+│   │   │   ├── InvoiceChips.tsx
+│   │   │   ├── InvoiceFormFields.tsx
+│   │   │   └── InvoiceItemsList.tsx
+│   │   ├── layout/
+│   │   │   ├── AdminLayout.tsx
+│   │   │   ├── AppHeader.tsx
+│   │   │   ├── NotificationsMenu.tsx
+│   │   │   ├── SettingsDialog.tsx
+│   │   │   ├── Sidebar.tsx
+│   │   │   └── UserProfileDialog.tsx
+│   │   ├── project/
+│   │   │   ├── ProjectCard.tsx
+│   │   │   ├── ProjectInvoiceSection.tsx
+│   │   │   ├── ProjectModal.tsx
+│   │   │   ├── ProjectProgressSlider.tsx
+│   │   │   ├── ProjectReminderSection.tsx
+│   │   │   └── ProjectViewModal.tsx
+│   │   ├── providedService/
+│   │   │   └── ProvidedServiceInvoiceSection.tsx
+│   │   └── tracker/
+│   │       ├── ApproachingInvoicesPanel.tsx
+│   │       ├── DashboardPanelSkeleton.tsx
+│   │       ├── ProvidedServicesStatistics.tsx
+│   │       ├── ReminderPanel.tsx
+│   │       ├── StatisticsCharts.tsx
+│   │       └── WasteDisposalPanel.tsx
+│   ├── pages/                     # Full page views
+│   │   ├── auth/
+│   │   │   └── LoginPage.tsx
+│   │   ├── management/
+│   │   │   ├── CategoriesPage.tsx
+│   │   │   ├── ClientsPage.tsx
+│   │   │   ├── InvoicesPage.tsx
+│   │   │   ├── PermitsPage.tsx
+│   │   │   ├── ProjectsPage.tsx
+│   │   │   ├── ProvidedServicesPage.tsx
+│   │   │   ├── RemindersPage.tsx
+│   │   │   ├── ServicesPage.tsx
+│   │   │   └── UsersPage.tsx
+│   │   └── tracker/
+│   │       └── TrackerPage.tsx
+│   ├── package.json
+│   ├── tsconfig.json
+│   ├── tsconfig.app.json
+│   ├── tsconfig.node.json
+│   ├── vite.config.ts
+│   ├── .oxlintrc.json
+│   ├── CHANGELOG.md
+│   ├── README.md
+│   ├── SECURITY.md
+│   └── VERSIONING.md
 ```
