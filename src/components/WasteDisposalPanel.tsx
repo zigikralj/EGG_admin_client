@@ -6,7 +6,6 @@ import {
   TextField,
   Box,
   Chip,
-  Paper,
   Autocomplete,
   Button,
   Dialog,
@@ -1126,28 +1125,23 @@ export const WasteDisposalPanel: React.FC<Props> = ({
           {isViewMode
             ? t('providedServicesSummary')
             : editingItem
-            ? t('modalEditProvidedService')
-            : t('modalNewProvidedService')}
+            ? t('modalEditWasteDisposal')
+            : t('modalNewWasteDisposal')}
         </DialogTitle>
 
         <DialogContent dividers>
           <Grid container spacing={2}>
             {/* SERVICE SELECTOR */}
             <Grid size={{ xs: 12, md: 6 }}>
-              <FormControl fullWidth size="small" disabled={isViewMode}>
-                <InputLabel>{t('colService')}</InputLabel>
-                <Select
-                  value={formData.serviceId}
-                  label={t('colService')}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, serviceId: e.target.value }))}
-                >
-                  {wasteServices.map((s) => (
-                    <MenuItem key={s.id} value={s.id}>
-                      {getServiceLabel(s.code, services) || s.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <Autocomplete
+                size="small"
+                readOnly
+                options={services}
+                getOptionLabel={(option) => getServiceLabel(option.code, services) || option.name}
+                isOptionEqualToValue={(option, val) => option.id === val.id}
+                value={services.find((s) => s.id === formData.serviceId) || null}
+                renderInput={(params) => <TextField {...params} label={t('colService')} required />}
+              />
             </Grid>
 
             {/* CLIENT SELECTOR */}
@@ -1159,11 +1153,15 @@ export const WasteDisposalPanel: React.FC<Props> = ({
                 getOptionLabel={(option) => option.name}
                 value={clients.find((c) => c.id === formData.clientId) || null}
                 onChange={(_, newValue) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    clientId: newValue ? newValue.id : '',
-                    projectId: '', // reset project if client changes
-                  }))
+                  setFormData((prev) => {
+                    const shouldPrefillCity = !prev.location || prev.location.trim() === '';
+                    return {
+                      ...prev,
+                      clientId: newValue ? newValue.id : '',
+                      projectId: '', // reset project if client changes
+                      location: shouldPrefillCity && newValue?.city ? newValue.city : prev.location,
+                    };
+                  })
                 }
                 renderInput={(params) => <TextField {...params} label={t('colClient')} required />}
               />
@@ -1251,73 +1249,68 @@ export const WasteDisposalPanel: React.FC<Props> = ({
             {/* DYNAMIC CUSTOM FIELDS (Vrsta otpada, Količina, Indeksni broj, etc.) */}
             {activeCustomFields.length > 0 && (
               <Grid size={{ xs: 12 }}>
-                <Paper variant="outlined" sx={{ p: 2, bgcolor: 'action.hover' }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
-                    {t('colCustomData')} ({t('groupWaste')})
-                  </Typography>
-                  <Grid container spacing={2}>
-                    {activeCustomFields.map((field) => {
-                      const val = formData.customData[field.id] ?? formData.customData[field.name] ?? '';
-                      return (
-                        <Grid size={{ xs: 12, sm: 6 }} key={field.id}>
-                          {field.type === 'list' && field.options && field.options.length > 0 ? (
-                            <FormControl fullWidth size="small" disabled={isViewMode}>
-                              <InputLabel>{field.name}</InputLabel>
-                              <Select
-                                value={val}
-                                label={field.name}
-                                onChange={(e) =>
-                                  setFormData((prev) => ({
-                                    ...prev,
-                                    customData: { ...prev.customData, [field.id]: e.target.value },
-                                  }))
-                                }
-                              >
-                                {field.options.map((opt) => (
-                                  <MenuItem key={opt} value={opt}>
-                                    {opt}
-                                  </MenuItem>
-                                ))}
-                              </Select>
-                            </FormControl>
-                          ) : field.type === 'number' ? (
-                            <TextField
-                              fullWidth
-                              size="small"
-                              type="number"
-                              label={field.unit ? `${field.name} (${field.unit})` : field.name}
+                <Grid container spacing={2}>
+                  {activeCustomFields.map((field) => {
+                    const val = formData.customData[field.id] ?? formData.customData[field.name] ?? '';
+                    return (
+                      <Grid size={{ xs: 12, md: 6 }} key={field.id}>
+                        {field.type === 'list' && field.options && field.options.length > 0 ? (
+                          <FormControl fullWidth size="small" disabled={isViewMode}>
+                            <InputLabel>{field.name}</InputLabel>
+                            <Select
                               value={val}
-                              disabled={isViewMode}
-                              onChange={(e) =>
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  customData: {
-                                    ...prev.customData,
-                                    [field.id]: e.target.value === '' ? '' : Number(e.target.value),
-                                  },
-                                }))
-                              }
-                            />
-                          ) : (
-                            <TextField
-                              fullWidth
-                              size="small"
                               label={field.name}
-                              value={val}
-                              disabled={isViewMode}
                               onChange={(e) =>
                                 setFormData((prev) => ({
                                   ...prev,
                                   customData: { ...prev.customData, [field.id]: e.target.value },
                                 }))
                               }
-                            />
-                          )}
-                        </Grid>
-                      );
-                    })}
-                  </Grid>
-                </Paper>
+                            >
+                              {field.options.map((opt) => (
+                                <MenuItem key={opt} value={opt}>
+                                  {opt}
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                        ) : field.type === 'number' ? (
+                          <TextField
+                            fullWidth
+                            size="small"
+                            type="number"
+                            label={field.unit ? `${field.name} (${field.unit})` : field.name}
+                            value={val}
+                            disabled={isViewMode}
+                            onChange={(e) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                customData: {
+                                  ...prev.customData,
+                                  [field.id]: e.target.value === '' ? '' : Number(e.target.value),
+                                },
+                              }))
+                            }
+                          />
+                        ) : (
+                          <TextField
+                            fullWidth
+                            size="small"
+                            label={field.name}
+                            value={val}
+                            disabled={isViewMode}
+                            onChange={(e) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                customData: { ...prev.customData, [field.id]: e.target.value },
+                              }))
+                            }
+                          />
+                        )}
+                      </Grid>
+                    );
+                  })}
+                </Grid>
               </Grid>
             )}
 

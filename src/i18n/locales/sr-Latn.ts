@@ -14,6 +14,8 @@ const srLatnTranslations: TranslationKeys = {
   "subTabWasteDisposal": "Odlaganje otpada",
   "emptyWasteDisposal": "Nema evidentiranih zapisa o odlaganju otpada.",
   "btnNewWasteDisposal": "Novo odlaganje",
+  "modalNewWasteDisposal": "Novo odlaganje otpada",
+  "modalEditWasteDisposal": "Izmena odlaganja otpada",
   "subTabWasteManagement": "Odlaganje otpada",
   "emptyWasteManagement": "Nema evidentiranih zapisa o odlaganju otpada.",
   "btnNewWasteService": "Novo odlaganje",

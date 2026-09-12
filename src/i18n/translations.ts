@@ -17,6 +17,8 @@ export interface TranslationKeys {
   subTabWasteDisposal: string;
   emptyWasteDisposal: string;
   btnNewWasteDisposal: string;
+  modalNewWasteDisposal: string;
+  modalEditWasteDisposal: string;
   subTabWasteManagement: string;
   emptyWasteManagement: string;
   btnNewWasteService: string;

@@ -14,6 +14,8 @@ const srCyrlTranslations: TranslationKeys = {
   "subTabWasteDisposal": "Одлагање отпада",
   "emptyWasteDisposal": "Нема евидентираних записа о одлагању отпада.",
   "btnNewWasteDisposal": "Ново одлагање",
+  "modalNewWasteDisposal": "Ново одлагање отпада",
+  "modalEditWasteDisposal": "Измена одлагања отпада",
   "subTabWasteManagement": "Одлагање отпада",
   "emptyWasteManagement": "Нема евидентираних записа о одлагању отпада.",
   "btnNewWasteService": "Ново одлагање",

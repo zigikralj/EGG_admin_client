@@ -14,6 +14,8 @@ const enTranslations: TranslationKeys = {
   "subTabWasteDisposal": "Waste Disposal",
   "emptyWasteDisposal": "No waste disposal records found.",
   "btnNewWasteDisposal": "New Waste Disposal",
+  "modalNewWasteDisposal": "New waste disposal",
+  "modalEditWasteDisposal": "Edit waste disposal",
   "subTabWasteManagement": "Waste Disposal",
   "emptyWasteManagement": "No waste disposal records found.",
   "btnNewWasteService": "New Waste Disposal",
