@@ -73,48 +73,51 @@ The client talks to a separate Express 5 REST API server (see `../server/`).
 | `UserProfileDialog.tsx` | Profile view/edit — name, email, phone, gender, avatar, password change. |
 | `NotificationsMenu.tsx` | Notification dropdown — mark read, delete, clear all, navigate to linked project. |
 
-#### View Pages (`src/components/views/`)
+#### View Pages (`src/pages/`)
 | File | View | Notes |
 |---|---|---|
-| `DashboardView.tsx` | Dashboard | KPI header stats, sub-tabs (Projects, Reminders, Invoices, Waste Disposal, Waste Management, Statistics). Role-tailored: accountants see invoice-focused default. |
-| `ProjectsView.tsx` | Projects | Table + card list, quick filters (Active, Missing Invoice, Stale, Late), column selector. |
-| `ClientsView.tsx` | Clients | Table with permit linking, inline project/invoice counts. |
-| `PermitsView.tsx` | Permits | Permit CRUD with waste catalog multi-select picker. |
-| `UsersView.tsx` | Users | Status filters (All/Active/Pending/Blocked), approve/reject, force logout. |
-| `ServicesView.tsx` | Services | Service type definitions with custom data model editor. |
-| `ProvidedServicesView.tsx` | Provided Services | Service delivery records with sub-tabs (Summary, Statistics). |
-| `CategoriesView.tsx` | Categories | Simple CRUD table. |
-| `RemindersView.tsx` | Reminders | Status management, project/client/permit linking. |
-| `InvoicesView.tsx` | Invoices | Full lifecycle management, parent/child linking, line items, currency support. |
+| `tracker/TrackerPage.tsx` | Dashboard | KPI header stats, sub-tabs (Projects, Reminders, Invoices, Waste Disposal, Waste Management, Statistics). Role-tailored: accountants see invoice-focused default. |
+| `management/ProjectsPage.tsx` | Projects | Table + card list, quick filters (Active, Missing Invoice, Stale, Late), column selector. |
+| `management/ClientsPage.tsx` | Clients | Table with permit linking, inline project/invoice counts. |
+| `management/PermitsPage.tsx` | Permits | Permit CRUD with waste catalog multi-select picker. |
+| `management/UsersPage.tsx` | Users | Status filters (All/Active/Pending/Blocked), approve/reject, force logout. |
+| `management/ServicesPage.tsx` | Services | Service type definitions with custom data model editor. |
+| `management/ProvidedServicesPage.tsx` | Provided Services | Service delivery records with sub-tabs (Summary, Statistics). |
+| `management/CategoriesPage.tsx` | Categories | Simple CRUD table. |
+| `management/RemindersPage.tsx` | Reminders | Status management, project/client/permit linking. |
+| `management/InvoicesPage.tsx` | Invoices | Full lifecycle management, parent/child linking, line items, currency support. |
+| `auth/LoginPage.tsx` | Login | Login/registration form. |
 
 #### Key Shared Components (`src/components/`)
 | File | Purpose |
 |---|---|
-| `AdminLayout.tsx` | Page shell — wraps AppHeader + Sidebar + main content + profile/settings/company modals. Handles nav item visibility based on RBAC. |
-| `ProjectCard.tsx` | Rich project card — progress bar, sampling controls, status chips, deadline alerts. |
-| `ProjectModal.tsx` | Project create/edit dialog — uses `useProjectForm`, nested reminder/invoice sections. |
-| `ProjectViewModal.tsx` | Read-only project detail view with all related data. |
-| `StatisticsCharts.tsx` | Dashboard analytics — project status distribution, service category breakdown (MUI X Charts). |
-| `ReminderPanel.tsx` | Dashboard reminder panel — approaching/overdue reminders table. |
-| `ApproachingInvoicesPanel.tsx` | Dashboard invoice panel — invoices due soon with status management. |
-| `WasteDisposalPanel.tsx` | Dashboard waste disposal panel — waste service tracking. |
-| `ProvidedServicesStatistics.tsx` | Analytics charts for provided services (by status, category, monthly trend). |
-| `RichTextEditor.tsx` | Custom rich text editor with @mention support, formatting toolbar, HTML output. |
-| `CompanyInfoModal.tsx` | Company legal details editor (name, tax ID, bank accounts). |
-| `ColumnSelector.tsx` | Column visibility picker for table views. |
-| `DateRangeFilter.tsx` | Date range filter component. |
-| `ConfirmDialog.tsx` / `ConfirmDeleteDialog.tsx` | Reusable confirmation modals. |
-| `ErrorDialog.tsx` | Error display dialog. |
-| `VersionUpdatePrompt.tsx` | Non-intrusive update banner when new version detected. |
+| `layout/AdminLayout.tsx` | Page shell — wraps AppHeader + Sidebar + main content + profile/settings/company modals. Handles nav item visibility based on RBAC. |
+| `project/ProjectCard.tsx` | Rich project card — progress bar, sampling controls, status chips, deadline alerts. |
+| `project/ProjectModal.tsx` | Project create/edit dialog — uses `useProjectForm`, nested reminder/invoice sections. |
+| `project/ProjectViewModal.tsx` | Read-only project detail view with all related data. |
+| `tracker/StatisticsCharts.tsx` | Dashboard analytics — project status distribution, service category breakdown (MUI X Charts). |
+| `tracker/ReminderPanel.tsx` | Dashboard reminder panel — approaching/overdue reminders table. |
+| `tracker/ApproachingInvoicesPanel.tsx` | Dashboard invoice panel — invoices due soon with status management. |
+| `tracker/WasteDisposalPanel.tsx` | Dashboard waste disposal panel — waste service tracking. |
+| `tracker/ProvidedServicesStatistics.tsx` | Analytics charts for provided services (by status, category, monthly trend). |
+| `common/RichTextEditor.tsx` | Custom rich text editor with @mention support, formatting toolbar, HTML output. |
+| `dialogs/CompanyInfoModal.tsx` | Company legal details editor (name, tax ID, bank accounts). |
+| `common/ColumnSelector.tsx` | Column visibility picker for table views. |
+| `common/DateRangeFilter.tsx` | Date range filter component. |
+| `dialogs/ConfirmDialog.tsx` / `ConfirmDeleteDialog.tsx` | Reusable confirmation modals. |
+| `dialogs/ErrorDialog.tsx` | Error display dialog. |
+| `dialogs/VersionUpdatePrompt.tsx` | Non-intrusive update banner when new version detected. |
 | `icons.ts` | Barrel file — re-exports ~90 MUI icons as named per-file imports for tree-shaking. |
 
 #### Feature Sub-Components
 | Directory | Files | Purpose |
 |---|---|---|
 | `components/project/` | `ProjectInvoiceSection.tsx`, `ProjectProgressSlider.tsx`, `ProjectReminderSection.tsx` | Nested sections within project modal. |
-| `components/shared/` | `InvoiceChips.tsx`, `InvoiceFormFields.tsx`, `InvoiceItemsList.tsx` | Shared invoice UI components (extracted during refactoring). |
+| `components/invoice/` | `InvoiceChips.tsx`, `InvoiceFormFields.tsx`, `InvoiceItemsList.tsx` | Shared invoice UI components (extracted during refactoring). |
 | `components/providedService/` | `ProvidedServiceInvoiceSection.tsx` | Invoice management within provided service detail. |
-| `components/auth/` | `LoginView.tsx` | Login/registration form. |
+| `components/dialogs/` | `ConfirmDialog.tsx`, `ErrorDialog.tsx`, `CompanyInfoModal.tsx` | Reusable popups and modals. |
+| `components/common/` | `ColumnSelector.tsx`, `DateRangeFilter.tsx`, `TableSearchInput.tsx` | Shared table utilities and controls. |
+| `components/tracker/` | `ReminderPanel.tsx`, `StatisticsCharts.tsx`, `WasteDisposalPanel.tsx` | Dashboard tracker panels. |
 
 ### Internationalization (`src/i18n/`)
 | File | Purpose |
@@ -182,12 +185,12 @@ All table-based views follow the same pattern:
 3. Use `useCrudOperations` for save/delete with confirmation dialogs
 4. Support column customization via `ColumnSelector`
 
-### Adding a New View
-1. Create `src/components/views/MyNewView.tsx` — follow existing view patterns
+### Adding a New View (Page)
+1. Create `src/pages/management/MyNewPage.tsx` — follow existing page patterns
 2. Add to `ActiveTab` union type in `src/types.ts`
-3. Add lazy import in `App.tsx`
+3. Add lazy import in `App.tsx` (e.g. `const MyNewPage = React.lazy(() => import('./pages/management/MyNewPage'));`)
 4. Add render case in the view switching block in `App.tsx`
-5. Add nav item in `AdminLayout.tsx` `navItems` array (with RBAC `show` condition)
+5. Add nav item in `src/components/layout/AdminLayout.tsx` `navItems` array (with RBAC `show` condition)
 6. Add translations for tab label in all 3 locale files
 
 ### Adding a New Entity

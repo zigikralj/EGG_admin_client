@@ -13,11 +13,11 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { CustomThemeProvider } from './context/ThemeContext';
 import { apiFetch } from './api';
-import { AdminLayout } from './components/AdminLayout';
-import { ConfirmDialog } from './components/ConfirmDialog';
-import { ConfirmDeleteDialog } from './components/ConfirmDeleteDialog';
-import { VersionUpdatePrompt } from './components/VersionUpdatePrompt';
-import { LoginView } from './components/auth/LoginView';
+import { AdminLayout } from './components/layout/AdminLayout';
+import { ConfirmDialog } from './components/dialogs/ConfirmDialog';
+import { ConfirmDeleteDialog } from './components/dialogs/ConfirmDeleteDialog';
+import { VersionUpdatePrompt } from './components/dialogs/VersionUpdatePrompt';
+import { LoginPage } from './pages/auth/LoginPage';
 import { useProjects } from './hooks/useProjects';
 import { useClients } from './hooks/useClients';
 import { useUsers } from './hooks/useUsers';
@@ -30,18 +30,18 @@ import { usePermits } from './hooks/usePermits';
 import { useAppData } from './hooks/useAppData';
 import './index.css';
 
-const DashboardView = React.lazy(() => import('./components/views/DashboardView'));
-const ProjectsView = React.lazy(() => import('./components/views/ProjectsView'));
-const ClientsView = React.lazy(() => import('./components/views/ClientsView'));
-const UsersView = React.lazy(() => import('./components/views/UsersView'));
-const ServicesView = React.lazy(() => import('./components/views/ServicesView'));
-const ProvidedServicesView = React.lazy(() => import('./components/views/ProvidedServicesView'));
-const CategoriesView = React.lazy(() => import('./components/views/CategoriesView'));
-const RemindersView = React.lazy(() => import('./components/views/RemindersView'));
-const InvoicesView = React.lazy(() => import('./components/views/InvoicesView'));
-const PermitsView = React.lazy(() => import('./components/views/PermitsView'));
-const ProjectModal = React.lazy(() => import('./components/ProjectModal'));
-const ProjectViewModal = React.lazy(() => import('./components/ProjectViewModal'));
+const TrackerPage = React.lazy(() => import('./pages/tracker/TrackerPage'));
+const ProjectsPage = React.lazy(() => import('./pages/management/ProjectsPage'));
+const ClientsPage = React.lazy(() => import('./pages/management/ClientsPage'));
+const UsersPage = React.lazy(() => import('./pages/management/UsersPage'));
+const ServicesPage = React.lazy(() => import('./pages/management/ServicesPage'));
+const ProvidedServicesPage = React.lazy(() => import('./pages/management/ProvidedServicesPage'));
+const CategoriesPage = React.lazy(() => import('./pages/management/CategoriesPage'));
+const RemindersPage = React.lazy(() => import('./pages/management/RemindersPage'));
+const InvoicesPage = React.lazy(() => import('./pages/management/InvoicesPage'));
+const PermitsPage = React.lazy(() => import('./pages/management/PermitsPage'));
+const ProjectModal = React.lazy(() => import('./components/project/ProjectModal'));
+const ProjectViewModal = React.lazy(() => import('./components/project/ProjectViewModal'));
 
 function MainApp() {
   const { t } = useLanguage();
@@ -263,7 +263,7 @@ function MainApp() {
         initialMode={userPreferences.theme || 'light'}
         onThemeChange={(mode) => updatePreference('theme', mode)}
       >
-        <LoginView />
+        <LoginPage />
         <VersionUpdatePrompt />
       </CustomThemeProvider>
     );
@@ -297,7 +297,7 @@ function MainApp() {
       >
         <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', p: 4 }}><CircularProgress /></Box>}>
           {activeTab === 'dashboard' && (
-          <DashboardView
+          <TrackerPage
             dashboardSubTab={dashboardSubTab}
             stats={derivedStats}
             projects={projectsHook.projects}
@@ -357,7 +357,7 @@ function MainApp() {
         )}
 
         {activeTab === 'projects' && (
-          <ProjectsView
+          <ProjectsPage
             projects={projectsHook.projects}
             services={servicesHook.services}
             searchQuery={searchQuery}
@@ -437,7 +437,7 @@ function MainApp() {
         )}
 
         {activeTab === 'clients' && (
-          <ClientsView
+          <ClientsPage
             clients={clientsHook.clients}
             permits={permitsHook.permits}
             onSaveClient={clientsHook.handleSaveClient}
@@ -455,7 +455,7 @@ function MainApp() {
         )}
 
         {activeTab === 'permits' && (
-          <PermitsView
+          <PermitsPage
             permits={permitsHook.permits}
             clients={clientsHook.clients}
             wasteCatalog={permitsHook.wasteCatalog}
@@ -480,7 +480,7 @@ function MainApp() {
         )}
 
         {activeTab === 'users' && (
-          <UsersView
+          <UsersPage
             users={usersHook.users}
             onSaveUser={usersHook.handleSaveUser}
             onDeleteUser={usersHook.handleDeleteUser}
@@ -502,7 +502,7 @@ function MainApp() {
         )}
 
         {activeTab === 'services' && (
-          <ServicesView
+          <ServicesPage
             services={servicesHook.services}
             categories={categoriesHook.categories}
             onSaveService={servicesHook.handleSaveService}
@@ -520,7 +520,7 @@ function MainApp() {
         )}
 
         {activeTab === 'providedServices' && (
-          <ProvidedServicesView
+          <ProvidedServicesPage
             subTab={providedServicesSubTab}
             providedServices={providedServicesHook.providedServices}
             services={servicesHook.services}
@@ -549,7 +549,7 @@ function MainApp() {
         )}
 
         {activeTab === 'categories' && (
-          <CategoriesView
+          <CategoriesPage
             categories={categoriesHook.categories}
             onSaveCategory={categoriesHook.handleSaveCategory}
             onDeleteCategory={categoriesHook.handleDeleteCategory}
@@ -566,7 +566,7 @@ function MainApp() {
         )}
 
         {activeTab === 'invoices' && (
-          <InvoicesView
+          <InvoicesPage
             invoices={invoicesHook.invoices}
             clients={clientsHook.clients}
             projects={projectsHook.projects}
@@ -588,7 +588,7 @@ function MainApp() {
         )}
 
         {activeTab === 'reminders' && (
-          <RemindersView
+          <RemindersPage
             reminders={remindersHook.reminders}
             projects={projectsHook.projects}
             clients={clientsHook.clients}
