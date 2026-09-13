@@ -51,7 +51,7 @@ import { DateRangeFilter } from '../../components/common/DateRangeFilter';
 import { TableSearchInput } from '../../components/common/TableSearchInput';
 import { ErrorDialog } from '../../components/dialogs/ErrorDialog';
 import { CustomDataModelModal } from '../../components/dialogs/CustomDataModelModal';
-import { ProvidedServicesStatistics } from '../../components/tracker/ProvidedServicesStatistics';
+import { WasteDisposalStatistics } from '../../components/tracker/statistics/WasteDisposalStatistics';
 import { ProvidedServiceInvoiceSection } from '../../components/providedService/ProvidedServiceInvoiceSection';
 import {
   AddIcon,
@@ -647,7 +647,7 @@ const ProvidedServicesPage: React.FC<Props> = ({
 
   if (subTab === 'statistics') {
     return (
-      <ProvidedServicesStatistics
+      <WasteDisposalStatistics
         providedServices={providedServices}
         services={services}
         clients={clients}

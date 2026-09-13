@@ -2,8 +2,6 @@ import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } fr
 import { CircularProgress, Box } from '@mui/material';
 import type {
   Project,
-  ActiveTab,
-  AppSection,
   DashboardSubTab,
   ProvidedServicesSubTab,
   SaveResult,
@@ -28,6 +26,7 @@ import { useReminders } from './hooks/useReminders';
 import { useInvoices } from './hooks/useInvoices';
 import { usePermits } from './hooks/usePermits';
 import { useAppData } from './hooks/useAppData';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import './index.css';
 
 const TrackerPage = React.lazy(() => import('./pages/tracker/TrackerPage'));
@@ -48,20 +47,12 @@ function MainApp() {
   const { currentUser, isAccountant } = useAuth();
 
   // ── UI State ────────────────────────────────────────────────────────────────
-  const [currentApp, setCurrentApp] = useState<AppSection>('project-tracker');
-  const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
-  const [dashboardSubTab, setDashboardSubTab] = useState<DashboardSubTab>('projects');
-  const [providedServicesSubTab, setProvidedServicesSubTab] = useState<ProvidedServicesSubTab>('summary');
-  const [searchQuery, setSearchQuery] = useState('');
+  const location = useLocation();
+  const navigate = useNavigate();
 
-  const handleAppChange = useCallback((app: AppSection) => {
-    setCurrentApp(app);
-    if (app === 'project-tracker') {
-      setActiveTab('dashboard');
-    } else if (app === 'data-management') {
-      setActiveTab((prev) => (prev === 'dashboard' ? 'projects' : prev));
-    }
-  }, []);
+  const [searchQuery, setSearchQuery] = useState('');
+  const providedServicesSubTab: ProvidedServicesSubTab = 'summary';
+
 
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -275,112 +266,263 @@ function MainApp() {
       onThemeChange={(mode) => updatePreference('theme', mode)}
     >
       <AdminLayout
-        currentApp={currentApp}
-        onAppChange={handleAppChange}
-        activeTab={activeTab}
-        onTabChange={(tab) => {
-          setActiveTab(tab);
-        }}
-        onNavigateToPendingUsers={() => {
-          setCurrentApp('data-management');
-          setActiveTab('users');
-          updatePreference('quick_filter_users', 'pending');
-        }}
-        onOpenProject={handleOpenProjectById}
-        dashboardSubTab={dashboardSubTab}
-        onDashboardSubTabChange={setDashboardSubTab}
-        providedServicesSubTab={providedServicesSubTab}
-        onProvidedServicesSubTabChange={setProvidedServicesSubTab}
         stats={derivedStats}
         userPreferences={userPreferences}
         onPreferenceChange={updatePreference}
+        onOpenProject={handleOpenProjectById}
       >
         <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', p: 4 }}><CircularProgress /></Box>}>
-          {activeTab === 'dashboard' && (
-          <TrackerPage
-            dashboardSubTab={dashboardSubTab}
-            stats={derivedStats}
-            projects={projectsHook.projects}
-            clients={clientsHook.clients}
-            users={usersHook.users}
-            categories={categoriesHook.categories}
-            services={servicesHook.services}
-            reminders={remindersHook.reminders}
-            invoices={invoicesHook.invoices}
-            providedServices={providedServicesHook.providedServices}
-            onSaveProvidedService={providedServicesHook.handleSaveProvidedService}
-            onDeleteProvidedService={providedServicesHook.handleDeleteProvidedService}
-            onMarkSampled={projectsHook.handleMarkSampled}
-            onToggleDone={projectsHook.handleToggleDone}
-            onSaveReminder={remindersHook.handleSaveReminder}
-            onDeleteReminder={remindersHook.handleDeleteReminder}
-            onStatusChangeReminder={remindersHook.handleStatusChangeReminder}
-            onViewProject={handleViewProject}
-            onEditProject={handleEditProject}
-            onDeleteProject={projectsHook.handleDeleteProject}
-            onNavigateToProjects={() => {
-              setCurrentApp('project-tracker');
-              setActiveTab('dashboard');
-              setDashboardSubTab('projects');
-            }}
-            onNavigateToInvoices={() => {
-              if (isAccountant) {
-                setCurrentApp('project-tracker');
-                setActiveTab('dashboard');
-                setDashboardSubTab('invoices');
-              } else {
-                setCurrentApp('data-management');
-                setActiveTab('invoices');
-              }
-            }}
-            onOpenNewProject={() => handleEditProject(null)}
-            onSaveInvoice={invoicesHook.handleSaveInvoice}
-            onDeleteInvoice={invoicesHook.handleDeleteInvoice}
-            onStatusChangeInvoice={invoicesHook.handleUpdateInvoiceStatus}
-            quickFilters={userPreferences.quick_filter_dashboard_projects}
-            onQuickFiltersChange={(filters) => updatePreference('quick_filter_dashboard_projects', filters)}
-            quickFilterDashboardReminders={userPreferences.quick_filter_dashboard_reminders}
-            onQuickFilterDashboardRemindersChange={(val) => updatePreference('quick_filter_dashboard_reminders', val)}
-            remindersRowsPerPageOptions={userPreferences.rowsPerPageOptions_dashboard_reminders}
-            onRemindersRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_dashboard_reminders', opts)}
-            remindersRowsPerPage={userPreferences.rowsPerPage_dashboard_reminders}
-            onRemindersRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_dashboard_reminders', rpp)}
-            invoicesRowsPerPageOptions={userPreferences.rowsPerPageOptions_dashboard_invoices}
-            onInvoicesRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_dashboard_invoices', opts)}
-            invoicesRowsPerPage={userPreferences.rowsPerPage_dashboard_invoices}
-            onInvoicesRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_dashboard_invoices', rpp)}
-            wasteManagementRowsPerPageOptions={userPreferences.rowsPerPageOptions_dashboard_waste_management}
-            onWasteManagementRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_dashboard_waste_management', opts)}
-            wasteManagementRowsPerPage={userPreferences.rowsPerPage_dashboard_waste_management}
-            onWasteManagementRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_dashboard_waste_management', rpp)}
-          />
-        )}
-
-        {activeTab === 'projects' && (
-          <ProjectsPage
-            projects={projectsHook.projects}
-            services={servicesHook.services}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            onOpenNew={() => handleEditProject(null)}
-            onToggleDone={projectsHook.handleToggleDone}
-            onMarkSampled={projectsHook.handleMarkSampled}
-            onView={handleViewProject}
-            onEdit={handleEditProject}
-            onDelete={projectsHook.handleDeleteProject}
-            visibleColumns={userPreferences.cols_projects}
-            onVisibleColumnsChange={(cols) => updatePreference('cols_projects', cols)}
-            rowsPerPageOptions={userPreferences.rowsPerPageOptions_projects}
-            onRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_projects', opts)}
-            rowsPerPage={userPreferences.rowsPerPage_projects}
-            onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_projects', rpp)}
-            sortState={userPreferences.sort_projects}
-            onSortChange={(sort) => updatePreference('sort_projects', sort)}
-            quickFilter={userPreferences.quick_filter_projects || 'all'}
-            onQuickFilterChange={(val) => updatePreference('quick_filter_projects', val)}
-            onRefresh={fetchers.fetchProjects}
-          />
-        )}
+          <Routes>
+            <Route path="/project-tracker/statistic-waste-management" element={<Navigate to="/project-tracker/statistic-waste-disposal" replace />} />
+            <Route path="/project-tracker/waste-management" element={<Navigate to="/project-tracker/statistic-waste-disposal" replace />} />
+            <Route path="/project-tracker/*" element={
+              <TrackerPage
+                dashboardSubTab={(location.pathname.split('/')[2] as DashboardSubTab) || 'projects'}
+                stats={derivedStats}
+                projects={projectsHook.projects}
+                clients={clientsHook.clients}
+                users={usersHook.users}
+                categories={categoriesHook.categories}
+                services={servicesHook.services}
+                reminders={remindersHook.reminders}
+                invoices={invoicesHook.invoices}
+                providedServices={providedServicesHook.providedServices}
+                onSaveProvidedService={providedServicesHook.handleSaveProvidedService}
+                onDeleteProvidedService={providedServicesHook.handleDeleteProvidedService}
+                onMarkSampled={projectsHook.handleMarkSampled}
+                onToggleDone={projectsHook.handleToggleDone}
+                onSaveReminder={remindersHook.handleSaveReminder}
+                onDeleteReminder={remindersHook.handleDeleteReminder}
+                onStatusChangeReminder={remindersHook.handleStatusChangeReminder}
+                onViewProject={handleViewProject}
+                onEditProject={handleEditProject}
+                onDeleteProject={projectsHook.handleDeleteProject}
+                onNavigateToProjects={() => navigate('/project-tracker/projects')}
+                onNavigateToInvoices={() => {
+                  if (isAccountant) {
+                    navigate('/project-tracker/invoices');
+                  } else {
+                    navigate('/data-management/invoices');
+                  }
+                }}
+                onOpenNewProject={() => handleEditProject(null)}
+                onSaveInvoice={invoicesHook.handleSaveInvoice}
+                onDeleteInvoice={invoicesHook.handleDeleteInvoice}
+                onStatusChangeInvoice={invoicesHook.handleUpdateInvoiceStatus}
+                quickFilters={userPreferences.quick_filter_dashboard_projects}
+                onQuickFiltersChange={(filters) => updatePreference('quick_filter_dashboard_projects', filters)}
+                quickFilterDashboardReminders={userPreferences.quick_filter_dashboard_reminders}
+                onQuickFilterDashboardRemindersChange={(val) => updatePreference('quick_filter_dashboard_reminders', val)}
+                remindersRowsPerPageOptions={userPreferences.rowsPerPageOptions_dashboard_reminders}
+                onRemindersRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_dashboard_reminders', opts)}
+                remindersRowsPerPage={userPreferences.rowsPerPage_dashboard_reminders}
+                onRemindersRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_dashboard_reminders', rpp)}
+                invoicesRowsPerPageOptions={userPreferences.rowsPerPageOptions_dashboard_invoices}
+                onInvoicesRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_dashboard_invoices', opts)}
+                invoicesRowsPerPage={userPreferences.rowsPerPage_dashboard_invoices}
+                onInvoicesRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_dashboard_invoices', rpp)}
+                wasteManagementRowsPerPageOptions={userPreferences.rowsPerPageOptions_dashboard_waste_management}
+                onWasteManagementRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_dashboard_waste_management', opts)}
+                wasteManagementRowsPerPage={userPreferences.rowsPerPage_dashboard_waste_management}
+                onWasteManagementRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_dashboard_waste_management', rpp)}
+              />
+            } />
+            <Route path="/data-management/projects" element={
+              <ProjectsPage
+                projects={projectsHook.projects}
+                services={servicesHook.services}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                onOpenNew={() => handleEditProject(null)}
+                onToggleDone={projectsHook.handleToggleDone}
+                onMarkSampled={projectsHook.handleMarkSampled}
+                onView={handleViewProject}
+                onEdit={handleEditProject}
+                onDelete={projectsHook.handleDeleteProject}
+                visibleColumns={userPreferences.cols_projects}
+                onVisibleColumnsChange={(cols) => updatePreference('cols_projects', cols)}
+                rowsPerPageOptions={userPreferences.rowsPerPageOptions_projects}
+                onRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_projects', opts)}
+                rowsPerPage={userPreferences.rowsPerPage_projects}
+                onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_projects', rpp)}
+                sortState={userPreferences.sort_projects}
+                onSortChange={(sort) => updatePreference('sort_projects', sort)}
+                quickFilter={userPreferences.quick_filter_projects || 'all'}
+                onQuickFilterChange={(val) => updatePreference('quick_filter_projects', val)}
+                onRefresh={stableFetchers.fetchProjects}
+              />
+            } />
+            <Route path="/data-management/clients" element={
+              <ClientsPage
+                clients={clientsHook.clients}
+                permits={permitsHook.permits}
+                onSaveClient={clientsHook.handleSaveClient}
+                onDeleteClient={clientsHook.handleDeleteClient}
+                visibleColumns={userPreferences.cols_clients}
+                onVisibleColumnsChange={(cols) => updatePreference('cols_clients', cols)}
+                rowsPerPageOptions={userPreferences.rowsPerPageOptions_clients}
+                onRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_clients', opts)}
+                rowsPerPage={userPreferences.rowsPerPage_clients}
+                onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_clients', rpp)}
+                sortState={userPreferences.sort_clients}
+                onSortChange={(sort) => updatePreference('sort_clients', sort)}
+                onRefresh={stableFetchers.fetchClients}
+              />
+            } />
+            <Route path="/data-management/permits" element={
+              <PermitsPage
+                permits={permitsHook.permits}
+                clients={clientsHook.clients}
+                wasteCatalog={permitsHook.wasteCatalog}
+                reminders={remindersHook.reminders}
+                onSavePermit={permitsHook.handleSavePermit}
+                onDeletePermit={permitsHook.handleDeletePermit}
+                onSaveReminder={remindersHook.handleSaveReminder}
+                onDeleteReminder={remindersHook.handleDeleteReminder}
+                onSaveClient={clientsHook.handleSaveClient}
+                visibleColumns={userPreferences.cols_permits}
+                onVisibleColumnsChange={(cols) => updatePreference('cols_permits', cols)}
+                rowsPerPageOptions={userPreferences.rowsPerPageOptions_permits}
+                onRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_permits', opts)}
+                rowsPerPage={userPreferences.rowsPerPage_permits}
+                onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_permits', rpp)}
+                sortState={userPreferences.sort_permits}
+                onSortChange={(sort) => updatePreference('sort_permits', sort)}
+                quickFilter={userPreferences.quick_filter_permits || 'all'}
+                onQuickFilterChange={(val) => updatePreference('quick_filter_permits', val)}
+                onRefresh={stableFetchers.fetchPermits}
+              />
+            } />
+            <Route path="/data-management/users" element={
+              <UsersPage
+                users={usersHook.users}
+                onSaveUser={usersHook.handleSaveUser}
+                onDeleteUser={usersHook.handleDeleteUser}
+                onApproveUser={usersHook.handleApproveUser}
+                onRejectUser={usersHook.handleRejectUser}
+                onForceLogoutUser={usersHook.handleForceLogoutUser}
+                visibleColumns={userPreferences.cols_users}
+                onVisibleColumnsChange={(cols) => updatePreference('cols_users', cols)}
+                rowsPerPageOptions={userPreferences.rowsPerPageOptions_users}
+                onRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_users', opts)}
+                rowsPerPage={userPreferences.rowsPerPage_users}
+                onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_users', rpp)}
+                sortState={userPreferences.sort_users}
+                onSortChange={(sort) => updatePreference('sort_users', sort)}
+                quickFilter={userPreferences.quick_filter_users || 'all'}
+                onQuickFilterChange={(val) => updatePreference('quick_filter_users', val)}
+                onRefresh={stableFetchers.fetchUsers}
+              />
+            } />
+            <Route path="/data-management/services" element={
+              <ServicesPage
+                services={servicesHook.services}
+                categories={categoriesHook.categories}
+                onSaveService={servicesHook.handleSaveService}
+                onDeleteService={servicesHook.handleDeleteService}
+                visibleColumns={userPreferences.cols_services}
+                onVisibleColumnsChange={(cols) => updatePreference('cols_services', cols)}
+                rowsPerPageOptions={userPreferences.rowsPerPageOptions_services}
+                onRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_services', opts)}
+                rowsPerPage={userPreferences.rowsPerPage_services}
+                onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_services', rpp)}
+                sortState={userPreferences.sort_services}
+                onSortChange={(sort) => updatePreference('sort_services', sort)}
+                onRefresh={stableFetchers.fetchServices}
+              />
+            } />
+            <Route path="/data-management/provided-services" element={
+              <ProvidedServicesPage
+                subTab={providedServicesSubTab}
+                providedServices={providedServicesHook.providedServices}
+                services={servicesHook.services}
+                clients={clientsHook.clients}
+                projects={projectsHook.projects}
+                invoices={invoicesHook.invoices}
+                categories={categoriesHook.categories}
+                onSaveProvidedService={providedServicesHook.handleSaveProvidedService}
+                onDeleteProvidedService={providedServicesHook.handleDeleteProvidedService}
+                onSaveService={servicesHook.handleSaveService}
+                onSaveInvoice={invoicesHook.handleSaveInvoice}
+                onDeleteInvoice={invoicesHook.handleDeleteInvoice}
+                onStatusChangeInvoice={invoicesHook.handleUpdateInvoiceStatus}
+                visibleColumns={userPreferences.cols_providedServices}
+                onVisibleColumnsChange={(cols) => updatePreference('cols_providedServices', cols)}
+                rowsPerPageOptions={userPreferences.rowsPerPageOptions_providedServices}
+                onRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_providedServices', opts)}
+                rowsPerPage={userPreferences.rowsPerPage_providedServices}
+                onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_providedServices', rpp)}
+                sortState={userPreferences.sort_providedServices}
+                onSortChange={(sort) => updatePreference('sort_providedServices', sort)}
+                quickFilter={userPreferences.quick_filter_providedServices || 'all'}
+                onQuickFilterChange={(val) => updatePreference('quick_filter_providedServices', val)}
+                onRefresh={stableFetchers.fetchProvidedServices}
+              />
+            } />
+            <Route path="/data-management/categories" element={
+              <CategoriesPage
+                categories={categoriesHook.categories}
+                onSaveCategory={categoriesHook.handleSaveCategory}
+                onDeleteCategory={categoriesHook.handleDeleteCategory}
+                visibleColumns={userPreferences.cols_categories}
+                onVisibleColumnsChange={(cols) => updatePreference('cols_categories', cols)}
+                rowsPerPageOptions={userPreferences.rowsPerPageOptions_categories}
+                onRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_categories', opts)}
+                rowsPerPage={userPreferences.rowsPerPage_categories}
+                onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_categories', rpp)}
+                sortState={userPreferences.sort_categories}
+                onSortChange={(sort) => updatePreference('sort_categories', sort)}
+                onRefresh={stableFetchers.fetchCategories}
+              />
+            } />
+            <Route path="/data-management/invoices" element={
+              <InvoicesPage
+                invoices={invoicesHook.invoices}
+                clients={clientsHook.clients}
+                projects={projectsHook.projects}
+                providedServices={providedServicesHook.providedServices}
+                onSaveProvidedService={providedServicesHook.handleSaveProvidedService}
+                onSaveInvoice={invoicesHook.handleSaveInvoice}
+                onDeleteInvoice={invoicesHook.handleDeleteInvoice}
+                onUpdateStatus={invoicesHook.handleUpdateInvoiceStatus}
+                visibleColumns={userPreferences.cols_invoices}
+                onVisibleColumnsChange={(cols) => updatePreference('cols_invoices', cols)}
+                rowsPerPageOptions={userPreferences.rowsPerPageOptions_invoices}
+                onRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_invoices', opts)}
+                rowsPerPage={userPreferences.rowsPerPage_invoices}
+                onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_invoices', rpp)}
+                sortState={userPreferences.sort_invoices}
+                onSortChange={(sort) => updatePreference('sort_invoices', sort)}
+                onRefresh={stableFetchers.fetchInvoices}
+              />
+            } />
+            <Route path="/data-management/reminders" element={
+              <RemindersPage
+                reminders={remindersHook.reminders}
+                projects={projectsHook.projects}
+                clients={clientsHook.clients}
+                users={usersHook.users}
+                permits={permitsHook.permits}
+                onSaveReminder={remindersHook.handleSaveReminder}
+                onDeleteReminder={remindersHook.handleDeleteReminder}
+                onStatusChange={remindersHook.handleStatusChangeReminder}
+                visibleColumns={userPreferences.cols_reminders}
+                onVisibleColumnsChange={(cols) => updatePreference('cols_reminders', cols)}
+                rowsPerPageOptions={userPreferences.rowsPerPageOptions_reminders}
+                onRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_reminders', opts)}
+                rowsPerPage={userPreferences.rowsPerPage_reminders}
+                onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_reminders', rpp)}
+                sortState={userPreferences.sort_reminders}
+                onSortChange={(sort) => updatePreference('sort_reminders', sort)}
+                quickFilter={userPreferences.quick_filter_reminders || 'all'}
+                onQuickFilterChange={(val) => updatePreference('quick_filter_reminders', val)}
+                onRefresh={stableFetchers.fetchReminders}
+              />
+            } />
+            <Route path="/" element={<Navigate to="/project-tracker/projects" replace />} />
+            <Route path="*" element={<Navigate to="/project-tracker/projects" replace />} />
+          </Routes>
+        </Suspense>
 
         {isProjectViewModalOpen && currentViewingProject && (
           <Suspense fallback={null}>
@@ -435,183 +577,6 @@ function MainApp() {
             />
           </Suspense>
         )}
-
-        {activeTab === 'clients' && (
-          <ClientsPage
-            clients={clientsHook.clients}
-            permits={permitsHook.permits}
-            onSaveClient={clientsHook.handleSaveClient}
-            onDeleteClient={clientsHook.handleDeleteClient}
-            visibleColumns={userPreferences.cols_clients}
-            onVisibleColumnsChange={(cols) => updatePreference('cols_clients', cols)}
-            rowsPerPageOptions={userPreferences.rowsPerPageOptions_clients}
-            onRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_clients', opts)}
-            rowsPerPage={userPreferences.rowsPerPage_clients}
-            onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_clients', rpp)}
-            sortState={userPreferences.sort_clients}
-            onSortChange={(sort) => updatePreference('sort_clients', sort)}
-            onRefresh={fetchers.fetchClients}
-          />
-        )}
-
-        {activeTab === 'permits' && (
-          <PermitsPage
-            permits={permitsHook.permits}
-            clients={clientsHook.clients}
-            wasteCatalog={permitsHook.wasteCatalog}
-            reminders={remindersHook.reminders}
-            onSavePermit={permitsHook.handleSavePermit}
-            onDeletePermit={permitsHook.handleDeletePermit}
-            onSaveReminder={remindersHook.handleSaveReminder}
-            onDeleteReminder={remindersHook.handleDeleteReminder}
-            onSaveClient={clientsHook.handleSaveClient}
-            visibleColumns={userPreferences.cols_permits}
-            onVisibleColumnsChange={(cols) => updatePreference('cols_permits', cols)}
-            rowsPerPageOptions={userPreferences.rowsPerPageOptions_permits}
-            onRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_permits', opts)}
-            rowsPerPage={userPreferences.rowsPerPage_permits}
-            onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_permits', rpp)}
-            sortState={userPreferences.sort_permits}
-            onSortChange={(sort) => updatePreference('sort_permits', sort)}
-            quickFilter={userPreferences.quick_filter_permits || 'all'}
-            onQuickFilterChange={(val) => updatePreference('quick_filter_permits', val)}
-            onRefresh={fetchers.fetchPermits}
-          />
-        )}
-
-        {activeTab === 'users' && (
-          <UsersPage
-            users={usersHook.users}
-            onSaveUser={usersHook.handleSaveUser}
-            onDeleteUser={usersHook.handleDeleteUser}
-            onApproveUser={usersHook.handleApproveUser}
-            onRejectUser={usersHook.handleRejectUser}
-            onForceLogoutUser={usersHook.handleForceLogoutUser}
-            visibleColumns={userPreferences.cols_users}
-            onVisibleColumnsChange={(cols) => updatePreference('cols_users', cols)}
-            rowsPerPageOptions={userPreferences.rowsPerPageOptions_users}
-            onRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_users', opts)}
-            rowsPerPage={userPreferences.rowsPerPage_users}
-            onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_users', rpp)}
-            sortState={userPreferences.sort_users}
-            onSortChange={(sort) => updatePreference('sort_users', sort)}
-            quickFilter={userPreferences.quick_filter_users || 'all'}
-            onQuickFilterChange={(val) => updatePreference('quick_filter_users', val)}
-            onRefresh={fetchers.fetchUsers}
-          />
-        )}
-
-        {activeTab === 'services' && (
-          <ServicesPage
-            services={servicesHook.services}
-            categories={categoriesHook.categories}
-            onSaveService={servicesHook.handleSaveService}
-            onDeleteService={servicesHook.handleDeleteService}
-            visibleColumns={userPreferences.cols_services}
-            onVisibleColumnsChange={(cols) => updatePreference('cols_services', cols)}
-            rowsPerPageOptions={userPreferences.rowsPerPageOptions_services}
-            onRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_services', opts)}
-            rowsPerPage={userPreferences.rowsPerPage_services}
-            onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_services', rpp)}
-            sortState={userPreferences.sort_services}
-            onSortChange={(sort) => updatePreference('sort_services', sort)}
-            onRefresh={fetchers.fetchServices}
-          />
-        )}
-
-        {activeTab === 'providedServices' && (
-          <ProvidedServicesPage
-            subTab={providedServicesSubTab}
-            providedServices={providedServicesHook.providedServices}
-            services={servicesHook.services}
-            clients={clientsHook.clients}
-            projects={projectsHook.projects}
-            invoices={invoicesHook.invoices}
-            categories={categoriesHook.categories}
-            onSaveProvidedService={providedServicesHook.handleSaveProvidedService}
-            onDeleteProvidedService={providedServicesHook.handleDeleteProvidedService}
-            onSaveService={servicesHook.handleSaveService}
-            onSaveInvoice={invoicesHook.handleSaveInvoice}
-            onDeleteInvoice={invoicesHook.handleDeleteInvoice}
-            onStatusChangeInvoice={invoicesHook.handleUpdateInvoiceStatus}
-            visibleColumns={userPreferences.cols_providedServices}
-            onVisibleColumnsChange={(cols) => updatePreference('cols_providedServices', cols)}
-            rowsPerPageOptions={userPreferences.rowsPerPageOptions_providedServices}
-            onRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_providedServices', opts)}
-            rowsPerPage={userPreferences.rowsPerPage_providedServices}
-            onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_providedServices', rpp)}
-            sortState={userPreferences.sort_providedServices}
-            onSortChange={(sort) => updatePreference('sort_providedServices', sort)}
-            quickFilter={userPreferences.quick_filter_providedServices || 'all'}
-            onQuickFilterChange={(val) => updatePreference('quick_filter_providedServices', val)}
-            onRefresh={fetchers.fetchProvidedServices}
-          />
-        )}
-
-        {activeTab === 'categories' && (
-          <CategoriesPage
-            categories={categoriesHook.categories}
-            onSaveCategory={categoriesHook.handleSaveCategory}
-            onDeleteCategory={categoriesHook.handleDeleteCategory}
-            visibleColumns={userPreferences.cols_categories}
-            onVisibleColumnsChange={(cols) => updatePreference('cols_categories', cols)}
-            rowsPerPageOptions={userPreferences.rowsPerPageOptions_categories}
-            onRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_categories', opts)}
-            rowsPerPage={userPreferences.rowsPerPage_categories}
-            onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_categories', rpp)}
-            sortState={userPreferences.sort_categories}
-            onSortChange={(sort) => updatePreference('sort_categories', sort)}
-            onRefresh={fetchers.fetchCategories}
-          />
-        )}
-
-        {activeTab === 'invoices' && (
-          <InvoicesPage
-            invoices={invoicesHook.invoices}
-            clients={clientsHook.clients}
-            projects={projectsHook.projects}
-            providedServices={providedServicesHook.providedServices}
-            onSaveProvidedService={providedServicesHook.handleSaveProvidedService}
-            onSaveInvoice={invoicesHook.handleSaveInvoice}
-            onDeleteInvoice={invoicesHook.handleDeleteInvoice}
-            onUpdateStatus={invoicesHook.handleUpdateInvoiceStatus}
-            visibleColumns={userPreferences.cols_invoices}
-            onVisibleColumnsChange={(cols) => updatePreference('cols_invoices', cols)}
-            rowsPerPageOptions={userPreferences.rowsPerPageOptions_invoices}
-            onRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_invoices', opts)}
-            rowsPerPage={userPreferences.rowsPerPage_invoices}
-            onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_invoices', rpp)}
-            sortState={userPreferences.sort_invoices}
-            onSortChange={(sort) => updatePreference('sort_invoices', sort)}
-            onRefresh={fetchers.fetchInvoices}
-          />
-        )}
-
-        {activeTab === 'reminders' && (
-          <RemindersPage
-            reminders={remindersHook.reminders}
-            projects={projectsHook.projects}
-            clients={clientsHook.clients}
-            users={usersHook.users}
-            permits={permitsHook.permits}
-            onSaveReminder={remindersHook.handleSaveReminder}
-            onDeleteReminder={remindersHook.handleDeleteReminder}
-            onStatusChange={remindersHook.handleStatusChangeReminder}
-            visibleColumns={userPreferences.cols_reminders}
-            onVisibleColumnsChange={(cols) => updatePreference('cols_reminders', cols)}
-            rowsPerPageOptions={userPreferences.rowsPerPageOptions_reminders}
-            onRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_reminders', opts)}
-            rowsPerPage={userPreferences.rowsPerPage_reminders}
-            onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_reminders', rpp)}
-            sortState={userPreferences.sort_reminders}
-            onSortChange={(sort) => updatePreference('sort_reminders', sort)}
-            quickFilter={userPreferences.quick_filter_reminders || 'all'}
-            onQuickFilterChange={(val) => updatePreference('quick_filter_reminders', val)}
-            onRefresh={fetchers.fetchReminders}
-          />
-        )}
-
-        </Suspense>
 
         <ConfirmDeleteDialog
           open={deleteConfirmState.open}

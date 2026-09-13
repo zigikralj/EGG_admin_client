@@ -76,7 +76,7 @@ The client talks to a separate Express 5 REST API server (see `../server/`).
 #### View Pages (`src/pages/`)
 | File | View | Notes |
 |---|---|---|
-| `tracker/TrackerPage.tsx` | Dashboard | KPI header stats, sub-tabs (Projects, Reminders, Invoices, Waste Disposal, Waste Management, Statistics). Role-tailored: accountants see invoice-focused default. |
+| `tracker/TrackerPage.tsx` | Dashboard | KPI header stats, sub-tabs (Projects, Reminders, Invoices, Waste Disposal, Statistics [Projects, Waste Disposal]). Role-tailored: accountants see invoice-focused default. |
 | `management/ProjectsPage.tsx` | Projects | Table + card list, quick filters (Active, Missing Invoice, Stale, Late), column selector. |
 | `management/ClientsPage.tsx` | Clients | Table with permit linking, inline project/invoice counts. |
 | `management/PermitsPage.tsx` | Permits | Permit CRUD with waste catalog multi-select picker. |
@@ -95,11 +95,11 @@ The client talks to a separate Express 5 REST API server (see `../server/`).
 | `project/ProjectCard.tsx` | Rich project card — progress bar, sampling controls, status chips, deadline alerts. |
 | `project/ProjectModal.tsx` | Project create/edit dialog — uses `useProjectForm`, nested reminder/invoice sections. |
 | `project/ProjectViewModal.tsx` | Read-only project detail view with all related data. |
-| `tracker/StatisticsCharts.tsx` | Dashboard analytics — project status distribution, service category breakdown (MUI X Charts). |
+| `tracker/statistics/ProjectsStatistics.tsx` | Dashboard analytics — project status distribution, service category breakdown (MUI X Charts). |
 | `tracker/ReminderPanel.tsx` | Dashboard reminder panel — approaching/overdue reminders table. |
 | `tracker/ApproachingInvoicesPanel.tsx` | Dashboard invoice panel — invoices due soon with status management. |
 | `tracker/WasteDisposalPanel.tsx` | Dashboard waste disposal panel — waste service tracking. |
-| `tracker/ProvidedServicesStatistics.tsx` | Analytics charts for provided services (by status, category, monthly trend). |
+| `tracker/statistics/WasteDisposalStatistics.tsx` | Analytics charts for provided services (by status, category, monthly trend) and waste amounts. |
 | `common/RichTextEditor.tsx` | Custom rich text editor with @mention support, formatting toolbar, HTML output. |
 | `dialogs/CompanyInfoModal.tsx` | Company legal details editor (name, tax ID, bank accounts). |
 | `common/ColumnSelector.tsx` | Column visibility picker for table views. |
@@ -117,7 +117,7 @@ The client talks to a separate Express 5 REST API server (see `../server/`).
 | `components/providedService/` | `ProvidedServiceInvoiceSection.tsx` | Invoice management within provided service detail. |
 | `components/dialogs/` | `ConfirmDialog.tsx`, `ErrorDialog.tsx`, `CompanyInfoModal.tsx` | Reusable popups and modals. |
 | `components/common/` | `ColumnSelector.tsx`, `DateRangeFilter.tsx`, `TableSearchInput.tsx` | Shared table utilities and controls. |
-| `components/tracker/` | `ReminderPanel.tsx`, `StatisticsCharts.tsx`, `WasteDisposalPanel.tsx` | Dashboard tracker panels. |
+| `components/tracker/` | `ReminderPanel.tsx`, `WasteDisposalPanel.tsx`, `statistics/` | Dashboard tracker panels. |
 
 ### Internationalization (`src/i18n/`)
 | File | Purpose |

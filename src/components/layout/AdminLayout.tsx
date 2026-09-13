@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Toolbar } from '@mui/material';
+import { useLocation, useNavigate } from 'react-router-dom';
 
-import type { ActiveTab, AppSection, DashboardSubTab, ProvidedServicesSubTab, ProjectStats } from '../../types';
+import type { ProjectStats } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 
@@ -13,35 +14,17 @@ import { CompanyInfoModal } from '../dialogs/CompanyInfoModal';
 import { DashboardIcon, FolderIcon, BusinessIcon, AssignmentTurnedInIcon, PeopleIcon, BuildIcon, HandymanIcon, CategoryIcon, NotificationsActiveIcon, ReceiptLongIcon } from '../icons';
 
 interface Props {
-  currentApp: AppSection;
-  onAppChange: (app: AppSection) => void;
-  activeTab: ActiveTab;
-  onTabChange: (tab: ActiveTab) => void;
-  dashboardSubTab?: DashboardSubTab;
-  onDashboardSubTabChange?: (subTab: DashboardSubTab) => void;
-  providedServicesSubTab?: ProvidedServicesSubTab;
-  onProvidedServicesSubTabChange?: (subTab: ProvidedServicesSubTab) => void;
   stats: ProjectStats;
   userPreferences?: Record<string, any>;
   onPreferenceChange?: (key: string, value: any) => void;
-  onNavigateToPendingUsers?: () => void;
   onOpenProject?: (projectId: string) => void;
   children: React.ReactNode;
 }
 
 export const AdminLayout: React.FC<Props> = ({
-  currentApp,
-  onAppChange,
-  activeTab,
-  onTabChange,
-  dashboardSubTab = 'projects',
-  onDashboardSubTabChange,
-  providedServicesSubTab = 'summary',
-  onProvidedServicesSubTabChange,
   stats,
   userPreferences,
   onPreferenceChange,
-  onNavigateToPendingUsers,
   onOpenProject,
   children,
 }) => {
@@ -68,20 +51,23 @@ export const AdminLayout: React.FC<Props> = ({
   const [isPreferencesOpen, setIsPreferencesOpen] = useState(false);
   const [isCompanyInfoOpen, setIsCompanyInfoOpen] = useState(false);
 
-  useEffect(() => {
-    if (currentApp === 'data-management' && (isUser || isAccountant || !(role === 'Administrator' || role === 'Manager'))) {
-      onAppChange('project-tracker');
-      onTabChange('dashboard');
-    }
-  }, [currentApp, role, isUser, isAccountant, onAppChange, onTabChange]);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const currentApp = location.pathname.startsWith('/data-management') ? 'data-management' : 'project-tracker';
 
   useEffect(() => {
-    if (isUser && activeTab !== 'dashboard') {
-      onTabChange('dashboard');
-    } else if (isAccountant && !['dashboard'].includes(activeTab)) {
-      onTabChange('dashboard');
+    if (currentApp === 'data-management' && (isUser || isAccountant || !(role === 'Administrator' || role === 'Manager'))) {
+      navigate('/project-tracker');
     }
-  }, [isUser, isAccountant, activeTab, onTabChange]);
+  }, [currentApp, role, isUser, isAccountant, navigate]);
+
+  useEffect(() => {
+    if (isUser && !location.pathname.startsWith('/project-tracker')) {
+      navigate('/project-tracker');
+    } else if (isAccountant && !location.pathname.startsWith('/project-tracker')) {
+      navigate('/project-tracker');
+    }
+  }, [isUser, isAccountant, location.pathname, navigate]);
 
   useEffect(() => {
     // Scroll window and main content
@@ -99,26 +85,26 @@ export const AdminLayout: React.FC<Props> = ({
     // Call again after a short delay to account for React.lazy / Suspense rendering new content
     const timeoutId = setTimeout(resetScroll, 100);
     return () => clearTimeout(timeoutId);
-  }, [activeTab, dashboardSubTab, providedServicesSubTab]);
+  }, [location.pathname]);
 
   const navItems = [
-    { id: 'dashboard' as ActiveTab, label: t('tabDashboard'), icon: <DashboardIcon />, count: 0, show: true },
-    { id: 'projects' as ActiveTab, label: t('tabProjects'), icon: <FolderIcon />, count: stats.active, show: !isUser && !isAccountant },
-    { id: 'clients' as ActiveTab, label: t('tabClients'), icon: <BusinessIcon />, count: stats.clientsCount, show: canManageClients },
-    { id: 'permits' as ActiveTab, label: t('tabPermits'), icon: <AssignmentTurnedInIcon />, count: 0, show: canManagePermits },
+    { path: '/project-tracker', label: t('tabDashboard'), icon: <DashboardIcon />, count: 0, show: true },
+    { path: '/data-management/projects', label: t('tabProjects'), icon: <FolderIcon />, count: stats.active, show: !isUser && !isAccountant },
+    { path: '/data-management/clients', label: t('tabClients'), icon: <BusinessIcon />, count: stats.clientsCount, show: canManageClients },
+    { path: '/data-management/permits', label: t('tabPermits'), icon: <AssignmentTurnedInIcon />, count: 0, show: canManagePermits },
     {
-      id: 'users' as ActiveTab,
+      path: '/data-management/users',
       label: t('tabUsers'),
       icon: <PeopleIcon />,
       count: canManageUsers && pendingUsersCount > 0 ? pendingUsersCount : stats.usersCount,
       color: canManageUsers && pendingUsersCount > 0 ? ('warning' as const) : undefined,
       show: canManageUsers,
     },
-    { id: 'services' as ActiveTab, label: t('tabServices'), icon: <BuildIcon />, count: 0, show: canManageServices },
-    { id: 'providedServices' as ActiveTab, label: t('tabProvidedServices'), icon: <HandymanIcon />, count: 0, show: canManageProvidedServices },
-    { id: 'categories' as ActiveTab, label: t('tabCategories'), icon: <CategoryIcon />, count: stats.categoriesCount || 0, show: canManageServices },
-    { id: 'reminders' as ActiveTab, label: t('tabReminders'), icon: <NotificationsActiveIcon />, count: stats.monitor, show: !isUser && !isAccountant, color: 'error' as const },
-    { id: 'invoices' as ActiveTab, label: t('tabInvoices'), icon: <ReceiptLongIcon />, count: stats.invoicesCount || 0, show: !isAccountant && (!isUser && canManageInvoices) },
+    { path: '/data-management/services', label: t('tabServices'), icon: <BuildIcon />, count: 0, show: canManageServices },
+    { path: '/data-management/provided-services', label: t('tabProvidedServices'), icon: <HandymanIcon />, count: 0, show: canManageProvidedServices },
+    { path: '/data-management/categories', label: t('tabCategories'), icon: <CategoryIcon />, count: stats.categoriesCount || 0, show: canManageServices },
+    { path: '/data-management/reminders', label: t('tabReminders'), icon: <NotificationsActiveIcon />, count: stats.monitor, show: !isUser && !isAccountant, color: 'error' as const },
+    { path: '/data-management/invoices', label: t('tabInvoices'), icon: <ReceiptLongIcon />, count: stats.invoicesCount || 0, show: !isAccountant && (!isUser && canManageInvoices) },
   ];
 
   return (
@@ -126,13 +112,7 @@ export const AdminLayout: React.FC<Props> = ({
       <AppHeader
         mobileOpen={mobileOpen}
         setMobileOpen={setMobileOpen}
-        currentApp={currentApp}
-        onAppChange={onAppChange}
-        activeTab={activeTab}
-        onTabChange={onTabChange}
-        dashboardSubTab={dashboardSubTab}
         onPreferenceChange={onPreferenceChange}
-        onNavigateToPendingUsers={onNavigateToPendingUsers}
         handleOpenProfile={() => setIsProfileOpen(true)}
         handleOpenPreferences={() => setIsPreferencesOpen(true)}
         handleLogoutClick={logout}
@@ -143,13 +123,6 @@ export const AdminLayout: React.FC<Props> = ({
       <Sidebar
         mobileOpen={mobileOpen}
         onMobileClose={() => setMobileOpen(false)}
-        currentApp={currentApp}
-        activeTab={activeTab}
-        onTabChange={onTabChange}
-        dashboardSubTab={dashboardSubTab}
-        onDashboardSubTabChange={onDashboardSubTabChange}
-        providedServicesSubTab={providedServicesSubTab}
-        onProvidedServicesSubTabChange={onProvidedServicesSubTabChange}
         isStatisticExpanded={isStatisticExpanded}
         setIsStatisticExpanded={setIsStatisticExpanded}
         isProvidedServicesExpanded={isProvidedServicesExpanded}
