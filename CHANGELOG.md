@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.1.1] - 2026-09-13
+
+- feat: react router
+
+## [v1.1.0] - 2026-09-13
+
+- feat: layout changes
+
 ## [v1.0.4] - 2026-09-09
 
 - refactor: update version resolution logic and enhance automated PR br… (#27) by @zigikralj
