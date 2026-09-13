@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.1.2] - 2026-09-13
+
+- refactor: update version bump workflow to create release pull requests (#30) by @zigikralj
+
 ## [v1.1.1] - 2026-09-13
 
 - feat: react router
