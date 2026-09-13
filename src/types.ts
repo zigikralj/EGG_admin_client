@@ -241,7 +241,7 @@ export type ActiveTab = 'dashboard' | 'projects' | 'clients' | 'permits' | 'user
 
 export type AppSection = 'project-tracker' | 'data-management';
 
-export type DashboardSubTab = 'projects' | 'reminders' | 'invoices' | 'waste-disposal' | 'waste-management' | 'statistic' | 'statistic-waste-management';
+export type DashboardSubTab = 'projects' | 'reminders' | 'invoices' | 'waste-disposal' | 'waste-management' | 'statistic' | 'statistic-waste-management' | 'statistic-waste-disposal';
 
 export type ProvidedServicesSubTab = 'summary' | 'statistics';
 

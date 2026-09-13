@@ -14,7 +14,8 @@ import {
   Badge,
   Chip,
 } from '@mui/material';
-import type { AppNotification, ActiveTab, AppSection } from '../../types';
+import { useNavigate } from 'react-router-dom';
+import type { AppNotification } from '../../types';
 import type { TranslationKeys } from '../../i18n/translations';
 import { useNotifications } from '../../context/NotificationContext';
 import { useAuth } from '../../context/AuthContext';
@@ -34,9 +35,6 @@ interface NotificationsMenuProps {
   isOpen: boolean;
   onClose: () => void;
   onOpenProject?: (projectId: string) => void;
-  onNavigateToPendingUsers?: () => void;
-  onAppChange?: (app: AppSection) => void;
-  onTabChange?: (tab: ActiveTab) => void;
 }
 
 function formatRelativeTime(dateString: string, t: (k: keyof TranslationKeys, params?: Record<string, string | number>) => string): string {
@@ -63,10 +61,8 @@ export const NotificationsMenu: React.FC<NotificationsMenuProps> = ({
   isOpen,
   onClose,
   onOpenProject,
-  onNavigateToPendingUsers,
-  onAppChange,
-  onTabChange,
 }) => {
+  const navigate = useNavigate();
   const { t } = useLanguage();
   const { role, isRealAdmin, roleView, setRoleView, pendingUsersCount } = useAuth();
   const hasPendingUsers = (isRealAdmin || role === 'Manager') && pendingUsersCount > 0;
@@ -96,12 +92,7 @@ export const NotificationsMenu: React.FC<NotificationsMenuProps> = ({
     if (isRealAdmin && roleView !== 'Administrator') {
       setRoleView('Administrator');
     }
-    if (onNavigateToPendingUsers) {
-      onNavigateToPendingUsers();
-    } else if (onAppChange && onTabChange) {
-      onAppChange('data-management');
-      onTabChange('users');
-    }
+    navigate('/data-management/users');
   };
 
   return (

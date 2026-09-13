@@ -34,8 +34,8 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { ArrowUpwardIcon, ArrowDownwardIcon, AddIcon } from '../../components/icons';
 
-const StatisticsCharts = React.lazy(() => import('../../components/tracker/StatisticsCharts'));
-const ProvidedServicesStatistics = React.lazy(() => import('../../components/tracker/ProvidedServicesStatistics'));
+const ProjectsStatistics = React.lazy(() => import('../../components/tracker/statistics/ProjectsStatistics'));
+const WasteDisposalStatistics = React.lazy(() => import('../../components/tracker/statistics/WasteDisposalStatistics'));
 
 
 interface Props {
@@ -507,7 +507,7 @@ const DashboardView: React.FC<Props> = ({
             </Typography>
           </Box>
           <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>}>
-            <StatisticsCharts
+            <ProjectsStatistics
               projects={projects}
               clients={clients}
               users={users}
@@ -519,18 +519,18 @@ const DashboardView: React.FC<Props> = ({
         </Box>
       )}
 
-      {/* WASTE MANAGEMENT STATISTIC VIEW */}
-      {(dashboardSubTab === 'statistic-waste-management' || dashboardSubTab === 'waste-management') && (
+      {/* WASTE DISPOSAL STATISTIC VIEW */}
+      {(dashboardSubTab === 'statistic-waste-disposal' || dashboardSubTab === 'statistic-waste-management' || dashboardSubTab === 'waste-management') && (
         <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
           <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>}>
-            <ProvidedServicesStatistics
+            <WasteDisposalStatistics
               providedServices={providedServices}
               services={services}
               clients={clients}
               categories={categories}
               projects={projects}
               invoices={invoices}
-              title={t('subTabWasteManagement')}
+              title={t('subTabWasteDisposal')}
             />
           </Suspense>
         </Box>

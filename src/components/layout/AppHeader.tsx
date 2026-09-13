@@ -30,9 +30,9 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { useRoleLabels } from '../../hooks/useRoleLabels';
-import type { ActiveTab, AppSection, DashboardSubTab } from '../../types';
 import { DRAWER_WIDTH } from './Sidebar';
 import { NotificationsMenu } from './NotificationsMenu';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   MenuIcon,
   BusinessIcon,
@@ -48,13 +48,7 @@ import {
 interface AppHeaderProps {
   mobileOpen: boolean;
   setMobileOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  activeTab: ActiveTab;
-  onTabChange: (tab: ActiveTab) => void;
-  currentApp: AppSection;
-  onAppChange: (app: AppSection) => void;
-  dashboardSubTab?: DashboardSubTab;
   onPreferenceChange?: (key: string, value: any) => void;
-  onNavigateToPendingUsers?: () => void;
   handleOpenProfile: () => void;
   handleOpenPreferences: () => void;
   handleLogoutClick: () => void;
@@ -65,17 +59,15 @@ interface AppHeaderProps {
 export const AppHeader: React.FC<AppHeaderProps> = ({
   mobileOpen,
   setMobileOpen,
-  activeTab,
-  onTabChange,
-  currentApp,
-  onAppChange,
-  onNavigateToPendingUsers,
   handleOpenProfile,
   handleOpenPreferences,
   handleLogoutClick,
   setIsCompanyInfoOpen,
   onOpenProject,
 }) => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const currentApp = location.pathname.startsWith('/data-management') ? 'data-management' : 'project-tracker';
   const { t } = useLanguage();
   const { getRoleBadgeLabel } = useRoleLabels();
   const { unreadCount } = useNotifications();
@@ -233,8 +225,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               py: 0.5,
             }}
             onClick={() => {
-              onAppChange('project-tracker');
-              onTabChange('dashboard');
+              navigate('/project-tracker');
               setMobileOpen(false);
             }}
           >
@@ -552,8 +543,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             <MenuItem
               onClick={() => {
                 handleAppsMenuClose();
-                onAppChange('project-tracker');
-                onTabChange('dashboard');
+                navigate('/project-tracker');
                 setMobileOpen(false);
               }}
               selected={currentApp === 'project-tracker'}
@@ -606,10 +596,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               <MenuItem
                 onClick={() => {
                   handleAppsMenuClose();
-                  onAppChange('data-management');
-                  if (activeTab === 'dashboard') {
-                    onTabChange('projects');
-                  }
+                  navigate('/data-management/projects');
                   setMobileOpen(false);
                 }}
                 selected={currentApp === 'data-management'}
@@ -665,9 +652,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             isOpen={isNotifMenuOpen}
             onClose={handleNotifClose}
             onOpenProject={onOpenProject}
-            onNavigateToPendingUsers={onNavigateToPendingUsers}
-            onAppChange={onAppChange}
-            onTabChange={onTabChange}
           />
         </Box>
       </Toolbar>

@@ -14,8 +14,8 @@ import {
   ToggleButton,
 } from '@mui/material';
 import { LineChart } from '@mui/x-charts/LineChart';
-import type { ProvidedService, Service, Client, Category, Invoice, Project } from '../../types';
-import { useLanguage } from '../../context/LanguageContext';
+import type { ProvidedService, Service, Client, Category, Invoice, Project } from '../../../types';
+import { useLanguage } from '../../../context/LanguageContext';
 import {
   HandymanIcon,
   CheckCircleOutlinedIcon,
@@ -24,7 +24,7 @@ import {
   ReceiptLongIcon,
   BusinessIcon,
   ShowChartIcon,
-} from '../icons';
+} from '../../icons';
 
 const YEAR_PALETTE = [
   '#0284c7', // Sky Blue
@@ -59,7 +59,7 @@ interface Props {
   title?: string;
 }
 
-export const ProvidedServicesStatistics: React.FC<Props> = ({
+export const WasteDisposalStatistics: React.FC<Props> = ({
   providedServices,
   services,
   clients,
@@ -1236,4 +1236,4 @@ export const ProvidedServicesStatistics: React.FC<Props> = ({
   );
 };
 
-export default ProvidedServicesStatistics;
+export default WasteDisposalStatistics;

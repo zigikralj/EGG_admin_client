@@ -20,10 +20,10 @@ import {
 import { PieChart } from '@mui/x-charts/PieChart';
 import { LineChart } from '@mui/x-charts/LineChart';
 import { BarChart } from '@mui/x-charts/BarChart';
-import type { Project, User, Category, Service, Client, Invoice } from '../../types';
-import { typeGroup } from '../../types';
-import { useLanguage } from '../../context/LanguageContext';
-import { PersonOutlinedIcon, CategoryOutlinedIcon, FilterListIcon, LandscapeOutlinedIcon, LeaderboardOutlinedIcon } from '../icons';
+import type { Project, User, Category, Service, Client, Invoice } from '../../../types';
+import { typeGroup } from '../../../types';
+import { useLanguage } from '../../../context/LanguageContext';
+import { PersonOutlinedIcon, CategoryOutlinedIcon, FilterListIcon, LandscapeOutlinedIcon, LeaderboardOutlinedIcon } from '../../icons';
 
 interface Props {
   projects: Project[];
@@ -62,7 +62,7 @@ const CATEGORY_COLORS = [
   '#475569', // slate dark
 ];
 
-const StatisticsCharts: React.FC<Props> = ({
+const ProjectsStatistics: React.FC<Props> = ({
   projects,
   clients = [],
   invoices = [],
@@ -971,4 +971,4 @@ const StatisticsCharts: React.FC<Props> = ({
   );
 };
 
-export default StatisticsCharts;
+export default ProjectsStatistics;

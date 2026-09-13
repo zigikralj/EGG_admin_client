@@ -25,9 +25,10 @@ import {
 
 
 
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import type { ActiveTab, AppSection, DashboardSubTab, ProvidedServicesSubTab } from '../../types';
+import type { DashboardSubTab, ProvidedServicesSubTab } from '../../types';
 import {
   ExpandMoreIcon,
   ExpandLessIcon,
@@ -41,7 +42,7 @@ import {
 export const DRAWER_WIDTH = 250;
 
 interface NavItem {
-  id: ActiveTab;
+  path: string;
   label: string;
   icon: React.ReactNode;
   count: number;
@@ -52,9 +53,6 @@ interface NavItem {
 interface SidebarProps {
   mobileOpen: boolean;
   onMobileClose: () => void;
-  currentApp: AppSection;
-  activeTab: ActiveTab;
-  onTabChange: (tab: ActiveTab) => void;
   dashboardSubTab?: DashboardSubTab;
   onDashboardSubTabChange?: (subTab: DashboardSubTab) => void;
   providedServicesSubTab?: ProvidedServicesSubTab;
@@ -70,11 +68,8 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({
   mobileOpen,
   onMobileClose,
-  currentApp,
-  activeTab,
-  onTabChange,
-  dashboardSubTab,
-  onDashboardSubTabChange,
+  dashboardSubTab: _dashboardSubTab,
+  onDashboardSubTabChange: _onDashboardSubTabChange,
   providedServicesSubTab: _providedServicesSubTab = 'summary',
   onProvidedServicesSubTabChange: _onProvidedServicesSubTabChange,
   isProvidedServicesExpanded: _isProvidedServicesExpanded = true,
@@ -107,6 +102,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setRoleView,
     isAccountant,
   } = useAuth();
+
+  const location = useLocation();
+  const navigate = useNavigate();
+  const currentApp = location.pathname.startsWith('/data-management') ? 'data-management' : 'project-tracker';
+  const isDashboardActive = location.pathname.startsWith('/project-tracker');
 
   const SidebarContent = (
     <>
@@ -167,35 +167,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                 if (canViewWasteDisposal) {
                   statisticSubItems.push({
-                    id: 'statistic-waste-management',
-                    label: t('subTabWasteManagement'),
+                    id: 'statistic-waste-disposal',
+                    label: t('subTabWasteDisposal'),
                     icon: <DeleteSweepIcon fontSize="small" />,
                   });
                 }
 
                 const isStatisticActive =
-                  activeTab === 'dashboard' &&
-                  (dashboardSubTab === 'statistic' ||
-                    dashboardSubTab === 'statistic-waste-management' ||
-                    dashboardSubTab === 'waste-management');
+                  isDashboardActive &&
+                  (location.pathname === '/project-tracker/statistic' ||
+                    location.pathname === '/project-tracker/statistic-waste-disposal' ||
+                    location.pathname === '/project-tracker/statistic-waste-management' ||
+                    location.pathname === '/project-tracker/waste-management');
 
                 return (
                   <>
                     {dashboardItems.map((sub) => {
                       const isSelected =
-                        activeTab === 'dashboard' &&
-                        (!dashboardSubTab ? sub.id === 'projects' : dashboardSubTab === sub.id);
+                        isDashboardActive &&
+                        (location.pathname === `/project-tracker/${sub.id}` || (sub.id === 'projects' && location.pathname === '/project-tracker'));
                       return (
                         <ListItemButton
                           key={sub.id}
                           selected={isSelected}
                           onClick={() => {
-                            if (activeTab !== 'dashboard') {
-                              onTabChange('dashboard');
-                            }
-                            if (onDashboardSubTabChange) {
-                              onDashboardSubTabChange(sub.id);
-                            }
+                            navigate(sub.id === 'projects' ? '/project-tracker' : `/project-tracker/${sub.id}`);
                             onMobileClose();
                           }}
                           sx={{
@@ -233,12 +229,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           selected={isStatisticActive}
                           onClick={() => {
                             if (!isStatisticActive) {
-                              if (activeTab !== 'dashboard') {
-                                onTabChange('dashboard');
-                              }
-                              if (onDashboardSubTabChange) {
-                                onDashboardSubTabChange('statistic');
-                              }
+                              navigate('/project-tracker/statistic');
                               expandStatistic();
                             } else {
                               toggleStatisticExpanded();
@@ -278,22 +269,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <Collapse in={statisticExpanded || isStatisticActive} timeout="auto">
                           <List component="div" disablePadding sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, my: 0.25 }}>
                             {statisticSubItems.map((sub) => {
-                              const isSubSelected =
-                                activeTab === 'dashboard' &&
-                                (sub.id === 'statistic'
-                                  ? dashboardSubTab === 'statistic'
-                                  : (dashboardSubTab === 'statistic-waste-management' || dashboardSubTab === 'waste-management'));
+                              const isSubSelected = isDashboardActive && (location.pathname === `/project-tracker/${sub.id}`);
                               return (
                                 <ListItemButton
                                   key={sub.id}
                                   selected={isSubSelected}
                                   onClick={() => {
-                                    if (activeTab !== 'dashboard') {
-                                      onTabChange('dashboard');
-                                    }
-                                    if (onDashboardSubTabChange) {
-                                      onDashboardSubTabChange(sub.id);
-                                    }
+                                    navigate(`/project-tracker/${sub.id}`);
                                     onMobileClose();
                                   }}
                                   sx={{
@@ -335,12 +317,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         key="statistic"
                         selected={isStatisticActive}
                         onClick={() => {
-                          if (activeTab !== 'dashboard') {
-                            onTabChange('dashboard');
-                          }
-                          if (onDashboardSubTabChange) {
-                            onDashboardSubTabChange('statistic');
-                          }
+                          navigate('/project-tracker/statistic');
                           onMobileClose();
                         }}
                         sx={{
@@ -376,15 +353,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
           ) : (
             <List component="nav" disablePadding sx={{ gap: 0.5, display: 'flex', flexDirection: 'column' }}>
               {navItems
-                .filter((item) => item.show && item.id !== 'dashboard')
+                .filter((item) => item.show && item.path !== '/project-tracker')
                 .map((item) => {
-                  const isSelected = activeTab === item.id;
+                  const isSelected = location.pathname === item.path;
                   return (
                     <ListItemButton
-                      key={item.id}
+                      key={item.path}
                       selected={isSelected}
                       onClick={() => {
-                        onTabChange(item.id);
+                        navigate(item.path);
                         onMobileClose();
                       }}
                       sx={{
