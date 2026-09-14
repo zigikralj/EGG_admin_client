@@ -25,8 +25,6 @@ import {
   FormControl,
   InputLabel,
   Tooltip,
-  ToggleButtonGroup,
-  ToggleButton,
   Autocomplete,
 } from '@mui/material';
 
@@ -36,41 +34,38 @@ import {
 
 
 
-import type { Reminder, Project, Client, User, Permit, SaveResult, TableViewProps } from '../../types';
+import type { Reminder, TableViewProps } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { TableOptionsSelector, type ColumnDef } from '../../components/common/ColumnSelector';
 import { TableFilterSelector } from '../../components/common/TableFilterSelector';
 import { DateRangeFilter } from '../../components/common/DateRangeFilter';
 import { TableSearchInput } from '../../components/common/TableSearchInput';
+import { TableQuickFilters, type QuickFilterItem } from '../../components/common/TableQuickFilters';
 import { ErrorDialog } from '../../components/dialogs/ErrorDialog';
 import { useTableView } from '../../hooks/useTableView';
 import { AddIcon, EditIcon, DeleteIcon, CheckIcon, ArrowUpwardIcon, ArrowDownwardIcon, RefreshIcon } from '../../components/icons';
 
 interface Props extends TableViewProps {
-  reminders: Reminder[];
-  projects: Project[];
-  clients: Client[];
-  users: User[];
-  permits?: Permit[];
-  onSaveReminder: (reminder: Partial<Reminder>) => Promise<SaveResult | void> | void;
-  onDeleteReminder: (id: string) => void;
-  onStatusChange?: (id: string, status: string) => void;
-  quickFilter?: 'all' | 'my' | 'pending';
-  onQuickFilterChange?: (val: 'all' | 'my' | 'pending') => void;
+  quickFilters?: string[];
+  onQuickFiltersChange?: (val: string[]) => void;
+  quickFilter?: any;
+  onQuickFilterChange?: (val: any) => void;
 }
 
 const DEFAULT_COLUMNS = ['title', 'project', 'client', 'responsible', 'status', 'notes'];
 
+import {
+  useRemindersQuery,
+  useProjectsQuery,
+  useClientsQuery,
+  useUsersQuery,
+  usePermitsQuery,
+  useRemindersMutations,
+} from '../../queries';
+import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
+
 const RemindersPage: React.FC<Props> = ({
-  reminders,
-  projects,
-  clients,
-  users,
-  permits = [],
-  onSaveReminder,
-  onDeleteReminder,
-  onStatusChange,
   visibleColumns = DEFAULT_COLUMNS,
   onVisibleColumnsChange,
   rowsPerPageOptions: rowsPerPageOptionsProp,
@@ -79,9 +74,10 @@ const RemindersPage: React.FC<Props> = ({
   onRowsPerPageChange,
   sortState,
   onSortChange,
+  quickFilters: quickFiltersProp,
+  onQuickFiltersChange,
   quickFilter: quickFilterProp,
   onQuickFilterChange,
-  onRefresh,
 }) => {
   const { t, getResponsibleLabel } = useLanguage();
   const { currentUser } = useAuth();
@@ -118,18 +114,30 @@ const RemindersPage: React.FC<Props> = ({
     onRowsPerPageOptionsChange,
     sortState,
     onSortChange,
-    onRefresh,
+    onRefresh: () => { refetchReminders(); },
     defaultSortField: 'title',
     defaultSortDirection: 'asc',
   });
+
+  const { data: reminders = [], refetch: refetchReminders } = useRemindersQuery();
+  const { data: projects = [] } = useProjectsQuery();
+  const { data: clients = [] } = useClientsQuery();
+  const { data: users = [] } = useUsersQuery();
+  const { data: permits = [] } = usePermitsQuery();
+
+  const { handleSave, handleDelete, handleStatusChangeReminder: handleStatusChange } = useRemindersMutations();
+
+  const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
+  const onDeleteReminder = (id: string) => handleDelete(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
+
   const [searchQuery, setSearchQuery] = useState('');
 
-
-
-  // Quick Filter state ('all' | 'my' | 'pending')
-  const [quickFilter, setQuickFilter] = useState<'all' | 'my' | 'pending'>(
-    quickFilterProp || 'all'
-  );
+  // Quick Filter state
+  const [quickFilters, setQuickFilters] = useState<string[]>(() => {
+    if (Array.isArray(quickFiltersProp)) return quickFiltersProp;
+    if (typeof quickFilterProp === 'string' && quickFilterProp !== 'all') return [quickFilterProp];
+    return [];
+  });
 
   // Popover Filter states
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -140,66 +148,85 @@ const RemindersPage: React.FC<Props> = ({
   const [filterDateField, setFilterDateField] = useState<string>('dueDate');
 
   useEffect(() => {
-    if (quickFilterProp !== undefined) {
-      setQuickFilter(quickFilterProp);
-      if (quickFilterProp === 'my' && currentUser?.name) {
+    if (Array.isArray(quickFiltersProp)) {
+      setQuickFilters(quickFiltersProp);
+    } else if (typeof quickFilterProp === 'string') {
+      setQuickFilters(quickFilterProp === 'all' ? [] : [quickFilterProp]);
+    }
+  }, [quickFiltersProp, quickFilterProp]);
+
+  const handleToggleFilter = (filterKey: string, checked: boolean) => {
+    const updated = checked
+      ? [...quickFilters, filterKey]
+      : quickFilters.filter((k) => k !== filterKey);
+    setQuickFilters(updated);
+    onQuickFiltersChange?.(updated);
+    onQuickFilterChange?.((updated[0] as any) || 'all');
+
+    if (filterKey === 'my') {
+      if (checked && currentUser?.name) {
         setFilterResponsible(currentUser.name);
-      } else if (quickFilterProp === 'pending') {
+      } else if (!checked && currentUser?.name && filterResponsible === currentUser.name) {
+        setFilterResponsible('all');
+      }
+    } else if (filterKey === 'pending') {
+      if (checked) {
         setFilterStatus('Pending');
-      } else if (quickFilterProp === 'all') {
-        if (currentUser?.name && filterResponsible === currentUser.name) {
-          setFilterResponsible('all');
-        }
-        if (filterStatus === 'Pending') {
-          setFilterStatus('all');
-        }
+      } else if (!checked && filterStatus === 'Pending') {
+        setFilterStatus('all');
       }
     }
-  }, [quickFilterProp, currentUser?.name]);
+  };
 
-  const handleQuickFilterChange = (val: 'all' | 'my' | 'pending') => {
-    setQuickFilter(val);
-    onQuickFilterChange?.(val);
-    if (val === 'my') {
-      if (currentUser?.name) setFilterResponsible(currentUser.name);
-      if (filterStatus === 'Pending') setFilterStatus('all');
-    } else if (val === 'pending') {
-      setFilterStatus('Pending');
-      if (currentUser?.name && filterResponsible === currentUser.name) setFilterResponsible('all');
-    } else if (val === 'all') {
-      if (currentUser?.name && filterResponsible === currentUser.name) setFilterResponsible('all');
-      if (filterStatus === 'Pending') setFilterStatus('all');
+  const reminderQuickFilterOptions: QuickFilterItem[] = useMemo(() => [
+    { key: 'my', label: t('quickFilterMyReminders'), hidden: !currentUser, color: 'primary' },
+    { key: 'pending', label: t('statusPending'), color: 'primary' },
+  ], [t, currentUser]);
+
+  const handleQuickFiltersChange = (newKeys: string[]) => {
+    const added = newKeys.find((k) => !quickFilters.includes(k));
+    const removed = quickFilters.find((k) => !newKeys.includes(k));
+    if (added) handleToggleFilter(added, true);
+    else if (removed) handleToggleFilter(removed, false);
+    else {
+      setQuickFilters(newKeys);
+      onQuickFiltersChange?.(newKeys);
+      onQuickFilterChange?.((newKeys[0] as any) || 'all');
     }
   };
 
   const handleFilterResponsibleChange = (val: string) => {
     setFilterResponsible(val);
     if (currentUser?.name && val === currentUser.name) {
-      if (quickFilter !== 'pending') {
-        setQuickFilter('my');
-        onQuickFilterChange?.('my');
+      if (!quickFilters.includes('my')) {
+        const updated = [...quickFilters, 'my'];
+        setQuickFilters(updated);
+        onQuickFiltersChange?.(updated);
       }
-    } else if (quickFilter === 'my') {
-      setQuickFilter('all');
-      onQuickFilterChange?.('all');
+    } else if (quickFilters.includes('my')) {
+      const updated = quickFilters.filter((k) => k !== 'my');
+      setQuickFilters(updated);
+      onQuickFiltersChange?.(updated);
     }
   };
 
   const handleFilterStatusChange = (val: string) => {
     setFilterStatus(val);
     if (val === 'Pending') {
-      setQuickFilter('pending');
-      onQuickFilterChange?.('pending');
-    } else if (quickFilter === 'pending') {
-      setQuickFilter('all');
-      onQuickFilterChange?.('all');
+      if (!quickFilters.includes('pending')) {
+        const updated = [...quickFilters, 'pending'];
+        setQuickFilters(updated);
+        onQuickFiltersChange?.(updated);
+      }
+    } else if (quickFilters.includes('pending')) {
+      const updated = quickFilters.filter((k) => k !== 'pending');
+      setQuickFilters(updated);
+      onQuickFiltersChange?.(updated);
     }
   };
 
-
-
   const activeFilterCount =
-    (quickFilter === 'pending' ? 1 : 0) +
+    quickFilters.length +
     (filterStatus !== 'all' ? 1 : 0) +
     (filterClient !== 'all' ? 1 : 0) +
     (filterResponsible !== 'all' ? 1 : 0) +
@@ -207,7 +234,8 @@ const RemindersPage: React.FC<Props> = ({
     (sortColumn !== 'title' || sortDirection !== 'asc' ? 1 : 0);
 
   const clearFilters = () => {
-    setQuickFilter('all');
+    setQuickFilters([]);
+    onQuickFiltersChange?.([]);
     onQuickFilterChange?.('all');
     setFilterStatus('all');
     setFilterClient('all');
@@ -331,7 +359,7 @@ const RemindersPage: React.FC<Props> = ({
 
     setIsSaving(true);
     try {
-      const res = await onSaveReminder({
+      const res = await handleSave({
         id: editingReminder?.id,
         title: finalTitle,
         projectId: selectedProjectId || null,
@@ -381,7 +409,7 @@ const RemindersPage: React.FC<Props> = ({
 
   // 1. Apply Quick & Popover Filters
   const filteredReminders = reminders.filter((rem) => {
-    if (quickFilter === 'my' && currentUser) {
+    if (quickFilters.includes('my') && currentUser) {
       const isMyName =
         rem.responsible &&
         currentUser.name &&
@@ -389,7 +417,7 @@ const RemindersPage: React.FC<Props> = ({
       const isMyId = rem.responsibleId && rem.responsibleId === currentUser.id;
       if (!isMyName && !isMyId) return false;
     }
-    if (quickFilter === 'pending' && rem.status.toLowerCase() === 'completed') return false;
+    if (quickFilters.includes('pending') && rem.status.toLowerCase() === 'completed') return false;
 
     if (filterStatus !== 'all' && rem.status !== filterStatus) return false;
     if (filterClient !== 'all' && rem.clientName !== filterClient) return false;
@@ -472,7 +500,7 @@ const RemindersPage: React.FC<Props> = ({
 
   useEffect(() => {
     setPage(0);
-  }, [searchQuery, quickFilter, filterStatus, filterClient, filterResponsible, setPage]);
+  }, [searchQuery, quickFilters, filterStatus, filterClient, filterResponsible, setPage]);
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
@@ -569,7 +597,7 @@ const RemindersPage: React.FC<Props> = ({
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
               {t('remindersAllTitle', { count: sortedReminders.length })}
             </Typography>
-            {onRefresh && (
+            {true && (
               <Tooltip title={t('btnRefresh')}>
                 <IconButton
                   size="small"
@@ -605,29 +633,12 @@ const RemindersPage: React.FC<Props> = ({
               onChange={setSearchQuery}
             />
 
-            {/* QUICK FILTERS TOGGLE */}
-            <ToggleButtonGroup
-              size="small"
-              value={quickFilter}
-              exclusive
-              onChange={(_, val) => {
-                if (val) handleQuickFilterChange(val);
-              }}
-              color="primary"
-              sx={{ bgcolor: 'background.paper', borderRadius: 2, width: { xs: '100%', sm: 'auto' } }}
-            >
-              <ToggleButton value="all" sx={{ flex: { xs: 1, sm: 'none' }, px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600 }}>
-                {t('quickFilterAll')}
-              </ToggleButton>
-              {currentUser && (
-                <ToggleButton value="my" sx={{ flex: { xs: 1, sm: 'none' }, px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600 }}>
-                  {t('quickFilterMyReminders')}
-                </ToggleButton>
-              )}
-              <ToggleButton value="pending" sx={{ flex: { xs: 1, sm: 'none' }, px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600 }}>
-                {t('statusPending')}
-              </ToggleButton>
-            </ToggleButtonGroup>
+            {/* QUICK FILTERS */}
+            <TableQuickFilters
+              options={reminderQuickFilterOptions}
+              selectedKeys={quickFilters}
+              onChange={handleQuickFiltersChange}
+            />
 
             {/* ADVANCED FILTER SELECTOR */}
             <TableFilterSelector
@@ -850,12 +861,14 @@ const RemindersPage: React.FC<Props> = ({
                     )}
                     <TableCell align="right">
                       <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
-                        {onStatusChange && rem.status !== 'Completed' && (
+                        {rem.status !== 'Completed' && (
                           <Tooltip title={t('statusCompleted')}>
                             <IconButton
                               size="small"
                               color="success"
-                              onClick={() => onStatusChange(rem.id, 'Completed')}
+                              onClick={async () => {
+                                await handleStatusChange(rem.id, 'Completed');
+                              }}
                             >
                               <CheckIcon fontSize="small" />
                             </IconButton>
@@ -1157,6 +1170,14 @@ const RemindersPage: React.FC<Props> = ({
         open={errorDialogState.open}
         message={errorDialogState.message}
         onClose={() => setErrorDialogState((prev) => ({ ...prev, open: false }))}
+      />
+      <ConfirmDialog
+        open={deleteConfirmState.open}
+        title={t('confirmAction' as any)}
+        message={deleteConfirmState.message}
+        onConfirm={deleteConfirmState.onConfirm}
+        onClose={() => setDeleteConfirmState((prev) => ({ ...prev, open: false }))}
+        confirmColor="warning"
       />
     </Box>
   );

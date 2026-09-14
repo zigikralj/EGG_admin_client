@@ -27,57 +27,34 @@ import {
   InputLabel,
   Tooltip,
   Paper,
-  ToggleButton,
-  ToggleButtonGroup,
   Autocomplete,
 } from '@mui/material';
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-import type { User, SaveResult, TableViewProps } from '../../types';
+import type { User, TableViewProps } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { TableOptionsSelector, type ColumnDef } from '../../components/common/ColumnSelector';
 import { TableFilterSelector } from '../../components/common/TableFilterSelector';
 import { TableSearchInput } from '../../components/common/TableSearchInput';
+import { TableQuickFilters, type QuickFilterItem } from '../../components/common/TableQuickFilters';
 import { ErrorDialog } from '../../components/dialogs/ErrorDialog';
 import { useTableView } from '../../hooks/useTableView';
 import { AddIcon, EditIcon, DeleteIcon, LockIcon, HowToRegIcon, HourglassEmptyIcon, ArrowUpwardIcon, ArrowDownwardIcon, CheckCircleIcon, HighlightOffIcon, BlockIcon, VpnKeyIcon, Visibility, VisibilityOff, ExitToAppIcon, RefreshIcon } from '../../components/icons';
 
 interface Props extends TableViewProps {
-  users: User[];
-  onSaveUser: (user: Partial<User>) => Promise<SaveResult | void> | void;
-  onDeleteUser: (id: string) => void;
-  onApproveUser?: (userId: string, role: string) => Promise<void>;
-  onRejectUser?: (userId: string) => Promise<void>;
-  onForceLogoutUser?: (userId: string) => Promise<void>;
   initialFilterStatus?: string;
+  quickFilters?: string[];
+  onQuickFiltersChange?: (val: string[]) => void;
   quickFilter?: string;
   onQuickFilterChange?: (val: string) => void;
 }
 
 const DEFAULT_COLUMNS = ['name', 'role', 'status', 'email', 'phone', 'gender'];
 
+import { useUsersQuery, useUsersMutations } from '../../queries';
+import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
+
 const UsersPage: React.FC<Props> = ({
-  users,
-  onSaveUser,
-  onDeleteUser,
-  onApproveUser,
-  onRejectUser,
-  onForceLogoutUser,
   visibleColumns = DEFAULT_COLUMNS,
   onVisibleColumnsChange,
   rowsPerPageOptions: rowsPerPageOptionsProp,
@@ -87,14 +64,22 @@ const UsersPage: React.FC<Props> = ({
   sortState,
   onSortChange,
   initialFilterStatus = 'all',
+  quickFilters: quickFiltersProp,
+  onQuickFiltersChange,
   quickFilter: quickFilterProp,
   onQuickFilterChange,
-  onRefresh,
 }) => {
   const { t } = useLanguage();
   const { canManageUsers, canEditUser, isAdmin, currentUser } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  
+  const { data: users = [], refetch: refetchUsers } = useUsersQuery();
+  const { handleSave, handleDelete, handleApproveUser, handleRejectUser, handleForceLogoutUser } = useUsersMutations();
+
+  const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
+  const onDeleteUser = (id: string) => handleDelete(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
+
   const {
     activeCols,
     setCols,
@@ -126,7 +111,7 @@ const UsersPage: React.FC<Props> = ({
     onRowsPerPageOptionsChange,
     sortState,
     onSortChange,
-    onRefresh,
+    onRefresh: () => { refetchUsers(); },
   });
 
   // Approve dialog state
@@ -138,42 +123,58 @@ const UsersPage: React.FC<Props> = ({
   const [forceLogoutTarget, setForceLogoutTarget] = useState<User | null>(null);
   const [isSubmittingForceLogout, setIsSubmittingForceLogout] = useState(false);
 
-
-
   // Filter state
   const [filterRole, setFilterRole] = useState<string>('all');
-  const [filterStatus, setFilterStatus] = useState<string>(
-    quickFilterProp || (initialFilterStatus !== 'all' ? initialFilterStatus : 'all')
-  );
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [quickFilters, setQuickFilters] = useState<string[]>(() => {
+    if (Array.isArray(quickFiltersProp)) return quickFiltersProp;
+    if (typeof quickFilterProp === 'string' && quickFilterProp !== 'all') return [quickFilterProp];
+    if (initialFilterStatus === 'online' || initialFilterStatus === 'pending') return [initialFilterStatus];
+    return [];
+  });
 
   useEffect(() => {
-    if (quickFilterProp !== undefined) {
-      setFilterStatus(quickFilterProp);
+    if (Array.isArray(quickFiltersProp)) {
+      setQuickFilters(quickFiltersProp);
+    } else if (typeof quickFilterProp === 'string') {
+      setQuickFilters(quickFilterProp === 'all' ? [] : [quickFilterProp]);
     }
-  }, [quickFilterProp]);
+  }, [quickFiltersProp, quickFilterProp]);
 
   const prevInitialFilterStatus = useRef(initialFilterStatus);
   useEffect(() => {
     if (initialFilterStatus && initialFilterStatus !== prevInitialFilterStatus.current) {
       prevInitialFilterStatus.current = initialFilterStatus;
-      setFilterStatus(initialFilterStatus);
+      if (initialFilterStatus === 'online' || initialFilterStatus === 'pending') {
+        setQuickFilters([initialFilterStatus]);
+      } else {
+        setFilterStatus(initialFilterStatus);
+      }
     }
   }, [initialFilterStatus]);
 
+  const handleQuickFiltersChange = (newKeys: string[]) => {
+    setQuickFilters(newKeys);
+    onQuickFiltersChange?.(newKeys);
+    onQuickFilterChange?.(newKeys[0] || 'all');
+  };
+
   const handleFilterStatusChange = (val: string) => {
     setFilterStatus(val);
-    onQuickFilterChange?.(val);
   };
 
   const activeFilterCount =
+    quickFilters.length +
     (filterRole !== 'all' ? 1 : 0) +
     (filterStatus !== 'all' ? 1 : 0) +
     (sortColumn !== 'name' || sortDirection !== 'asc' ? 1 : 0);
 
   const clearFilters = () => {
+    setQuickFilters([]);
+    onQuickFiltersChange?.([]);
+    onQuickFilterChange?.('all');
     setFilterRole('all');
     setFilterStatus('all');
-    onQuickFilterChange?.('all');
     resetSort();
   };
 
@@ -260,10 +261,10 @@ const UsersPage: React.FC<Props> = ({
   };
 
   const handleConfirmApprove = async () => {
-    if (!approveUserTarget || !onApproveUser) return;
+    if (!approveUserTarget) return;
     setIsSubmittingApprove(true);
     try {
-      await onApproveUser(approveUserTarget.id, approveRole);
+      await handleApproveUser(approveUserTarget.id, approveRole);
       setApproveUserTarget(null);
     } finally {
       setIsSubmittingApprove(false);
@@ -271,17 +272,16 @@ const UsersPage: React.FC<Props> = ({
   };
 
   const handleConfirmReject = async (u: User) => {
-    if (!onRejectUser) return;
     if (window.confirm(t('confirmRejectMessage', { name: u.name }))) {
-      await onRejectUser(u.id);
+      await handleRejectUser(u.id);
     }
   };
 
   const handleConfirmForceLogout = async () => {
-    if (!forceLogoutTarget || !onForceLogoutUser) return;
+    if (!forceLogoutTarget) return;
     setIsSubmittingForceLogout(true);
     try {
-      await onForceLogoutUser(forceLogoutTarget.id);
+      await handleForceLogoutUser(forceLogoutTarget.id);
       setForceLogoutTarget(null);
     } finally {
       setIsSubmittingForceLogout(false);
@@ -300,7 +300,7 @@ const UsersPage: React.FC<Props> = ({
     }
     setIsSaving(true);
     try {
-      const res = await onSaveUser({
+      const res = await handleSave({
         id: editingUser?.id,
         name: name.trim(),
         email: email.trim() || null,
@@ -312,17 +312,13 @@ const UsersPage: React.FC<Props> = ({
         ...(password.trim() ? { password: password.trim() } : {}),
       });
 
-      if (res && typeof res === 'object' && 'success' in res) {
-        if (res.success) {
-          setIsOpen(false);
-        } else {
-          setErrorDialogState({
-            open: true,
-            message: res.error || t('errorSavingUser'),
-          });
-        }
-      } else {
+      if (res.success) {
         setIsOpen(false);
+      } else {
+        setErrorDialogState({
+          open: true,
+          message: res.error || t('errorSavingUser'),
+        });
       }
     } catch (err: any) {
       setErrorDialogState({
@@ -344,12 +340,42 @@ const UsersPage: React.FC<Props> = ({
   // 1. Apply Filter
   const filteredUsers = users.filter((u) => {
     if (filterRole !== 'all' && u.role !== filterRole) return false;
+    if (quickFilters.includes('online') && !u.isOnline) return false;
+    if (quickFilters.includes('pending') && u.status !== 'PENDING') return false;
     if (filterStatus === 'pending' && u.status !== 'PENDING') return false;
     if (filterStatus === 'approved' && u.status !== 'APPROVED') return false;
     if (filterStatus === 'blocked' && u.status !== 'BLOCKED') return false;
     if (filterStatus === 'online' && !u.isOnline) return false;
     return true;
   });
+
+  const userQuickFilterOptions: QuickFilterItem[] = useMemo(() => [
+    {
+      key: 'online',
+      label: (
+        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+          <Box
+            component="span"
+            sx={{
+              width: 7,
+              height: 7,
+              borderRadius: '50%',
+              bgcolor: 'success.main',
+              display: 'inline-block',
+            }}
+          />
+          {t('quickFilterOnline')}{onlineUsers.length > 0 ? ` (${onlineUsers.length})` : ''}
+        </Box>
+      ),
+      color: 'success',
+    },
+    {
+      key: 'pending',
+      label: `${t('statusPending')}${pendingUsers.length > 0 ? ` (${pendingUsers.length})` : ''}`,
+      color: 'warning',
+      labelColor: 'warning.main',
+    },
+  ], [t, onlineUsers.length, pendingUsers.length]);
 
   // 2. Search among filtered items
   const searchedUsers = filteredUsers.filter((u) => {
@@ -455,7 +481,7 @@ const UsersPage: React.FC<Props> = ({
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
               {t('usersListTitle', { count: sortedUsers.length })}
             </Typography>
-            {onRefresh && (
+            {true && (
               <Tooltip title={t('btnRefresh')}>
                 <IconButton
                   size="small"
@@ -486,77 +512,11 @@ const UsersPage: React.FC<Props> = ({
 
           <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, width: { xs: '100%', sm: 'auto' } }}>
             {/* QUICK FILTERS */}
-            <ToggleButtonGroup
-              value={['all', 'online', 'pending'].includes(filterStatus) ? filterStatus : null}
-              exclusive
-              onChange={(_, val) => {
-                if (val) {
-                  setFilterStatus(val);
-                  onQuickFilterChange?.(val);
-                }
-              }}
-              size="small"
-              color="primary"
-              sx={{ width: { xs: '100%', sm: 'auto' } }}
-            >
-              <ToggleButton value="all" sx={{ flex: { xs: 1, sm: 'none' }, px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600 }}>
-                {t('quickFilterAll')}
-              </ToggleButton>
-              <ToggleButton
-                value="online"
-                sx={{
-                  flex: { xs: 1, sm: 'none' },
-                  px: 1.5,
-                  py: 0.5,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  '&.Mui-selected': {
-                    color: 'success.main',
-                    bgcolor: (theme) =>
-                      theme.palette.mode === 'dark' ? 'rgba(46, 125, 50, 0.2)' : 'rgba(46, 125, 50, 0.12)',
-                    '&:hover': {
-                      bgcolor: (theme) =>
-                        theme.palette.mode === 'dark' ? 'rgba(46, 125, 50, 0.3)' : 'rgba(46, 125, 50, 0.18)',
-                    },
-                  },
-                }}
-              >
-                <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
-                  <Box
-                    component="span"
-                    sx={{
-                      width: 7,
-                      height: 7,
-                      borderRadius: '50%',
-                      bgcolor: 'success.main',
-                      display: 'inline-block',
-                    }}
-                  />
-                  {t('quickFilterOnline')}{onlineUsers.length > 0 ? ` (${onlineUsers.length})` : ''}
-                </Box>
-              </ToggleButton>
-              <ToggleButton
-                value="pending"
-                sx={{
-                  flex: { xs: 1, sm: 'none' },
-                  px: 1.5,
-                  py: 0.5,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  '&.Mui-selected': {
-                    color: 'warning.main',
-                    bgcolor: (theme) =>
-                      theme.palette.mode === 'dark' ? 'rgba(237, 108, 2, 0.2)' : 'rgba(237, 108, 2, 0.12)',
-                    '&:hover': {
-                      bgcolor: (theme) =>
-                        theme.palette.mode === 'dark' ? 'rgba(237, 108, 2, 0.3)' : 'rgba(237, 108, 2, 0.18)',
-                    },
-                  },
-                }}
-              >
-                {t('statusPending')}{pendingUsers.length > 0 ? ` (${pendingUsers.length})` : ''}
-              </ToggleButton>
-            </ToggleButtonGroup>
+            <TableQuickFilters
+              options={userQuickFilterOptions}
+              selectedKeys={quickFilters}
+              onChange={handleQuickFiltersChange}
+            />
 
             <TableSearchInput
               value={searchQuery}
@@ -837,7 +797,7 @@ const UsersPage: React.FC<Props> = ({
                             </Box>
                           ) : editable ? (
                             <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.5 }}>
-                              {u.isOnline && onForceLogoutUser && u.id !== currentUser?.id && (
+                              {u.isOnline && u.id !== currentUser?.id && (
                                 <Tooltip title={t('btnForceLogout')}>
                                   <IconButton
                                     size="small"
@@ -1143,6 +1103,14 @@ const UsersPage: React.FC<Props> = ({
         open={errorDialogState.open}
         message={errorDialogState.message}
         onClose={() => setErrorDialogState((prev) => ({ ...prev, open: false }))}
+      />
+      <ConfirmDialog
+        open={deleteConfirmState.open}
+        title={t('confirmAction' as any)}
+        message={deleteConfirmState.message}
+        onConfirm={deleteConfirmState.onConfirm}
+        onClose={() => setDeleteConfirmState((prev) => ({ ...prev, open: false }))}
+        confirmColor="warning"
       />
     </Box>
   );

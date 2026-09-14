@@ -17,9 +17,6 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  FormGroup,
-  FormControlLabel,
-  Checkbox,
 } from '@mui/material';
 
 import type {
@@ -37,7 +34,6 @@ import { useAuth } from '../../context/AuthContext';
 import { TableFilterSelector } from '../common/TableFilterSelector';
 import { TableOptionsSelector } from '../common/ColumnSelector';
 import { DateRangeFilter } from '../common/DateRangeFilter';
-import { TableSearchInput } from '../common/TableSearchInput';
 import { ErrorDialog } from '../dialogs/ErrorDialog';
 import { ProvidedServiceInvoiceSection } from '../providedService/ProvidedServiceInvoiceSection';
 import {
@@ -54,6 +50,7 @@ import {
   DeleteIcon,
 } from '../icons';
 import { DashboardPanelSkeleton } from '../tracker/DashboardPanelSkeleton';
+import { type QuickFilterItem } from '../common/TableQuickFilters';
 import { useTableView } from '../../hooks/useTableView';
 
 interface Props {
@@ -76,6 +73,8 @@ interface Props {
   onRowsPerPageOptionsChange?: (options: number[]) => void;
   rowsPerPage?: number;
   onRowsPerPageChange?: (rowsPerPage: number) => void;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
 function fmtDate(d: string | null | undefined): string {
@@ -135,6 +134,8 @@ export const WasteDisposalPanel: React.FC<Props> = ({
   onRowsPerPageOptionsChange,
   rowsPerPage: rowsPerPageProp,
   onRowsPerPageChange,
+  onRefresh,
+  isRefreshing,
 }) => {
   const { t, getServiceLabel } = useLanguage();
   const { canManageProvidedServices, isUser } = useAuth();
@@ -478,6 +479,30 @@ export const WasteDisposalPanel: React.FC<Props> = ({
     return filteredAndSortedItems.slice(page * activeRowsPerPage, page * activeRowsPerPage + activeRowsPerPage);
   }, [filteredAndSortedItems, page, activeRowsPerPage]);
 
+  const quickFilterOptions: QuickFilterItem[] = useMemo(() => [
+    { key: 'Planned', label: t('statusPlanned'), color: 'warning' },
+    { key: 'In Progress', label: t('statusInProgress'), color: 'info' },
+    { key: 'Completed', label: t('statusCompleted'), color: 'success' },
+    { key: 'missing_invoice', label: t('quickFilterMissingInvoice'), color: 'warning' },
+  ], [t]);
+
+  const selectedQuickFilters = useMemo(() => {
+    const keys: string[] = [];
+    if (filterStatus !== 'all') keys.push(filterStatus);
+    if (quickFilterMissingInvoice) keys.push('missing_invoice');
+    return keys;
+  }, [filterStatus, quickFilterMissingInvoice]);
+
+  const handleQuickFiltersChange = (keys: string[]) => {
+    setQuickFilterMissingInvoice(keys.includes('missing_invoice'));
+    const statusKeys = keys.filter((k) => k !== 'missing_invoice');
+    if (statusKeys.length > 0) {
+      setFilterStatus(statusKeys[statusKeys.length - 1]);
+    } else {
+      setFilterStatus('all');
+    }
+  };
+
   // Dialog handlers
   const handleOpenNew = () => {
     setEditingItem(null);
@@ -703,197 +728,123 @@ export const WasteDisposalPanel: React.FC<Props> = ({
           },
           labelRowsPerPage: t('lblRowsPerPage'),
         }}
-        toolbarContent={
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 1.5 }}>
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: 1.5,
-              }}
-            >
-              {/* SEARCH FIELD */}
-              <TableSearchInput
-                value={searchQuery}
-                onChange={setSearchQuery}
-              />
-
-              {/* QUICK FILTERS */}
-              <FormGroup row sx={{ gap: 1, alignItems: 'center' }}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      size="small"
-                      checked={filterStatus === 'Planned'}
-                      onChange={(e) => setFilterStatus(e.target.checked ? 'Planned' : 'all')}
-                      color="warning"
-                    />
-                  }
-                  label={
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {t('statusPlanned')}
-                    </Typography>
-                  }
+        searchProps={{
+          value: searchQuery,
+          onChange: setSearchQuery,
+        }}
+        quickFiltersProps={{
+          options: quickFilterOptions,
+          selectedKeys: selectedQuickFilters,
+          onChange: handleQuickFiltersChange,
+        }}
+        refreshProps={onRefresh ? { onRefresh, isRefreshing } : undefined}
+        filterSelector={
+          <TableFilterSelector
+            activeCount={activeFilterCount}
+            onClear={handleClearAllFilters}
+            sortingContent={
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <Autocomplete
+                  size="small"
+                  fullWidth
+                  disablePortal
+                  disableClearable
+                  options={sortOptions}
+                  getOptionLabel={(option) => option.label}
+                  isOptionEqualToValue={(option, val) => option.value === val.value}
+                  value={sortOptions.find((o) => o.value === sortOption) || sortOptions[0]}
+                  onChange={(_, newValue) => {
+                    if (newValue) handleSortColumnChange(newValue.value);
+                  }}
+                  renderInput={(params) => <TextField {...params} label={t('lblSortBy')} size="small" />}
                 />
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      size="small"
-                      checked={filterStatus === 'In Progress'}
-                      onChange={(e) => setFilterStatus(e.target.checked ? 'In Progress' : 'all')}
-                      color="info"
-                    />
-                  }
-                  label={
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {t('statusInProgress')}
-                    </Typography>
-                  }
-                />
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      size="small"
-                      checked={filterStatus === 'Completed'}
-                      onChange={(e) => setFilterStatus(e.target.checked ? 'Completed' : 'all')}
-                      color="success"
-                    />
-                  }
-                  label={
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {t('statusCompleted')}
-                    </Typography>
-                  }
-                />
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      size="small"
-                      checked={quickFilterMissingInvoice}
-                      onChange={(e) => setQuickFilterMissingInvoice(e.target.checked)}
-                      color="warning"
-                    />
-                  }
-                  label={
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {t('quickFilterMissingInvoice')}
-                    </Typography>
-                  }
-                />
-              </FormGroup>
-
-              {/* POPOVER FILTERS & TABLE OPTIONS */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <TableFilterSelector
-                  activeCount={activeFilterCount}
-                  onClear={handleClearAllFilters}
-                  sortingContent={
-                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                      <Autocomplete
-                        size="small"
-                        fullWidth
-                        disablePortal
-                        disableClearable
-                        options={sortOptions}
-                        getOptionLabel={(option) => option.label}
-                        isOptionEqualToValue={(option, val) => option.value === val.value}
-                        value={sortOptions.find((o) => o.value === sortOption) || sortOptions[0]}
-                        onChange={(_, newValue) => {
-                          if (newValue) handleSortColumnChange(newValue.value);
-                        }}
-                        renderInput={(params) => <TextField {...params} label={t('lblSortBy')} size="small" />}
-                      />
-                      <IconButton
-                        size="small"
-                        onClick={handleToggleSortDirection}
-                        title={sortDirection === 'asc' ? t('sortAscending') : t('sortDescending')}
-                        sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0.75 }}
-                      >
-                        {sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />}
-                      </IconButton>
-                    </Box>
-                  }
-                  dateRangeContent={
-                    <DateRangeFilter
-                      startDate={filterDateFrom}
-                      endDate={filterDateTo}
-                      onDateChange={({ startDate, endDate }) => {
-                        setFilterDateFrom(startDate);
-                        setFilterDateTo(endDate);
-                      }}
-                      dateField={filterDateField}
-                      dateFieldOptions={[
-                        { value: 'scheduledDate', label: t('colScheduledDate') },
-                        { value: 'completionDate', label: t('colCompletionDate') },
-                        { value: 'createdAt', label: t('lblCreatedDate') },
-                      ]}
-                      onDateFieldChange={setFilterDateField}
-                    />
-                  }
-                  filteringContent={
-                    <>
-                      <Autocomplete
-                        size="small"
-                        fullWidth
-                        disablePortal
-                        options={statusFilterOptions}
-                        getOptionLabel={(option) => option.label}
-                        isOptionEqualToValue={(option, val) => option.value === val.value}
-                        value={statusFilterOptions.find((o) => o.value === filterStatus) || statusFilterOptions[0]}
-                        onChange={(_, newValue) => setFilterStatus(newValue ? newValue.value : 'all')}
-                        renderInput={(params) => <TextField {...params} label={t('colStatus')} size="small" />}
-                      />
-
-                      <Autocomplete
-                        size="small"
-                        fullWidth
-                        disablePortal
-                        options={wasteServices}
-                        getOptionLabel={(option) => getServiceLabel(option.code, services) || option.name}
-                        value={wasteServices.find((s) => s.id === filterService) || null}
-                        onChange={(_, newValue) => setFilterService(newValue ? newValue.id : 'all')}
-                        renderInput={(params) => <TextField {...params} label={t('colService')} size="small" />}
-                      />
-
-                      <Autocomplete
-                        size="small"
-                        fullWidth
-                        disablePortal
-                        options={uniqueClients}
-                        getOptionLabel={(option) => option.name}
-                        value={uniqueClients.find((c) => c.id === filterClient) || null}
-                        onChange={(_, newValue) => setFilterClient(newValue ? newValue.id : 'all')}
-                        renderInput={(params) => <TextField {...params} label={t('colClient')} size="small" />}
-                      />
-
-                      {uniqueProjects.length > 0 && (
-                        <Autocomplete
-                          size="small"
-                          fullWidth
-                          disablePortal
-                          options={uniqueProjects}
-                          getOptionLabel={(option) => option.name}
-                          value={uniqueProjects.find((p) => p.id === filterProject) || null}
-                          onChange={(_, newValue) => setFilterProject(newValue ? newValue.id : 'all')}
-                          renderInput={(params) => <TextField {...params} label={t('colProject')} size="small" />}
-                        />
-                      )}
-                    </>
-                  }
-                />
-
-                <TableOptionsSelector
-                  rowsPerPageOptions={activeRowsPerPageOptions}
-                  onRowsPerPageOptionsChange={setRowsPerPageOptionsValue}
-                  rowsPerPage={activeRowsPerPage}
-                  onRowsPerPageChange={setRowsPerPageValue}
-                  defaultRowsPerPageOptions={[5, 10, 20]}
-                />
+                <IconButton
+                  size="small"
+                  onClick={handleToggleSortDirection}
+                  title={sortDirection === 'asc' ? t('sortAscending') : t('sortDescending')}
+                  sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0.75 }}
+                >
+                  {sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />}
+                </IconButton>
               </Box>
-            </Box>
-          </Box>
+            }
+            dateRangeContent={
+              <DateRangeFilter
+                startDate={filterDateFrom}
+                endDate={filterDateTo}
+                onDateChange={({ startDate, endDate }) => {
+                  setFilterDateFrom(startDate);
+                  setFilterDateTo(endDate);
+                }}
+                dateField={filterDateField}
+                dateFieldOptions={[
+                  { value: 'scheduledDate', label: t('colScheduledDate') },
+                  { value: 'completionDate', label: t('colCompletionDate') },
+                  { value: 'createdAt', label: t('lblCreatedDate') },
+                ]}
+                onDateFieldChange={setFilterDateField}
+              />
+            }
+            filteringContent={
+              <>
+                <Autocomplete
+                  size="small"
+                  fullWidth
+                  disablePortal
+                  options={statusFilterOptions}
+                  getOptionLabel={(option) => option.label}
+                  isOptionEqualToValue={(option, val) => option.value === val.value}
+                  value={statusFilterOptions.find((o) => o.value === filterStatus) || statusFilterOptions[0]}
+                  onChange={(_, newValue) => setFilterStatus(newValue ? newValue.value : 'all')}
+                  renderInput={(params) => <TextField {...params} label={t('colStatus')} size="small" />}
+                />
+
+                <Autocomplete
+                  size="small"
+                  fullWidth
+                  disablePortal
+                  options={wasteServices}
+                  getOptionLabel={(option) => getServiceLabel(option.code, services) || option.name}
+                  value={wasteServices.find((s) => s.id === filterService) || null}
+                  onChange={(_, newValue) => setFilterService(newValue ? newValue.id : 'all')}
+                  renderInput={(params) => <TextField {...params} label={t('colService')} size="small" />}
+                />
+
+                <Autocomplete
+                  size="small"
+                  fullWidth
+                  disablePortal
+                  options={uniqueClients}
+                  getOptionLabel={(option) => option.name}
+                  value={uniqueClients.find((c) => c.id === filterClient) || null}
+                  onChange={(_, newValue) => setFilterClient(newValue ? newValue.id : 'all')}
+                  renderInput={(params) => <TextField {...params} label={t('colClient')} size="small" />}
+                />
+
+                {uniqueProjects.length > 0 && (
+                  <Autocomplete
+                    size="small"
+                    fullWidth
+                    disablePortal
+                    options={uniqueProjects}
+                    getOptionLabel={(option) => option.name}
+                    value={uniqueProjects.find((p) => p.id === filterProject) || null}
+                    onChange={(_, newValue) => setFilterProject(newValue ? newValue.id : 'all')}
+                    renderInput={(params) => <TextField {...params} label={t('colProject')} size="small" />}
+                  />
+                )}
+              </>
+            }
+          />
+        }
+        tableOptions={
+          <TableOptionsSelector
+            rowsPerPageOptions={activeRowsPerPageOptions}
+            onRowsPerPageOptionsChange={setRowsPerPageOptionsValue}
+            rowsPerPage={activeRowsPerPage}
+            onRowsPerPageChange={setRowsPerPageValue}
+            defaultRowsPerPageOptions={[5, 10, 20]}
+          />
         }
         listContent={paginatedItems.map((item) => {
           const srv = item.service || services.find((s) => s.id === item.serviceId);

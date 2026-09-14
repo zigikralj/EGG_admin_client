@@ -527,7 +527,8 @@ const enTranslations: TranslationKeys = {
   "quickFilterMyReminders": "My Reminders",
   "quickFilterActive": "Active",
   "quickFilterMissingInvoice": "Missing Invoice",
-  "quickFilterOverdue": "Late - Urgent!",
+  "quickFilterOverdue": "Urgent",
+  "quickFilterStale": "Stale",
   "quickFilterAll": "All",
   "lblProjectCountFilter": "Project Count",
   "filterOpEquals": "Equals (=)",
@@ -632,7 +633,17 @@ const enTranslations: TranslationKeys = {
   "btnRefreshNow": "Refresh Now",
   "btnDismiss": "Dismiss",
   "appVersion": "Version",
-  "buildTime": "Build"
+  "buildTime": "Build",
+  "loadingData": "Loading data...",
+  "loadingServerWakingUp": "Server is waking up...",
+  "loadingServerWakingUpDetail": "Free tier hosting services (Render & Neon) hibernate during inactivity. Initial startup may take up to 60 seconds. Thank you for your patience!",
+  "loadingSaving": "Saving changes...",
+  "loadingDeleting": "Deleting...",
+  "loadingProcessing": "Processing request...",
+  "loadingConnecting": "Connecting to server...",
+  "loadingRefreshing": "Refreshing data...",
+  "loadingElapsedTime": "Elapsed time: {seconds}s",
+  "loadingPleaseWait": "Please wait..."
 };
 
 export default enTranslations;

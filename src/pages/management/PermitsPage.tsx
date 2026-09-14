@@ -32,7 +32,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 
-import type { Permit, Client, Reminder, WasteCatalog, WasteCatalogResponse, SaveResult, TableViewProps } from '../../types';
+import type { Permit, Reminder, WasteCatalog, WasteCatalogResponse, TableViewProps } from '../../types';
 import { apiFetch } from '../../api';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -40,6 +40,7 @@ import { useTableView } from '../../hooks/useTableView';
 import { TableOptionsSelector, type ColumnDef } from '../../components/common/ColumnSelector';
 import { TableFilterSelector } from '../../components/common/TableFilterSelector';
 import { TableSearchInput } from '../../components/common/TableSearchInput';
+import { TableQuickFilters, type QuickFilterItem } from '../../components/common/TableQuickFilters';
 import { DateRangeFilter } from '../../components/common/DateRangeFilter';
 import { ErrorDialog } from '../../components/dialogs/ErrorDialog';
 import {
@@ -63,17 +64,10 @@ import {
 } from '../../components/icons';
 
 interface Props extends TableViewProps {
-  permits: Permit[];
-  clients: Client[];
-  wasteCatalog?: WasteCatalog[];
-  reminders?: Reminder[];
-  onSavePermit: (permit: Partial<Permit>) => Promise<SaveResult | void> | void;
-  onDeletePermit: (id: string) => void;
-  onSaveReminder?: (reminder: Partial<Reminder>) => Promise<SaveResult | void> | void;
-  onDeleteReminder?: (id: string) => void;
-  onSaveClient?: (client: Partial<Client>) => Promise<SaveResult | void> | void;
-  quickFilter?: 'all' | 'expiring' | 'expired' | 'active';
-  onQuickFilterChange?: (val: 'all' | 'expiring' | 'expired' | 'active') => void;
+  quickFilters?: string[];
+  onQuickFiltersChange?: (val: string[]) => void;
+  quickFilter?: any;
+  onQuickFilterChange?: (val: any) => void;
 }
 
 const DEFAULT_COLUMNS = [
@@ -110,16 +104,10 @@ export const getPermitStatus = (
   }
 };
 
+import { usePermitsQuery, useClientsQuery, useRemindersQuery, usePermitsMutations, useRemindersMutations, useClientsMutations } from '../../queries';
+import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
+
 const PermitsPage: React.FC<Props> = ({
-  permits,
-  clients,
-  wasteCatalog = [],
-  reminders = [],
-  onSavePermit,
-  onDeletePermit,
-  onSaveReminder,
-  onDeleteReminder,
-  onSaveClient,
   visibleColumns = DEFAULT_COLUMNS,
   onVisibleColumnsChange,
   rowsPerPageOptions: rowsPerPageOptionsProp,
@@ -128,14 +116,26 @@ const PermitsPage: React.FC<Props> = ({
   onRowsPerPageChange,
   sortState,
   onSortChange,
+  quickFilters: quickFiltersProp,
+  onQuickFiltersChange,
   quickFilter: quickFilterProp,
   onQuickFilterChange,
-  onRefresh,
 }) => {
   const { t } = useLanguage();
   const { canManagePermits } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [editingPermit, setEditingPermit] = useState<Permit | null>(null);
+
+  const { data: permits = [], refetch: refetchPermits } = usePermitsQuery();
+  const { data: clients = [] } = useClientsQuery();
+  const { data: reminders = [] } = useRemindersQuery();
+  const { handleSave: handleSavePermit, handleDelete: handleDeletePermit } = usePermitsMutations();
+  const { handleSave: handleSaveReminder, handleDelete: handleDeleteReminder } = useRemindersMutations();
+  const { handleSave: handleSaveClient } = useClientsMutations();
+
+  const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
+  const onDeletePermit = (id: string) => handleDeletePermit(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
+  const onDeleteReminder = (id: string) => handleDeleteReminder(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
 
   // Selected client for permit
   const [selectedClientId, setSelectedClientId] = useState<string>('');
@@ -199,25 +199,36 @@ const PermitsPage: React.FC<Props> = ({
     onRowsPerPageOptionsChange,
     sortState,
     onSortChange,
-    onRefresh,
+    onRefresh: () => { refetchPermits(); },
     defaultSortField: 'endDate',
     defaultSortDirection: 'asc',
   });
 
-  // Quick Filter state ('all' | 'expiring' | 'expired' | 'active')
-  const [quickFilter, setQuickFilter] = useState<'all' | 'expiring' | 'expired' | 'active'>(
-    quickFilterProp || 'all'
-  );
+  // Quick Filter state
+  const [quickFilters, setQuickFilters] = useState<string[]>(() => {
+    if (Array.isArray(quickFiltersProp)) return quickFiltersProp;
+    if (typeof quickFilterProp === 'string' && quickFilterProp !== 'all') return [quickFilterProp];
+    return [];
+  });
 
   useEffect(() => {
-    if (quickFilterProp !== undefined) {
-      setQuickFilter(quickFilterProp);
+    if (Array.isArray(quickFiltersProp)) {
+      setQuickFilters(quickFiltersProp);
+    } else if (typeof quickFilterProp === 'string') {
+      setQuickFilters(quickFilterProp === 'all' ? [] : [quickFilterProp]);
     }
-  }, [quickFilterProp]);
+  }, [quickFiltersProp, quickFilterProp]);
 
-  const handleQuickFilterChange = (val: 'all' | 'expiring' | 'expired' | 'active') => {
-    setQuickFilter(val);
-    onQuickFilterChange?.(val);
+  const permitQuickFilterOptions: QuickFilterItem[] = useMemo(() => [
+    { key: 'active', label: t('statusActivePermit'), color: 'primary' },
+    { key: 'expiring', label: t('quickFilterExpiringPermits'), color: 'warning', labelColor: 'warning.main' },
+    { key: 'expired', label: t('quickFilterExpiredPermits'), color: 'error', labelColor: 'error.main' },
+  ], [t]);
+
+  const handleQuickFiltersChange = (newKeys: string[]) => {
+    setQuickFilters(newKeys);
+    onQuickFiltersChange?.(newKeys);
+    onQuickFilterChange?.((newKeys[0] as any) || 'all');
   };
 
   // Popover filter states
@@ -228,14 +239,15 @@ const PermitsPage: React.FC<Props> = ({
   const [filterDateField, setFilterDateField] = useState<string>('endDate');
 
   const activeFilterCount =
-    (quickFilter !== 'all' ? 1 : 0) +
+    quickFilters.length +
     (filterClient !== 'all' ? 1 : 0) +
     (filterStatus !== 'all' ? 1 : 0) +
     (filterDateFrom || filterDateTo ? 1 : 0) +
     (sortColumn !== 'endDate' || sortDirection !== 'asc' ? 1 : 0);
 
   const clearFilters = () => {
-    setQuickFilter('all');
+    setQuickFilters([]);
+    onQuickFiltersChange?.([]);
     onQuickFilterChange?.('all');
     setFilterClient('all');
     setFilterStatus('all');
@@ -422,7 +434,7 @@ const PermitsPage: React.FC<Props> = ({
       }
     } else if (p.indexNumber) {
       const cleanIndex = p.indexNumber.replace(/\*/g, '').trim();
-      const matched = (wasteCatalog || []).find(
+      const matched = (catalogOptions || []).find(
         (wc) =>
           wc.code === p.indexNumber ||
           wc.code.replace(/\*/g, '').trim() === cleanIndex
@@ -523,7 +535,7 @@ const PermitsPage: React.FC<Props> = ({
 
   const handleSaveEditedReminder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingReminderModalItem || !onSaveReminder) return;
+    if (!editingReminderModalItem) return;
     if (!editReminderModalTitle.trim()) {
       setErrorDialogState({
         open: true,
@@ -532,29 +544,29 @@ const PermitsPage: React.FC<Props> = ({
       return;
     }
     try {
-      await onSaveReminder({
+      const res = await handleSaveReminder({
         id: editingReminderModalItem.id,
         title: editReminderModalTitle.trim(),
         dueDate: editReminderModalDueDate || null,
         status: editReminderModalStatus,
         notes: editReminderModalNotes.trim() || null,
       });
-      setEditingReminderModalItem(null);
-    } catch (err) {
-      console.error('Error updating reminder:', err);
+      if (res.success) setEditingReminderModalItem(null);
+      else setErrorDialogState({ open: true, message: res.error || t('errorSavingProject') });
+    } catch (err: any) {
+      setErrorDialogState({ open: true, message: err?.message || t('errorSavingProject') });
     }
   };
 
   const handleUnlinkReminder = async (remId: string) => {
-    if (!onSaveReminder) return;
     try {
-      await onSaveReminder({
+      await handleSaveReminder({
         id: remId,
         permitId: null,
         permitNumber: null,
       });
-    } catch (err) {
-      console.error('Error unlinking reminder:', err);
+    } catch (err: any) {
+      setErrorDialogState({ open: true, message: err?.message || t('errorSavingProject') });
     }
   };
 
@@ -569,7 +581,7 @@ const PermitsPage: React.FC<Props> = ({
 
   const handleSaveReminderSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!onSaveReminder || !targetPermitForReminder) return;
+    if (!targetPermitForReminder) return;
     if (!newReminderTitle.trim()) return;
 
     const linkedClients = targetPermitForReminder.clients?.length
@@ -582,7 +594,7 @@ const PermitsPage: React.FC<Props> = ({
     const firstClient = linkedClients[0];
 
     try {
-      await onSaveReminder({
+      const res = await handleSaveReminder({
         title: newReminderTitle.trim(),
         clientId: firstClient?.id || targetPermitForReminder.clientId || null,
         clientName:
@@ -595,10 +607,14 @@ const PermitsPage: React.FC<Props> = ({
         notes: newReminderNotes.trim() || null,
         status: 'Pending',
       });
-      setIsReminderModalOpen(false);
-      setTargetPermitForReminder(null);
-    } catch (err) {
-      console.error('Error saving reminder for permit:', err);
+      if (res.success) {
+        setIsReminderModalOpen(false);
+        setTargetPermitForReminder(null);
+      } else {
+        setErrorDialogState({ open: true, message: res.error || t('errorSavingProject') });
+      }
+    } catch (err: any) {
+      setErrorDialogState({ open: true, message: err?.message || t('errorSavingProject') });
     }
   };
 
@@ -623,7 +639,7 @@ const PermitsPage: React.FC<Props> = ({
 
     setIsSaving(true);
     try {
-      const res = await onSavePermit({
+      const res = await handleSavePermit({
         id: editingPermit?.id,
         permitNumber: permitNumber.trim(),
         wasteCatalogId: selectedWasteCatalogId,
@@ -633,67 +649,59 @@ const PermitsPage: React.FC<Props> = ({
         clientId: selectedClientId || null,
       });
 
-      const isSuccess = res && typeof res === 'object' && 'success' in res ? res.success : true;
-      const targetPermitId =
-        editingPermit?.id ||
-        (res && typeof res === 'object' && 'id' in res
-          ? (res as any).id
-          : (res as any)?.data?.id);
+      const isSuccess = res.success;
+      const targetPermitId = editingPermit?.id || res.id;
       const targetPermitNumber = permitNumber.trim();
 
       if (isSuccess && targetPermitId) {
         const foundClient = clients.find((c) => c.id === selectedClientId);
 
         // Update client link if onSaveClient is provided
-        if (onSaveClient) {
-          if (editingPermit) {
-            const prevClientId = editingPermit.clients?.length
-              ? editingPermit.clients[0].id
-              : editingPermit.clientId ||
-                clients.find((c) => c.permitId === editingPermit.id || c.extraData?.permitId === editingPermit.id)?.id;
+        if (editingPermit) {
+          const prevClientId = editingPermit.clients?.length
+            ? editingPermit.clients[0].id
+            : editingPermit.clientId ||
+              clients.find((c) => c.permitId === editingPermit?.id || c.extraData?.permitId === editingPermit?.id)?.id;
 
-            if (prevClientId && prevClientId !== selectedClientId) {
-              await onSaveClient({ id: prevClientId, permitId: null });
-            }
-            if (selectedClientId && selectedClientId !== prevClientId) {
-              await onSaveClient({ id: selectedClientId, permitId: targetPermitId });
-            }
-          } else if (selectedClientId) {
-            await onSaveClient({ id: selectedClientId, permitId: targetPermitId });
+          if (prevClientId && prevClientId !== selectedClientId) {
+            await handleSaveClient({ id: prevClientId, permitId: null });
           }
+          if (selectedClientId && selectedClientId !== prevClientId) {
+            await handleSaveClient({ id: selectedClientId, permitId: targetPermitId });
+          }
+        } else if (selectedClientId) {
+          await handleSaveClient({ id: selectedClientId, permitId: targetPermitId });
         }
 
         // Save staged reminders
-        if (onSaveReminder) {
-          for (const rem of stagedNewReminders) {
-            await onSaveReminder({
-              title: rem.title,
-              dueDate: rem.dueDate || null,
-              notes: rem.notes || null,
-              permitId: targetPermitId,
-              permitNumber: targetPermitNumber,
-              clientId: selectedClientId || null,
-              clientName: foundClient?.name || null,
-              status: 'Pending',
-            });
-          }
+        for (const rem of stagedNewReminders) {
+          await handleSaveReminder({
+            title: rem.title,
+            dueDate: rem.dueDate || null,
+            notes: rem.notes || null,
+            permitId: targetPermitId,
+            permitNumber: targetPermitNumber,
+            clientId: selectedClientId || null,
+            clientName: foundClient?.name || null,
+            status: 'Pending',
+          });
+        }
 
-          for (const remId of stagedLinkReminderIds) {
-            await onSaveReminder({
-              id: remId,
-              permitId: targetPermitId,
-              permitNumber: targetPermitNumber,
-              clientId: selectedClientId || null,
-              clientName: foundClient?.name || null,
-            });
-          }
+        for (const remId of stagedLinkReminderIds) {
+          await handleSaveReminder({
+            id: remId,
+            permitId: targetPermitId,
+            permitNumber: targetPermitNumber,
+            clientId: selectedClientId || null,
+            clientName: foundClient?.name || null,
+          });
         }
 
         setIsOpen(false);
       } else if (!isSuccess) {
         setErrorDialogState({
           open: true,
-          message: (res as any)?.error || t('errorSavingProject'),
+          message: res.error || t('errorSavingProject'),
         });
       } else {
         setIsOpen(false);
@@ -722,7 +730,7 @@ const PermitsPage: React.FC<Props> = ({
   }, [reminders]);
 
   const totalRemindersCount = useMemo(() => {
-    const existingCount = editingPermit ? (permitRemindersMap.get(editingPermit.id) || []).length : 0;
+    const existingCount = editingPermit ? (permitRemindersMap.get(editingPermit?.id) || []).length : 0;
     return existingCount + stagedNewReminders.length + stagedLinkReminderIds.length;
   }, [editingPermit, permitRemindersMap, stagedNewReminders.length, stagedLinkReminderIds.length]);
 
@@ -762,14 +770,14 @@ const PermitsPage: React.FC<Props> = ({
       const statusObj = getPermitStatus(permit.endDate);
 
       // Quick filter
-      if (quickFilter === 'expiring' && statusObj.status !== 'expiring') {
-        return false;
-      }
-      if (quickFilter === 'expired' && statusObj.status !== 'expired') {
-        return false;
-      }
-      if (quickFilter === 'active' && statusObj.status === 'expired') {
-        return false;
+      if (quickFilters.length > 0) {
+        const matchesAnyQuickFilter = quickFilters.some((qf) => {
+          if (qf === 'expiring') return statusObj.status === 'expiring';
+          if (qf === 'expired') return statusObj.status === 'expired';
+          if (qf === 'active') return statusObj.status === 'active';
+          return false;
+        });
+        if (!matchesAnyQuickFilter) return false;
       }
 
       // Popover Status Filter
@@ -807,7 +815,7 @@ const PermitsPage: React.FC<Props> = ({
     permits,
     clients,
     searchQuery,
-    quickFilter,
+    quickFilters,
     filterStatus,
     filterClient,
     filterDateFrom,
@@ -957,8 +965,8 @@ const PermitsPage: React.FC<Props> = ({
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
               {t('permitsListTitle') || t('tabPermits')}
             </Typography>
-            {onRefresh && (
-              <Tooltip title={t('btnRefresh') || 'Refresh'}>
+            {true && (
+              <Tooltip title={t('btnRefresh')}>
                 <IconButton
                   size="small"
                   onClick={handleRefresh}
@@ -988,53 +996,11 @@ const PermitsPage: React.FC<Props> = ({
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', width: { xs: '100%', sm: 'auto' } }}>
             {/* QUICK FILTERS */}
-            <ToggleButtonGroup
-              value={quickFilter}
-              exclusive
-              onChange={(_, val) => val && handleQuickFilterChange(val)}
-              size="small"
-              color="primary"
-              sx={{ width: { xs: '100%', sm: 'auto' } }}
-            >
-              <ToggleButton
-                value="all"
-                sx={{ flex: { xs: 1, sm: 'none' }, px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600 }}
-              >
-                {t('quickFilterAll')}
-              </ToggleButton>
-              <ToggleButton
-                value="expiring"
-                sx={{
-                  flex: { xs: 1, sm: 'none' },
-                  px: 1.5,
-                  py: 0.5,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  color: 'warning.main',
-                }}
-              >
-                {t('quickFilterExpiringPermits')}
-              </ToggleButton>
-              <ToggleButton
-                value="expired"
-                sx={{
-                  flex: { xs: 1, sm: 'none' },
-                  px: 1.5,
-                  py: 0.5,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  color: 'error.main',
-                }}
-              >
-                {t('quickFilterExpiredPermits')}
-              </ToggleButton>
-              <ToggleButton
-                value="active"
-                sx={{ flex: { xs: 1, sm: 'none' }, px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600 }}
-              >
-                {t('statusActivePermit')}
-              </ToggleButton>
-            </ToggleButtonGroup>
+            <TableQuickFilters
+              options={permitQuickFilterOptions}
+              selectedKeys={quickFilters}
+              onChange={handleQuickFiltersChange}
+            />
 
             {/* SEARCH FIELD */}
             <TableSearchInput
@@ -1344,7 +1310,7 @@ const PermitsPage: React.FC<Props> = ({
                                 -
                               </Typography>
                             )}
-                            {onSaveReminder && (
+                            {true && (
                               <Tooltip title={t('btnAddReminderForPermit')}>
                                 <IconButton
                                   size="small"
@@ -1675,7 +1641,7 @@ const PermitsPage: React.FC<Props> = ({
                   {t('tabReminders')} ({totalRemindersCount})
                 </Typography>
               </Box>
-              {onSaveReminder && (
+              {true && (
                 <Button
                   size="small"
                   variant={isAddingReminderInline ? 'outlined' : 'contained'}
@@ -2120,6 +2086,15 @@ const PermitsPage: React.FC<Props> = ({
         open={errorDialogState.open}
         message={errorDialogState.message}
         onClose={() => setErrorDialogState({ open: false, message: '' })}
+      />
+      {/* Delete Confirm */}
+      <ConfirmDialog
+        open={deleteConfirmState.open}
+        title={t('confirmAction' as any)}
+        message={deleteConfirmState.message}
+        onConfirm={deleteConfirmState.onConfirm}
+        onClose={() => setDeleteConfirmState((prev) => ({ ...prev, open: false }))}
+        confirmColor="warning"
       />
     </Box>
   );

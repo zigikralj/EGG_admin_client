@@ -10,18 +10,17 @@ import {
   Paper,
   TextField,
   Autocomplete,
-  FormGroup,
-  FormControlLabel,
-  Checkbox,
   IconButton,
   CircularProgress,
+  Tooltip,
 } from '@mui/material';
 
 
 
 
 
-import type { Project, ProjectStats, Reminder, Invoice, DashboardSubTab, User, Category, Service, Client, ProvidedService, SaveResult } from '../../types';
+import type { Project, DashboardSubTab } from '../../types';
+import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
 import { ReminderPanel } from '../../components/tracker/ReminderPanel';
 import { ApproachingInvoicesPanel } from '../../components/tracker/ApproachingInvoicesPanel';
 import { WasteDisposalPanel, isWasteDisposalService } from '../../components/tracker/WasteDisposalPanel';
@@ -30,9 +29,11 @@ import { ProjectCard } from '../../components/project/ProjectCard';
 import { TableFilterSelector } from '../../components/common/TableFilterSelector';
 import { DateRangeFilter } from '../../components/common/DateRangeFilter';
 import { TableSearchInput } from '../../components/common/TableSearchInput';
+import { TableQuickFilters, type QuickFilterItem } from '../../components/common/TableQuickFilters';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import { ArrowUpwardIcon, ArrowDownwardIcon, AddIcon } from '../../components/icons';
+import { useLoading } from '../../context/LoadingContext';
+import { ArrowUpwardIcon, ArrowDownwardIcon, AddIcon, RefreshIcon } from '../../components/icons';
 
 const ProjectsStatistics = React.lazy(() => import('../../components/tracker/statistics/ProjectsStatistics'));
 const WasteDisposalStatistics = React.lazy(() => import('../../components/tracker/statistics/WasteDisposalStatistics'));
@@ -40,31 +41,11 @@ const WasteDisposalStatistics = React.lazy(() => import('../../components/tracke
 
 interface Props {
   dashboardSubTab?: DashboardSubTab;
-  stats?: ProjectStats;
-  projects: Project[];
-  clients?: Client[];
-  users?: User[];
-  categories?: Category[];
-  services?: Service[];
-  providedServices?: ProvidedService[];
-  reminders?: Reminder[];
-  invoices?: Invoice[];
-  onMarkSampled: (id: string) => void;
-  onToggleDone: (id: string) => void;
-  onSaveReminder?: (reminder: Partial<Reminder>) => void;
-  onDeleteReminder?: (id: string) => void;
-  onStatusChangeReminder?: (id: string, status: string) => void;
-  onSaveProvidedService?: (ps: Partial<ProvidedService>) => Promise<SaveResult | void> | void;
-  onDeleteProvidedService?: (id: string) => void;
   onViewProject?: (project: Project) => void;
-  onEditProject: (project: Project) => void;
-  onDeleteProject: (id: string) => void;
+  onEditProject?: (project: Project) => void;
   onNavigateToProjects?: () => void;
   onNavigateToInvoices?: () => void;
   onOpenNewProject?: () => void;
-  onSaveInvoice?: (invoice: Partial<Invoice>) => Promise<any> | void;
-  onDeleteInvoice?: (id: string) => void;
-  onStatusChangeInvoice?: (id: string, status: string, paymentDate?: string) => Promise<void> | void;
   quickFilters?: string[];
   onQuickFiltersChange?: (filters: string[]) => void;
   quickFilterDashboardReminders?: boolean;
@@ -83,33 +64,28 @@ interface Props {
   onWasteManagementRowsPerPageChange?: (rowsPerPage: number) => void;
 }
 
+import {
+  useProjectsQuery,
+  useClientsQuery,
+  useUsersQuery,
+  useCategoriesQuery,
+  useServicesQuery,
+  useProvidedServicesQuery,
+  useRemindersQuery,
+  useInvoicesQuery,
+  useProjectsMutations,
+  useRemindersMutations,
+  useProvidedServicesMutations,
+  useInvoicesMutations,
+} from '../../queries';
+
 const DashboardView: React.FC<Props> = ({
   dashboardSubTab = 'projects',
-  stats: _stats,
-  projects,
-  clients = [],
-  users = [],
-  categories = [],
-  services = [],
-  providedServices = [],
-  reminders = [],
-  invoices = [],
-  onMarkSampled,
-  onToggleDone,
-  onSaveReminder,
-  onDeleteReminder,
-  onStatusChangeReminder,
-  onSaveProvidedService,
-  onDeleteProvidedService,
   onViewProject,
   onEditProject,
-  onDeleteProject,
   onNavigateToProjects: _onNavigateToProjects,
   onNavigateToInvoices,
   onOpenNewProject,
-  onSaveInvoice,
-  onDeleteInvoice,
-  onStatusChangeInvoice,
   quickFilters: quickFiltersProp,
   onQuickFiltersChange,
   quickFilterDashboardReminders,
@@ -129,7 +105,39 @@ const DashboardView: React.FC<Props> = ({
 }) => {
   const { t, getServiceLabel } = useLanguage();
   const { currentUser, isAccountant, role } = useAuth();
+  const { withLoading } = useLoading();
   const canViewWasteDisposal = role === 'Administrator' || role === 'Manager' || isAccountant;
+
+  const { data: projects = [], refetch: refetchProjects, isRefetching: isRefetchingProjects } = useProjectsQuery();
+  const { data: clients = [] } = useClientsQuery();
+  const { data: users = [] } = useUsersQuery();
+  const { data: categories = [] } = useCategoriesQuery();
+  const { data: services = [] } = useServicesQuery();
+  const { data: providedServices = [], refetch: refetchProvidedServices, isRefetching: isRefetchingProvidedServices } = useProvidedServicesQuery();
+  const { data: reminders = [], refetch: refetchReminders, isRefetching: isRefetchingReminders } = useRemindersQuery();
+  const { data: invoices = [], refetch: refetchInvoices, isRefetching: isRefetchingInvoices } = useInvoicesQuery();
+
+  const { markSampledMutation, toggleDoneMutation } = useProjectsMutations();
+  const handleMarkSampled = async (id: string) => await markSampledMutation.mutateAsync(id);
+
+  const { handleSave: onSaveReminder, handleDelete: _onDeleteReminder, handleStatusChangeReminder: onStatusChangeReminder } = useRemindersMutations();
+  const { handleSave: onSaveProvidedService, handleDelete: _onDeleteProvidedService } = useProvidedServicesMutations();
+  const { handleSave: onSaveInvoice, handleDelete: _onDeleteInvoice, handleUpdateInvoiceStatus: onStatusChangeInvoice } = useInvoicesMutations();
+
+  const { handleDelete: _onDeleteProject } = useProjectsMutations();
+
+  const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
+  
+  const wrappedOnDelete = (id: string) => _onDeleteProject(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
+  const onDeleteReminder = (id: string) => _onDeleteReminder(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
+  const onDeleteProvidedService = (id: string) => _onDeleteProvidedService(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
+  const onDeleteInvoice = (id: string) => _onDeleteInvoice(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
+
+  
+  const handleStatusChangeInvoice = async (id: string, status: string, paymentDate?: string) => {
+    await onStatusChangeInvoice(id, status, paymentDate);
+  };
+
 
   // Projects subtab state & filtering
   const [searchQuery, setSearchQuery] = useState('');
@@ -142,6 +150,8 @@ const DashboardView: React.FC<Props> = ({
       setQuickFilters(quickFiltersProp);
       if (quickFiltersProp.includes('my') && currentUser?.name) {
         setFilterResponsible(currentUser.name);
+      } else if (!quickFiltersProp.includes('my') && currentUser?.name) {
+        setFilterResponsible((prev) => (prev === currentUser.name ? 'all' : prev));
       }
       if (quickFiltersProp.includes('overdue')) {
         setFilterStatus('overdue');
@@ -149,6 +159,8 @@ const DashboardView: React.FC<Props> = ({
         setFilterStatus('stale');
       } else if (quickFiltersProp.includes('done')) {
         setFilterStatus('done');
+      } else {
+        setFilterStatus((prev) => (['overdue', 'stale', 'done'].includes(prev) ? 'all' : prev));
       }
     } else {
       setQuickFilters(isAccountant ? ['active'] : ['my', 'active']);
@@ -199,6 +211,25 @@ const DashboardView: React.FC<Props> = ({
       } else if (!checked && filterStatus === 'done') {
         setFilterStatus('all');
       }
+    }
+  };
+
+  const projectQuickFilterOptions: QuickFilterItem[] = useMemo(() => [
+    { key: 'my', label: t('quickFilterMyProjects'), hidden: isAccountant, color: 'primary' },
+    { key: 'active', label: t('quickFilterActive'), color: 'primary' },
+    { key: 'missing_invoice', label: t('quickFilterMissingInvoice'), color: 'warning' },
+    { key: 'stale', label: t('quickFilterStale'), hidden: isAccountant, color: 'primary' },
+    { key: 'overdue', label: t('quickFilterOverdue'), hidden: isAccountant, color: 'error', labelColor: 'error.main' },
+  ], [t, isAccountant]);
+
+  const handleQuickFiltersChange = (newKeys: string[]) => {
+    const added = newKeys.find((k) => !quickFilters.includes(k));
+    const removed = quickFilters.find((k) => !newKeys.includes(k));
+    if (added) handleToggleFilter(added, true);
+    else if (removed) handleToggleFilter(removed, false);
+    else {
+      setQuickFilters(newKeys);
+      onQuickFiltersChange?.(newKeys);
     }
   };
 
@@ -425,7 +456,7 @@ const DashboardView: React.FC<Props> = ({
       reminders={reminders}
       clients={clients}
       users={users}
-      onMarkSampled={onMarkSampled}
+      onMarkSampled={handleMarkSampled}
       onSaveReminder={onSaveReminder}
       onDeleteReminder={onDeleteReminder}
       onStatusChangeReminder={onStatusChangeReminder}
@@ -439,6 +470,8 @@ const DashboardView: React.FC<Props> = ({
       onRowsPerPageOptionsChange={onRemindersRowsPerPageOptionsChange}
       rowsPerPage={remindersRowsPerPage}
       onRowsPerPageChange={onRemindersRowsPerPageChange}
+      onRefresh={() => withLoading(() => refetchReminders(), t('loadingRefreshing') || 'Refreshing data...')}
+      isRefreshing={isRefetchingReminders}
     />
   );
 
@@ -455,13 +488,15 @@ const DashboardView: React.FC<Props> = ({
       onSaveInvoice={onSaveInvoice}
       onSaveProvidedService={onSaveProvidedService}
       onDeleteInvoice={onDeleteInvoice}
-      onStatusChangeInvoice={onStatusChangeInvoice}
+      onStatusChangeInvoice={handleStatusChangeInvoice}
       onViewProject={onViewProject || onEditProject}
       onNavigateToInvoices={onNavigateToInvoices}
       rowsPerPageOptions={invoicesRowsPerPageOptions}
       onRowsPerPageOptionsChange={onInvoicesRowsPerPageOptionsChange}
       rowsPerPage={invoicesRowsPerPage}
       onRowsPerPageChange={onInvoicesRowsPerPageChange}
+      onRefresh={() => withLoading(() => refetchInvoices(), t('loadingRefreshing') || 'Refreshing data...')}
+      isRefreshing={isRefetchingInvoices}
     />
   );
 
@@ -488,11 +523,13 @@ const DashboardView: React.FC<Props> = ({
       onDeleteProvidedService={onDeleteProvidedService}
       onSaveInvoice={onSaveInvoice}
       onDeleteInvoice={onDeleteInvoice}
-      onStatusChangeInvoice={onStatusChangeInvoice}
+      onStatusChangeInvoice={handleStatusChangeInvoice}
       rowsPerPageOptions={wasteManagementRowsPerPageOptions}
       onRowsPerPageOptionsChange={onWasteManagementRowsPerPageOptionsChange}
       rowsPerPage={wasteManagementRowsPerPage}
       onRowsPerPageChange={onWasteManagementRowsPerPageChange}
+      onRefresh={() => withLoading(() => refetchProvidedServices(), t('loadingRefreshing') || 'Refreshing data...')}
+      isRefreshing={isRefetchingProvidedServices}
     />
   );
 
@@ -546,7 +583,7 @@ const DashboardView: React.FC<Props> = ({
               </Typography>
               <Chip label={(reminders || []).length} size="small" color="primary" sx={{ fontWeight: 700 }} />
             </Box>
-            {onSaveReminder && (
+            {true && (
               <Button
                 variant="contained"
                 color="primary"
@@ -573,7 +610,7 @@ const DashboardView: React.FC<Props> = ({
               </Typography>
               <Chip label={invoices.length} size="small" color="primary" sx={{ fontWeight: 700 }} />
             </Box>
-            {onSaveInvoice && (
+            {true && (
               <Button
                 variant="contained"
                 color="primary"
@@ -600,7 +637,7 @@ const DashboardView: React.FC<Props> = ({
               </Typography>
               <Chip label={wasteProvidedServices.length} size="small" color="primary" sx={{ fontWeight: 700 }} />
             </Box>
-            {onSaveProvidedService && (
+            {true && (
               <Button
                 variant="contained"
                 color="primary"
@@ -644,98 +681,51 @@ const DashboardView: React.FC<Props> = ({
           {/* FILTERS BAR ON TOP */}
           <Card variant="outlined" sx={{ p: 2 }}>
             <Box sx={{ display: 'flex', flexDirection: { xs: 'column', lg: 'row' }, gap: 2, alignItems: { xs: 'stretch', lg: 'center' }, justifyContent: 'space-between' }}>
-              {/* SEARCH FIELD */}
-              <TableSearchInput
-                value={searchQuery}
-                onChange={setSearchQuery}
-              />
-
-              {/* QUICK FILTER CHECKBOXES */}
-              <FormGroup row sx={{ gap: 1, alignItems: 'center' }}>
-                {!isAccountant && (
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        size="small"
-                        checked={quickFilters.includes('my')}
-                        onChange={(e) => handleToggleFilter('my', e.target.checked)}
-                        color="primary"
-                      />
-                    }
-                    label={
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {t('quickFilterMyProjects')}
-                      </Typography>
-                    }
-                  />
-                )}
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      size="small"
-                      checked={quickFilters.includes('active')}
-                      onChange={(e) => handleToggleFilter('active', e.target.checked)}
-                      color="primary"
-                    />
-                  }
-                  label={
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {t('quickFilterActive')}
-                    </Typography>
-                  }
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                {/* QUICK FILTER CHECKBOXES */}
+                <TableQuickFilters
+                  options={projectQuickFilterOptions}
+                  selectedKeys={quickFilters}
+                  onChange={handleQuickFiltersChange}
                 />
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      size="small"
-                      checked={quickFilters.includes('missing_invoice')}
-                      onChange={(e) => handleToggleFilter('missing_invoice', e.target.checked)}
-                      color="warning"
-                    />
-                  }
-                  label={
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {t('quickFilterMissingInvoice')}
-                    </Typography>
-                  }
-                />
-                {!isAccountant && (
-                  <>
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          size="small"
-                          checked={quickFilters.includes('stale')}
-                          onChange={(e) => handleToggleFilter('stale', e.target.checked)}
-                          color="primary"
-                        />
-                      }
-                      label={
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                          {t('statStale')}
-                        </Typography>
-                      }
-                    />
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          size="small"
-                          checked={quickFilters.includes('overdue')}
-                          onChange={(e) => handleToggleFilter('overdue', e.target.checked)}
-                          color="error"
-                        />
-                      }
-                      label={
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: 'error.main' }}>
-                          {t('statOverdueUrgent')}
-                        </Typography>
-                      }
-                    />
-                  </>
-                )}
-              </FormGroup>
+              </Box>
 
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                {/* SEARCH FIELD */}
+                <TableSearchInput
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                />
+
+                {/* REFRESH BUTTON */}
+                <Tooltip title={t('btnRefresh') || 'Refresh'}>
+                  <span>
+                    <IconButton
+                      onClick={() => withLoading(() => refetchProjects(), t('loadingRefreshing') || 'Refreshing data...')}
+                      disabled={isRefetchingProjects}
+                      color="primary"
+                      size="small"
+                      sx={{
+                        border: 1,
+                        borderColor: 'divider',
+                        borderRadius: 2,
+                        p: 0.7,
+                      }}
+                    >
+                      <RefreshIcon
+                        fontSize="small"
+                        sx={{
+                          animation: isRefetchingProjects ? 'spin 1s linear infinite' : undefined,
+                          '@keyframes spin': {
+                            '0%': { transform: 'rotate(0deg)' },
+                            '100%': { transform: 'rotate(360deg)' },
+                          },
+                        }}
+                      />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+
                 {/* POPOVER FILTERS */}
                 <TableFilterSelector
                   activeCount={activeFilterCount}
@@ -850,11 +840,11 @@ const DashboardView: React.FC<Props> = ({
                     services={services}
                     reminders={reminders}
                     invoices={invoices}
-                    onToggleDone={onToggleDone}
-                    onMarkSampled={onMarkSampled}
-                    onView={onViewProject || onEditProject}
-                    onEdit={onEditProject}
-                    onDelete={onDeleteProject}
+                    onMarkSampled={handleMarkSampled}
+                    onView={() => onViewProject?.(p)}
+                    onEdit={() => onEditProject?.(p)}
+                    onDelete={() => wrappedOnDelete(p.id)}
+                    onToggleDone={() => toggleDoneMutation.mutate({ id: p.id, isCompleting: !p.done })}
                   />
                 </Grid>
               ))}
@@ -867,10 +857,16 @@ const DashboardView: React.FC<Props> = ({
         </Box>
       )}
 
-
+      <ConfirmDialog
+        open={deleteConfirmState.open}
+        title={t('confirmAction' as any)}
+        message={deleteConfirmState.message}
+        onConfirm={deleteConfirmState.onConfirm}
+        onClose={() => setDeleteConfirmState((prev) => ({ ...prev, open: false }))}
+        confirmColor="warning"
+      />
     </Stack>
   );
 };
-
 
 export default DashboardView;

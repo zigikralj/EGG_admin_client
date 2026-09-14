@@ -28,7 +28,7 @@ import {
   Tooltip,
 } from '@mui/material';
 
-import type { Service, Category, SaveResult, CustomFieldDefinition, TableViewProps } from '../../types';
+import type { Service, CustomFieldDefinition, TableViewProps } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { TableOptionsSelector, type ColumnDef } from '../../components/common/ColumnSelector';
@@ -48,20 +48,14 @@ import {
   RefreshIcon,
 } from '../../components/icons';
 
-interface Props extends TableViewProps {
-  services: Service[];
-  categories?: Category[];
-  onSaveService: (service: Partial<Service>) => Promise<SaveResult | void> | void;
-  onDeleteService: (id: string) => void;
-}
+interface Props extends TableViewProps {}
 
 const DEFAULT_COLUMNS = ['name', 'group', 'frequency', 'description', 'customData'];
 
+import { useServicesQuery, useServicesMutations, useCategoriesQuery } from '../../queries';
+import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
+
 const ServicesPage: React.FC<Props> = ({
-  services,
-  categories = [],
-  onSaveService,
-  onDeleteService,
   visibleColumns = DEFAULT_COLUMNS,
   onVisibleColumnsChange,
   rowsPerPageOptions: rowsPerPageOptionsProp,
@@ -70,7 +64,6 @@ const ServicesPage: React.FC<Props> = ({
   onRowsPerPageChange,
   sortState,
   onSortChange,
-  onRefresh,
 }) => {
   const { t, getServiceLabel } = useLanguage();
   const { canManageServices } = useAuth();
@@ -107,8 +100,15 @@ const ServicesPage: React.FC<Props> = ({
     onRowsPerPageOptionsChange,
     sortState,
     onSortChange,
-    onRefresh,
+    onRefresh: () => { refetchServices(); },
   });
+
+  const { data: services = [], refetch: refetchServices } = useServicesQuery();
+  const { data: categories = [] } = useCategoriesQuery();
+  const { handleSave, handleDelete } = useServicesMutations();
+
+  const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
+  const onDeleteService = (id: string) => handleDelete(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
 
   // Custom data model state
   const [isCustomModelModalOpen, setIsCustomModelModalOpen] = useState(false);
@@ -124,9 +124,7 @@ const ServicesPage: React.FC<Props> = ({
   };
 
   const handleSaveCustomModel = async (serviceId: string, fields: CustomFieldDefinition[]) => {
-    if (onSaveService) {
-      await onSaveService({ id: serviceId, customDataModel: fields });
-    }
+    await handleSave({ id: serviceId, customDataModel: fields });
   };
 
 
@@ -222,26 +220,22 @@ const ServicesPage: React.FC<Props> = ({
 
     setIsSaving(true);
     try {
-      const res = await onSaveService({
-        id: editingService ? editingService.id : undefined,
+      const res = await handleSave({
+        id: editingService?.id,
         code: editingService ? editingService.code : code,
         name: name.trim(),
-        group,
+        group: group.trim(),
         frequency,
-        description: description.trim() ? description.trim() : null,
+        description: description.trim() ? description.trim() : undefined,
       });
 
-      if (res && typeof res === 'object' && 'success' in res) {
-        if (res.success) {
-          setIsOpen(false);
-        } else {
-          setErrorDialogState({
-            open: true,
-            message: res.error || t('errorSavingService'),
-          });
-        }
-      } else {
+      if (res.success) {
         setIsOpen(false);
+      } else {
+        setErrorDialogState({
+          open: true,
+          message: res.error || t('errorSavingService'),
+        });
       }
     } catch (err: any) {
       setErrorDialogState({
@@ -387,7 +381,7 @@ const ServicesPage: React.FC<Props> = ({
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
               {t('servicesListTitle', { count: sortedServices.length })}
             </Typography>
-            {onRefresh && (
+            {true && (
               <Tooltip title={t('btnRefresh')}>
                 <IconButton
                   size="small"
@@ -863,6 +857,14 @@ const ServicesPage: React.FC<Props> = ({
         open={errorDialogState.open}
         message={errorDialogState.message}
         onClose={() => setErrorDialogState((prev) => ({ ...prev, open: false }))}
+      />
+      <ConfirmDialog
+        open={deleteConfirmState.open}
+        title={t('confirmAction' as any)}
+        message={deleteConfirmState.message}
+        onConfirm={deleteConfirmState.onConfirm}
+        onClose={() => setDeleteConfirmState((prev) => ({ ...prev, open: false }))}
+        confirmColor="warning"
       />
     </Box>
   );

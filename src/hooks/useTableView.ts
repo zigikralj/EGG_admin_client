@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useLoading } from '../context/LoadingContext';
+import { useLanguage } from '../context/LanguageContext';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -121,6 +123,9 @@ export function useTableView(options: UseTableViewOptions = {}): UseTableViewRet
     onRefresh,
   } = options;
 
+  const { withLoading } = useLoading();
+  const { t } = useLanguage();
+
   // ── Column visibility ──────────────────────────────────────────────────────
 
   const [localColumns, setLocalColumns] = useState<string[]>(visibleColumns ?? defaultColumns);
@@ -238,11 +243,13 @@ export function useTableView(options: UseTableViewOptions = {}): UseTableViewRet
     if (!onRefresh || isRefreshing) return;
     setIsRefreshing(true);
     try {
-      await onRefresh();
+      await withLoading(async () => {
+        await onRefresh();
+      }, t('loadingRefreshing') || 'Refreshing data...');
     } finally {
       setIsRefreshing(false);
     }
-  }, [onRefresh, isRefreshing]);
+  }, [onRefresh, isRefreshing, withLoading, t]);
 
   // ── Error / Saving ─────────────────────────────────────────────────────────
 

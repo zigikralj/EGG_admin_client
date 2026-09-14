@@ -527,7 +527,8 @@ const srCyrlTranslations: TranslationKeys = {
   "quickFilterMyReminders": "Моји подсетници",
   "quickFilterActive": "Активни",
   "quickFilterMissingInvoice": "Недостаје фактура",
-  "quickFilterOverdue": "Кашњење - хитно!",
+  "quickFilterOverdue": "Хитно",
+  "quickFilterStale": "Застарело",
   "quickFilterAll": "Сви",
   "lblProjectCountFilter": "Број пројеката",
   "filterOpEquals": "Једнако (=)",
@@ -632,7 +633,17 @@ const srCyrlTranslations: TranslationKeys = {
   "btnRefreshNow": "Освежи одмах",
   "btnDismiss": "Затвори",
   "appVersion": "Верзија",
-  "buildTime": "Издање"
+  "buildTime": "Издање",
+  "loadingData": "Учитавање података...",
+  "loadingServerWakingUp": "Сервер се буди из стања мировања...",
+  "loadingServerWakingUpDetail": "Бесплатни сервиси (Render и Neon) прелазе у хибернацију након периода неактивности. Прво покретање може потрајати до 60 секунди. Хвала на стрпљењу!",
+  "loadingSaving": "Чување измена...",
+  "loadingDeleting": "Брисање...",
+  "loadingProcessing": "Обрада захтева...",
+  "loadingConnecting": "Повезивање са сервером...",
+  "loadingRefreshing": "Освежавање података...",
+  "loadingElapsedTime": "Протекло време: {seconds}с",
+  "loadingPleaseWait": "Молимо сачекајте..."
 };
 
 export default srCyrlTranslations;

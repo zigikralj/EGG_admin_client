@@ -28,7 +28,6 @@ import { enhanceInvoicesWithLinks, parseInvoiceNotes, serializeInvoiceNotes } fr
 import { TableFilterSelector } from '../common/TableFilterSelector';
 import { TableOptionsSelector } from '../common/ColumnSelector';
 import { DateRangeFilter } from '../common/DateRangeFilter';
-import { TableSearchInput } from '../common/TableSearchInput';
 import { ErrorDialog } from '../dialogs/ErrorDialog';
 import {
   CheckCircleIcon,
@@ -64,6 +63,8 @@ interface Props {
   onRowsPerPageOptionsChange?: (options: number[]) => void;
   rowsPerPage?: number;
   onRowsPerPageChange?: (rowsPerPage: number) => void;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
 function fmtDate(d: string | null): string {
@@ -102,6 +103,8 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
   onRowsPerPageOptionsChange,
   rowsPerPage: rowsPerPageProp,
   onRowsPerPageChange,
+  onRefresh,
+  isRefreshing,
 }) => {
   const { t } = useLanguage();
   const { isUser, canManageInvoices } = useAuth();
@@ -356,11 +359,6 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
     { value: 'client', label: t('colClient') },
     { value: 'project', label: t('colProject') },
     { value: 'status', label: t('colStatus') },
-  ], [t]);
-
-  const quickFilterOptions = useMemo(() => [
-    { value: 'all', label: t('filterAll') },
-    { value: 'unpaid', label: t('statusUnpaid') },
   ], [t]);
 
   const statusOptions = useMemo(() => [
@@ -699,156 +697,125 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
             </Button>
           )
         }
-        toolbarContent={
-          <Box
-          sx={{
-            display: 'flex',
-            flexDirection: { xs: 'column', lg: 'row' },
-            alignItems: { xs: 'stretch', lg: 'center' },
-            justifyContent: 'space-between',
-            gap: 1.5,
-            mb: 1.5,
-            pb: 1.5,
-            borderBottom: '1px solid',
-            borderColor: 'divider',
-          }}
-        >
-          {/* SEARCH FIELD */}
-          <TableSearchInput
-            value={searchQuery}
-            onChange={setSearchQuery}
-          />
-
-          {/* QUICK STATUS CHIPS */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-            {quickFilterOptions.map((qf) => {
-              const isSelected = filterStatus === qf.value;
-              const chipColor = qf.value === 'all' ? 'primary' : 'warning';
-              return (
-                <Chip
-                  key={qf.value}
-                  label={qf.label}
+        searchProps={{
+          value: searchQuery,
+          onChange: setSearchQuery,
+        }}
+        quickFiltersProps={{
+          options: [
+            {
+              key: 'unpaid',
+              label: t('statusUnpaid'),
+              color: 'warning',
+            },
+          ],
+          selectedKeys: filterStatus === 'unpaid' ? ['unpaid'] : [],
+          onChange: (keys) => setFilterStatus(keys.includes('unpaid') ? 'unpaid' : 'all'),
+        }}
+        refreshProps={onRefresh ? { onRefresh, isRefreshing } : undefined}
+        filterSelector={
+          <TableFilterSelector
+            activeCount={activeFilterCount}
+            onClear={handleClearAllFilters}
+            sortingContent={
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <Autocomplete
                   size="small"
-                  clickable
-                  color={isSelected ? chipColor : 'default'}
-                  variant={isSelected ? 'filled' : 'outlined'}
-                  onClick={() => setFilterStatus(qf.value)}
-                  sx={{
-                    fontWeight: isSelected ? 700 : 500,
-                    fontSize: '0.75rem',
-                    height: 26,
-                    transition: 'all 0.15s ease',
+                  fullWidth
+                  disablePortal
+                  disableClearable
+                  options={sortOptions}
+                  getOptionLabel={(option) => option.label}
+                  isOptionEqualToValue={(option, val) => option.value === val.value}
+                  value={sortOptions.find((o) => o.value === sortOption) || sortOptions[0]}
+                  onChange={(_, newValue) => {
+                    if (newValue) handleSortColumnChange(newValue.value);
                   }}
+                  renderInput={(params) => <TextField {...params} label={t('lblSortBy')} size="small" />}
                 />
-              );
-            })}
-          </Box>
-
-          {/* RIGHT CONTROLS */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, justifyContent: { xs: 'space-between', sm: 'flex-end' }, flexWrap: 'wrap' }}>
-            <TableFilterSelector
-              activeCount={activeFilterCount}
-              onClear={handleClearAllFilters}
-              sortingContent={
-                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                  <Autocomplete
-                    size="small"
-                    fullWidth
-                    disablePortal
-                    disableClearable
-                    options={sortOptions}
-                    getOptionLabel={(option) => option.label}
-                    isOptionEqualToValue={(option, val) => option.value === val.value}
-                    value={sortOptions.find((o) => o.value === sortOption) || sortOptions[0]}
-                    onChange={(_, newValue) => {
-                      if (newValue) handleSortColumnChange(newValue.value);
-                    }}
-                    renderInput={(params) => <TextField {...params} label={t('lblSortBy')} size="small" />}
-                  />
-                  <IconButton
-                    size="small"
-                    onClick={handleToggleSortDirection}
-                    title={sortDirection === 'asc' ? t('sortAscending') : t('sortDescending')}
-                    sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0.75 }}
-                  >
-                    {sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />}
-                  </IconButton>
-                </Box>
-              }
-              dateRangeContent={
-                <DateRangeFilter
-                  startDate={filterDateFrom}
-                  endDate={filterDateTo}
-                  onDateChange={({ startDate, endDate }) => {
-                    setFilterDateFrom(startDate);
-                    setFilterDateTo(endDate);
-                  }}
-                  dateField={filterDateField}
-                  dateFieldOptions={[
-                    { value: 'dueDate', label: t('colDueDate') },
-                    { value: 'dateCreated', label: t('colDateCreated') },
-                  ]}
-                  onDateFieldChange={setFilterDateField}
+                <IconButton
+                  size="small"
+                  onClick={handleToggleSortDirection}
+                  title={sortDirection === 'asc' ? t('sortAscending') : t('sortDescending')}
+                  sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0.75 }}
+                >
+                  {sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />}
+                </IconButton>
+              </Box>
+            }
+            dateRangeContent={
+              <DateRangeFilter
+                startDate={filterDateFrom}
+                endDate={filterDateTo}
+                onDateChange={({ startDate, endDate }) => {
+                  setFilterDateFrom(startDate);
+                  setFilterDateTo(endDate);
+                }}
+                dateField={filterDateField}
+                dateFieldOptions={[
+                  { value: 'dueDate', label: t('colDueDate') },
+                  { value: 'dateCreated', label: t('colDateCreated') },
+                ]}
+                onDateFieldChange={setFilterDateField}
+              />
+            }
+            filteringContent={
+              <>
+                <Autocomplete
+                  size="small"
+                  fullWidth
+                  disablePortal
+                  options={statusOptions}
+                  getOptionLabel={(option) => option.label}
+                  isOptionEqualToValue={(option, val) => option.value === val.value}
+                  value={statusOptions.find((o) => o.value === filterStatus) || statusOptions[0]}
+                  onChange={(_, newValue) => setFilterStatus(newValue ? newValue.value : 'all')}
+                  renderInput={(params) => <TextField {...params} label={t('colStatus')} size="small" />}
                 />
-              }
-              filteringContent={
-                <>
-                  <Autocomplete
-                    size="small"
-                    fullWidth
-                    disablePortal
-                    options={statusOptions}
-                    getOptionLabel={(option) => option.label}
-                    isOptionEqualToValue={(option, val) => option.value === val.value}
-                    value={statusOptions.find((o) => o.value === filterStatus) || statusOptions[0]}
-                    onChange={(_, newValue) => setFilterStatus(newValue ? newValue.value : 'all')}
-                    renderInput={(params) => <TextField {...params} label={t('colStatus')} size="small" />}
-                  />
 
+                <Autocomplete
+                  size="small"
+                  fullWidth
+                  disablePortal
+                  options={uniqueClients}
+                  value={filterClient === 'all' ? null : filterClient}
+                  onChange={(_, newValue) => setFilterClient(newValue || 'all')}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label={t('colClient')}
+                    />
+                  )}
+                />
+
+                {uniqueProjects.length > 0 && (
                   <Autocomplete
                     size="small"
                     fullWidth
                     disablePortal
-                    options={uniqueClients}
-                    value={filterClient === 'all' ? null : filterClient}
-                    onChange={(_, newValue) => setFilterClient(newValue || 'all')}
+                    options={uniqueProjects}
+                    value={filterProject === 'all' ? null : filterProject}
+                    onChange={(_, newValue) => setFilterProject(newValue || 'all')}
                     renderInput={(params) => (
                       <TextField
                         {...params}
-                        label={t('colClient')}
+                        label={t('colProject')}
                       />
                     )}
                   />
-
-                  {uniqueProjects.length > 0 && (
-                    <Autocomplete
-                      size="small"
-                      fullWidth
-                      disablePortal
-                      options={uniqueProjects}
-                      value={filterProject === 'all' ? null : filterProject}
-                      onChange={(_, newValue) => setFilterProject(newValue || 'all')}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          label={t('colProject')}
-                        />
-                      )}
-                    />
-                  )}
-                </>
-              }
-            />
-
-            <TableOptionsSelector
-              rowsPerPageOptions={activeRowsPerPageOptions}
-              onRowsPerPageOptionsChange={setRowsPerPageOptionsValue}
-              rowsPerPage={activeRowsPerPage}
-              onRowsPerPageChange={setRowsPerPageValue}
-              defaultRowsPerPageOptions={[5, 10, 25]}
-            />
-          </Box>
-        </Box>
+                )}
+              </>
+            }
+          />
+        }
+        tableOptions={
+          <TableOptionsSelector
+            rowsPerPageOptions={activeRowsPerPageOptions}
+            onRowsPerPageOptionsChange={setRowsPerPageOptionsValue}
+            rowsPerPage={activeRowsPerPage}
+            onRowsPerPageChange={setRowsPerPageValue}
+            defaultRowsPerPageOptions={[5, 10, 25]}
+          />
         }
         listContent={
           paginatedItems.map((inv) => {

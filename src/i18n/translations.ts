@@ -575,6 +575,7 @@ export interface TranslationKeys {
   quickFilterActive: string;
   quickFilterMissingInvoice: string;
   quickFilterOverdue: string;
+  quickFilterStale: string;
   quickFilterAll: string;
   lblProjectCountFilter: string;
   filterOpEquals: string;
@@ -672,6 +673,18 @@ export interface TranslationKeys {
   btnDismiss: string;
   appVersion: string;
   buildTime: string;
+
+  // Loading Mask & Server Spin-up
+  loadingData: string;
+  loadingServerWakingUp: string;
+  loadingServerWakingUpDetail: string;
+  loadingSaving: string;
+  loadingDeleting: string;
+  loadingProcessing: string;
+  loadingConnecting: string;
+  loadingRefreshing: string;
+  loadingElapsedTime: string;
+  loadingPleaseWait: string;
 }
 
 export const serviceTypeTranslations: Record<Language, Record<string, string>> = {

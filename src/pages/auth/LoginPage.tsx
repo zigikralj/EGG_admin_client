@@ -25,12 +25,14 @@ import {
 import logoUrl from '../../assets/logo.svg';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import { useLoading } from '../../context/LoadingContext';
 import { LanguageSelector } from '../../components/common/LanguageSelector';
 import { PersonIcon, LockIcon, EmailIcon, PhoneIcon, Visibility, VisibilityOff, CheckCircleIcon, HourglassEmptyIcon } from '../../components/icons';
 
 export const LoginPage: React.FC = () => {
   const { t } = useLanguage();
   const { login, register } = useAuth();
+  const { withLoading } = useLoading();
 
   const [tabIndex, setTabIndex] = useState<number>(0);
 
@@ -65,7 +67,10 @@ export const LoginPage: React.FC = () => {
 
     setIsSubmittingLogin(true);
     try {
-      const res = await login(loginIdentifier, loginPassword);
+      const res = await withLoading(
+        () => login(loginIdentifier, loginPassword),
+        t('loadingConnecting') || 'Connecting to server...'
+      );
       if (!res.success) {
         setLoginErrorCode(res.errorCode || null);
         if (res.errorCode === 'PENDING_APPROVAL') {
@@ -107,12 +112,16 @@ export const LoginPage: React.FC = () => {
 
     setIsSubmittingReg(true);
     try {
-      const res = await register({
-        name: regName,
-        email: regEmail,
-        phone: regPhone,
-        password: regPassword,
-      });
+      const res = await withLoading(
+        () =>
+          register({
+            name: regName,
+            email: regEmail,
+            phone: regPhone,
+            password: regPassword,
+          }),
+        t('loadingConnecting') || 'Connecting to server...'
+      );
 
       if (res.success) {
         setRegSuccess(t('msgRegistrationSuccess'));

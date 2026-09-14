@@ -262,3 +262,4 @@ npm run deploy     # Build + deploy to GitHub Pages (gh-pages)
 8. **Icons must use barrel file** — Import from `./icons` or `../icons`, never from `@mui/icons-material` directly.
 9. **`App.tsx` is the God component** — ~640 lines. Orchestrates everything. Future refactoring should extract routing and provider wiring.
 10. **Scroll lock disabled globally** — All MUI modals, drawers, menus, selects have `disableScrollLock: true` to prevent body scroll issues.
+11. **NO BROWSER LOGIN VERIFICATION** — NEVER open the browser or use browser subagents to attempt logging in or verify authenticated flows. The AI assistant does NOT have valid credentials for login. Verification must rely on TypeScript compilation, build checks (`npm run build`), linting, and automated tests. Do not attempt to register or login.
