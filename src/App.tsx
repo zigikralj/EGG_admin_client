@@ -159,6 +159,7 @@ function MainApp() {
       >
         <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', p: 4 }}><CircularProgress /></Box>}>
           <Routes>
+            <Route path="/Egg_admin_client/*" element={<Navigate to="/" replace />} />
             <Route path="/project-tracker/statistic-waste-management" element={<Navigate to="/project-tracker/statistic-waste-disposal" replace />} />
             <Route path="/project-tracker/waste-management" element={<Navigate to="/project-tracker/statistic-waste-disposal" replace />} />
             <Route path="/project-tracker/*" element={

@@ -2,6 +2,8 @@ import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { visualizer } from 'rollup-plugin-visualizer';
 import { execSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
 import pkg from './package.json' with { type: 'json' };
 
 // Resolve version: 1. VITE_APP_VERSION, 2. package.json, 3. Git Tag, 4. fallback
@@ -70,9 +72,44 @@ function versionPlugin(): Plugin {
   };
 }
 
+// Generates 404.html and .nojekyll for GitHub Pages SPA routing and deep links
+function spaFallbackPlugin(): Plugin {
+  return {
+    name: 'vite-plugin-spa-fallback',
+    closeBundle() {
+      const distDir = path.resolve(import.meta.dirname, 'dist');
+      const indexFile = path.resolve(distDir, 'index.html');
+      const fallbackFile = path.resolve(distDir, '404.html');
+      const noJekyllFile = path.resolve(distDir, '.nojekyll');
+      if (fs.existsSync(indexFile)) {
+        fs.copyFileSync(indexFile, fallbackFile);
+      }
+      fs.writeFileSync(noJekyllFile, '');
+    },
+  };
+}
+
+// Resolve base path:
+// 1. If VITE_BASE_PATH is provided (e.g. from GitHub Actions configure-pages):
+//    - For GitHub Pages subpath: "/Egg_admin_client" -> "/Egg_admin_client/"
+//    - For custom domain (project-tracker.ekosgroup.rs): "" -> "/"
+// 2. Production fallback defaults to "/Egg_admin_client/"
+// 3. Local dev defaults to "/"
+const resolveBasePath = () => {
+  if (process.env.VITE_BASE_PATH !== undefined) {
+    const raw = process.env.VITE_BASE_PATH.trim();
+    if (!raw || raw === '/') return '/';
+    return raw.endsWith('/') ? raw : `${raw}/`;
+  }
+  if (process.env.NODE_ENV === 'production') {
+    return '/Egg_admin_client/';
+  }
+  return '/';
+};
+
 // https://vite.dev/config/
 export default defineConfig({
-  base: process.env.VITE_BASE_PATH || './',
+  base: resolveBasePath(),
   define: {
     __APP_VERSION__: JSON.stringify(resolvedVersion),
     __COMMIT_HASH__: JSON.stringify(commitHash),
@@ -81,6 +118,7 @@ export default defineConfig({
   plugins: [
     react(),
     versionPlugin(),
+    spaFallbackPlugin(),
     visualizer({ filename: 'bundle-stats.html' }),
   ],
   server: {

@@ -19,9 +19,9 @@ The client talks to a separate Express 5 REST API server (see `../server/`).
 | File | Purpose |
 |---|---|
 | `index.html` | HTML shell — mounts `#root` |
-| `src/main.tsx` | ReactDOM entry. Wraps `<App />` in StrictMode. Handles `vite:preloadError` auto-reload. |
-| `src/App.tsx` | **Root orchestrator** (~640 lines). Provider wiring, domain hook composition, lazy-loaded views, modal management, and view routing (no react-router — uses `activeTab` state). |
-| `vite.config.ts` | Vite + React plugin, dev proxy `/api` → `:5000`, manual chunk splitting (vendor-react, vendor-mui, vendor-mui-charts, vendor-mui-icons), version.json generation. |
+| `src/main.tsx` | ReactDOM entry. Wraps `<App />` in StrictMode, QueryClientProvider, and `<BrowserRouter>` with dynamic basename (`getRouterBasename()`). |
+| `src/App.tsx` | **Root orchestrator** (~390 lines). Provider wiring, React Query hooks, view routing (`<Routes>`, `<Route>`), and modal management. |
+| `vite.config.ts` | Vite + React plugin, dev proxy `/api` → `:5000`, manual chunk splitting, version.json generation, SPA 404 fallback, and dynamic base path resolution. |
 
 ### Type Definitions
 | File | Purpose |
@@ -44,23 +44,17 @@ The client talks to a separate Express 5 REST API server (see `../server/`).
 ### Custom Hooks (`src/hooks/`)
 | Hook | Purpose |
 |---|---|
-| `useAppData.ts` | **Orchestration hub.** Creates all 11 fetch functions via generic `useFetcher`, assembles `fetchAllData()` (parallel Promise.all), manages user preferences (GET/PUT `/api/preferences`). |
-| `useCrudOperations.ts` | **Generic CRUD factory.** Accepts `basePath`, `items[]`, `authHeaders`, `onSuccess`, translation keys. Returns `handleSave(data)` (POST/PUT) and `handleDelete(id)` (with confirm dialog). Merges existing items on PUT. |
-| `useProjects.ts` | Project state + `handleToggleDone`, `handleMarkSampled`, save/delete via `useCrudOperations`. |
-| `useClients.ts` | Client state + CRUD via `useCrudOperations`. |
-| `useUsers.ts` | User state + CRUD + `handleApproveUser`, `handleRejectUser`, `handleForceLogout` via `useStatusUpdate`. |
-| `useServices.ts` | Service state + CRUD. |
-| `useProvidedServices.ts` | ProvidedService state + CRUD. |
-| `useCategories.ts` | Category state + CRUD. |
-| `useReminders.ts` | Reminder state + CRUD + `handleStatusChange` via `useStatusUpdate`. |
-| `useInvoices.ts` | Invoice state + CRUD + `handleUpdateInvoiceStatus` via `useStatusUpdate`. |
-| `usePermits.ts` | Permit + WasteCatalog state + CRUD. |
 | `useProjectForm.ts` | Complex form state for project create/edit modal — manages name, client, responsible, type, dates, progress, notes, nested reminder/invoice sub-forms. |
 | `useInvoiceFormState.ts` | Isolated form state for invoice create/edit — new/edit modes, line items, parent linking, currency, status. |
 | `useTableView.ts` | **Shared table infrastructure.** Column visibility, pagination (rows-per-page + options), sorting (field + direction), refresh with spinner, error dialogs. Syncs local state ↔ controlled props from user preferences. Used by all 11 table-based views/panels. |
 | `useVersionCheck.ts` | Polls `/version.json` to detect new deployments, shows update banner. Uses Page Visibility API. |
 | `useRoleLabels.ts` | Maps `UserRole` strings to translated labels. |
 | `useStatusUpdate.ts` | Generic status-change helper (PATCH to arbitrary endpoint). Used by reminders, invoices, user management. |
+
+### React Query Hooks (`src/queries/`)
+| File | Purpose |
+|---|---|
+| `index.ts` | Exports all React Query hooks for fetching (`useProjectsQuery`, `useRemindersQuery`, etc.) and mutations (`useProjectMutations`, `usePreferencesMutations`, etc.) |
 
 ### Components
 
@@ -148,16 +142,14 @@ The client talks to a separate Express 5 REST API server (see `../server/`).
 
 ## Key Patterns & Conventions
 
-### No Router
-The app uses a simple `activeTab` state variable (type `ActiveTab`) instead of react-router. View switching is handled in `App.tsx` via a conditional render block. Sub-tabs exist for Dashboard (`DashboardSubTab`) and Provided Services (`ProvidedServicesSubTab`).
+### Routing (React Router v7)
+The app uses `react-router-dom` with dynamic basename resolution via `getRouterBasename()` (`src/utils/router.ts`). This seamlessly adapts between GitHub Pages (`https://zigikralj.github.io/Egg_admin_client/` -> basename `/Egg_admin_client`), custom domain (`https://project-tracker.ekosgroup.rs/` -> basename `/`), and local development (`localhost` -> basename `/`). Deep linking and SPA refresh on GitHub Pages are handled via `dist/404.html` generated in the build.
 
 ### Data Flow Architecture
 ```
 App.tsx (root orchestrator)
-  ├── Domain Hooks (useProjects, useClients, ...) — own state, expose setters
-  ├── useAppData — creates fetch functions, wires setters to API responses
-  ├── fetchersRef — breaks circular dependency between domain hooks and useAppData
-  └── Views receive data + handlers as props
+  ├── React Query Hooks (src/queries/index.ts) — manage data fetching, caching, and background updates
+  └── Views receive data + mutations as props or via their own React Query hooks
 ```
 
 ### RBAC Pattern & Developer Admin Rule
@@ -195,10 +187,9 @@ All table-based views follow the same pattern:
 
 ### Adding a New Entity
 1. Add TypeScript interface to `src/types.ts`
-2. Create `src/hooks/useMyEntity.ts` — follow `useClients.ts` pattern
-3. Add fetch function in `useAppData.ts` via `useFetcher`
-4. Wire into `App.tsx` (domain hook + setter in useAppData)
-5. Create view component and wire into navigation
+2. Add query and mutation hooks in `src/queries/index.ts`
+3. Wire into `App.tsx` if global state is needed, otherwise use the query hooks directly in components
+4. Create view component and wire into navigation
 
 ### Translation Pattern
 ```typescript
@@ -219,7 +210,7 @@ All MUI icons are imported through `src/components/icons.ts` barrel file as indi
 Server-persisted per-user KV store:
 - GET/PUT `/api/preferences` + `/api/preferences/:key`
 - Used for: theme mode, language, visible columns per view, rows-per-page, sort state, entity work mode
-- Managed by `useAppData` → `updatePreference(key, value)` with optimistic updates
+- Managed by `usePreferencesQuery` and `usePreferencesMutations` in `src/queries/index.ts` with optimistic updates
 
 ---
 
@@ -252,14 +243,14 @@ npm run deploy     # Build + deploy to GitHub Pages (gh-pages)
 
 ## Gotchas & Important Notes
 
-1. **No router** — Navigation is via `activeTab` state. Deep linking / back button not supported.
-2. **`fetchAllData` re-fetches everything** — Currently fires 10 parallel requests. No per-entity targeted refresh yet.
+1. **Router Basename** — Dynamic basename via `getRouterBasename()` automatically supports GitHub Pages subpath (`/Egg_admin_client`) and root domains like `project-tracker.ekosgroup.rs`.
+2. **React Query manages all data fetching** — Queries, caching, and refetching are handled via hooks in `src/queries/index.ts`.
 3. **Session expiry is client-side** — `auth_session_expires_at` in localStorage. Server JWT also expires (9h default).
 4. **Auth polling pauses on hidden tabs** — Uses Page Visibility API to avoid background requests.
 5. **Invoice metadata in notes** — Invoice type and parent link are embedded as `<!--meta:{...}-->` HTML comments in the `notes` field when server doesn't support explicit fields.
 6. **Admin role simulation** — `admin_role_view` localStorage key lets admins test as any role. Only available for actual Administrator accounts.
 7. **Default language is Serbian Latin** — Not English. This is intentional for the target user base.
 8. **Icons must use barrel file** — Import from `./icons` or `../icons`, never from `@mui/icons-material` directly.
-9. **`App.tsx` is the God component** — ~640 lines. Orchestrates everything. Future refactoring should extract routing and provider wiring.
+9. **`App.tsx` is the God component** — Orchestrates routing and state. Future refactoring should extract routing and provider wiring.
 10. **Scroll lock disabled globally** — All MUI modals, drawers, menus, selects have `disableScrollLock: true` to prevent body scroll issues.
 11. **NO BROWSER LOGIN VERIFICATION** — NEVER open the browser or use browser subagents to attempt logging in or verify authenticated flows. The AI assistant does NOT have valid credentials for login. Verification must rely on TypeScript compilation, build checks (`npm run build`), linting, and automated tests. Do not attempt to register or login.
