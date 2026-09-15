@@ -32,7 +32,15 @@ import {
   CircularProgress,
 } from '@mui/material';
 
-import type { Permit, Reminder, WasteCatalog, WasteCatalogResponse, TableViewProps } from '../../types';
+import {
+  PERMIT_TYPE_OPTIONS,
+  type Permit,
+  type PermitType,
+  type Reminder,
+  type WasteCatalog,
+  type WasteCatalogResponse,
+  type TableViewProps,
+} from '../../types';
 import { apiFetch } from '../../api';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -73,6 +81,7 @@ interface Props extends TableViewProps {
 const DEFAULT_COLUMNS = [
   'indexNumber',
   'permitNumber',
+  'permitTypes',
   'client',
   'startDate',
   'endDate',
@@ -283,6 +292,7 @@ const PermitsPage: React.FC<Props> = ({
   // Popover filter states
   const [filterClient, setFilterClient] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterPermitType, setFilterPermitType] = useState<string>('all');
   const [filterDateFrom, setFilterDateFrom] = useState<string>('');
   const [filterDateTo, setFilterDateTo] = useState<string>('');
   const [filterDateField, setFilterDateField] = useState<string>('endDate');
@@ -291,6 +301,7 @@ const PermitsPage: React.FC<Props> = ({
     quickFilters.length +
     (filterClient !== 'all' ? 1 : 0) +
     (filterStatus !== 'all' ? 1 : 0) +
+    (filterPermitType !== 'all' ? 1 : 0) +
     (filterDateFrom || filterDateTo ? 1 : 0) +
     (sortColumn !== 'endDate' || sortDirection !== 'asc' ? 1 : 0);
 
@@ -300,15 +311,37 @@ const PermitsPage: React.FC<Props> = ({
     onQuickFilterChange?.('all');
     setFilterClient('all');
     setFilterStatus('all');
+    setFilterPermitType('all');
     setFilterDateFrom('');
     setFilterDateTo('');
     setFilterDateField('endDate');
     resetSort();
   };
 
+  const getPermitTypeLabel = useCallback(
+    (type: string) => {
+      switch (type) {
+        case 'Sakupljanje':
+          return t('permitTypeSakupljanje');
+        case 'Transport':
+          return t('permitTypeTransport');
+        case 'Skladistenje':
+          return t('permitTypeSkladistenje');
+        case 'Tretman':
+          return t('permitTypeTretman');
+        case 'Odlaganje':
+          return t('permitTypeOdlaganje');
+        default:
+          return type;
+      }
+    },
+    [t]
+  );
+
   const columnDefs: ColumnDef[] = [
     { id: 'indexNumber', label: t('colIndexNumber') },
     { id: 'permitNumber', label: t('colPermitNumber') },
+    { id: 'permitTypes', label: t('colPermitType') },
     { id: 'client', label: t('colClientName') },
     { id: 'startDate', label: t('colStartDate') },
     { id: 'endDate', label: t('colEndDate') },
@@ -322,12 +355,14 @@ const PermitsPage: React.FC<Props> = ({
     { value: 'startDate', label: t('colStartDate') },
     { value: 'indexNumber', label: t('colIndexNumber') },
     { value: 'permitNumber', label: t('colPermitNumber') },
+    { value: 'permitTypes', label: t('colPermitType') },
     { value: 'client', label: t('colClientName') },
   ];
 
   // Form states
   const [selectedWasteCatalogIds, setSelectedWasteCatalogIds] = useState<string[]>([]);
   const [permitNumber, setPermitNumber] = useState('');
+  const [permitTypes, setPermitTypes] = useState<string[]>([]);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [notes, setNotes] = useState('');
@@ -430,6 +465,7 @@ const PermitsPage: React.FC<Props> = ({
     setCatalogInputValue('');
     setCatalogSearchTerm('');
     setPermitNumber('');
+    setPermitTypes([]);
     setSelectedClientId('');
     setStartDate('');
     setEndDate('');
@@ -464,6 +500,7 @@ const PermitsPage: React.FC<Props> = ({
     setCatalogInputValue('');
 
     setPermitNumber(p.permitNumber || '');
+    setPermitTypes((p.permitTypes || []) as string[]);
     setStartDate(p.startDate ? p.startDate.split('T')[0] : '');
     setEndDate(p.endDate ? p.endDate.split('T')[0] : '');
     setNotes(p.notes || '');
@@ -640,6 +677,7 @@ const PermitsPage: React.FC<Props> = ({
       const res = await handleSavePermit({
         id: editingPermit?.id,
         permitNumber: permitNumber.trim(),
+        permitTypes,
         wasteCatalogIds: selectedWasteCatalogIds,
         startDate: startDate ? new Date(startDate).toISOString() : null,
         endDate: endDate ? new Date(endDate).toISOString() : null,
@@ -758,8 +796,13 @@ const PermitsPage: React.FC<Props> = ({
         const matchPermit = (permit.permitNumber || '').toLowerCase().includes(query);
         const matchClient = clientNames.toLowerCase().includes(query);
         const matchNotes = (permit.notes || '').toLowerCase().includes(query);
+        const matchPermitTypes = (permit.permitTypes || []).some(
+          (pt) =>
+            pt.toLowerCase().includes(query) ||
+            getPermitTypeLabel(pt).toLowerCase().includes(query)
+        );
 
-        if (!matchIndex && !matchPermit && !matchClient && !matchNotes) {
+        if (!matchIndex && !matchPermit && !matchClient && !matchNotes && !matchPermitTypes) {
           return false;
         }
       }
@@ -781,6 +824,14 @@ const PermitsPage: React.FC<Props> = ({
       // Popover Status Filter
       if (filterStatus !== 'all' && statusObj.status !== filterStatus) {
         return false;
+      }
+
+      // Permit Type filter
+      if (filterPermitType !== 'all') {
+        const types = permit.permitTypes || [];
+        if (!types.includes(filterPermitType)) {
+          return false;
+        }
       }
 
       // Client filter
@@ -816,9 +867,11 @@ const PermitsPage: React.FC<Props> = ({
     quickFilters,
     filterStatus,
     filterClient,
+    filterPermitType,
     filterDateFrom,
     filterDateTo,
     filterDateField,
+    getPermitTypeLabel,
   ]);
 
   const sortedPermits = useMemo(() => {
@@ -846,6 +899,9 @@ const PermitsPage: React.FC<Props> = ({
             );
         valA = linkedA[0]?.name || a.clientName || '';
         valB = linkedB[0]?.name || b.clientName || '';
+      } else if (sortColumn === 'permitTypes') {
+        valA = (a.permitTypes || []).map((pt) => getPermitTypeLabel(pt)).join(', ');
+        valB = (b.permitTypes || []).map((pt) => getPermitTypeLabel(pt)).join(', ');
       } else if (sortColumn === 'startDate') {
         valA = a.startDate || '';
         valB = b.startDate || '';
@@ -1087,6 +1143,26 @@ const PermitsPage: React.FC<Props> = ({
                   </Select>
                 </FormControl>
 
+                {/* Filter by Permit Type */}
+                <FormControl size="small" fullWidth>
+                  <InputLabel>{t('filterPermitType')}</InputLabel>
+                  <Select
+                    value={filterPermitType}
+                    label={t('filterPermitType')}
+                    onChange={(e) => {
+                      setFilterPermitType(e.target.value);
+                      setPage(0);
+                    }}
+                  >
+                    <MenuItem value="all">{t('quickFilterAll')}</MenuItem>
+                    {PERMIT_TYPE_OPTIONS.map((opt) => (
+                      <MenuItem key={opt} value={opt}>
+                        {getPermitTypeLabel(opt)}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
                 {/* Date range filter */}
                 <DateRangeFilter
                   startDate={filterDateFrom}
@@ -1147,6 +1223,17 @@ const PermitsPage: React.FC<Props> = ({
                       onClick={() => handleSort('permitNumber')}
                     >
                       {t('colPermitNumber')}
+                    </TableSortLabel>
+                  </TableCell>
+                )}
+                {activeCols.includes('permitTypes') && (
+                  <TableCell>
+                    <TableSortLabel
+                      active={sortColumn === 'permitTypes'}
+                      direction={sortColumn === 'permitTypes' ? sortDirection : 'asc'}
+                      onClick={() => handleSort('permitTypes')}
+                    >
+                      {t('colPermitType')}
                     </TableSortLabel>
                   </TableCell>
                 )}
@@ -1261,6 +1348,32 @@ const PermitsPage: React.FC<Props> = ({
                           <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main' }}>
                             {permit.permitNumber}
                           </Typography>
+                        </TableCell>
+                      )}
+                      {activeCols.includes('permitTypes') && (
+                        <TableCell>
+                          {permit.permitTypes && permit.permitTypes.length > 0 ? (
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                              {permit.permitTypes.map((pt) => (
+                                <Chip
+                                  key={pt}
+                                  label={getPermitTypeLabel(pt)}
+                                  size="small"
+                                  variant="outlined"
+                                  sx={{
+                                    fontSize: '0.725rem',
+                                    fontWeight: 500,
+                                    height: 22,
+                                    bgcolor: 'action.hover',
+                                  }}
+                                />
+                              ))}
+                            </Box>
+                          ) : (
+                            <Typography variant="body2" color="text.disabled">
+                              —
+                            </Typography>
+                          )}
                         </TableCell>
                       )}
                       {activeCols.includes('client') && (
@@ -1568,6 +1681,27 @@ const PermitsPage: React.FC<Props> = ({
                       {...params}
                       label={t('colClientName')}
                       placeholder={t('phClient')}
+                    />
+                  )}
+                />
+              </Grid>
+
+              {/* Permit Type (Multiple Select) */}
+              <Grid size={{ xs: 12 }}>
+                <Autocomplete
+                  multiple
+                  size="small"
+                  options={PERMIT_TYPE_OPTIONS}
+                  getOptionLabel={(option) => getPermitTypeLabel(option)}
+                  value={permitTypes as PermitType[]}
+                  onChange={(_, newValue) => {
+                    setPermitTypes((newValue as PermitType[]) || []);
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label={t('lblPermitType')}
+                      placeholder={permitTypes.length === 0 ? t('phSelectPermitType') : ''}
                     />
                   )}
                 />
