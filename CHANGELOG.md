@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.2.0] - 2026-09-15
+
+- feat: add permit types support with filtering, sorting, and localization (#36) by @zigikralj
+
 ## [v1.1.4] - 2026-09-15
 
 - fix: correct case of GitHub Pages base path and routes to EGG_admin_c… (#34) by @zigikralj
