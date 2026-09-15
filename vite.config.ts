@@ -89,11 +89,12 @@ function spaFallbackPlugin(): Plugin {
   };
 }
 
+// https://zigikralj.github.io/EGG_admin_client/
 // Resolve base path:
 // 1. If VITE_BASE_PATH is provided (e.g. from GitHub Actions configure-pages):
-//    - For GitHub Pages subpath: "/Egg_admin_client" -> "/Egg_admin_client/"
+//    - For GitHub Pages subpath: "/EGG_admin_client" -> "/EGG_admin_client/"
 //    - For custom domain (project-tracker.ekosgroup.rs): "" -> "/"
-// 2. Production fallback defaults to "/Egg_admin_client/"
+// 2. Production fallback defaults to "/EGG_admin_client/"
 // 3. Local dev defaults to "/"
 const resolveBasePath = () => {
   if (process.env.VITE_BASE_PATH !== undefined) {
@@ -102,7 +103,7 @@ const resolveBasePath = () => {
     return raw.endsWith('/') ? raw : `${raw}/`;
   }
   if (process.env.NODE_ENV === 'production') {
-    return '/Egg_admin_client/';
+    return '/EGG_admin_client/';
   }
   return '/';
 };

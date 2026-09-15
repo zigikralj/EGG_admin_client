@@ -107,6 +107,55 @@ export const getPermitStatus = (
 import { usePermitsQuery, useClientsQuery, useRemindersQuery, usePermitsMutations, useRemindersMutations, useClientsMutations } from '../../queries';
 import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
 
+const ExpandableChipList = ({ wcs, max = 2 }: { wcs: any[]; max?: number }) => {
+  const [expanded, setExpanded] = React.useState(false);
+  
+  if (wcs.length <= max) {
+    return (
+      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+        {wcs.map((wc, i) => (
+          <Tooltip key={i} title={`${wc.code} - ${wc.description || ''}${wc.hazardListMark ? ` (${wc.hazardListMark})` : ''}`}>
+            <Chip
+              label={wc.code}
+              size="small"
+              variant="outlined"
+              sx={{ fontWeight: 600, height: 20, fontSize: '0.7rem' }}
+            />
+          </Tooltip>
+        ))}
+      </Box>
+    );
+  }
+
+  const visibleWcs = expanded ? wcs : wcs.slice(0, max);
+  
+  return (
+    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
+      {visibleWcs.map((wc, i) => (
+        <Tooltip key={i} title={`${wc.code} - ${wc.description || ''}${wc.hazardListMark ? ` (${wc.hazardListMark})` : ''}`}>
+          <Chip
+            label={wc.code}
+            size="small"
+            variant="outlined"
+            sx={{ fontWeight: 600, height: 20, fontSize: '0.7rem' }}
+          />
+        </Tooltip>
+      ))}
+      <Chip
+        label={expanded ? '−' : `+${wcs.length - max}`}
+        size="small"
+        color="default"
+        variant="filled"
+        onClick={(e) => {
+          e.stopPropagation();
+          setExpanded(!expanded);
+        }}
+        sx={{ fontWeight: 700, height: 20, fontSize: '0.65rem', cursor: 'pointer', minWidth: 24 }}
+      />
+    </Box>
+  );
+};
+
 const PermitsPage: React.FC<Props> = ({
   visibleColumns = DEFAULT_COLUMNS,
   onVisibleColumnsChange,
@@ -277,7 +326,7 @@ const PermitsPage: React.FC<Props> = ({
   ];
 
   // Form states
-  const [selectedWasteCatalogId, setSelectedWasteCatalogId] = useState<string>('');
+  const [selectedWasteCatalogIds, setSelectedWasteCatalogIds] = useState<string[]>([]);
   const [permitNumber, setPermitNumber] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -292,7 +341,7 @@ const PermitsPage: React.FC<Props> = ({
   const [catalogHasMore, setCatalogHasMore] = useState(true);
   const [catalogSearchTerm, setCatalogSearchTerm] = useState('');
   const [catalogInputValue, setCatalogInputValue] = useState('');
-  const [selectedCatalogItem, setSelectedCatalogItem] = useState<WasteCatalog | null>(null);
+  const [selectedCatalogItems, setSelectedCatalogItems] = useState<WasteCatalog[]>([]);
 
   const fetchCatalogPage = useCallback(
     async (pageToFetch: number, search: string, isAppend = false) => {
@@ -341,13 +390,16 @@ const PermitsPage: React.FC<Props> = ({
     return () => clearTimeout(timer);
   }, [catalogSearchTerm, isOpen, fetchCatalogPage]);
 
-  // Ensure selected item is present in options list so label/chips render
+  // Ensure selected items are present in options list so label/chips render
   const combinedCatalogOptions = useMemo(() => {
-    if (selectedCatalogItem && !catalogOptions.some((o) => o.id === selectedCatalogItem.id)) {
-      return [selectedCatalogItem, ...catalogOptions];
-    }
-    return catalogOptions;
-  }, [selectedCatalogItem, catalogOptions]);
+    const newOptions = [...catalogOptions];
+    selectedCatalogItems.forEach(item => {
+      if (!newOptions.some((o) => o.id === item.id)) {
+        newOptions.unshift(item);
+      }
+    });
+    return newOptions;
+  }, [selectedCatalogItems, catalogOptions]);
 
   const handleToggleFrequent = async (e: React.MouseEvent, item: WasteCatalog) => {
     e.stopPropagation();
@@ -361,8 +413,8 @@ const PermitsPage: React.FC<Props> = ({
         setCatalogOptions((prev) =>
           prev.map((it) => (it.id === updated.id ? updated : it))
         );
-        if (selectedCatalogItem?.id === updated.id) {
-          setSelectedCatalogItem(updated);
+        if (selectedCatalogItems.some(item => item.id === updated.id)) {
+          setSelectedCatalogItems(prev => prev.map(item => item.id === updated.id ? updated : item));
         }
       }
     } catch (err) {
@@ -373,8 +425,8 @@ const PermitsPage: React.FC<Props> = ({
   const openNew = () => {
     if (!canManagePermits) return;
     setEditingPermit(null);
-    setSelectedWasteCatalogId('');
-    setSelectedCatalogItem(null);
+    setSelectedWasteCatalogIds([]);
+    setSelectedCatalogItems([]);
     setCatalogInputValue('');
     setCatalogSearchTerm('');
     setPermitNumber('');
@@ -404,66 +456,12 @@ const PermitsPage: React.FC<Props> = ({
         '';
     setSelectedClientId(linked);
 
-    const id =
-      p.wasteCatalogId ||
-      (p.wasteCatalogIds && p.wasteCatalogIds[0]) ||
-      p.permitWastes?.[0]?.wasteCatalogId ||
-      '';
-    const existingCatalogItem =
-      p.wasteCatalog ||
-      p.wasteCatalogs?.[0] ||
-      p.permitWastes?.[0]?.wasteCatalog ||
-      null;
-
-    if (id) {
-      setSelectedWasteCatalogId(id);
-      if (existingCatalogItem) {
-        setSelectedCatalogItem(existingCatalogItem);
-        setCatalogInputValue(`${existingCatalogItem.code} - ${existingCatalogItem.description}`);
-      } else {
-        try {
-          const res = await apiFetch(`/api/waste-catalog/${id}`);
-          if (res.ok) {
-            const fetched: WasteCatalog = await res.json();
-            setSelectedCatalogItem(fetched);
-            setCatalogInputValue(`${fetched.code} - ${fetched.description}`);
-          }
-        } catch {
-          // ignore
-        }
-      }
-    } else if (p.indexNumber) {
-      const cleanIndex = p.indexNumber.replace(/\*/g, '').trim();
-      const matched = (catalogOptions || []).find(
-        (wc) =>
-          wc.code === p.indexNumber ||
-          wc.code.replace(/\*/g, '').trim() === cleanIndex
-      );
-      if (matched) {
-        setSelectedWasteCatalogId(matched.id);
-        setSelectedCatalogItem(matched);
-        setCatalogInputValue(`${matched.code} - ${matched.description}`);
-      } else {
-        try {
-          const res = await apiFetch(`/api/waste-catalog?search=${encodeURIComponent(p.indexNumber)}&limit=1`);
-          if (res.ok) {
-            const data = await res.json();
-            const found = data.items?.[0];
-            if (found) {
-              setSelectedWasteCatalogId(found.id);
-              setSelectedCatalogItem(found);
-              setCatalogInputValue(`${found.code} - ${found.description}`);
-            }
-          }
-        } catch {
-          // ignore
-        }
-      }
-    } else {
-      setSelectedWasteCatalogId('');
-      setSelectedCatalogItem(null);
-      setCatalogInputValue('');
-    }
+    const ids = (p.wasteCatalogIds?.length ? p.wasteCatalogIds : (p.permitWastes?.map(pw => pw.wasteCatalogId).filter(Boolean) || (p.wasteCatalogId ? [p.wasteCatalogId] : []))) as string[];
+    const items = (p.wasteCatalogs?.length ? p.wasteCatalogs : (p.permitWastes?.map(pw => pw.wasteCatalog).filter(Boolean) || (p.wasteCatalog ? [p.wasteCatalog] : []))) as WasteCatalog[];
+    
+    setSelectedWasteCatalogIds(ids);
+    setSelectedCatalogItems(items);
+    setCatalogInputValue('');
 
     setPermitNumber(p.permitNumber || '');
     setStartDate(p.startDate ? p.startDate.split('T')[0] : '');
@@ -621,7 +619,7 @@ const PermitsPage: React.FC<Props> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canManagePermits) return;
-    if (!permitNumber.trim() || !selectedWasteCatalogId || !startDate || !endDate) {
+    if (!permitNumber.trim() || selectedWasteCatalogIds.length === 0 || !startDate || !endDate) {
       setErrorDialogState({
         open: true,
         message: t('alertPermitRequired'),
@@ -642,7 +640,7 @@ const PermitsPage: React.FC<Props> = ({
       const res = await handleSavePermit({
         id: editingPermit?.id,
         permitNumber: permitNumber.trim(),
-        wasteCatalogId: selectedWasteCatalogId,
+        wasteCatalogIds: selectedWasteCatalogIds,
         startDate: startDate ? new Date(startDate).toISOString() : null,
         endDate: endDate ? new Date(endDate).toISOString() : null,
         notes: notes.trim() || null,
@@ -1239,25 +1237,20 @@ const PermitsPage: React.FC<Props> = ({
                       {activeCols.includes('indexNumber') && (
                         <TableCell>
                           {(() => {
-                            const wc = permit.wasteCatalog || permit.wasteCatalogs?.[0];
-                            const code = wc?.code || permit.indexNumber;
-                            const desc = wc?.description;
-                            if (!code) {
+                            const wcs = permit.wasteCatalogs?.length ? permit.wasteCatalogs : (permit.wasteCatalog ? [permit.wasteCatalog] : []);
+                            if (!wcs.length && !permit.indexNumber) {
                               return (
                                 <Typography variant="body2" color="text.disabled">
                                   —
                                 </Typography>
                               );
                             }
-                            return desc ? (
-                              <Tooltip title={`${code} - ${desc}${wc?.hazardListMark ? ` (${wc.hazardListMark})` : ''}`}>
-                                <Typography variant="body2" sx={{ fontWeight: 700, display: 'inline-block' }}>
-                                  {code}
-                                </Typography>
-                              </Tooltip>
-                            ) : (
+                            if (wcs.length > 0) {
+                              return <ExpandableChipList wcs={wcs} max={2} />;
+                            }
+                            return (
                               <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                                {code}
+                                {permit.indexNumber}
                               </Typography>
                             );
                           })()}
@@ -1399,29 +1392,32 @@ const PermitsPage: React.FC<Props> = ({
           </DialogTitle>
           <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pt: 2 }}>
             <Grid container spacing={2}>
+              {/* Permit Number */}
+              <Grid size={{ xs: 12 }}>
+                <TextField
+                  fullWidth
+                  required
+                  size="small"
+                  label={t('lblPermitNumber')}
+                  placeholder={t('phPermitNumber')}
+                  value={permitNumber}
+                  onChange={(e) => setPermitNumber(e.target.value)}
+                />
+              </Grid>
+
               {/* Index Number (Waste Catalog) */}
-              <Grid size={{ xs: 12, sm: 6 }}>
+              <Grid size={{ xs: 12 }}>
                 <Autocomplete
+                  multiple={true}
                   size="small"
                   options={combinedCatalogOptions}
                   loading={catalogLoading}
                   filterOptions={(options) => options}
-                  value={
-                    combinedCatalogOptions.find((item) => item.id === selectedWasteCatalogId) ||
-                    selectedCatalogItem ||
-                    null
-                  }
+                  value={selectedCatalogItems}
                   onChange={(_, newValue) => {
-                    if (newValue) {
-                      setSelectedWasteCatalogId(newValue.id);
-                      setSelectedCatalogItem(newValue);
-                      setCatalogInputValue(`${newValue.code} - ${newValue.description}`);
-                    } else {
-                      setSelectedWasteCatalogId('');
-                      setSelectedCatalogItem(null);
-                      setCatalogInputValue('');
-                      setCatalogSearchTerm('');
-                    }
+                    const validValues = (newValue as WasteCatalog[]).filter(Boolean);
+                    setSelectedCatalogItems(validValues);
+                    setSelectedWasteCatalogIds(validValues.map(v => v.id));
                   }}
                   inputValue={catalogInputValue}
                   onInputChange={(_, newInputValue, reason) => {
@@ -1433,7 +1429,7 @@ const PermitsPage: React.FC<Props> = ({
                     }
                   }}
                   getOptionLabel={(option) =>
-                    typeof option === 'string' ? option : `${option.code} - ${option.description}`
+                    typeof option === 'string' ? option : option.code
                   }
                   isOptionEqualToValue={(option, val) => option.id === val.id}
                   slotProps={{
@@ -1535,7 +1531,7 @@ const PermitsPage: React.FC<Props> = ({
                         {...restParams}
                         label={t('lblIndexNumber')}
                         placeholder={t('phIndexNumber')}
-                        required={!selectedWasteCatalogId}
+                        required={selectedWasteCatalogIds.length === 0}
                         slotProps={{
                           ...pSlotProps,
                           input: {
@@ -1553,19 +1549,6 @@ const PermitsPage: React.FC<Props> = ({
                       />
                     );
                   }}
-                />
-              </Grid>
-
-              {/* Permit Number */}
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  fullWidth
-                  required
-                  size="small"
-                  label={t('lblPermitNumber')}
-                  placeholder={t('phPermitNumber')}
-                  value={permitNumber}
-                  onChange={(e) => setPermitNumber(e.target.value)}
                 />
               </Grid>
 

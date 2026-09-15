@@ -143,7 +143,7 @@ The client talks to a separate Express 5 REST API server (see `../server/`).
 ## Key Patterns & Conventions
 
 ### Routing (React Router v7)
-The app uses `react-router-dom` with dynamic basename resolution via `getRouterBasename()` (`src/utils/router.ts`). This seamlessly adapts between GitHub Pages (`https://zigikralj.github.io/Egg_admin_client/` -> basename `/Egg_admin_client`), custom domain (`https://project-tracker.ekosgroup.rs/` -> basename `/`), and local development (`localhost` -> basename `/`). Deep linking and SPA refresh on GitHub Pages are handled via `dist/404.html` generated in the build.
+The app uses `react-router-dom` with dynamic basename resolution via `getRouterBasename()` (`src/utils/router.ts`). This seamlessly adapts between GitHub Pages (`https://zigikralj.github.io/EGG_admin_client/` -> basename `/EGG_admin_client`), custom domain (`https://project-tracker.ekosgroup.rs/` -> basename `/`), and local development (`localhost` -> basename `/`). Deep linking and SPA refresh on GitHub Pages are handled via `dist/404.html` generated in the build.
 
 ### Data Flow Architecture
 ```
@@ -243,7 +243,7 @@ npm run deploy     # Build + deploy to GitHub Pages (gh-pages)
 
 ## Gotchas & Important Notes
 
-1. **Router Basename** — Dynamic basename via `getRouterBasename()` automatically supports GitHub Pages subpath (`/Egg_admin_client`) and root domains like `project-tracker.ekosgroup.rs`.
+1. **Router Basename** — Dynamic basename via `getRouterBasename()` automatically supports GitHub Pages subpath (`/EGG_admin_client`) and root domains like `project-tracker.ekosgroup.rs`.
 2. **React Query manages all data fetching** — Queries, caching, and refetching are handled via hooks in `src/queries/index.ts`.
 3. **Admin role simulation** — `admin_role_view` localStorage key lets admins test as any role. Only available for actual Administrator accounts.
 4. **Default language is Serbian Latin** — Not English. This is intentional for the target user base.
