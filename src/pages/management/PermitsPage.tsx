@@ -1432,20 +1432,6 @@ const PermitsPage: React.FC<Props> = ({
                     typeof option === 'string' ? option : option.code
                   }
                   isOptionEqualToValue={(option, val) => option.id === val.id}
-                  renderTags={(tagValue: WasteCatalog[], getTagProps: any) =>
-                    tagValue.map((option, index) => {
-                      const { key, ...tagProps } = getTagProps({ index }) as any;
-                      return (
-                        <Chip
-                          key={key}
-                          label={typeof option === 'string' ? option : option.code}
-                          {...tagProps}
-                          size="small"
-                          sx={{ fontWeight: 600 }}
-                        />
-                      );
-                    })
-                  }
                   slotProps={{
                     listbox: {
                       onScroll: (event: React.SyntheticEvent) => {
