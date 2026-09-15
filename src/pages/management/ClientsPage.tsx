@@ -24,7 +24,7 @@ import {
   Tooltip,
 } from '@mui/material';
 
-import type { Client, Permit, SaveResult, TableViewProps } from '../../types';
+import type { Client, TableViewProps } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTableView } from '../../hooks/useTableView';
@@ -34,20 +34,14 @@ import { TableSearchInput } from '../../components/common/TableSearchInput';
 import { ErrorDialog } from '../../components/dialogs/ErrorDialog';
 import { AddIcon, EditIcon, DeleteIcon, LockIcon, ArrowUpwardIcon, ArrowDownwardIcon, RefreshIcon } from '../../components/icons';
 
-interface Props extends TableViewProps {
-  clients: Client[];
-  permits?: Permit[];
-  onSaveClient: (client: Partial<Client>) => Promise<SaveResult | void> | void;
-  onDeleteClient: (id: string) => void;
-}
+interface Props extends TableViewProps {}
 
 const DEFAULT_COLUMNS = ['name', 'city', 'contactPerson', 'email', 'phone', 'permit', 'projectCount'];
 
+import { useClientsQuery, usePermitsQuery, useClientsMutations } from '../../queries';
+import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
+
 const ClientsPage: React.FC<Props> = ({
-  clients,
-  permits = [],
-  onSaveClient,
-  onDeleteClient,
   visibleColumns = DEFAULT_COLUMNS,
   onVisibleColumnsChange,
   rowsPerPageOptions: rowsPerPageOptionsProp,
@@ -56,12 +50,18 @@ const ClientsPage: React.FC<Props> = ({
   onRowsPerPageChange,
   sortState,
   onSortChange,
-  onRefresh,
 }) => {
   const { t } = useLanguage();
   const { canManageClients } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+
+  const { data: clients = [], refetch: refetchClients, isRefetching } = useClientsQuery();
+  const { data: permits = [] } = usePermitsQuery();
+  const { handleSave, handleDelete } = useClientsMutations();
+
+  const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
+  const onDeleteClient = (id: string) => handleDelete(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
 
   const {
     activeCols,
@@ -78,7 +78,6 @@ const ClientsPage: React.FC<Props> = ({
     handleSortColumnChange,
     handleToggleSortDirection,
     resetSort,
-    isRefreshing,
     handleRefresh,
     isSaving,
     setIsSaving,
@@ -94,7 +93,7 @@ const ClientsPage: React.FC<Props> = ({
     onRowsPerPageOptionsChange,
     sortState,
     onSortChange,
-    onRefresh,
+    onRefresh: () => { refetchClients(); },
   });
 
   // Filter states
@@ -169,7 +168,7 @@ const ClientsPage: React.FC<Props> = ({
     }
     setIsSaving(true);
     try {
-      const res = await onSaveClient({
+      const res = await handleSave({
         id: editingClient?.id,
         name: name.trim(),
         contactPerson: contactPerson.trim() || null,
@@ -179,23 +178,11 @@ const ClientsPage: React.FC<Props> = ({
         permitId: selectedPermitId || null,
       });
 
-      if (res && typeof res === 'object' && 'success' in res) {
-        if (res.success) {
-          setIsOpen(false);
-        } else {
-          setErrorDialogState({
-            open: true,
-            message: res.error || t('errorSavingClient'),
-          });
-        }
-      } else {
+      if (res.success) {
         setIsOpen(false);
+      } else {
+        setErrorDialogState({ open: true, message: res.error || t('errorSavingClient') });
       }
-    } catch (err: any) {
-      setErrorDialogState({
-        open: true,
-        message: err?.message || t('errorSavingClient'),
-      });
     } finally {
       setIsSaving(false);
     }
@@ -340,33 +327,31 @@ const ClientsPage: React.FC<Props> = ({
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
               {t('clientsListTitle')}
             </Typography>
-            {onRefresh && (
-              <Tooltip title={t('btnRefresh')}>
-                <IconButton
-                  size="small"
-                  onClick={handleRefresh}
-                  disabled={isRefreshing}
-                  color="primary"
+            <Tooltip title={t('btnRefresh')}>
+              <IconButton
+                size="small"
+                onClick={handleRefresh}
+                disabled={isRefetching}
+                color="primary"
+                sx={{
+                  border: 1,
+                  borderColor: 'divider',
+                  borderRadius: 2,
+                  p: 0.7,
+                }}
+              >
+                <RefreshIcon
+                  fontSize="small"
                   sx={{
-                    border: 1,
-                    borderColor: 'divider',
-                    borderRadius: 2,
-                    p: 0.7,
+                    animation: isRefetching ? 'spin 1s linear infinite' : undefined,
+                    '@keyframes spin': {
+                      '0%': { transform: 'rotate(0deg)' },
+                      '100%': { transform: 'rotate(360deg)' },
+                    },
                   }}
-                >
-                  <RefreshIcon
-                    fontSize="small"
-                    sx={{
-                      animation: isRefreshing ? 'spin 1s linear infinite' : undefined,
-                      '@keyframes spin': {
-                        '0%': { transform: 'rotate(0deg)' },
-                        '100%': { transform: 'rotate(360deg)' },
-                      },
-                    }}
-                  />
-                </IconButton>
-              </Tooltip>
-            )}
+                />
+              </IconButton>
+            </Tooltip>
           </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', width: { xs: '100%', sm: 'auto' } }}>
@@ -736,6 +721,19 @@ const ClientsPage: React.FC<Props> = ({
         open={errorDialogState.open}
         message={errorDialogState.message}
         onClose={() => setErrorDialogState((prev) => ({ ...prev, open: false }))}
+      />
+      <ConfirmDialog
+        open={deleteConfirmState.open}
+        title={t('confirmDeleteTitle')}
+        message={deleteConfirmState.message}
+        confirmLabel={t('btnDelete')}
+        confirmColor="warning"
+        iconType="warning"
+        onConfirm={() => {
+          deleteConfirmState.onConfirm();
+          setDeleteConfirmState(prev => ({ ...prev, open: false }));
+        }}
+        onClose={() => setDeleteConfirmState(prev => ({ ...prev, open: false }))}
       />
     </Box>
   );

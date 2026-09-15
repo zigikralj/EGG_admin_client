@@ -25,8 +25,6 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  Checkbox,
-  FormControlLabel,
   Autocomplete,
   Tooltip,
 } from '@mui/material';
@@ -34,11 +32,6 @@ import {
 import type {
   ProvidedService,
   Service,
-  Client,
-  Project,
-  Invoice,
-  Category,
-  SaveResult,
   CustomFieldDefinition,
   ProvidedServicesSubTab,
   TableViewProps,
@@ -49,6 +42,7 @@ import { TableOptionsSelector, type ColumnDef } from '../../components/common/Co
 import { TableFilterSelector } from '../../components/common/TableFilterSelector';
 import { DateRangeFilter } from '../../components/common/DateRangeFilter';
 import { TableSearchInput } from '../../components/common/TableSearchInput';
+import { TableQuickFilters } from '../../components/common/TableQuickFilters';
 import { ErrorDialog } from '../../components/dialogs/ErrorDialog';
 import { CustomDataModelModal } from '../../components/dialogs/CustomDataModelModal';
 import { WasteDisposalStatistics } from '../../components/tracker/statistics/WasteDisposalStatistics';
@@ -88,18 +82,6 @@ const isKeyMatch = (key: string, field: CustomFieldDefinition) => {
 
 interface Props extends TableViewProps {
   subTab?: ProvidedServicesSubTab;
-  providedServices: ProvidedService[];
-  services: Service[];
-  clients: Client[];
-  projects?: Project[];
-  invoices?: Invoice[];
-  categories?: Category[];
-  onSaveProvidedService: (providedService: Partial<ProvidedService>) => Promise<SaveResult | void> | void;
-  onDeleteProvidedService: (id: string) => void;
-  onSaveService?: (service: Partial<Service>) => Promise<SaveResult | void> | void;
-  onSaveInvoice?: (invoice: Partial<Invoice>) => Promise<SaveResult | void> | void;
-  onDeleteInvoice?: (id: string) => void;
-  onStatusChangeInvoice?: (id: string, status: string, paymentDate?: string) => void;
   quickFilter?: string;
   onQuickFilterChange?: (val: string) => void;
 }
@@ -115,20 +97,21 @@ const DEFAULT_COLUMNS = [
   'customData',
 ];
 
+import {
+  useProvidedServicesQuery,
+  useServicesQuery,
+  useClientsQuery,
+  useProjectsQuery,
+  useInvoicesQuery,
+  useCategoriesQuery,
+  useProvidedServicesMutations,
+  useServicesMutations,
+  useInvoicesMutations,
+} from '../../queries';
+import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
+
 const ProvidedServicesPage: React.FC<Props> = ({
   subTab = 'summary',
-  providedServices,
-  services,
-  clients,
-  projects = [],
-  invoices = [],
-  categories = [],
-  onSaveProvidedService,
-  onDeleteProvidedService,
-  onSaveService,
-  onSaveInvoice,
-  onDeleteInvoice,
-  onStatusChangeInvoice,
   visibleColumns = DEFAULT_COLUMNS,
   onVisibleColumnsChange,
   rowsPerPageOptions: rowsPerPageOptionsProp,
@@ -139,7 +122,6 @@ const ProvidedServicesPage: React.FC<Props> = ({
   onSortChange,
   quickFilter: quickFilterProp,
   onQuickFilterChange,
-  onRefresh,
 }) => {
   const { t, getServiceLabel } = useLanguage();
   const { canManageProvidedServices } = useAuth();
@@ -176,10 +158,26 @@ const ProvidedServicesPage: React.FC<Props> = ({
     onRowsPerPageOptionsChange,
     sortState,
     onSortChange,
-    onRefresh,
+    onRefresh: () => { refetchProvidedServices(); },
     defaultSortField: 'scheduledDate',
     defaultSortDirection: 'desc',
   });
+
+  const { data: providedServices = [], refetch: refetchProvidedServices } = useProvidedServicesQuery();
+  const { data: services = [] } = useServicesQuery();
+  const { data: clients = [] } = useClientsQuery();
+  const { data: projects = [] } = useProjectsQuery();
+  const { data: invoices = [] } = useInvoicesQuery();
+  const { data: categories = [] } = useCategoriesQuery();
+
+  const { handleSave, handleDelete } = useProvidedServicesMutations();
+  const { handleSave: handleSaveService } = useServicesMutations();
+  const { handleSave: handleSaveInvoice, handleDelete: handleDeleteInvoice, handleUpdateInvoiceStatus: handleStatusChangeInvoice } = useInvoicesMutations();
+
+  const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
+  const onDeleteProvidedService = (id: string) => handleDelete(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
+  const onDeleteInvoice = (id: string) => handleDeleteInvoice(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
+
 
   // Custom data model state
   const [isCustomModelModalOpen, setIsCustomModelModalOpen] = useState(false);
@@ -194,9 +192,7 @@ const ProvidedServicesPage: React.FC<Props> = ({
   };
 
   const handleSaveCustomModel = async (serviceId: string, fields: CustomFieldDefinition[]) => {
-    if (onSaveService) {
-      await onSaveService({ id: serviceId, customDataModel: fields });
-    }
+    await handleSaveService({ id: serviceId, customDataModel: fields });
   };
 
 
@@ -383,36 +379,31 @@ const ProvidedServicesPage: React.FC<Props> = ({
     try {
       const payload: Partial<ProvidedService> = {
         id: editingItem?.id,
-        serviceId: selectedServiceId,
-        clientId: selectedClientId,
+        serviceId: selectedServiceId || undefined,
+        clientId: selectedClientId || undefined,
         projectId: selectedProjectId.trim() ? selectedProjectId : null,
-        invoiceId: selectedInvoiceId.trim() ? selectedInvoiceId : null,
-        status,
-        location: location.trim() ? location.trim() : null,
+        status: status || 'PENDING',
         scheduledDate: scheduledDate ? scheduledDate : null,
         completionDate: completionDate ? completionDate : null,
+        location: location.trim() ? location.trim() : null,
         notes: notes.trim() ? notes.trim() : null,
         customData: cleanCustomData,
       };
 
-      const res = await onSaveProvidedService(payload);
+      const res = await handleSave(payload);
 
-      if (res && typeof res === 'object' && 'success' in res) {
-        if (res.success) {
-          setIsOpen(false);
-        } else {
-          setErrorDialogState({
-            open: true,
-            message: res.error || t('errorSavingProject'),
-          });
-        }
-      } else {
+      if (res.success) {
         setIsOpen(false);
+      } else {
+        setErrorDialogState({
+          open: true,
+          message: res.error || t('errorSaving' as any),
+        });
       }
     } catch (err: any) {
       setErrorDialogState({
         open: true,
-        message: err?.message || t('errorSavingProject'),
+        message: err?.message || t('errorSaving' as any),
       });
     } finally {
       setIsSaving(false);
@@ -700,7 +691,7 @@ const ProvidedServicesPage: React.FC<Props> = ({
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
               {t('providedServicesListTitle')}
             </Typography>
-            {onRefresh && (
+            {true && (
               <Tooltip title={t('btnRefresh')}>
                 <IconButton
                   size="small"
@@ -731,21 +722,16 @@ const ProvidedServicesPage: React.FC<Props> = ({
 
           <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1.5, width: { xs: '100%', sm: 'auto' } }}>
             {/* Quick filter checkbox */}
-            <FormControlLabel
-              control={
-                <Checkbox
-                  size="small"
-                  checked={quickFilter === 'waste-management'}
-                  onChange={(e) => handleQuickFilterChange(e.target.checked ? 'waste-management' : 'all')}
-                  color="primary"
-                />
-              }
-              label={
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  {t('filterWasteManagement')}
-                </Typography>
-              }
-              sx={{ mr: 0 }}
+            <TableQuickFilters
+              options={[
+                {
+                  key: 'waste-management',
+                  label: t('filterWasteManagement'),
+                  color: 'primary',
+                },
+              ]}
+              selectedKeys={quickFilter === 'waste-management' ? ['waste-management'] : []}
+              onChange={(keys) => handleQuickFilterChange(keys.includes('waste-management') ? 'waste-management' : 'all')}
             />
 
             <TableSearchInput
@@ -1287,9 +1273,9 @@ const ProvidedServicesPage: React.FC<Props> = ({
                   selectedInvoiceId={selectedInvoiceId}
                   onSelectInvoiceId={(invId) => setSelectedInvoiceId(invId)}
                   invoices={invoices}
-                  onSaveInvoice={onSaveInvoice}
+                  onSaveInvoice={handleSaveInvoice}
                   onDeleteInvoice={onDeleteInvoice}
-                  onStatusChangeInvoice={onStatusChangeInvoice}
+                  onStatusChangeInvoice={handleStatusChangeInvoice}
                   setErrorDialogState={setErrorDialogState}
                   disabled={!canManageProvidedServices}
                 />
@@ -1403,7 +1389,7 @@ const ProvidedServicesPage: React.FC<Props> = ({
                                 <MenuItem value="">
                                   <em>{t('lblNoneOptional')}</em>
                                 </MenuItem>
-                                {(field.options || []).map((opt) => (
+                                {(field.options || []).map((opt: string) => (
                                   <MenuItem key={opt} value={opt}>
                                     {opt}
                                   </MenuItem>
@@ -1470,6 +1456,14 @@ const ProvidedServicesPage: React.FC<Props> = ({
         open={errorDialogState.open}
         message={errorDialogState.message}
         onClose={() => setErrorDialogState((prev) => ({ ...prev, open: false }))}
+      />
+      <ConfirmDialog
+        open={deleteConfirmState.open}
+        title={t('confirmAction' as any)}
+        message={deleteConfirmState.message}
+        onConfirm={deleteConfirmState.onConfirm}
+        onClose={() => setDeleteConfirmState((prev) => ({ ...prev, open: false }))}
+        confirmColor="warning"
       />
     </Box>
   );

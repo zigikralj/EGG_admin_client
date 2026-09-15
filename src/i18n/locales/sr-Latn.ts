@@ -527,7 +527,8 @@ const srLatnTranslations: TranslationKeys = {
   "quickFilterMyReminders": "Moji podsetnici",
   "quickFilterActive": "Aktivni",
   "quickFilterMissingInvoice": "Nedostaje faktura",
-  "quickFilterOverdue": "Kašnjenje - hitno!",
+  "quickFilterOverdue": "Hitno",
+  "quickFilterStale": "Zastarelo",
   "quickFilterAll": "Svi",
   "lblProjectCountFilter": "Broj projekata",
   "filterOpEquals": "Jednako (=)",
@@ -632,7 +633,17 @@ const srLatnTranslations: TranslationKeys = {
   "btnRefreshNow": "Osveži odmah",
   "btnDismiss": "Zatvori",
   "appVersion": "Verzija",
-  "buildTime": "Izdanje"
+  "buildTime": "Izdanje",
+  "loadingData": "Učitavanje podataka...",
+  "loadingServerWakingUp": "Server se budi iz stanja mirovanja...",
+  "loadingServerWakingUpDetail": "Besplatni servisi (Render i Neon) prelaze u hibernaciju nakon perioda neaktivnosti. Prvo pokretanje može potrajati do 60 sekundi. Hvala na strpljenju!",
+  "loadingSaving": "Čuvanje izmena...",
+  "loadingDeleting": "Brisanje...",
+  "loadingProcessing": "Obrada zahteva...",
+  "loadingConnecting": "Povezivanje sa serverom...",
+  "loadingRefreshing": "Osvežavanje podataka...",
+  "loadingElapsedTime": "Proteklo vreme: {seconds}s",
+  "loadingPleaseWait": "Molimo sačekajte..."
 };
 
 export default srLatnTranslations;

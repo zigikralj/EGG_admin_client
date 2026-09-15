@@ -15,7 +15,7 @@ import {
   IconButton,
 } from '@mui/material';
 
-import type { Project, Client, User, Service, Reminder, SaveResult, Invoice } from '../../types';
+import type { Project } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { ErrorDialog } from '../dialogs/ErrorDialog';
@@ -25,44 +25,33 @@ import { ProjectReminderSection } from './ProjectReminderSection';
 import { ProjectInvoiceSection } from './ProjectInvoiceSection';
 import { useProjectForm } from '../../hooks/useProjectForm';
 import { DeleteIcon, SaveIcon, CloseIcon, NotesIcon } from '../icons';
+import { ConfirmDialog } from '../dialogs/ConfirmDialog';
+import { useClientsQuery, useUsersQuery, useServicesQuery, useRemindersQuery, useInvoicesQuery, useProjectsMutations, useRemindersMutations, useInvoicesMutations } from '../../queries';
+
 interface Props {
   isOpen: boolean;
   projectToEdit: Project | null;
-  clients: Client[];
-  users: User[];
-  services: Service[];
-  reminders?: Reminder[];
-  invoices?: Invoice[];
   onClose: () => void;
-  onSave: (data: Partial<Project>) => Promise<SaveResult | void> | void;
-  onDelete?: (id: string) => void;
-  onToggleDone?: (id: string) => void;
-  onSaveReminder?: (reminder: Partial<Reminder>) => Promise<SaveResult | void> | void;
-  onDeleteReminder?: (id: string) => void;
-  onStatusChangeReminder?: (id: string, status: string) => void;
-  onSaveInvoice?: (invoice: Partial<Invoice>) => Promise<SaveResult | void> | void;
-  onDeleteInvoice?: (id: string) => void;
-  onStatusChangeInvoice?: (id: string, status: string, paymentDate?: string) => Promise<void> | void;
 }
 
 const ProjectModal: React.FC<Props> = ({
   isOpen,
   projectToEdit,
-  clients,
-  users,
-  services,
-  reminders = [],
-  invoices = [],
   onClose,
-  onSave,
-  onDelete,
-  onSaveReminder,
-  onDeleteReminder,
-  onStatusChangeReminder,
-  onSaveInvoice,
-  onDeleteInvoice,
-  onStatusChangeInvoice,
 }) => {
+  const { data: clients = [] } = useClientsQuery();
+  const { data: users = [] } = useUsersQuery();
+  const { data: services = [] } = useServicesQuery();
+  const { data: reminders = [] } = useRemindersQuery();
+  const { data: invoices = [] } = useInvoicesQuery();
+  const { handleSave: onSave, handleDelete: onDelete } = useProjectsMutations();
+  const { handleSave: onSaveReminder, handleDelete: onDeleteReminder, handleStatusChangeReminder: onStatusChangeReminder } = useRemindersMutations();
+  const { handleSave: onSaveInvoice, handleDelete: onDeleteInvoice, handleUpdateInvoiceStatus: _onStatusChangeInvoice } = useInvoicesMutations();
+
+  const onStatusChangeInvoice = async (id: string, status: string, paymentDate?: string) => {
+    await _onStatusChangeInvoice(id, status, paymentDate);
+  };
+
   const { t, getServiceLabel, getResponsibleLabel } = useLanguage();
   const { currentUser, canEditProject, isUser } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
@@ -70,6 +59,17 @@ const ProjectModal: React.FC<Props> = ({
     open: false,
     message: '',
   });
+
+  const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
+
+  const wrapDelete = (delFn: (id: string, confirm: (msg: string, cb: () => void) => void) => void) => (id: string) => {
+    delFn(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
+  };
+
+  const wrappedOnDelete = wrapDelete(onDelete);
+  const wrappedOnDeleteReminder = wrapDelete(onDeleteReminder);
+  const wrappedOnDeleteInvoice = wrapDelete(onDeleteInvoice);
+
   const { formState, reminderState, invoiceState, handleClientSelectChange } = useProjectForm({
     projectToEdit,
     clients,
@@ -294,16 +294,16 @@ const ProjectModal: React.FC<Props> = ({
               </Button>
             )}
 
-            {projectToEdit && isEditable && onDelete && (
+            {projectToEdit && isEditable && (
               <Button
                 color="error"
                 variant="outlined"
                 size="small"
-                startIcon={<DeleteIcon />}
                 onClick={() => {
-                  onDelete(projectToEdit.id);
+                  wrappedOnDelete(projectToEdit.id);
                   onClose();
                 }}
+                startIcon={<DeleteIcon />}
                 sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 1.5 }}
               >
                 {t('btnDelete')}
@@ -494,7 +494,7 @@ const ProjectModal: React.FC<Props> = ({
                   users={users}
                   reminders={reminders}
                   onSaveReminder={onSaveReminder}
-                  onDeleteReminder={onDeleteReminder}
+                  onDeleteReminder={wrappedOnDeleteReminder}
                   onStatusChangeReminder={onStatusChangeReminder}
                   setErrorDialogState={setErrorDialogState}
                   reminderState={reminderState}
@@ -510,7 +510,7 @@ const ProjectModal: React.FC<Props> = ({
                   clientName={clientName}
                   invoices={invoices}
                   onSaveInvoice={onSaveInvoice}
-                  onDeleteInvoice={onDeleteInvoice}
+                  onDeleteInvoice={wrappedOnDeleteInvoice}
                   onStatusChangeInvoice={onStatusChangeInvoice}
                   setErrorDialogState={setErrorDialogState}
                   invoiceState={invoiceState}
@@ -555,7 +555,19 @@ const ProjectModal: React.FC<Props> = ({
       <ErrorDialog
         open={errorDialogState.open}
         message={errorDialogState.message}
-        onClose={() => setErrorDialogState((prev) => ({ ...prev, open: false }))}
+        onClose={() => setErrorDialogState({ open: false, message: '' })}
+      />
+
+      <ConfirmDialog
+        open={deleteConfirmState.open}
+        title={t('confirmAction' as any)}
+        message={deleteConfirmState.message}
+        onConfirm={() => {
+          deleteConfirmState.onConfirm();
+          setDeleteConfirmState(prev => ({ ...prev, open: false }));
+        }}
+        onClose={() => setDeleteConfirmState(prev => ({ ...prev, open: false }))}
+        confirmColor="warning"
       />
     </>
   );

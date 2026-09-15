@@ -1,5 +1,9 @@
 import React from 'react';
-import { Card, CardContent, Box, Typography, Paper, TablePagination, type TablePaginationProps } from '@mui/material';
+import { Card, CardContent, Box, Typography, Paper, TablePagination, IconButton, Tooltip, type TablePaginationProps } from '@mui/material';
+import { TableSearchInput } from '../common/TableSearchInput';
+import { TableQuickFilters, type QuickFilterItem } from '../common/TableQuickFilters';
+import { RefreshIcon } from '../icons';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface Props {
   title: string;
@@ -7,6 +11,26 @@ interface Props {
   actionButton?: React.ReactNode;
   isFullHeight?: boolean;
   hideNotch?: boolean;
+  quickFiltersProps?: {
+    options: QuickFilterItem[];
+    selectedKeys: string[];
+    onChange: (keys: string[]) => void;
+  };
+  searchProps?: {
+    value: string;
+    onChange: (val: string) => void;
+    placeholder?: string;
+  };
+  refreshProps?: {
+    onRefresh: () => void;
+    isRefreshing?: boolean;
+    disabled?: boolean;
+    tooltip?: string;
+  };
+  refreshAction?: React.ReactNode;
+  filterSelector?: React.ReactNode;
+  tableOptions?: React.ReactNode;
+  toolbarAction?: React.ReactNode;
   toolbarContent?: React.ReactNode;
   listContent?: React.ReactNode;
   isEmpty?: boolean;
@@ -21,6 +45,13 @@ export const DashboardPanelSkeleton: React.FC<Props> = ({
   actionButton,
   isFullHeight = false,
   hideNotch = false,
+  quickFiltersProps,
+  searchProps,
+  refreshProps,
+  refreshAction,
+  filterSelector,
+  tableOptions,
+  toolbarAction,
   toolbarContent,
   listContent,
   isEmpty = false,
@@ -28,6 +59,38 @@ export const DashboardPanelSkeleton: React.FC<Props> = ({
   paginationProps,
   cardContentSx = {},
 }) => {
+  const { t } = useLanguage();
+
+  const renderedRefresh = refreshAction ?? (refreshProps && (
+    <Tooltip title={refreshProps.tooltip || t('btnRefresh')}>
+      <span>
+        <IconButton
+          size="small"
+          onClick={refreshProps.onRefresh}
+          disabled={refreshProps.disabled || refreshProps.isRefreshing}
+          color="primary"
+          sx={{
+            border: 1,
+            borderColor: 'divider',
+            borderRadius: 2,
+            p: 0.7,
+          }}
+        >
+          <RefreshIcon
+            fontSize="small"
+            sx={{
+              animation: refreshProps.isRefreshing ? 'spin 1s linear infinite' : undefined,
+              '@keyframes spin': {
+                '0%': { transform: 'rotate(0deg)' },
+                '100%': { transform: 'rotate(360deg)' },
+              },
+            }}
+          />
+        </IconButton>
+      </span>
+    </Tooltip>
+  ));
+
   return (
     <Card
       elevation={3}
@@ -101,7 +164,57 @@ export const DashboardPanelSkeleton: React.FC<Props> = ({
           ...cardContentSx,
         }}
       >
-        {toolbarContent}
+        {toolbarContent ?? (
+          (quickFiltersProps || searchProps || renderedRefresh || filterSelector || tableOptions || toolbarAction) && (
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: { xs: 'column', sm: 'row' },
+                alignItems: { xs: 'stretch', sm: 'center' },
+                justifyContent: 'space-between',
+                gap: 1.5,
+                mb: 1.5,
+                pb: 1.5,
+                borderBottom: '1px solid',
+                borderColor: 'divider',
+              }}
+            >
+              {/* LEFT CONTROLS: QUICK FILTERS */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                {quickFiltersProps && (
+                  <TableQuickFilters
+                    options={quickFiltersProps.options}
+                    selectedKeys={quickFiltersProps.selectedKeys}
+                    onChange={quickFiltersProps.onChange}
+                  />
+                )}
+              </Box>
+
+              {/* RIGHT CONTROLS: SEARCH, REFRESH, FILTER SELECTOR, TABLE OPTIONS, ACTION BUTTON */}
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1.5,
+                  justifyContent: { xs: 'space-between', sm: 'flex-end' },
+                  flexWrap: 'wrap',
+                }}
+              >
+                {searchProps && (
+                  <TableSearchInput
+                    value={searchProps.value}
+                    onChange={searchProps.onChange}
+                    placeholder={searchProps.placeholder}
+                  />
+                )}
+                {renderedRefresh}
+                {filterSelector}
+                {tableOptions}
+                {toolbarAction}
+              </Box>
+            </Box>
+          )
+        )}
 
         <Box
           sx={{

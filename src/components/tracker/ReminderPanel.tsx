@@ -33,7 +33,6 @@ import { useAuth } from '../../context/AuthContext';
 import { TableFilterSelector } from '../common/TableFilterSelector';
 import { TableOptionsSelector } from '../common/ColumnSelector';
 import { DateRangeFilter } from '../common/DateRangeFilter';
-import { TableSearchInput } from '../common/TableSearchInput';
 import { ErrorDialog } from '../dialogs/ErrorDialog';
 import { NotificationsActiveIcon, EditIcon, DeleteIcon, CheckIcon, CalendarTodayIcon, AddIcon, ArrowUpwardIcon, ArrowDownwardIcon, VisibilityIcon } from '../icons';
 import { DashboardPanelSkeleton } from '../tracker/DashboardPanelSkeleton';
@@ -58,6 +57,8 @@ interface Props {
   onRowsPerPageOptionsChange?: (options: number[]) => void;
   rowsPerPage?: number;
   onRowsPerPageChange?: (rowsPerPage: number) => void;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
 interface ReminderItem {
@@ -131,6 +132,8 @@ export const ReminderPanel: React.FC<Props> = ({
   onRowsPerPageOptionsChange,
   rowsPerPage: rowsPerPageProp,
   onRowsPerPageChange,
+  onRefresh,
+  isRefreshing,
 }) => {
   const { t } = useLanguage();
   const { currentUser, isAdmin, isManager } = useAuth();
@@ -144,6 +147,8 @@ export const ReminderPanel: React.FC<Props> = ({
       setMyRemindersOnly(myRemindersOnlyProp);
       if (myRemindersOnlyProp && currentUser?.name) {
         setFilterResponsible(currentUser.name);
+      } else if (!myRemindersOnlyProp && currentUser?.name) {
+        setFilterResponsible((prev) => (prev === currentUser.name ? 'all' : prev));
       }
     }
   }, [myRemindersOnlyProp, currentUser?.name]);
@@ -330,9 +335,6 @@ export const ReminderPanel: React.FC<Props> = ({
     { value: 'Completed', label: t('statusCompleted') },
   ], [t]);
 
-  const quickFilterOptions = useMemo(() => [
-    { value: 'all', label: t('filterAll') },
-  ], [t]);
 
   const filteredAndSortedItems = useMemo(() => {
     return rawItems
@@ -646,172 +648,124 @@ export const ReminderPanel: React.FC<Props> = ({
             </Button>
           )
         }
-        toolbarContent={
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: { xs: 'column', sm: 'row' },
-              alignItems: { xs: 'stretch', sm: 'center' },
-              justifyContent: 'space-between',
-              gap: 1.5,
-              mb: 1.5,
-              pb: 1.5,
-              borderBottom: '1px solid',
-              borderColor: 'divider',
-            }}
-          >
-            {/* SEARCH FIELD */}
-            <TableSearchInput
-              value={searchQuery}
-              onChange={setSearchQuery}
-            />
-            {/* QUICK STATUS CHIPS */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-              {quickFilterOptions.map((qf) => {
-                const isSelected = filterStatus === qf.value;
-                const chipColor = qf.value === 'all' ? 'primary' : 'warning';
-                return (
-                  <Chip
-                    key={qf.value}
-                    label={qf.label}
-                    size="small"
-                    clickable
-                    color={isSelected ? chipColor : 'default'}
-                    variant={isSelected ? 'filled' : 'outlined'}
-                    onClick={() => setFilterStatus(qf.value)}
-                    sx={{
-                      fontWeight: isSelected ? 700 : 500,
-                      fontSize: '0.75rem',
-                      height: 26,
-                      transition: 'all 0.15s ease',
-                    }}
-                  />
-                );
-              })}
-
-              {/* MY REMINDERS QUICK FILTER */}
-              {currentUser && (
-                <Chip
-                  label={t('quickFilterMyReminders')}
+        searchProps={{
+          value: searchQuery,
+          onChange: setSearchQuery,
+        }}
+        quickFiltersProps={{
+          options: [
+            {
+              key: 'my',
+              label: t('quickFilterMyReminders'),
+              hidden: !currentUser,
+              color: 'primary',
+            },
+          ],
+          selectedKeys: myRemindersOnly ? ['my'] : [],
+          onChange: (keys) => handleToggleMyReminders(keys.includes('my')),
+        }}
+        refreshProps={onRefresh ? { onRefresh, isRefreshing } : undefined}
+        filterSelector={
+          <TableFilterSelector
+            activeCount={activeFilterCount}
+            onClear={handleClearAllFilters}
+            sortingContent={
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <Autocomplete
                   size="small"
-                  clickable
-                  color={myRemindersOnly ? 'info' : 'default'}
-                  variant={myRemindersOnly ? 'filled' : 'outlined'}
-                  onClick={() => handleToggleMyReminders(!myRemindersOnly)}
-                  sx={{
-                    fontWeight: myRemindersOnly ? 700 : 500,
-                    fontSize: '0.75rem',
-                    height: 26,
-                    transition: 'all 0.15s ease',
+                  fullWidth
+                  disablePortal
+                  disableClearable
+                  options={sortOptions}
+                  getOptionLabel={(option) => option.label}
+                  isOptionEqualToValue={(option, val) => option.value === val.value}
+                  value={sortOptions.find((o) => o.value === sortOption) || sortOptions[0]}
+                  onChange={(_, newValue) => {
+                    if (newValue) handleSortColumnChange(newValue.value);
                   }}
+                  renderInput={(params) => <TextField {...params} label={t('lblSortBy')} size="small" />}
                 />
-              )}
-            </Box>
-
-            {/* RIGHT CONTROLS: FILTER POPOVER + CREATE BUTTON */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, justifyContent: { xs: 'space-between', sm: 'flex-end' }, flexWrap: 'wrap' }}>
-              <TableFilterSelector
-                activeCount={activeFilterCount}
-                onClear={handleClearAllFilters}
-                sortingContent={
-                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                    <Autocomplete
-                      size="small"
-                      fullWidth
-                      disablePortal
-                      disableClearable
-                      options={sortOptions}
-                      getOptionLabel={(option) => option.label}
-                      isOptionEqualToValue={(option, val) => option.value === val.value}
-                      value={sortOptions.find((o) => o.value === sortOption) || sortOptions[0]}
-                      onChange={(_, newValue) => {
-                        if (newValue) handleSortColumnChange(newValue.value);
-                      }}
-                      renderInput={(params) => <TextField {...params} label={t('lblSortBy')} size="small" />}
-                    />
-                    <IconButton
-                      size="small"
-                      onClick={handleToggleSortDirection}
-                      title={sortDirection === 'asc' ? t('sortAscending') : t('sortDescending')}
-                      sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0.75 }}
-                    >
-                      {sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />}
-                    </IconButton>
-                  </Box>
-                }
-                dateRangeContent={
-                  <DateRangeFilter
-                    startDate={filterDateFrom}
-                    endDate={filterDateTo}
-                    onDateChange={({ startDate, endDate }) => {
-                      setFilterDateFrom(startDate);
-                      setFilterDateTo(endDate);
-                    }}
-                  />
-                }
-                filteringContent={
-                  <>
-                    <Autocomplete
-                      size="small"
-                      fullWidth
-                      disablePortal
-                      options={statusOptions}
-                      getOptionLabel={(option) => option.label}
-                      isOptionEqualToValue={(option, val) => option.value === val.value}
-                      value={statusOptions.find((o) => o.value === filterStatus) || null}
-                      onChange={(_, newValue) => setFilterStatus(newValue ? newValue.value : 'all')}
-                      renderInput={(params) => <TextField {...params} label={t('colStatus')} size="small" />}
-                    />
-
-                    <Autocomplete
-                      size="small"
-                      fullWidth
-                      disablePortal
-                      options={uniqueClients}
-                      value={filterClient === 'all' ? null : filterClient}
-                      onChange={(_, newValue) => setFilterClient(newValue || 'all')}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          label={t('colClient')}
-                        />
-                      )}
-                    />
-
-                    <Autocomplete
-                      size="small"
-                      fullWidth
-                      disablePortal
-                      options={responsibleOptions}
-                      getOptionLabel={(option) => {
-                        if (currentUser?.name && option === currentUser.name) {
-                          return `${t('lblMe')} (${currentUser.name})`;
-                        }
-                        return option;
-                      }}
-                      value={filterResponsible === 'all' ? null : filterResponsible}
-                      onChange={(_, newValue) => handleFilterResponsibleChange(newValue || 'all')}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          label={t('colResponsible')}
-                        />
-                      )}
-                    />
-                  </>
-                }
+                <IconButton
+                  size="small"
+                  onClick={handleToggleSortDirection}
+                  title={sortDirection === 'asc' ? t('sortAscending') : t('sortDescending')}
+                  sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0.75 }}
+                >
+                  {sortDirection === 'asc' ? <ArrowUpwardIcon fontSize="small" /> : <ArrowDownwardIcon fontSize="small" />}
+                </IconButton>
+              </Box>
+            }
+            dateRangeContent={
+              <DateRangeFilter
+                startDate={filterDateFrom}
+                endDate={filterDateTo}
+                onDateChange={({ startDate, endDate }) => {
+                  setFilterDateFrom(startDate);
+                  setFilterDateTo(endDate);
+                }}
               />
+            }
+            filteringContent={
+              <>
+                <Autocomplete
+                  size="small"
+                  fullWidth
+                  disablePortal
+                  options={statusOptions}
+                  getOptionLabel={(option) => option.label}
+                  isOptionEqualToValue={(option, val) => option.value === val.value}
+                  value={statusOptions.find((o) => o.value === filterStatus) || null}
+                  onChange={(_, newValue) => setFilterStatus(newValue ? newValue.value : 'all')}
+                  renderInput={(params) => <TextField {...params} label={t('colStatus')} size="small" />}
+                />
 
-              {/* TABLE OPTIONS SELECTOR (paging only) */}
-              <TableOptionsSelector
-                rowsPerPageOptions={activeRowsPerPageOptions}
-                onRowsPerPageOptionsChange={setRowsPerPageOptionsValue}
-                rowsPerPage={activeRowsPerPage}
-                onRowsPerPageChange={setRowsPerPageValue}
-                defaultRowsPerPageOptions={[10, 20, 50]}
-              />
-            </Box>
-          </Box>
+                <Autocomplete
+                  size="small"
+                  fullWidth
+                  disablePortal
+                  options={uniqueClients}
+                  value={filterClient === 'all' ? null : filterClient}
+                  onChange={(_, newValue) => setFilterClient(newValue || 'all')}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label={t('colClient')}
+                    />
+                  )}
+                />
+
+                <Autocomplete
+                  size="small"
+                  fullWidth
+                  disablePortal
+                  options={responsibleOptions}
+                  getOptionLabel={(option) => {
+                    if (currentUser?.name && option === currentUser.name) {
+                      return `${t('lblMe')} (${currentUser.name})`;
+                    }
+                    return option;
+                  }}
+                  value={filterResponsible === 'all' ? null : filterResponsible}
+                  onChange={(_, newValue) => handleFilterResponsibleChange(newValue || 'all')}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label={t('colResponsible')}
+                    />
+                  )}
+                />
+              </>
+            }
+          />
+        }
+        tableOptions={
+          <TableOptionsSelector
+            rowsPerPageOptions={activeRowsPerPageOptions}
+            onRowsPerPageOptionsChange={setRowsPerPageOptionsValue}
+            rowsPerPage={activeRowsPerPage}
+            onRowsPerPageChange={setRowsPerPageValue}
+            defaultRowsPerPageOptions={[10, 20, 50]}
+          />
         }
         listContent={
           paginatedItems.map((item) => {

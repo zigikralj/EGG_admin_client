@@ -16,8 +16,6 @@ import {
   Box,
   Typography,
   Autocomplete,
-  ToggleButtonGroup,
-  ToggleButton,
   Tooltip,
 } from '@mui/material';
 
@@ -28,13 +26,14 @@ import {
 
 
 
-import type { Project, Service, TableViewProps } from '../../types';
+import type { Project, TableViewProps } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { TableOptionsSelector, type ColumnDef } from '../../components/common/ColumnSelector';
 import { TableFilterSelector } from '../../components/common/TableFilterSelector';
 import { DateRangeFilter } from '../../components/common/DateRangeFilter';
 import { TableSearchInput } from '../../components/common/TableSearchInput';
+import { TableQuickFilters, type QuickFilterItem } from '../../components/common/TableQuickFilters';
 import { useTableView } from '../../hooks/useTableView';
 import {
   AddIcon,
@@ -43,23 +42,20 @@ import {
   VisibilityIcon,
   ArrowUpwardIcon,
   ArrowDownwardIcon,
-  NotesIcon,
   RefreshIcon,
+  NotesIcon,
 } from '../../components/icons';
 
 interface Props extends TableViewProps {
-  projects: Project[];
-  services?: Service[];
   searchQuery: string;
   onSearchChange: (q: string) => void;
   onOpenNew: () => void;
-  onToggleDone?: (id: string) => void;
-  onMarkSampled?: (id: string) => void;
   onView?: (project: Project) => void;
   onEdit: (project: Project) => void;
-  onDelete: (id: string) => void;
-  quickFilter?: 'all' | 'my' | 'active' | 'overdue';
-  onQuickFilterChange?: (val: 'all' | 'my' | 'active' | 'overdue') => void;
+  quickFilters?: string[];
+  onQuickFiltersChange?: (val: string[]) => void;
+  quickFilter?: any;
+  onQuickFilterChange?: (val: any) => void;
 }
 
 const DEFAULT_COLUMNS = ['name', 'client', 'category', 'responsible', 'start', 'deadline', 'progress', 'status'];
@@ -85,15 +81,15 @@ function fmtDate(d: string | null): string {
   return `${day}.${m}.${y}.`;
 }
 
+import { useProjectsQuery, useServicesQuery, useInvoicesQuery, useProjectsMutations } from '../../queries';
+import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
+
 const ProjectsPage: React.FC<Props> = ({
-  projects,
-  services = [],
   searchQuery,
   onSearchChange,
   onOpenNew,
   onView,
   onEdit,
-  onDelete,
   visibleColumns = DEFAULT_COLUMNS,
   onVisibleColumnsChange,
   rowsPerPageOptions: rowsPerPageOptionsProp,
@@ -102,12 +98,24 @@ const ProjectsPage: React.FC<Props> = ({
   onRowsPerPageChange,
   sortState,
   onSortChange,
+  quickFilters: quickFiltersProp,
+  onQuickFiltersChange,
   quickFilter: quickFilterProp,
   onQuickFilterChange,
-  onRefresh,
 }) => {
   const { t, getServiceLabel } = useLanguage();
-  const { canEditProject, currentUser } = useAuth();
+  const { canEditProject, currentUser, isAccountant } = useAuth();
+
+  const { data: projects = [], refetch: refetchProjects, isRefetching } = useProjectsQuery();
+  const { data: services = [] } = useServicesQuery();
+  const { data: invoices = [] } = useInvoicesQuery();
+  const hasInvoices = (project: Project) => invoices.some((inv) => inv.projectId === project.id);
+  const { handleDelete } = useProjectsMutations();
+  const [completeConfirmState, setCompleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
+  const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
+
+  const onDelete = (id: string) => handleDelete(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
+
   const {
     activeCols,
     setCols,
@@ -123,7 +131,6 @@ const ProjectsPage: React.FC<Props> = ({
     handleSortColumnChange,
     handleToggleSortDirection,
     resetSort,
-    isRefreshing,
     handleRefresh,
   } = useTableView({
     defaultColumns: DEFAULT_COLUMNS,
@@ -135,17 +142,19 @@ const ProjectsPage: React.FC<Props> = ({
     onRowsPerPageOptionsChange,
     sortState,
     onSortChange,
-    onRefresh,
+    onRefresh: () => { refetchProjects(); },
     defaultSortField: 'createdAt',
     defaultSortDirection: 'desc',
   });
 
 
 
-  // Quick Filter state ('all' | 'my' | 'active' | 'overdue')
-  const [quickFilter, setQuickFilter] = useState<'all' | 'my' | 'active' | 'overdue'>(
-    quickFilterProp || 'all'
-  );
+  // Quick Filter state
+  const [quickFilters, setQuickFilters] = useState<string[]>(() => {
+    if (Array.isArray(quickFiltersProp)) return quickFiltersProp;
+    if (typeof quickFilterProp === 'string' && quickFilterProp !== 'all') return [quickFilterProp];
+    return [];
+  });
   // Popover Filter states
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterClient, setFilterClient] = useState<string>('all');
@@ -156,67 +165,90 @@ const ProjectsPage: React.FC<Props> = ({
   const [filterDateField, setFilterDateField] = useState<string>('deadline');
 
   useEffect(() => {
-    if (quickFilterProp !== undefined) {
-      setQuickFilter(quickFilterProp);
-      if (quickFilterProp === 'my' && currentUser?.name) {
+    if (Array.isArray(quickFiltersProp)) {
+      setQuickFilters(quickFiltersProp);
+    } else if (typeof quickFilterProp === 'string') {
+      setQuickFilters(quickFilterProp === 'all' ? [] : [quickFilterProp]);
+    }
+  }, [quickFiltersProp, quickFilterProp]);
+
+  const handleToggleFilter = (filterKey: string, checked: boolean) => {
+    const updated = checked
+      ? [...quickFilters, filterKey]
+      : quickFilters.filter((k) => k !== filterKey);
+    setQuickFilters(updated);
+    onQuickFiltersChange?.(updated);
+    onQuickFilterChange?.(updated[0] || 'all');
+
+    if (filterKey === 'my') {
+      if (checked && currentUser?.name) {
         setFilterResponsible(currentUser.name);
-      } else if (quickFilterProp === 'overdue') {
+      } else if (!checked && currentUser?.name && filterResponsible === currentUser.name) {
+        setFilterResponsible('all');
+      }
+    } else if (filterKey === 'overdue') {
+      if (checked) {
         setFilterStatus('overdue');
-      } else if (quickFilterProp === 'all') {
-        if (currentUser?.name && filterResponsible === currentUser.name) {
-          setFilterResponsible('all');
-        }
-        if (filterStatus === 'overdue') {
-          setFilterStatus('all');
-        }
+      } else if (!checked && filterStatus === 'overdue') {
+        setFilterStatus('all');
+      }
+    } else if (filterKey === 'stale') {
+      if (checked) {
+        setFilterStatus('stale');
+      } else if (!checked && filterStatus === 'stale') {
+        setFilterStatus('all');
       }
     }
-  }, [quickFilterProp, currentUser?.name]);
+  };
 
-  const handleQuickFilterChange = (val: 'all' | 'my' | 'active' | 'overdue') => {
-    setQuickFilter(val);
-    onQuickFilterChange?.(val);
-    if (val === 'my') {
-      if (currentUser?.name) setFilterResponsible(currentUser.name);
-      if (filterStatus === 'overdue') setFilterStatus('all');
-    } else if (val === 'overdue') {
-      setFilterStatus('overdue');
-      if (currentUser?.name && filterResponsible === currentUser.name) setFilterResponsible('all');
-    } else if (val === 'all') {
-      if (currentUser?.name && filterResponsible === currentUser.name) setFilterResponsible('all');
-      if (filterStatus === 'overdue') setFilterStatus('all');
-    } else if (val === 'active') {
-      if (currentUser?.name && filterResponsible === currentUser.name) setFilterResponsible('all');
-      if (filterStatus === 'overdue') setFilterStatus('all');
+  const projectQuickFilterOptions: QuickFilterItem[] = useMemo(() => [
+    { key: 'my', label: t('quickFilterMyProjects'), hidden: isAccountant, color: 'primary' },
+    { key: 'active', label: t('quickFilterActive'), color: 'primary' },
+    { key: 'missing_invoice', label: t('quickFilterMissingInvoice'), color: 'warning' },
+    { key: 'stale', label: t('quickFilterStale'), hidden: isAccountant, color: 'primary' },
+    { key: 'overdue', label: t('quickFilterOverdue'), hidden: isAccountant, color: 'error', labelColor: 'error.main' },
+  ], [t, isAccountant]);
+
+  const handleQuickFiltersChange = (newKeys: string[]) => {
+    const added = newKeys.find((k) => !quickFilters.includes(k));
+    const removed = quickFilters.find((k) => !newKeys.includes(k));
+    if (added) handleToggleFilter(added, true);
+    else if (removed) handleToggleFilter(removed, false);
+    else {
+      setQuickFilters(newKeys);
+      onQuickFiltersChange?.(newKeys);
+      onQuickFilterChange?.(newKeys[0] || 'all');
     }
   };
 
   const handleFilterResponsibleChange = (val: string) => {
     setFilterResponsible(val);
     if (currentUser?.name && val === currentUser.name) {
-      if (quickFilter !== 'active' && quickFilter !== 'overdue') {
-        setQuickFilter('my');
-        onQuickFilterChange?.('my');
+      if (!quickFilters.includes('my')) {
+        const updated = [...quickFilters, 'my'];
+        setQuickFilters(updated);
+        onQuickFiltersChange?.(updated);
       }
-    } else if (quickFilter === 'my') {
-      setQuickFilter('all');
-      onQuickFilterChange?.('all');
+    } else if (quickFilters.includes('my')) {
+      const updated = quickFilters.filter((k) => k !== 'my');
+      setQuickFilters(updated);
+      onQuickFiltersChange?.(updated);
     }
   };
 
   const handleFilterStatusChange = (val: string) => {
     setFilterStatus(val);
-    if (val === 'overdue') {
-      setQuickFilter('overdue');
-      onQuickFilterChange?.('overdue');
-    } else if (quickFilter === 'overdue') {
-      setQuickFilter('all');
-      onQuickFilterChange?.('all');
+    const statusKeys = ['overdue', 'stale'];
+    const updated = quickFilters.filter((k) => !statusKeys.includes(k));
+    if (statusKeys.includes(val)) {
+      updated.push(val);
     }
+    setQuickFilters(updated);
+    onQuickFiltersChange?.(updated);
   };
 
   const activeFilterCount =
-    (quickFilter !== 'all' ? 1 : 0) +
+    quickFilters.length +
     (filterCategory !== 'all' ? 1 : 0) +
     (filterClient !== 'all' ? 1 : 0) +
     (filterStatus !== 'all' ? 1 : 0) +
@@ -225,7 +257,8 @@ const ProjectsPage: React.FC<Props> = ({
     (sortColumn !== 'createdAt' || sortDirection !== 'desc' ? 1 : 0);
 
   const clearFilters = () => {
-    setQuickFilter('all');
+    setQuickFilters([]);
+    onQuickFiltersChange?.([]);
     onQuickFilterChange?.('all');
     setFilterCategory('all');
     setFilterClient('all');
@@ -259,7 +292,7 @@ const ProjectsPage: React.FC<Props> = ({
 
   // 1. Apply Quick & Popover Filters
   const filteredProjects = projects.filter((p) => {
-    if (quickFilter === 'my' && currentUser) {
+    if (quickFilters.includes('my') && currentUser) {
       const isMyName =
         p.responsible &&
         currentUser.name &&
@@ -267,8 +300,10 @@ const ProjectsPage: React.FC<Props> = ({
       const isMyId = (p as any).responsibleId && (p as any).responsibleId === currentUser.id;
       if (!isMyName && !isMyId) return false;
     }
-    if (quickFilter === 'active' && p.done) return false;
-    if (quickFilter === 'overdue' && (!isLate(p.deadline, p.done) || p.done)) return false;
+    if (quickFilters.includes('active') && p.done) return false;
+    if (quickFilters.includes('missing_invoice') && hasInvoices(p)) return false;
+    if (quickFilters.includes('stale') && (!isStale(p.start, p.done) || p.done)) return false;
+    if (quickFilters.includes('overdue') && (!isLate(p.deadline, p.done) || p.done)) return false;
 
     if (filterCategory !== 'all' && p.type !== filterCategory) return false;
     if (filterClient !== 'all' && p.clientName !== filterClient) return false;
@@ -373,7 +408,7 @@ const ProjectsPage: React.FC<Props> = ({
 
   useEffect(() => {
     setPage(0);
-  }, [searchQuery, quickFilter, filterCategory, filterStatus, filterResponsible, filterDateFrom, filterDateTo, filterDateField, sortColumn, sortDirection, setPage]);
+  }, [searchQuery, quickFilters, filterCategory, filterStatus, filterResponsible, filterDateFrom, filterDateTo, filterDateField, sortColumn, sortDirection, setPage]);
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
@@ -435,58 +470,40 @@ const ProjectsPage: React.FC<Props> = ({
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
               {t('projectsListTitle')}
             </Typography>
-            {onRefresh && (
-              <Tooltip title={t('btnRefresh')}>
-                <IconButton
-                  size="small"
-                  onClick={handleRefresh}
-                  disabled={isRefreshing}
-                  color="primary"
+            <Tooltip title={t('btnRefresh')}>
+              <IconButton
+                size="small"
+                onClick={handleRefresh}
+                disabled={isRefetching}
+                color="primary"
+                sx={{
+                  border: 1,
+                  borderColor: 'divider',
+                  borderRadius: 2,
+                  p: 0.7,
+                }}
+              >
+                <RefreshIcon
+                  fontSize="small"
                   sx={{
-                    border: 1,
-                    borderColor: 'divider',
-                    borderRadius: 2,
-                    p: 0.7,
+                    animation: isRefetching ? 'spin 1s linear infinite' : undefined,
+                    '@keyframes spin': {
+                      '0%': { transform: 'rotate(0deg)' },
+                      '100%': { transform: 'rotate(360deg)' },
+                    },
                   }}
-                >
-                  <RefreshIcon
-                    fontSize="small"
-                    sx={{
-                      animation: isRefreshing ? 'spin 1s linear infinite' : undefined,
-                      '@keyframes spin': {
-                        '0%': { transform: 'rotate(0deg)' },
-                        '100%': { transform: 'rotate(360deg)' },
-                      },
-                    }}
-                  />
-                </IconButton>
-              </Tooltip>
-            )}
+                />
+              </IconButton>
+            </Tooltip>
           </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', width: { xs: '100%', sm: 'auto' } }}>
             {/* QUICK FILTERS */}
-            <ToggleButtonGroup
-              value={quickFilter}
-              exclusive
-              onChange={(_, val) => val && handleQuickFilterChange(val)}
-              size="small"
-              color="primary"
-              sx={{ width: { xs: '100%', sm: 'auto' } }}
-            >
-              <ToggleButton value="all" sx={{ flex: { xs: 1, sm: 'none' }, px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600 }}>
-                {t('quickFilterAll')}
-              </ToggleButton>
-              <ToggleButton value="my" sx={{ flex: { xs: 1, sm: 'none' }, px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600 }}>
-                {t('quickFilterMyProjects')}
-              </ToggleButton>
-              <ToggleButton value="active" sx={{ flex: { xs: 1, sm: 'none' }, px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600 }}>
-                {t('quickFilterActive')}
-              </ToggleButton>
-              <ToggleButton value="overdue" sx={{ flex: { xs: 1, sm: 'none' }, px: 1.5, py: 0.5, textTransform: 'none', fontWeight: 600, color: 'error.main' }}>
-                {t('quickFilterOverdue')}
-              </ToggleButton>
-            </ToggleButtonGroup>
+            <TableQuickFilters
+              options={projectQuickFilterOptions}
+              selectedKeys={quickFilters}
+              onChange={handleQuickFiltersChange}
+            />
 
             {/* SEARCH FIELD */}
             <TableSearchInput
@@ -878,6 +895,33 @@ const ProjectsPage: React.FC<Props> = ({
           sx={{ borderTop: 1, borderColor: 'divider' }}
         />
       </Card>
+
+      <ConfirmDialog
+        open={completeConfirmState.open}
+        title={t('confirmCompleteTitle')}
+        message={completeConfirmState.message}
+        confirmLabel={t('btnConfirm')}
+        confirmColor="success"
+        iconType="success"
+        onConfirm={() => {
+          completeConfirmState.onConfirm();
+          setCompleteConfirmState(prev => ({ ...prev, open: false }));
+        }}
+        onClose={() => setCompleteConfirmState(prev => ({ ...prev, open: false }))}
+      />
+      <ConfirmDialog
+        open={deleteConfirmState.open}
+        title={t('confirmDeleteTitle')}
+        message={deleteConfirmState.message}
+        confirmLabel={t('btnDelete')}
+        confirmColor="warning"
+        iconType="warning"
+        onConfirm={() => {
+          deleteConfirmState.onConfirm();
+          setDeleteConfirmState(prev => ({ ...prev, open: false }));
+        }}
+        onClose={() => setDeleteConfirmState(prev => ({ ...prev, open: false }))}
+      />
     </Box>
   );
 };

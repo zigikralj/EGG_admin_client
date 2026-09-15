@@ -31,7 +31,7 @@ import {
   Collapse,
 } from '@mui/material';
 
-import type { Invoice, Client, Project, ProvidedService, SaveResult, InvoiceStatus, InvoiceCurrency,  InvoiceType,
+import type { Invoice, InvoiceStatus, InvoiceCurrency,  InvoiceType,
   TableViewProps,
 } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
@@ -40,6 +40,7 @@ import { TableOptionsSelector, type ColumnDef } from '../../components/common/Co
 import { TableFilterSelector } from '../../components/common/TableFilterSelector';
 import { DateRangeFilter } from '../../components/common/DateRangeFilter';
 import { TableSearchInput } from '../../components/common/TableSearchInput';
+import { TableQuickFilters } from '../../components/common/TableQuickFilters';
 import { ErrorDialog } from '../../components/dialogs/ErrorDialog';
 import { parseInvoiceNotes, serializeInvoiceNotes, enhanceInvoicesWithLinks } from '../../utils/invoiceUtils';
 import {
@@ -57,28 +58,21 @@ import {
 } from '../../components/icons';
 import { useTableView } from '../../hooks/useTableView';
 
-interface Props extends TableViewProps {
-  invoices: Invoice[];
-  clients: Client[];
-  projects: Project[];
-  providedServices?: ProvidedService[];
-  onSaveProvidedService?: (ps: Partial<ProvidedService>) => Promise<SaveResult | void> | void;
-  onSaveInvoice: (invoice: Partial<Invoice>) => Promise<SaveResult | void> | void;
-  onDeleteInvoice: (id: string) => void;
-  onUpdateStatus?: (id: string, status: string, paymentDate?: string) => Promise<void> | void;
-}
+interface Props extends TableViewProps {}
 
 const DEFAULT_COLUMNS = ['invoiceNumber', 'invoiceType', 'linkedInvoices', 'client', 'project', 'dateCreated', 'dueDate', 'totalAmount', 'status'];
 
+import {
+  useInvoicesQuery,
+  useClientsQuery,
+  useProjectsQuery,
+  useProvidedServicesQuery,
+  useInvoicesMutations,
+  useProvidedServicesMutations,
+} from '../../queries';
+import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
+
 const InvoicesPage: React.FC<Props> = ({
-  invoices,
-  clients,
-  projects,
-  providedServices,
-  onSaveProvidedService,
-  onSaveInvoice,
-  onDeleteInvoice,
-  onUpdateStatus,
   visibleColumns = DEFAULT_COLUMNS,
   onVisibleColumnsChange,
   rowsPerPageOptions: rowsPerPageOptionsProp,
@@ -87,7 +81,6 @@ const InvoicesPage: React.FC<Props> = ({
   onRowsPerPageChange,
   sortState,
   onSortChange,
-  onRefresh,
 }) => {
   const { t } = useLanguage();
   const { isUser, canManageInvoices } = useAuth();
@@ -125,10 +118,22 @@ const InvoicesPage: React.FC<Props> = ({
     onRowsPerPageOptionsChange,
     sortState,
     onSortChange,
-    onRefresh,
+    onRefresh: () => { refetchInvoices(); },
     defaultSortField: 'dateCreated',
     defaultSortDirection: 'desc',
   });
+
+  const { data: invoices = [], refetch: refetchInvoices } = useInvoicesQuery();
+  const { data: clients = [] } = useClientsQuery();
+  const { data: projects = [] } = useProjectsQuery();
+  const { data: providedServices = [] } = useProvidedServicesQuery();
+
+  const { handleSave: handleSaveInvoice, handleDelete, handleUpdateInvoiceStatus } = useInvoicesMutations();
+  const { handleSave: handleSaveProvidedService } = useProvidedServicesMutations();
+
+  const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
+  const onDeleteInvoice = (id: string) => handleDelete(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
+
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
 
   // Modal form state
@@ -480,22 +485,22 @@ const InvoicesPage: React.FC<Props> = ({
           })),
       };
 
-      const res = await onSaveInvoice(payload);
+      const res = await handleSaveInvoice(payload);
       if (res && res.error) {
         setErrorDialogState({ open: true, message: res.error });
       } else {
-        const savedInvoiceId = res?.id || editingInvoice?.id;
-        if (savedInvoiceId && onSaveProvidedService) {
-           const initialPs = editingInvoice ? providedServices?.find(ps => ps.invoiceId === editingInvoice.id) : undefined;
-           
-            if (formData.providedServiceId !== (initialPs?.id || '')) {
-              if (formData.providedServiceId) {
-                await Promise.resolve(onSaveProvidedService({ id: formData.providedServiceId, invoiceId: savedInvoiceId })).catch(() => {});
-              }
-              if (initialPs) {
-                await Promise.resolve(onSaveProvidedService({ id: initialPs.id, invoiceId: null })).catch(() => {});
-              }
+        const savedInvoiceId = res.id;
+        if (savedInvoiceId) {
+          // Find original
+          const initialPs = providedServices?.find(ps => ps.invoiceId === editingInvoice?.id);
+          
+          if (formData.providedServiceId) {
+            if (!initialPs || initialPs.id !== formData.providedServiceId) {
+                await Promise.resolve(handleSaveProvidedService({ id: formData.providedServiceId, invoiceId: savedInvoiceId })).catch(() => {});
             }
+          } else if (initialPs) {
+                await Promise.resolve(handleSaveProvidedService({ id: initialPs.id, invoiceId: null })).catch(() => {});
+          }
         }
         setIsOpen(false);
       }
@@ -508,9 +513,7 @@ const InvoicesPage: React.FC<Props> = ({
 
   // Quick mark as Paid
   const handleMarkAsPaid = async (inv: Invoice) => {
-    if (onUpdateStatus) {
-      await onUpdateStatus(inv.id, 'Paid', new Date().toISOString().slice(0, 10));
-    }
+      await handleUpdateInvoiceStatus(inv.id, 'Paid', new Date().toISOString().slice(0, 10));
   };
 
   // Filter & Sort Invoices
@@ -541,7 +544,12 @@ const InvoicesPage: React.FC<Props> = ({
         childMatch;
 
       // Status filter
-      const matchesStatus = filterStatus === 'all' || inv.status === filterStatus;
+      let matchesStatus = filterStatus === 'all';
+      if (filterStatus === 'unpaid') {
+        matchesStatus = inv.status !== 'Paid' && inv.status !== 'Cancelled';
+      } else if (filterStatus !== 'all') {
+        matchesStatus = inv.status === filterStatus;
+      }
 
       // Client filter
       const matchesClient = filterClient === 'all' || inv.clientId === filterClient || (inv.client && inv.client.id === filterClient);
@@ -670,7 +678,7 @@ const InvoicesPage: React.FC<Props> = ({
             {t('invoicesListTitle')}
           </Typography>
           <Chip label={filteredInvoices.length} size="small" color="primary" sx={{ fontWeight: 700 }} />
-          {onRefresh && (
+            {true && (
             <Tooltip title={t('btnRefresh')}>
               <IconButton
                 size="small"
@@ -715,10 +723,23 @@ const InvoicesPage: React.FC<Props> = ({
       {/* SEARCH, COLUMNS & FILTER BAR */}
       <Card sx={{ p: 2, mb: 3, borderRadius: 3, boxShadow: 1 }}>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-          <TableSearchInput
-            value={search}
-            onChange={setSearch}
-          />
+          <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
+            <TableSearchInput
+              value={search}
+              onChange={setSearch}
+            />
+            <TableQuickFilters
+              options={[
+                {
+                  key: 'unpaid',
+                  label: t('statusUnpaid'),
+                  color: 'warning',
+                },
+              ]}
+              selectedKeys={filterStatus === 'unpaid' ? ['unpaid'] : []}
+              onChange={(keys) => setFilterStatus(keys.includes('unpaid') ? 'unpaid' : 'all')}
+            />
+          </Box>
 
           <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
             <TableFilterSelector
@@ -1182,7 +1203,7 @@ const InvoicesPage: React.FC<Props> = ({
                           {canManage && (
                             <TableCell align="right">
                               <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
-                                {!isPaid && onUpdateStatus && (
+                                {!isPaid && (
                                   <Tooltip title={t('markAsPaid')}>
                                     <IconButton
                                       size="small"
@@ -1761,6 +1782,14 @@ const InvoicesPage: React.FC<Props> = ({
         open={errorDialogState.open}
         message={errorDialogState.message}
         onClose={() => setErrorDialogState({ open: false, message: '' })}
+      />
+      <ConfirmDialog
+        open={deleteConfirmState.open}
+        title={t('confirmAction' as any)}
+        message={deleteConfirmState.message}
+        onConfirm={deleteConfirmState.onConfirm}
+        onClose={() => setDeleteConfirmState((prev) => ({ ...prev, open: false }))}
+        confirmColor="warning"
       />
     </Box>
   );

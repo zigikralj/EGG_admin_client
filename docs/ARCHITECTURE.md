@@ -17,7 +17,10 @@
 | **Linting** | oxlint | 1.75.x |
 | **Deployment** | GitHub Pages (gh-pages) | 6.3.x |
 
-**No router library** is used — navigation is driven by local `activeTab` state.
+| **Routing** | React Router DOM | 7.18.x |
+| **Data Fetching** | TanStack React Query | 5.102.x |
+
+Navigation is managed via **React Router DOM** with dynamic basename support (`getRouterBasename()`) for GitHub Pages and custom domain deployments.
 
 ---
 
@@ -27,7 +30,9 @@
 index.html
   └── src/main.tsx
         ├── StrictMode
-        └── <App />
+        └── QueryClientProvider
+              └── BrowserRouter (basename={getRouterBasename()})
+                    └── <App />
               ├── LanguageProvider        (i18n)
               │   └── AuthProvider        (auth + RBAC)
               │       └── NotificationProvider (notifications)
@@ -52,7 +57,7 @@ index.html
 - Composes all domain hooks (`useProjects`, `useClients`, etc.)
 - Manages global UI state (active tab, modals, confirm dialogs)
 - Wires data fetching via `useAppData`
-- Renders the active view via conditional blocks (no router)
+- Renders the active view via React Router `<Routes>` and `<Route>`
 - Handles project modal lifecycle (create/edit/view)
 
 ### 3.2 Data Flow

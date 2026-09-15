@@ -23,7 +23,7 @@ import {
   Tooltip,
 } from '@mui/material';
 
-import type { Category, SaveResult, TableViewProps } from '../../types';
+import type { Category, TableViewProps } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { TableOptionsSelector, type ColumnDef } from '../../components/common/ColumnSelector';
@@ -33,18 +33,14 @@ import { ErrorDialog } from '../../components/dialogs/ErrorDialog';
 import { useTableView } from '../../hooks/useTableView';
 import { AddIcon, EditIcon, DeleteIcon, LockIcon, ArrowUpwardIcon, ArrowDownwardIcon, RefreshIcon } from '../../components/icons';
 
-interface Props extends TableViewProps {
-  categories: Category[];
-  onSaveCategory: (category: Partial<Category>) => Promise<SaveResult | void> | void;
-  onDeleteCategory: (id: string) => void;
-}
+interface Props extends TableViewProps {}
 
 const DEFAULT_COLUMNS = ['name', 'description'];
 
+import { useCategoriesQuery, useCategoriesMutations } from '../../queries';
+import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
+
 const CategoriesPage: React.FC<Props> = ({
-  categories,
-  onSaveCategory,
-  onDeleteCategory,
   visibleColumns = DEFAULT_COLUMNS,
   onVisibleColumnsChange,
   rowsPerPageOptions: rowsPerPageOptionsProp,
@@ -53,7 +49,6 @@ const CategoriesPage: React.FC<Props> = ({
   onRowsPerPageChange,
   sortState,
   onSortChange,
-  onRefresh,
 }) => {
   const { t } = useLanguage();
   const { canManageServices } = useAuth(); // Admin & Manager can manage
@@ -91,8 +86,14 @@ const CategoriesPage: React.FC<Props> = ({
     onRowsPerPageOptionsChange,
     sortState,
     onSortChange,
-    onRefresh,
+    onRefresh: () => { refetchCategories(); },
   });
+
+  const { data: categories = [], refetch: refetchCategories } = useCategoriesQuery();
+  const { handleSave, handleDelete } = useCategoriesMutations();
+
+  const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
+  const onDeleteCategory = (id: string) => handleDelete(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
 
   const activeFilterCount = sortColumn !== 'name' || sortDirection !== 'asc' ? 1 : 0;
   const clearFilters = () => {
@@ -139,24 +140,20 @@ const CategoriesPage: React.FC<Props> = ({
     }
     setIsSaving(true);
     try {
-      const res = await onSaveCategory({
+      const res = await handleSave({
         id: editingCategory?.id,
-        code: code.trim().toLowerCase().replace(/\s+/g, '-'),
+        code: editingCategory ? editingCategory.code : code,
         name: name.trim(),
-        description: description.trim() || null,
+        description: description.trim() ? description.trim() : undefined,
       });
 
-      if (res && typeof res === 'object' && 'success' in res) {
-        if (res.success) {
-          setIsOpen(false);
-        } else {
-          setErrorDialogState({
-            open: true,
-            message: res.error || t('errorSavingCategory'),
-          });
-        }
-      } else {
+      if (res.success) {
         setIsOpen(false);
+      } else {
+        setErrorDialogState({
+          open: true,
+          message: res.error || t('errorSavingCategory'),
+        });
       }
     } catch (err: any) {
       setErrorDialogState({
@@ -260,7 +257,7 @@ const CategoriesPage: React.FC<Props> = ({
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
               {t('categoriesListTitle', { count: sortedCategories.length })}
             </Typography>
-            {onRefresh && (
+            {true && (
               <Tooltip title={t('btnRefresh')}>
                 <IconButton
                   size="small"
@@ -503,6 +500,14 @@ const CategoriesPage: React.FC<Props> = ({
         open={errorDialogState.open}
         message={errorDialogState.message}
         onClose={() => setErrorDialogState((prev) => ({ ...prev, open: false }))}
+      />
+      <ConfirmDialog
+        open={deleteConfirmState.open}
+        title={t('confirmAction' as any)}
+        message={deleteConfirmState.message}
+        onConfirm={deleteConfirmState.onConfirm}
+        onClose={() => setDeleteConfirmState((prev) => ({ ...prev, open: false }))}
+        confirmColor="warning"
       />
     </Box>
   );

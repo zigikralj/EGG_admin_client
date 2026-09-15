@@ -13,7 +13,7 @@ import {
   IconButton,
 } from '@mui/material';
 
-import type { Project, Client, User, Service, Reminder, SaveResult, Invoice } from '../../types';
+import type { Project } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { ErrorDialog } from '../dialogs/ErrorDialog';
@@ -23,51 +23,55 @@ import { ProjectReminderSection } from './ProjectReminderSection';
 import { ProjectInvoiceSection } from './ProjectInvoiceSection';
 import { useProjectForm } from '../../hooks/useProjectForm';
 import { SaveIcon, EditIcon, CloseIcon, NotesIcon } from '../icons';
+import { ConfirmDialog } from '../dialogs/ConfirmDialog';
+import { useClientsQuery, useUsersQuery, useServicesQuery, useRemindersQuery, useInvoicesQuery, useProjectsMutations, useRemindersMutations, useInvoicesMutations } from '../../queries';
+
 interface Props {
   isOpen: boolean;
   project: Project | null;
-  clients: Client[];
-  users: User[];
-  services: Service[];
-  reminders?: Reminder[];
-  invoices?: Invoice[];
   onClose: () => void;
   onEdit: (project: Project) => void;
-  onSave?: (data: Partial<Project>) => Promise<SaveResult | void> | void;
-  onToggleDone?: (id: string) => void;
-  onSaveReminder?: (reminder: Partial<Reminder>) => Promise<SaveResult | void> | void;
-  onDeleteReminder?: (id: string) => void;
-  onStatusChangeReminder?: (id: string, status: string) => void;
-  onSaveInvoice?: (invoice: Partial<Invoice>) => Promise<SaveResult | void> | void;
-  onDeleteInvoice?: (id: string) => void;
-  onStatusChangeInvoice?: (id: string, status: string, paymentDate?: string) => Promise<void> | void;
 }
 
 const ProjectViewModal: React.FC<Props> = ({
   isOpen,
   project,
-  clients,
-  users,
-  services,
-  reminders = [],
-  invoices = [],
   onClose,
   onEdit,
-  onSave,
-  onToggleDone,
-  onSaveReminder,
-  onDeleteReminder,
-  onStatusChangeReminder,
-  onSaveInvoice,
-  onDeleteInvoice,
-  onStatusChangeInvoice,
 }) => {
+  const { data: clients = [] } = useClientsQuery();
+  const { data: users = [] } = useUsersQuery();
+  const { data: services = [] } = useServicesQuery();
+  const { data: reminders = [] } = useRemindersQuery();
+  const { data: invoices = [] } = useInvoicesQuery();
+  const { handleSave: onSave, toggleDoneMutation } = useProjectsMutations();
+  const { handleSave: onSaveReminder, handleDelete: onDeleteReminder, handleStatusChangeReminder: onStatusChangeReminder } = useRemindersMutations();
+  const { handleSave: onSaveInvoice, handleDelete: onDeleteInvoice, handleUpdateInvoiceStatus: _onStatusChangeInvoice } = useInvoicesMutations();
+
+  const onToggleDone = async (id: string) => {
+    await toggleDoneMutation.mutateAsync({ id, isCompleting: !project?.done });
+  };
+
+  const onStatusChangeInvoice = async (id: string, status: string, paymentDate?: string) => {
+    await _onStatusChangeInvoice(id, status, paymentDate);
+  };
+
   const { t, getServiceLabel, getResponsibleLabel } = useLanguage();
   const { currentUser, canEditProject, canManageInvoices } = useAuth();
   const [errorDialogState, setErrorDialogState] = useState<{ open: boolean; message: string }>({
     open: false,
     message: '',
   });
+
+  const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
+
+  const wrapDelete = (delFn: (id: string, confirm: (msg: string, cb: () => void) => void) => void) => (id: string) => {
+    delFn(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
+  };
+
+  const wrappedOnDeleteReminder = wrapDelete(onDeleteReminder);
+  const wrappedOnDeleteInvoice = wrapDelete(onDeleteInvoice);
+
 
   // Local state for editable notes
   const [notes, setNotes] = useState(project?.notes || '');
@@ -296,7 +300,7 @@ const ProjectViewModal: React.FC<Props> = ({
                 users={users}
                 reminders={reminders}
                 onSaveReminder={onSaveReminder}
-                onDeleteReminder={onDeleteReminder}
+                onDeleteReminder={wrappedOnDeleteReminder}
                 onStatusChangeReminder={onStatusChangeReminder}
                 setErrorDialogState={setErrorDialogState}
                 disabled={!isEditable}
@@ -314,7 +318,7 @@ const ProjectViewModal: React.FC<Props> = ({
                 clientName={project?.clientName || ''}
                 invoices={invoices}
                 onSaveInvoice={onSaveInvoice}
-                onDeleteInvoice={onDeleteInvoice}
+                onDeleteInvoice={wrappedOnDeleteInvoice}
                 onStatusChangeInvoice={onStatusChangeInvoice}
                 setErrorDialogState={setErrorDialogState}
                 disabled={!canEditProjectInvoices}
@@ -423,7 +427,19 @@ const ProjectViewModal: React.FC<Props> = ({
       <ErrorDialog
         open={errorDialogState.open}
         message={errorDialogState.message}
-        onClose={() => setErrorDialogState((prev) => ({ ...prev, open: false }))}
+        onClose={() => setErrorDialogState({ open: false, message: '' })}
+      />
+
+      <ConfirmDialog
+        open={deleteConfirmState.open}
+        title={t('confirmAction' as any)}
+        message={deleteConfirmState.message}
+        onConfirm={() => {
+          deleteConfirmState.onConfirm();
+          setDeleteConfirmState(prev => ({ ...prev, open: false }));
+        }}
+        onClose={() => setDeleteConfirmState(prev => ({ ...prev, open: false }))}
+        confirmColor="warning"
       />
     </>
   );

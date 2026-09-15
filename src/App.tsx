@@ -1,32 +1,24 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
+import React, { useState, useCallback, useMemo, Suspense } from 'react';
 import { CircularProgress, Box } from '@mui/material';
 import type {
   Project,
   DashboardSubTab,
   ProvidedServicesSubTab,
-  SaveResult,
 } from './types';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
+import { LoadingProvider } from './context/LoadingContext';
 import { CustomThemeProvider } from './context/ThemeContext';
 import { apiFetch } from './api';
 import { AdminLayout } from './components/layout/AdminLayout';
+import { LoadingMask } from './components/common/LoadingMask';
 import { ConfirmDialog } from './components/dialogs/ConfirmDialog';
 import { ConfirmDeleteDialog } from './components/dialogs/ConfirmDeleteDialog';
 import { VersionUpdatePrompt } from './components/dialogs/VersionUpdatePrompt';
 import { LoginPage } from './pages/auth/LoginPage';
-import { useProjects } from './hooks/useProjects';
-import { useClients } from './hooks/useClients';
-import { useUsers } from './hooks/useUsers';
-import { useServices } from './hooks/useServices';
-import { useProvidedServices } from './hooks/useProvidedServices';
-import { useCategories } from './hooks/useCategories';
-import { useReminders } from './hooks/useReminders';
-import { useInvoices } from './hooks/useInvoices';
-import { usePermits } from './hooks/usePermits';
-import { useAppData } from './hooks/useAppData';
-import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { useProjectsQuery, useRemindersQuery, useStatsQuery, usePreferencesQuery, usePreferencesMutations } from './queries';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import './index.css';
 
 const TrackerPage = React.lazy(() => import('./pages/tracker/TrackerPage'));
@@ -71,116 +63,20 @@ function MainApp() {
     onConfirm: () => void;
   }>({ open: false, message: '', onConfirm: () => {} });
 
-  const askDeleteConfirm = useCallback((message: string, onConfirm: () => void) => {
-    setDeleteConfirmState({ open: true, message, onConfirm });
-  }, []);
+  // ── Queries & State ─────────────────────────────────────────────────────────
+  const { data: userPreferences = {} } = usePreferencesQuery();
+  const { updatePreferenceMutation } = usePreferencesMutations();
+  const updatePreference = (key: string, value: any) => updatePreferenceMutation.mutate({ key, value });
 
-  // ── Auth Headers ─────────────────────────────────────────────────────────────
-  const authHeaders = useCallback(() => {
-    const headers: Record<string, string> = {};
-    if (currentUser?.id) headers['X-User-Id'] = currentUser.id;
-    return headers;
-  }, [currentUser?.id]);
-
-  // ── fetchersRef: breaks the circular dependency between domain hooks
-  //    (which need fetch functions) and useAppData (which needs domain setters).
-  const fetchersRef = useRef<{
-    fetchProjects: () => Promise<void>;
-    fetchClients: () => Promise<void>;
-    fetchUsers: () => Promise<void>;
-    fetchServices: () => Promise<void>;
-    fetchProvidedServices: () => Promise<void>;
-    fetchCategories: () => Promise<void>;
-    fetchReminders: () => Promise<void>;
-    fetchInvoices: () => Promise<void>;
-    fetchPermits: () => Promise<void>;
-    fetchWasteCatalog: () => Promise<void>;
-    fetchStats: () => Promise<void>;
-  }>({
-    fetchProjects: async () => {},
-    fetchClients: async () => {},
-    fetchUsers: async () => {},
-    fetchServices: async () => {},
-    fetchProvidedServices: async () => {},
-    fetchCategories: async () => {},
-    fetchReminders: async () => {},
-    fetchInvoices: async () => {},
-    fetchPermits: async () => {},
-    fetchWasteCatalog: async () => {},
-    fetchStats: async () => {},
-  });
-
-  const stableFetchers = useMemo(() => ({
-    fetchProjects: () => fetchersRef.current.fetchProjects(),
-    fetchClients: () => fetchersRef.current.fetchClients(),
-    fetchUsers: () => fetchersRef.current.fetchUsers(),
-    fetchServices: () => fetchersRef.current.fetchServices(),
-    fetchProvidedServices: () => fetchersRef.current.fetchProvidedServices(),
-    fetchCategories: () => fetchersRef.current.fetchCategories(),
-    fetchReminders: () => fetchersRef.current.fetchReminders(),
-    fetchInvoices: () => fetchersRef.current.fetchInvoices(),
-    fetchPermits: () => fetchersRef.current.fetchPermits(),
-    fetchWasteCatalog: () => fetchersRef.current.fetchWasteCatalog(),
-    fetchStats: () => fetchersRef.current.fetchStats(),
-  }), []);
-
-  // ── Domain Hooks ──────────────────────────────────────────────────────────────
-  const projectsHook = useProjects(
-    authHeaders,
-    stableFetchers,
-    askDeleteConfirm,
-    (message, onConfirm) => setCompleteConfirmState({ open: true, message, onConfirm }),
-  );
-
-  const clientsHook = useClients(authHeaders, stableFetchers, askDeleteConfirm);
-  const usersHook = useUsers(authHeaders, stableFetchers, askDeleteConfirm);
-  const servicesHook = useServices(authHeaders, stableFetchers, askDeleteConfirm);
-  const providedServicesHook = useProvidedServices(authHeaders, stableFetchers, askDeleteConfirm);
-  const categoriesHook = useCategories(authHeaders, stableFetchers, askDeleteConfirm);
-  const remindersHook = useReminders(authHeaders, stableFetchers, askDeleteConfirm);
-  const invoicesHook = useInvoices(authHeaders, stableFetchers, askDeleteConfirm);
-  const permitsHook = usePermits(authHeaders, stableFetchers, askDeleteConfirm);
-
-  // ── Stats (kept local since it drives the sidebar badges) ────────────────────
-  const [stats, setStats] = useState({
-    active: 0, done: 0, stale: 0, monitor: 0, clientsCount: 0, usersCount: 0, servicesCount: 0,
-  });
-
-  // ── Orchestration Hook (data fetching + preferences) ─────────────────────────
-  const { fetchAllData, fetchPreferences, updatePreference, userPreferences, fetchers } = useAppData(
-    authHeaders,
-    searchQuery,
-    {
-      setProjects: projectsHook.setProjects,
-      setClients: clientsHook.setClients,
-      setUsers: usersHook.setUsers,
-      setServices: servicesHook.setServices,
-      setProvidedServices: providedServicesHook.setProvidedServices,
-      setCategories: categoriesHook.setCategories,
-      setReminders: remindersHook.setReminders,
-      setInvoices: invoicesHook.setInvoices,
-      setPermits: permitsHook.setPermits,
-      setWasteCatalog: permitsHook.setWasteCatalog,
-      setStats,
-    },
-  );
-
-  // Wire the ref so domain hooks always call the latest fetchers
-  fetchersRef.current = fetchers;
-
-  // ── Initial data load ─────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (currentUser) {
-      fetchAllData();
-      fetchPreferences();
-    }
-  }, [currentUser, fetchAllData, fetchPreferences]);
+  const { data: stats = { active: 0, done: 0, stale: 0, monitor: 0, clientsCount: 0, usersCount: 0, servicesCount: 0 } } = useStatsQuery();
+  const { data: projects = [] } = useProjectsQuery();
+  const { data: reminders = [] } = useRemindersQuery();
 
   // ── Derived State ─────────────────────────────────────────────────────────────
   const derivedStats = useMemo(() => {
     const today = new Date(new Date().toDateString());
 
-    const approachingCount = remindersHook.reminders.filter((r) => {
+    const approachingCount = reminders.filter((r) => {
       const s = (r.status || '').toLowerCase();
       if (s === 'completed' || s === 'završeno' || s === 'завршено') return false;
       if (!r.dueDate) return false;
@@ -189,7 +85,7 @@ function MainApp() {
       return diffDays >= 0 && diffDays <= 10;
     }).length;
 
-    const overdueCount = projectsHook.projects.filter(
+    const overdueCount = projects.filter(
       (p) => !p.done && p.deadline && new Date(p.deadline) < today
     ).length;
 
@@ -198,12 +94,12 @@ function MainApp() {
       monitor: approachingCount,
       overdue: overdueCount,
     };
-  }, [stats, remindersHook.reminders, projectsHook.projects]);
+  }, [stats, reminders, projects]);
 
   const currentViewingProject = useMemo(() => {
     if (!viewingProject) return null;
-    return projectsHook.projects.find((p) => p.id === viewingProject.id) || viewingProject;
-  }, [projectsHook.projects, viewingProject]);
+    return projects.find((p) => p.id === viewingProject.id) || viewingProject;
+  }, [projects, viewingProject]);
 
   // ── Project Modal Helpers ─────────────────────────────────────────────────────
   const handleViewProject = (p: Project) => {
@@ -212,16 +108,13 @@ function MainApp() {
   };
 
   const handleOpenProjectById = useCallback(async (projectId: string) => {
-    let target = projectsHook.projects.find((p) => p.id === projectId);
+    let target = projects.find((p) => p.id === projectId);
     if (!target) {
       try {
-        const res = await apiFetch('/api/projects', { headers: authHeaders() });
+        const res = await apiFetch('/api/projects');
         if (res.ok) {
           const allProjects: Project[] = await res.json();
           target = allProjects.find((p) => p.id === projectId);
-          if (target) {
-            projectsHook.setProjects(allProjects);
-          }
         }
       } catch (e) {
         console.error('Error fetching project for notification:', e);
@@ -231,21 +124,13 @@ function MainApp() {
       setViewingProject(target);
       setIsProjectViewModalOpen(true);
     }
-  }, [projectsHook, authHeaders]);
+  }, [projects]);
 
   const handleEditProject = (p: Project | null) => {
     setIsProjectViewModalOpen(false);
     setViewingProject(null);
     setEditingProject(p);
     setIsProjectModalOpen(true);
-  };
-
-  // Thin wrapper: hook handles the API call; modal closes itself upon completing save
-  const handleSaveProject = async (data: Partial<Project>): Promise<SaveResult> => {
-    const result = await projectsHook.handleSaveProject(data);
-    // Fire notifications refresh
-    window.dispatchEvent(new CustomEvent('notifications:refresh'));
-    return result;
   };
 
   if (!currentUser) {
@@ -255,6 +140,7 @@ function MainApp() {
         onThemeChange={(mode) => updatePreference('theme', mode)}
       >
         <LoginPage />
+        <LoadingMask />
         <VersionUpdatePrompt />
       </CustomThemeProvider>
     );
@@ -273,30 +159,15 @@ function MainApp() {
       >
         <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', p: 4 }}><CircularProgress /></Box>}>
           <Routes>
+            <Route path="/Egg_admin_client/*" element={<Navigate to="/" replace />} />
             <Route path="/project-tracker/statistic-waste-management" element={<Navigate to="/project-tracker/statistic-waste-disposal" replace />} />
             <Route path="/project-tracker/waste-management" element={<Navigate to="/project-tracker/statistic-waste-disposal" replace />} />
             <Route path="/project-tracker/*" element={
               <TrackerPage
                 dashboardSubTab={(location.pathname.split('/')[2] as DashboardSubTab) || 'projects'}
-                stats={derivedStats}
-                projects={projectsHook.projects}
-                clients={clientsHook.clients}
-                users={usersHook.users}
-                categories={categoriesHook.categories}
-                services={servicesHook.services}
-                reminders={remindersHook.reminders}
-                invoices={invoicesHook.invoices}
-                providedServices={providedServicesHook.providedServices}
-                onSaveProvidedService={providedServicesHook.handleSaveProvidedService}
-                onDeleteProvidedService={providedServicesHook.handleDeleteProvidedService}
-                onMarkSampled={projectsHook.handleMarkSampled}
-                onToggleDone={projectsHook.handleToggleDone}
-                onSaveReminder={remindersHook.handleSaveReminder}
-                onDeleteReminder={remindersHook.handleDeleteReminder}
-                onStatusChangeReminder={remindersHook.handleStatusChangeReminder}
                 onViewProject={handleViewProject}
                 onEditProject={handleEditProject}
-                onDeleteProject={projectsHook.handleDeleteProject}
+                onOpenNewProject={() => handleEditProject(null)}
                 onNavigateToProjects={() => navigate('/project-tracker/projects')}
                 onNavigateToInvoices={() => {
                   if (isAccountant) {
@@ -305,10 +176,6 @@ function MainApp() {
                     navigate('/data-management/invoices');
                   }
                 }}
-                onOpenNewProject={() => handleEditProject(null)}
-                onSaveInvoice={invoicesHook.handleSaveInvoice}
-                onDeleteInvoice={invoicesHook.handleDeleteInvoice}
-                onStatusChangeInvoice={invoicesHook.handleUpdateInvoiceStatus}
                 quickFilters={userPreferences.quick_filter_dashboard_projects}
                 onQuickFiltersChange={(filters) => updatePreference('quick_filter_dashboard_projects', filters)}
                 quickFilterDashboardReminders={userPreferences.quick_filter_dashboard_reminders}
@@ -329,16 +196,11 @@ function MainApp() {
             } />
             <Route path="/data-management/projects" element={
               <ProjectsPage
-                projects={projectsHook.projects}
-                services={servicesHook.services}
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
                 onOpenNew={() => handleEditProject(null)}
-                onToggleDone={projectsHook.handleToggleDone}
-                onMarkSampled={projectsHook.handleMarkSampled}
                 onView={handleViewProject}
                 onEdit={handleEditProject}
-                onDelete={projectsHook.handleDeleteProject}
                 visibleColumns={userPreferences.cols_projects}
                 onVisibleColumnsChange={(cols) => updatePreference('cols_projects', cols)}
                 rowsPerPageOptions={userPreferences.rowsPerPageOptions_projects}
@@ -347,39 +209,24 @@ function MainApp() {
                 onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_projects', rpp)}
                 sortState={userPreferences.sort_projects}
                 onSortChange={(sort) => updatePreference('sort_projects', sort)}
-                quickFilter={userPreferences.quick_filter_projects || 'all'}
-                onQuickFilterChange={(val) => updatePreference('quick_filter_projects', val)}
-                onRefresh={stableFetchers.fetchProjects}
+                quickFilters={Array.isArray(userPreferences.quick_filter_projects) ? userPreferences.quick_filter_projects : (userPreferences.quick_filter_projects && userPreferences.quick_filter_projects !== 'all' ? [userPreferences.quick_filter_projects] : [])}
+                onQuickFiltersChange={(val) => updatePreference('quick_filter_projects', val)}
               />
             } />
             <Route path="/data-management/clients" element={
               <ClientsPage
-                clients={clientsHook.clients}
-                permits={permitsHook.permits}
-                onSaveClient={clientsHook.handleSaveClient}
-                onDeleteClient={clientsHook.handleDeleteClient}
                 visibleColumns={userPreferences.cols_clients}
                 onVisibleColumnsChange={(cols) => updatePreference('cols_clients', cols)}
                 rowsPerPageOptions={userPreferences.rowsPerPageOptions_clients}
                 onRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_clients', opts)}
                 rowsPerPage={userPreferences.rowsPerPage_clients}
-                onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_clients', rpp)}
+                onRowsPerPageChange={(rows) => updatePreference('rowsPerPage_clients', rows)}
                 sortState={userPreferences.sort_clients}
                 onSortChange={(sort) => updatePreference('sort_clients', sort)}
-                onRefresh={stableFetchers.fetchClients}
               />
             } />
             <Route path="/data-management/permits" element={
               <PermitsPage
-                permits={permitsHook.permits}
-                clients={clientsHook.clients}
-                wasteCatalog={permitsHook.wasteCatalog}
-                reminders={remindersHook.reminders}
-                onSavePermit={permitsHook.handleSavePermit}
-                onDeletePermit={permitsHook.handleDeletePermit}
-                onSaveReminder={remindersHook.handleSaveReminder}
-                onDeleteReminder={remindersHook.handleDeleteReminder}
-                onSaveClient={clientsHook.handleSaveClient}
                 visibleColumns={userPreferences.cols_permits}
                 onVisibleColumnsChange={(cols) => updatePreference('cols_permits', cols)}
                 rowsPerPageOptions={userPreferences.rowsPerPageOptions_permits}
@@ -388,19 +235,12 @@ function MainApp() {
                 onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_permits', rpp)}
                 sortState={userPreferences.sort_permits}
                 onSortChange={(sort) => updatePreference('sort_permits', sort)}
-                quickFilter={userPreferences.quick_filter_permits || 'all'}
-                onQuickFilterChange={(val) => updatePreference('quick_filter_permits', val)}
-                onRefresh={stableFetchers.fetchPermits}
+                quickFilters={Array.isArray(userPreferences.quick_filter_permits) ? userPreferences.quick_filter_permits : (userPreferences.quick_filter_permits && userPreferences.quick_filter_permits !== 'all' ? [userPreferences.quick_filter_permits] : [])}
+                onQuickFiltersChange={(val) => updatePreference('quick_filter_permits', val)}
               />
             } />
             <Route path="/data-management/users" element={
               <UsersPage
-                users={usersHook.users}
-                onSaveUser={usersHook.handleSaveUser}
-                onDeleteUser={usersHook.handleDeleteUser}
-                onApproveUser={usersHook.handleApproveUser}
-                onRejectUser={usersHook.handleRejectUser}
-                onForceLogoutUser={usersHook.handleForceLogoutUser}
                 visibleColumns={userPreferences.cols_users}
                 onVisibleColumnsChange={(cols) => updatePreference('cols_users', cols)}
                 rowsPerPageOptions={userPreferences.rowsPerPageOptions_users}
@@ -409,17 +249,12 @@ function MainApp() {
                 onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_users', rpp)}
                 sortState={userPreferences.sort_users}
                 onSortChange={(sort) => updatePreference('sort_users', sort)}
-                quickFilter={userPreferences.quick_filter_users || 'all'}
-                onQuickFilterChange={(val) => updatePreference('quick_filter_users', val)}
-                onRefresh={stableFetchers.fetchUsers}
+                quickFilters={Array.isArray(userPreferences.quick_filter_users) ? userPreferences.quick_filter_users : (userPreferences.quick_filter_users && userPreferences.quick_filter_users !== 'all' ? [userPreferences.quick_filter_users] : [])}
+                onQuickFiltersChange={(val) => updatePreference('quick_filter_users', val)}
               />
             } />
             <Route path="/data-management/services" element={
               <ServicesPage
-                services={servicesHook.services}
-                categories={categoriesHook.categories}
-                onSaveService={servicesHook.handleSaveService}
-                onDeleteService={servicesHook.handleDeleteService}
                 visibleColumns={userPreferences.cols_services}
                 onVisibleColumnsChange={(cols) => updatePreference('cols_services', cols)}
                 rowsPerPageOptions={userPreferences.rowsPerPageOptions_services}
@@ -428,24 +263,11 @@ function MainApp() {
                 onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_services', rpp)}
                 sortState={userPreferences.sort_services}
                 onSortChange={(sort) => updatePreference('sort_services', sort)}
-                onRefresh={stableFetchers.fetchServices}
               />
             } />
             <Route path="/data-management/provided-services" element={
               <ProvidedServicesPage
                 subTab={providedServicesSubTab}
-                providedServices={providedServicesHook.providedServices}
-                services={servicesHook.services}
-                clients={clientsHook.clients}
-                projects={projectsHook.projects}
-                invoices={invoicesHook.invoices}
-                categories={categoriesHook.categories}
-                onSaveProvidedService={providedServicesHook.handleSaveProvidedService}
-                onDeleteProvidedService={providedServicesHook.handleDeleteProvidedService}
-                onSaveService={servicesHook.handleSaveService}
-                onSaveInvoice={invoicesHook.handleSaveInvoice}
-                onDeleteInvoice={invoicesHook.handleDeleteInvoice}
-                onStatusChangeInvoice={invoicesHook.handleUpdateInvoiceStatus}
                 visibleColumns={userPreferences.cols_providedServices}
                 onVisibleColumnsChange={(cols) => updatePreference('cols_providedServices', cols)}
                 rowsPerPageOptions={userPreferences.rowsPerPageOptions_providedServices}
@@ -456,14 +278,10 @@ function MainApp() {
                 onSortChange={(sort) => updatePreference('sort_providedServices', sort)}
                 quickFilter={userPreferences.quick_filter_providedServices || 'all'}
                 onQuickFilterChange={(val) => updatePreference('quick_filter_providedServices', val)}
-                onRefresh={stableFetchers.fetchProvidedServices}
               />
             } />
             <Route path="/data-management/categories" element={
               <CategoriesPage
-                categories={categoriesHook.categories}
-                onSaveCategory={categoriesHook.handleSaveCategory}
-                onDeleteCategory={categoriesHook.handleDeleteCategory}
                 visibleColumns={userPreferences.cols_categories}
                 onVisibleColumnsChange={(cols) => updatePreference('cols_categories', cols)}
                 rowsPerPageOptions={userPreferences.rowsPerPageOptions_categories}
@@ -472,19 +290,10 @@ function MainApp() {
                 onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_categories', rpp)}
                 sortState={userPreferences.sort_categories}
                 onSortChange={(sort) => updatePreference('sort_categories', sort)}
-                onRefresh={stableFetchers.fetchCategories}
               />
             } />
             <Route path="/data-management/invoices" element={
               <InvoicesPage
-                invoices={invoicesHook.invoices}
-                clients={clientsHook.clients}
-                projects={projectsHook.projects}
-                providedServices={providedServicesHook.providedServices}
-                onSaveProvidedService={providedServicesHook.handleSaveProvidedService}
-                onSaveInvoice={invoicesHook.handleSaveInvoice}
-                onDeleteInvoice={invoicesHook.handleDeleteInvoice}
-                onUpdateStatus={invoicesHook.handleUpdateInvoiceStatus}
                 visibleColumns={userPreferences.cols_invoices}
                 onVisibleColumnsChange={(cols) => updatePreference('cols_invoices', cols)}
                 rowsPerPageOptions={userPreferences.rowsPerPageOptions_invoices}
@@ -493,19 +302,10 @@ function MainApp() {
                 onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_invoices', rpp)}
                 sortState={userPreferences.sort_invoices}
                 onSortChange={(sort) => updatePreference('sort_invoices', sort)}
-                onRefresh={stableFetchers.fetchInvoices}
               />
             } />
             <Route path="/data-management/reminders" element={
               <RemindersPage
-                reminders={remindersHook.reminders}
-                projects={projectsHook.projects}
-                clients={clientsHook.clients}
-                users={usersHook.users}
-                permits={permitsHook.permits}
-                onSaveReminder={remindersHook.handleSaveReminder}
-                onDeleteReminder={remindersHook.handleDeleteReminder}
-                onStatusChange={remindersHook.handleStatusChangeReminder}
                 visibleColumns={userPreferences.cols_reminders}
                 onVisibleColumnsChange={(cols) => updatePreference('cols_reminders', cols)}
                 rowsPerPageOptions={userPreferences.rowsPerPageOptions_reminders}
@@ -514,9 +314,8 @@ function MainApp() {
                 onRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_reminders', rpp)}
                 sortState={userPreferences.sort_reminders}
                 onSortChange={(sort) => updatePreference('sort_reminders', sort)}
-                quickFilter={userPreferences.quick_filter_reminders || 'all'}
-                onQuickFilterChange={(val) => updatePreference('quick_filter_reminders', val)}
-                onRefresh={stableFetchers.fetchReminders}
+                quickFilters={Array.isArray(userPreferences.quick_filter_reminders) ? userPreferences.quick_filter_reminders : (userPreferences.quick_filter_reminders && userPreferences.quick_filter_reminders !== 'all' ? [userPreferences.quick_filter_reminders] : [])}
+                onQuickFiltersChange={(val) => updatePreference('quick_filter_reminders', val)}
               />
             } />
             <Route path="/" element={<Navigate to="/project-tracker/projects" replace />} />
@@ -529,24 +328,11 @@ function MainApp() {
             <ProjectViewModal
               isOpen={isProjectViewModalOpen}
               project={currentViewingProject}
-              clients={clientsHook.clients}
-              users={usersHook.users}
-              services={servicesHook.services}
-              reminders={remindersHook.reminders}
-              invoices={invoicesHook.invoices}
               onClose={() => {
                 setIsProjectViewModalOpen(false);
                 setViewingProject(null);
               }}
               onEdit={handleEditProject}
-              onSave={handleSaveProject}
-              onToggleDone={projectsHook.handleToggleDone}
-              onSaveReminder={remindersHook.handleSaveReminder}
-              onDeleteReminder={remindersHook.handleDeleteReminder}
-              onStatusChangeReminder={remindersHook.handleStatusChangeReminder}
-              onSaveInvoice={invoicesHook.handleSaveInvoice}
-              onDeleteInvoice={invoicesHook.handleDeleteInvoice}
-              onStatusChangeInvoice={invoicesHook.handleUpdateInvoiceStatus}
             />
           </Suspense>
         )}
@@ -556,24 +342,10 @@ function MainApp() {
             <ProjectModal
               isOpen={isProjectModalOpen}
               projectToEdit={editingProject}
-              clients={clientsHook.clients}
-              users={usersHook.users}
-              services={servicesHook.services}
-              reminders={remindersHook.reminders}
-              invoices={invoicesHook.invoices}
               onClose={() => {
                 setIsProjectModalOpen(false);
                 setEditingProject(null);
               }}
-              onSave={handleSaveProject}
-              onDelete={projectsHook.handleDeleteProject}
-              onToggleDone={projectsHook.handleToggleDone}
-              onSaveReminder={remindersHook.handleSaveReminder}
-              onDeleteReminder={remindersHook.handleDeleteReminder}
-              onStatusChangeReminder={remindersHook.handleStatusChangeReminder}
-              onSaveInvoice={invoicesHook.handleSaveInvoice}
-              onDeleteInvoice={invoicesHook.handleDeleteInvoice}
-              onStatusChangeInvoice={invoicesHook.handleUpdateInvoiceStatus}
             />
           </Suspense>
         )}
@@ -596,6 +368,7 @@ function MainApp() {
         />
         <VersionUpdatePrompt />
       </AdminLayout>
+      <LoadingMask />
     </CustomThemeProvider>
   );
 }
@@ -605,7 +378,9 @@ export function App() {
     <LanguageProvider>
       <AuthProvider>
         <NotificationProvider>
-          <MainApp />
+          <LoadingProvider>
+            <MainApp />
+          </LoadingProvider>
         </NotificationProvider>
       </AuthProvider>
     </LanguageProvider>

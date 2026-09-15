@@ -1,14 +1,10 @@
 import type { Invoice, InvoiceType } from '../types';
 
-interface InvoiceMetadata {
-  type?: InvoiceType;
-  parentId?: string | null;
-}
-
 const META_REGEX = /(?:\r?\n)?<!--meta:(\{.*?\})-->$/s;
 
 /**
  * Extracts clean user notes and metadata (invoiceType, parentInvoiceId) from the raw notes field.
+ * Leaves the regex fallback in place to support older records until the DB migration is run.
  */
 export function parseInvoiceNotes(rawNotes?: string | null): {
   cleanNotes: string;
@@ -16,70 +12,41 @@ export function parseInvoiceNotes(rawNotes?: string | null): {
   parentInvoiceId: string | null;
 } {
   if (!rawNotes) {
-    return {
-      cleanNotes: '',
-      invoiceType: 'Standard',
-      parentInvoiceId: null,
-    };
+    return { cleanNotes: '', invoiceType: 'Standard', parentInvoiceId: null };
   }
-
   const match = rawNotes.match(META_REGEX);
   if (match) {
     try {
-      const parsed: InvoiceMetadata = JSON.parse(match[1]);
-      const cleanNotes = rawNotes.replace(META_REGEX, '').trim();
+      const parsed = JSON.parse(match[1]);
       return {
-        cleanNotes,
+        cleanNotes: rawNotes.replace(META_REGEX, '').trim(),
         invoiceType: parsed.type || 'Standard',
         parentInvoiceId: parsed.parentId || null,
       };
-    } catch {
-      // If parsing fails, return rawNotes as-is
-    }
+    } catch { }
   }
-
-  return {
-    cleanNotes: rawNotes,
-    invoiceType: 'Standard',
-    parentInvoiceId: null,
-  };
+  return { cleanNotes: rawNotes, invoiceType: 'Standard', parentInvoiceId: null };
 }
 
 /**
- * Serializes user notes, invoiceType, and parentInvoiceId into a single string for backend storage.
+ * Serializes user notes. Since backend now supports invoiceType and parentInvoiceId natively, 
+ * this no longer appends the HTML comment hack and simply returns the trimmed notes.
  */
 export function serializeInvoiceNotes(
   userNotes: string,
-  invoiceType?: InvoiceType | null,
-  parentInvoiceId?: string | null
+  _invoiceType?: InvoiceType | null,
+  _parentInvoiceId?: string | null
 ): string {
-  const trimmedNotes = (userNotes || '').trim();
-  const type = invoiceType || 'Standard';
-  const parentId = parentInvoiceId || null;
-
-  // If standard and no parent, keep plain text
-  if (type === 'Standard' && !parentId) {
-    return trimmedNotes;
-  }
-
-  const metaObj: InvoiceMetadata = {};
-  if (type && type !== 'Standard') {
-    metaObj.type = type;
-  }
-  if (parentId) {
-    metaObj.parentId = parentId;
-  }
-
-  const metaStr = `<!--meta:${JSON.stringify(metaObj)}-->`;
-  return trimmedNotes ? `${trimmedNotes}\n${metaStr}` : metaStr;
+  return (userNotes || '').trim();
 }
 
 /**
- * Normalizes an invoice by extracting metadata from notes (if not explicitly present)
- * and resolving parent/child invoice relationships across the full invoice list.
+ * Resolves parent/child invoice relationships across the full invoice list.
  */
 export function enhanceInvoicesWithLinks(invoices: Invoice[]): Invoice[] {
-  // First pass: extract metadata for each invoice
+  const invoiceMap = new Map<string, Invoice>();
+  
+  // First pass: extract metadata for each invoice (fallback to notes if explicit fields are missing)
   const normalizedInvoices: Invoice[] = invoices.map((inv) => {
     const { cleanNotes, invoiceType: parsedType, parentInvoiceId: parsedParentId } = parseInvoiceNotes(inv.notes);
     
@@ -87,29 +54,25 @@ export function enhanceInvoicesWithLinks(invoices: Invoice[]): Invoice[] {
     const effectiveType = inv.invoiceType || parsedType || 'Standard';
     const effectiveParentId = inv.parentInvoiceId !== undefined ? inv.parentInvoiceId : parsedParentId;
 
-    return {
+    const clone = {
       ...inv,
       invoiceType: effectiveType,
       parentInvoiceId: effectiveParentId,
       notes: cleanNotes || inv.notes,
       childInvoices: [],
     };
+    invoiceMap.set(clone.id, clone);
+    return clone;
   });
-
-  const invoiceMap = new Map<string, Invoice>();
-  normalizedInvoices.forEach((inv) => invoiceMap.set(inv.id, inv));
 
   // Second pass: link parent and child relationships
   normalizedInvoices.forEach((inv) => {
     if (inv.parentInvoiceId && invoiceMap.has(inv.parentInvoiceId)) {
       const parent = invoiceMap.get(inv.parentInvoiceId)!;
       inv.parentInvoice = parent;
-      if (!parent.childInvoices) {
-        parent.childInvoices = [];
-      }
       // Avoid duplicate child links
-      if (!parent.childInvoices.some((c) => c.id === inv.id)) {
-        parent.childInvoices.push(inv);
+      if (!parent.childInvoices!.some((c) => c.id === inv.id)) {
+        parent.childInvoices!.push(inv);
       }
     }
   });
