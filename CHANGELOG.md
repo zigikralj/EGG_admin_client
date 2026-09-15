@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.1.4] - 2026-09-15
+
+- fix: correct case of GitHub Pages base path and routes to EGG_admin_c… (#34) by @zigikralj
+
 ## [v1.1.3] - 2026-09-15
 
 - refactor: replace custom data hooks with React Query queries and muta… (#32) by @zigikralj
