@@ -69,11 +69,22 @@ export interface PermitWaste {
   updatedAt?: string;
 }
 
+export type PermitType = 'Sakupljanje' | 'Transport' | 'Skladistenje' | 'Tretman' | 'Odlaganje';
+
+export const PERMIT_TYPE_OPTIONS: PermitType[] = [
+  'Sakupljanje',
+  'Transport',
+  'Skladistenje',
+  'Tretman',
+  'Odlaganje',
+];
+
 export interface Permit {
   id: string;
   permitNumber: string;
   indexNumber?: string;
   indexNumbers?: string[];
+  permitTypes?: (PermitType | string)[];
   startDate?: string | null;
   endDate?: string | null;
   clientId?: string | null;
