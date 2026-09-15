@@ -2,8 +2,8 @@
  * Resolves the router basename dynamically based on the current execution environment.
  *
  * Scenarios:
- * 1. Current GitHub Pages deployment (https://zigikralj.github.io/Egg_admin_client/...):
- *    Returns '/Egg_admin_client' (preserving exact case from URL).
+ * 1. Current GitHub Pages deployment (https://zigikralj.github.io/EGG_admin_client/...):
+ *    Returns '/EGG_admin_client' (preserving exact case from URL).
  * 2. Future custom domain (https://project-tracker.ekosgroup.rs/... or any *.ekosgroup.rs):
  *    Returns '/' (served from domain root).
  * 3. Local development (http://localhost:3000/ or 127.0.0.1):
@@ -28,7 +28,7 @@ export function getRouterBasename(): string {
     return '/';
   }
 
-  // 2. Path-based detection for repository subfolder (e.g. /Egg_admin_client/...)
+  // 2. Path-based detection for repository subfolder (e.g. /EGG_admin_client/...)
   // Case-insensitive match that preserves the casing in the URL
   const repoMatch = pathname.match(/^\/(egg_admin_client)(?:\/|$)/i);
   if (repoMatch) {
