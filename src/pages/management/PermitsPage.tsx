@@ -456,8 +456,8 @@ const PermitsPage: React.FC<Props> = ({
         '';
     setSelectedClientId(linked);
 
-    const ids = p.wasteCatalogIds?.length ? p.wasteCatalogIds : (p.permitWastes?.map(pw => pw.wasteCatalogId).filter(Boolean) || (p.wasteCatalogId ? [p.wasteCatalogId] : []));
-    const items = p.wasteCatalogs?.length ? p.wasteCatalogs : (p.permitWastes?.map(pw => pw.wasteCatalog).filter(Boolean) || (p.wasteCatalog ? [p.wasteCatalog] : []));
+    const ids = (p.wasteCatalogIds?.length ? p.wasteCatalogIds : (p.permitWastes?.map(pw => pw.wasteCatalogId).filter(Boolean) || (p.wasteCatalogId ? [p.wasteCatalogId] : []))) as string[];
+    const items = (p.wasteCatalogs?.length ? p.wasteCatalogs : (p.permitWastes?.map(pw => pw.wasteCatalog).filter(Boolean) || (p.wasteCatalog ? [p.wasteCatalog] : []))) as WasteCatalog[];
     
     setSelectedWasteCatalogIds(ids);
     setSelectedCatalogItems(items);
@@ -1408,7 +1408,7 @@ const PermitsPage: React.FC<Props> = ({
               {/* Index Number (Waste Catalog) */}
               <Grid size={{ xs: 12 }}>
                 <Autocomplete
-                  multiple
+                  multiple={true}
                   size="small"
                   options={combinedCatalogOptions}
                   loading={catalogLoading}
@@ -1432,7 +1432,7 @@ const PermitsPage: React.FC<Props> = ({
                     typeof option === 'string' ? option : option.code
                   }
                   isOptionEqualToValue={(option, val) => option.id === val.id}
-                  renderTags={(tagValue, getTagProps) =>
+                  renderTags={(tagValue: WasteCatalog[], getTagProps: any) =>
                     tagValue.map((option, index) => {
                       const { key, ...tagProps } = getTagProps({ index }) as any;
                       return (
