@@ -245,12 +245,8 @@ npm run deploy     # Build + deploy to GitHub Pages (gh-pages)
 
 1. **Router Basename** — Dynamic basename via `getRouterBasename()` automatically supports GitHub Pages subpath (`/Egg_admin_client`) and root domains like `project-tracker.ekosgroup.rs`.
 2. **React Query manages all data fetching** — Queries, caching, and refetching are handled via hooks in `src/queries/index.ts`.
-3. **Session expiry is client-side** — `auth_session_expires_at` in localStorage. Server JWT also expires (9h default).
-4. **Auth polling pauses on hidden tabs** — Uses Page Visibility API to avoid background requests.
-5. **Invoice metadata in notes** — Invoice type and parent link are embedded as `<!--meta:{...}-->` HTML comments in the `notes` field when server doesn't support explicit fields.
-6. **Admin role simulation** — `admin_role_view` localStorage key lets admins test as any role. Only available for actual Administrator accounts.
-7. **Default language is Serbian Latin** — Not English. This is intentional for the target user base.
-8. **Icons must use barrel file** — Import from `./icons` or `../icons`, never from `@mui/icons-material` directly.
-9. **`App.tsx` is the God component** — Orchestrates routing and state. Future refactoring should extract routing and provider wiring.
-10. **Scroll lock disabled globally** — All MUI modals, drawers, menus, selects have `disableScrollLock: true` to prevent body scroll issues.
-11. **NO BROWSER LOGIN VERIFICATION** — NEVER open the browser or use browser subagents to attempt logging in or verify authenticated flows. The AI assistant does NOT have valid credentials for login. Verification must rely on TypeScript compilation, build checks (`npm run build`), linting, and automated tests. Do not attempt to register or login.
+3. **Admin role simulation** — `admin_role_view` localStorage key lets admins test as any role. Only available for actual Administrator accounts.
+4. **Default language is Serbian Latin** — Not English. This is intentional for the target user base.
+5. **Icons must use barrel file** — Import from `./icons` or `../icons`, never from `@mui/icons-material` directly.
+6. **`App.tsx` is the God component** — Orchestrates routing and state. Future refactoring should extract routing and provider wiring.
+7. **NO BROWSER LOGIN VERIFICATION** — NEVER open the browser or use browser subagents to attempt logging in or verify authenticated flows. The AI assistant does NOT have valid credentials for login. Verification must rely on TypeScript compilation, build checks (`npm run build`), linting, and automated tests. Do not attempt to register or login.
