@@ -76,6 +76,7 @@ export interface TranslationKeys {
   confirmDeletePermit: string;
   alertPermitRequired: string;
   alertPermitDatesOrder: string;
+  alertPermitTypeRequired: string;
   quickFilterExpiringPermits: string;
   quickFilterExpiredPermits: string;
   statusExpiring: string;

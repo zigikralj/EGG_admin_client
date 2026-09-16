@@ -129,7 +129,7 @@ const ClientsPage: React.FC<Props> = ({
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
-  const [selectedPermitId, setSelectedPermitId] = useState<string>('');
+  const [selectedPermitIds, setSelectedPermitIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
   const openNew = () => {
@@ -140,7 +140,7 @@ const ClientsPage: React.FC<Props> = ({
     setEmail('');
     setPhone('');
     setCity('');
-    setSelectedPermitId('');
+    setSelectedPermitIds([]);
     setIsOpen(true);
   };
 
@@ -152,7 +152,8 @@ const ClientsPage: React.FC<Props> = ({
     setEmail(c.email || '');
     setPhone(c.phone || '');
     setCity(c.city || '');
-    setSelectedPermitId(c.permitId || c.extraData?.permitId || '');
+    const permitIds = c.permits?.map((p) => p.id) || (c.permitId ? [c.permitId] : c.extraData?.permitId ? [c.extraData.permitId] : []);
+    setSelectedPermitIds(permitIds);
     setIsOpen(true);
   };
 
@@ -175,8 +176,9 @@ const ClientsPage: React.FC<Props> = ({
         email: email.trim() || null,
         phone: phone.trim() || null,
         city: city.trim() || null,
-        permitId: selectedPermitId || null,
-      });
+        permitId: selectedPermitIds[0] || null,
+        permitIds: selectedPermitIds,
+      } as any);
 
       if (res.success) {
         setIsOpen(false);
@@ -223,10 +225,15 @@ const ClientsPage: React.FC<Props> = ({
       (c.contactPerson && c.contactPerson.toLowerCase().includes(q)) ||
       (c.email && c.email.toLowerCase().includes(q)) ||
       (c.phone && c.phone.toLowerCase().includes(q)) ||
-      (c.permit && (
-        c.permit.permitNumber.toLowerCase().includes(q) ||
-        Boolean(c.permit.indexNumber && c.permit.indexNumber.toLowerCase().includes(q))
-      ))
+      Boolean(
+        (c.permits && c.permits.some((p) =>
+          p.permitNumber.toLowerCase().includes(q) ||
+          Boolean(p.indexNumber && p.indexNumber.toLowerCase().includes(q))
+        )) || (c.permit && (
+          c.permit.permitNumber.toLowerCase().includes(q) ||
+          Boolean(c.permit.indexNumber && c.permit.indexNumber.toLowerCase().includes(q))
+        ))
+      )
     );
   });
 
@@ -250,8 +257,10 @@ const ClientsPage: React.FC<Props> = ({
         res = (a.phone || '').localeCompare(b.phone || '');
         break;
       case 'permit': {
-        const pA = a.permit ? `${a.permit.permitNumber} ${a.permit.indexNumber}` : '';
-        const pB = b.permit ? `${b.permit.permitNumber} ${b.permit.indexNumber}` : '';
+        const pListA = a.permits?.length ? a.permits : (a.permit ? [a.permit] : []);
+        const pListB = b.permits?.length ? b.permits : (b.permit ? [b.permit] : []);
+        const pA = pListA.map((p) => `${p.permitNumber} ${p.indexNumber || ''}`).join(', ');
+        const pB = pListB.map((p) => `${p.permitNumber} ${p.indexNumber || ''}`).join(', ');
         res = pA.localeCompare(pB);
         break;
       }
@@ -551,16 +560,25 @@ const ClientsPage: React.FC<Props> = ({
                     {activeCols.includes('phone') && <TableCell>{c.phone || '—'}</TableCell>}
                     {activeCols.includes('permit') && (
                       <TableCell>
-                        {c.permit ? (
-                          <Chip
-                            label={`${c.permit.permitNumber}${c.permit.indexNumber ? ` (${c.permit.indexNumber})` : ''}`}
-                            size="small"
-                            variant="outlined"
-                            color="secondary"
-                          />
-                        ) : (
-                          '—'
-                        )}
+                        {(() => {
+                          const clientPermits = c.permits?.length
+                            ? c.permits
+                            : (c.permit ? [c.permit] : permits.filter((p) => p.clientId === c.id));
+                          if (!clientPermits.length) return '—';
+                          return (
+                            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                              {clientPermits.map((p) => (
+                                <Chip
+                                  key={p.id}
+                                  label={`${p.permitNumber}${p.indexNumber ? ` (${p.indexNumber})` : ''}`}
+                                  size="small"
+                                  variant="outlined"
+                                  color="secondary"
+                                />
+                              ))}
+                            </Box>
+                          );
+                        })()}
                       </TableCell>
                     )}
                     {activeCols.includes('projectCount') && (
@@ -682,15 +700,18 @@ const ClientsPage: React.FC<Props> = ({
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <Autocomplete
+                  multiple
                   options={permits}
                   getOptionLabel={(option) =>
                     typeof option === 'string'
                       ? option
                       : `${option.permitNumber}${option.indexNumber ? ` (${option.indexNumber})` : ''}`
                   }
-                  value={permits.find((p) => p.id === selectedPermitId) || null}
-                  onChange={(_, newValue) => {
-                    setSelectedPermitId(newValue ? newValue.id : '');
+                  value={permits.filter((p) => selectedPermitIds.includes(p.id))}
+                  onChange={(_, newValues) => {
+                    setSelectedPermitIds(
+                      newValues.map((v) => (typeof v === 'string' ? v : v.id))
+                    );
                   }}
                   isOptionEqualToValue={(option, val) => option.id === val.id}
                   renderInput={(params) => (

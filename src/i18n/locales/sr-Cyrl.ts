@@ -73,6 +73,7 @@ const srCyrlTranslations: TranslationKeys = {
   "confirmDeletePermit": "Да ли сте сигурни да желите да обришете ову дозволу?",
   "alertPermitRequired": "Индексни број, број дозволе, датум почетка и датум истека су обавезна поља.",
   "alertPermitDatesOrder": "Датум почетка не може бити после датума истека.",
+  "alertPermitTypeRequired": "Бар један тип дозволе је обавезан.",
   "quickFilterExpiringPermits": "Дозволе пред истеком",
   "quickFilterExpiredPermits": "Истекле дозволе",
   "statusExpiring": "Пред истеком",

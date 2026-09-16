@@ -73,6 +73,7 @@ const srLatnTranslations: TranslationKeys = {
   "confirmDeletePermit": "Da li ste sigurni da želite da obrišete ovu dozvolu?",
   "alertPermitRequired": "Indeksni broj, broj dozvole, datum početka i datum isteka su obavezna polja.",
   "alertPermitDatesOrder": "Datum početka ne može biti posle datuma isteka.",
+  "alertPermitTypeRequired": "Bar jedan tip dozvole je obavezan.",
   "quickFilterExpiringPermits": "Dozvole pred istekom",
   "quickFilterExpiredPermits": "Istekle dozvole",
   "statusExpiring": "Pred istekom",

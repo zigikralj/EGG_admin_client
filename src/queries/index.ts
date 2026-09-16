@@ -432,7 +432,7 @@ export function useClientsMutations() {
   return useGenericMutations<Client>({
     basePath: '/api/clients',
     queryKeyToInvalidate: ['clients'],
-    additionalInvalidates: [['stats']],
+    additionalInvalidates: [['stats'], ['permits']],
     errorSaveMessageKey: 'errorSavingClient',
     deleteConfirmMessageKey: 'confirmDeleteClient',
     permissionDeniedMessageKey: 'permissionDeniedClients',
@@ -563,6 +563,7 @@ export function usePermitsMutations() {
   return useGenericMutations<Permit>({
     basePath: '/api/permits',
     queryKeyToInvalidate: ['permits'],
+    additionalInvalidates: [['clients'], ['stats']],
     errorSaveMessageKey: 'errorSavingService',
     deleteConfirmMessageKey: 'confirmDeletePermit' as any,
   });
