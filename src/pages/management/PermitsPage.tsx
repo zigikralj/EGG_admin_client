@@ -113,7 +113,7 @@ export const getPermitStatus = (
   }
 };
 
-import { usePermitsQuery, useClientsQuery, useRemindersQuery, usePermitsMutations, useRemindersMutations, useClientsMutations } from '../../queries';
+import { usePermitsQuery, useClientsQuery, useRemindersQuery, usePermitsMutations, useRemindersMutations } from '../../queries';
 import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
 
 const ExpandableChipList = ({ wcs, max = 2 }: { wcs: any[]; max?: number }) => {
@@ -189,7 +189,6 @@ const PermitsPage: React.FC<Props> = ({
   const { data: reminders = [] } = useRemindersQuery();
   const { handleSave: handleSavePermit, handleDelete: handleDeletePermit } = usePermitsMutations();
   const { handleSave: handleSaveReminder, handleDelete: handleDeleteReminder } = useRemindersMutations();
-  const { handleSave: handleSaveClient } = useClientsMutations();
 
   const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
   const onDeletePermit = (id: string) => handleDeletePermit(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
@@ -485,11 +484,11 @@ const PermitsPage: React.FC<Props> = ({
   const openEdit = async (p: Permit) => {
     if (!canManagePermits) return;
     setEditingPermit(p);
-    const linked = p.clients?.length
-      ? p.clients[0].id
-      : p.clientId ||
-        clients.find((c) => c.permitId === p.id || c.extraData?.permitId === p.id)?.id ||
-        '';
+    const linked = p.clientId ||
+      (p.client?.id) ||
+      (p.clients?.length ? p.clients[0].id : '') ||
+      clients.find((c) => c.permitId === p.id || c.extraData?.permitId === p.id)?.id ||
+      '';
     setSelectedClientId(linked);
 
     const ids = (p.wasteCatalogIds?.length ? p.wasteCatalogIds : (p.permitWastes?.map(pw => pw.wasteCatalogId).filter(Boolean) || (p.wasteCatalogId ? [p.wasteCatalogId] : []))) as string[];
@@ -619,21 +618,21 @@ const PermitsPage: React.FC<Props> = ({
     if (!targetPermitForReminder) return;
     if (!newReminderTitle.trim()) return;
 
-    const linkedClients = targetPermitForReminder.clients?.length
-      ? targetPermitForReminder.clients
-      : clients.filter(
-          (c) =>
-            c.permitId === targetPermitForReminder.id ||
-            c.extraData?.permitId === targetPermitForReminder.id
-        );
-    const firstClient = linkedClients[0];
+    const targetPermitClient = targetPermitForReminder.client ||
+      (targetPermitForReminder.clientId ? clients.find((c) => c.id === targetPermitForReminder.clientId) : null) ||
+      targetPermitForReminder.clients?.[0] ||
+      clients.find(
+        (c) =>
+          c.permitId === targetPermitForReminder.id ||
+          c.extraData?.permitId === targetPermitForReminder.id
+      ) || null;
 
     try {
       const res = await handleSaveReminder({
         title: newReminderTitle.trim(),
-        clientId: firstClient?.id || targetPermitForReminder.clientId || null,
+        clientId: targetPermitClient?.id || targetPermitForReminder.clientId || null,
         clientName:
-          firstClient?.name ||
+          targetPermitClient?.name ||
           targetPermitForReminder.clientName ||
           null,
         permitId: targetPermitForReminder.id,
@@ -660,6 +659,22 @@ const PermitsPage: React.FC<Props> = ({
       setErrorDialogState({
         open: true,
         message: t('alertPermitRequired'),
+      });
+      return;
+    }
+
+    if (!selectedClientId) {
+      setErrorDialogState({
+        open: true,
+        message: t('alertClientRequired'),
+      });
+      return;
+    }
+
+    if (!permitTypes || permitTypes.length === 0) {
+      setErrorDialogState({
+        open: true,
+        message: t('alertPermitTypeRequired'),
       });
       return;
     }
@@ -691,23 +706,6 @@ const PermitsPage: React.FC<Props> = ({
 
       if (isSuccess && targetPermitId) {
         const foundClient = clients.find((c) => c.id === selectedClientId);
-
-        // Update client link if onSaveClient is provided
-        if (editingPermit) {
-          const prevClientId = editingPermit.clients?.length
-            ? editingPermit.clients[0].id
-            : editingPermit.clientId ||
-              clients.find((c) => c.permitId === editingPermit?.id || c.extraData?.permitId === editingPermit?.id)?.id;
-
-          if (prevClientId && prevClientId !== selectedClientId) {
-            await handleSaveClient({ id: prevClientId, permitId: null });
-          }
-          if (selectedClientId && selectedClientId !== prevClientId) {
-            await handleSaveClient({ id: selectedClientId, permitId: targetPermitId });
-          }
-        } else if (selectedClientId) {
-          await handleSaveClient({ id: selectedClientId, permitId: targetPermitId });
-        }
 
         // Save staged reminders
         for (const rem of stagedNewReminders) {
@@ -777,13 +775,13 @@ const PermitsPage: React.FC<Props> = ({
     return permits.filter((permit) => {
       // Search
       if (query) {
-        const linkedClients = permit.clients?.length
-          ? permit.clients
-          : clients.filter(
-              (c) => c.permitId === permit.id || c.extraData?.permitId === permit.id
-            );
+        const pClient = permit.client ||
+          (permit.clientId ? clients.find((c) => c.id === permit.clientId) : null) ||
+          permit.clients?.[0] ||
+          clients.find((c) => c.permitId === permit.id || c.extraData?.permitId === permit.id);
         const clientNames =
-          linkedClients.map((c) => c.name).join(' ') ||
+          pClient?.name ||
+          (permit.clients?.length ? permit.clients.map((c) => c.name).join(' ') : '') ||
           permit.clientName ||
           '';
         const matchIndex =
@@ -887,18 +885,16 @@ const PermitsPage: React.FC<Props> = ({
         valA = a.permitNumber || '';
         valB = b.permitNumber || '';
       } else if (sortColumn === 'client') {
-        const linkedA = a.clients?.length
-          ? a.clients
-          : clients.filter(
-              (c) => c.permitId === a.id || c.extraData?.permitId === a.id
-            );
-        const linkedB = b.clients?.length
-          ? b.clients
-          : clients.filter(
-              (c) => c.permitId === b.id || c.extraData?.permitId === b.id
-            );
-        valA = linkedA[0]?.name || a.clientName || '';
-        valB = linkedB[0]?.name || b.clientName || '';
+        const cliA = a.client ||
+          (a.clientId ? clients.find((c) => c.id === a.clientId) : null) ||
+          a.clients?.[0] ||
+          clients.find((c) => c.permitId === a.id || c.extraData?.permitId === a.id);
+        const cliB = b.client ||
+          (b.clientId ? clients.find((c) => c.id === b.clientId) : null) ||
+          b.clients?.[0] ||
+          clients.find((c) => c.permitId === b.id || c.extraData?.permitId === b.id);
+        valA = cliA?.name || a.clientName || '';
+        valB = cliB?.name || b.clientName || '';
       } else if (sortColumn === 'permitTypes') {
         valA = (a.permitTypes || []).map((pt) => getPermitTypeLabel(pt)).join(', ');
         valB = (b.permitTypes || []).map((pt) => getPermitTypeLabel(pt)).join(', ');
@@ -1301,14 +1297,13 @@ const PermitsPage: React.FC<Props> = ({
                 </TableRow>
               ) : (
                 paginatedPermits.map((permit) => {
-                  const linkedClients = permit.clients?.length
-                    ? permit.clients
-                    : clients.filter(
-                        (c) => c.permitId === permit.id || c.extraData?.permitId === permit.id
-                      );
-                  const clientDisplay = linkedClients.length > 0
-                    ? linkedClients.map((c) => c.name).join(', ')
-                    : (permit.clientName || '-');
+                  const linkedClient = permit.client ||
+                    (permit.clientId ? clients.find((c) => c.id === permit.clientId) : null) ||
+                    permit.clients?.[0] ||
+                    clients.find(
+                      (c) => c.permitId === permit.id || c.extraData?.permitId === permit.id
+                    ) || null;
+                  const clientDisplay = linkedClient?.name || (permit.clients?.length ? permit.clients.map((c) => c.name).join(', ') : null) || permit.clientName || '—';
                   const linkedRems = permitRemindersMap.get(permit.id) || [];
 
                   return (
@@ -1665,7 +1660,7 @@ const PermitsPage: React.FC<Props> = ({
                 />
               </Grid>
 
-              {/* Client (Optional) */}
+              {/* Client (Required) */}
               <Grid size={{ xs: 12 }}>
                 <Autocomplete
                   size="small"
@@ -1681,6 +1676,7 @@ const PermitsPage: React.FC<Props> = ({
                       {...params}
                       label={t('colClientName')}
                       placeholder={t('phClient')}
+                      required
                     />
                   )}
                 />
@@ -1702,6 +1698,7 @@ const PermitsPage: React.FC<Props> = ({
                       {...params}
                       label={t('lblPermitType')}
                       placeholder={permitTypes.length === 0 ? t('phSelectPermitType') : ''}
+                      required={permitTypes.length === 0}
                     />
                   )}
                 />
@@ -1714,7 +1711,7 @@ const PermitsPage: React.FC<Props> = ({
                   required
                   type="date"
                   size="small"
-                  label={`${t('colStartDate')} *`}
+                  label={t('colStartDate')}
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                   slotProps={{ inputLabel: { shrink: true } }}
@@ -1728,7 +1725,7 @@ const PermitsPage: React.FC<Props> = ({
                   required
                   type="date"
                   size="small"
-                  label={`${t('colEndDate')} *`}
+                  label={t('colEndDate')}
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                   slotProps={{ inputLabel: { shrink: true } }}

@@ -73,6 +73,7 @@ const enTranslations: TranslationKeys = {
   "confirmDeletePermit": "Are you sure you want to delete this permit?",
   "alertPermitRequired": "Index number, permit number, start date, and end date are required.",
   "alertPermitDatesOrder": "Start date cannot be after end date.",
+  "alertPermitTypeRequired": "At least one permit type is required.",
   "quickFilterExpiringPermits": "Expiring Permits",
   "quickFilterExpiredPermits": "Expired Permits",
   "statusExpiring": "Expiring Soon",

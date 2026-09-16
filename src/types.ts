@@ -35,6 +35,7 @@ export interface Client {
   city?: string | null;
   permitId?: string | null;
   permit?: Permit | null;
+  permits?: Permit[];
   extraData?: ClientExtraData | null;
   projects?: Project[];
   invoices?: Invoice[];
