@@ -34,6 +34,7 @@ import {
 
 import {
   PERMIT_TYPE_OPTIONS,
+  type Client,
   type Permit,
   type PermitType,
   type Reminder,
@@ -193,6 +194,23 @@ const PermitsPage: React.FC<Props> = ({
   const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
   const onDeletePermit = (id: string) => handleDeletePermit(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
   const onDeleteReminder = (id: string) => handleDeleteReminder(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
+
+  const getLinkedClient = useCallback((p: Permit | null | undefined): Client | null => {
+    if (!p) return null;
+    if (p.client) return p.client;
+    if (p.clientId) {
+      const found = clients.find((c) => c.id === p.clientId);
+      if (found) return found;
+    }
+    if (p.clients && p.clients.length > 0) return p.clients[0];
+    const foundInClients = clients.find(
+      (c) =>
+        c.permits?.some((cp) => cp.id === p.id) ||
+        c.permitId === p.id ||
+        c.extraData?.permitId === p.id
+    );
+    return foundInClients || null;
+  }, [clients]);
 
   // Selected client for permit
   const [selectedClientId, setSelectedClientId] = useState<string>('');
@@ -484,12 +502,8 @@ const PermitsPage: React.FC<Props> = ({
   const openEdit = async (p: Permit) => {
     if (!canManagePermits) return;
     setEditingPermit(p);
-    const linked = p.clientId ||
-      (p.client?.id) ||
-      (p.clients?.length ? p.clients[0].id : '') ||
-      clients.find((c) => c.permitId === p.id || c.extraData?.permitId === p.id)?.id ||
-      '';
-    setSelectedClientId(linked);
+    const linkedClient = getLinkedClient(p);
+    setSelectedClientId(linkedClient?.id || p.clientId || '');
 
     const ids = (p.wasteCatalogIds?.length ? p.wasteCatalogIds : (p.permitWastes?.map(pw => pw.wasteCatalogId).filter(Boolean) || (p.wasteCatalogId ? [p.wasteCatalogId] : []))) as string[];
     const items = (p.wasteCatalogs?.length ? p.wasteCatalogs : (p.permitWastes?.map(pw => pw.wasteCatalog).filter(Boolean) || (p.wasteCatalog ? [p.wasteCatalog] : []))) as WasteCatalog[];
@@ -618,14 +632,7 @@ const PermitsPage: React.FC<Props> = ({
     if (!targetPermitForReminder) return;
     if (!newReminderTitle.trim()) return;
 
-    const targetPermitClient = targetPermitForReminder.client ||
-      (targetPermitForReminder.clientId ? clients.find((c) => c.id === targetPermitForReminder.clientId) : null) ||
-      targetPermitForReminder.clients?.[0] ||
-      clients.find(
-        (c) =>
-          c.permitId === targetPermitForReminder.id ||
-          c.extraData?.permitId === targetPermitForReminder.id
-      ) || null;
+    const targetPermitClient = getLinkedClient(targetPermitForReminder);
 
     try {
       const res = await handleSaveReminder({
@@ -775,10 +782,7 @@ const PermitsPage: React.FC<Props> = ({
     return permits.filter((permit) => {
       // Search
       if (query) {
-        const pClient = permit.client ||
-          (permit.clientId ? clients.find((c) => c.id === permit.clientId) : null) ||
-          permit.clients?.[0] ||
-          clients.find((c) => c.permitId === permit.id || c.extraData?.permitId === permit.id);
+        const pClient = getLinkedClient(permit);
         const clientNames =
           pClient?.name ||
           (permit.clients?.length ? permit.clients.map((c) => c.name).join(' ') : '') ||
@@ -834,14 +838,11 @@ const PermitsPage: React.FC<Props> = ({
 
       // Client filter
       if (filterClient !== 'all') {
+        const pClient = getLinkedClient(permit);
         const isMatch =
           permit.clientId === filterClient ||
-          (permit.clients && permit.clients.some((c) => c.id === filterClient)) ||
-          clients.some(
-            (c) =>
-              (c.permitId === permit.id || c.extraData?.permitId === permit.id) &&
-              c.id === filterClient
-          );
+          pClient?.id === filterClient ||
+          (permit.clients && permit.clients.some((c) => c.id === filterClient));
         if (!isMatch) return false;
       }
 
@@ -885,14 +886,8 @@ const PermitsPage: React.FC<Props> = ({
         valA = a.permitNumber || '';
         valB = b.permitNumber || '';
       } else if (sortColumn === 'client') {
-        const cliA = a.client ||
-          (a.clientId ? clients.find((c) => c.id === a.clientId) : null) ||
-          a.clients?.[0] ||
-          clients.find((c) => c.permitId === a.id || c.extraData?.permitId === a.id);
-        const cliB = b.client ||
-          (b.clientId ? clients.find((c) => c.id === b.clientId) : null) ||
-          b.clients?.[0] ||
-          clients.find((c) => c.permitId === b.id || c.extraData?.permitId === b.id);
+        const cliA = getLinkedClient(a);
+        const cliB = getLinkedClient(b);
         valA = cliA?.name || a.clientName || '';
         valB = cliB?.name || b.clientName || '';
       } else if (sortColumn === 'permitTypes') {
@@ -1297,12 +1292,7 @@ const PermitsPage: React.FC<Props> = ({
                 </TableRow>
               ) : (
                 paginatedPermits.map((permit) => {
-                  const linkedClient = permit.client ||
-                    (permit.clientId ? clients.find((c) => c.id === permit.clientId) : null) ||
-                    permit.clients?.[0] ||
-                    clients.find(
-                      (c) => c.permitId === permit.id || c.extraData?.permitId === permit.id
-                    ) || null;
+                  const linkedClient = getLinkedClient(permit);
                   const clientDisplay = linkedClient?.name || (permit.clients?.length ? permit.clients.map((c) => c.name).join(', ') : null) || permit.clientName || '—';
                   const linkedRems = permitRemindersMap.get(permit.id) || [];
 

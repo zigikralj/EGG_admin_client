@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Card,
   Table,
@@ -24,7 +24,7 @@ import {
   Tooltip,
 } from '@mui/material';
 
-import type { Client, TableViewProps } from '../../types';
+import type { Client, Permit, TableViewProps } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTableView } from '../../hooks/useTableView';
@@ -132,6 +132,22 @@ const ClientsPage: React.FC<Props> = ({
   const [selectedPermitIds, setSelectedPermitIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
+  const getClientPermits = useCallback((c: Client): Permit[] => {
+    if (c.permits && c.permits.length > 0) return c.permits;
+    const byClientId = permits.filter((p) => p.clientId === c.id);
+    if (byClientId.length > 0) return byClientId;
+    if (c.permit) return [c.permit];
+    if (c.permitId) {
+      const found = permits.find((p) => p.id === c.permitId);
+      if (found) return [found];
+    }
+    if (c.extraData?.permitId) {
+      const found = permits.find((p) => p.id === c.extraData!.permitId);
+      if (found) return [found];
+    }
+    return [];
+  }, [permits]);
+
   const openNew = () => {
     if (!canManageClients) return;
     setEditingClient(null);
@@ -152,8 +168,8 @@ const ClientsPage: React.FC<Props> = ({
     setEmail(c.email || '');
     setPhone(c.phone || '');
     setCity(c.city || '');
-    const permitIds = c.permits?.map((p) => p.id) || (c.permitId ? [c.permitId] : c.extraData?.permitId ? [c.extraData.permitId] : []);
-    setSelectedPermitIds(permitIds);
+    const clientPermits = getClientPermits(c);
+    setSelectedPermitIds(clientPermits.map((p) => p.id));
     setIsOpen(true);
   };
 
@@ -226,13 +242,10 @@ const ClientsPage: React.FC<Props> = ({
       (c.email && c.email.toLowerCase().includes(q)) ||
       (c.phone && c.phone.toLowerCase().includes(q)) ||
       Boolean(
-        (c.permits && c.permits.some((p) =>
+        getClientPermits(c).some((p) =>
           p.permitNumber.toLowerCase().includes(q) ||
           Boolean(p.indexNumber && p.indexNumber.toLowerCase().includes(q))
-        )) || (c.permit && (
-          c.permit.permitNumber.toLowerCase().includes(q) ||
-          Boolean(c.permit.indexNumber && c.permit.indexNumber.toLowerCase().includes(q))
-        ))
+        )
       )
     );
   });
@@ -257,8 +270,8 @@ const ClientsPage: React.FC<Props> = ({
         res = (a.phone || '').localeCompare(b.phone || '');
         break;
       case 'permit': {
-        const pListA = a.permits?.length ? a.permits : (a.permit ? [a.permit] : []);
-        const pListB = b.permits?.length ? b.permits : (b.permit ? [b.permit] : []);
+        const pListA = getClientPermits(a);
+        const pListB = getClientPermits(b);
         const pA = pListA.map((p) => `${p.permitNumber} ${p.indexNumber || ''}`).join(', ');
         const pB = pListB.map((p) => `${p.permitNumber} ${p.indexNumber || ''}`).join(', ');
         res = pA.localeCompare(pB);
@@ -561,9 +574,7 @@ const ClientsPage: React.FC<Props> = ({
                     {activeCols.includes('permit') && (
                       <TableCell>
                         {(() => {
-                          const clientPermits = c.permits?.length
-                            ? c.permits
-                            : (c.permit ? [c.permit] : permits.filter((p) => p.clientId === c.id));
+                          const clientPermits = getClientPermits(c);
                           if (!clientPermits.length) return '—';
                           return (
                             <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
