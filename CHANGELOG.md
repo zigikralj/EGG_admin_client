@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.3.1] - 2026-09-16
+
+- fix: harden client-permit resolution and synchronization across manag… (#40) by @zigikralj
+
 ## [v1.3.0] - 2026-09-16
 
 - feat: support multiple permit selection for clients and add related v… (#38) by @zigikralj
