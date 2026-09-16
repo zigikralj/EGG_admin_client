@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.3.0] - 2026-09-16
+
+- feat: support multiple permit selection for clients and add related v… (#38) by @zigikralj
+
 ## [v1.2.0] - 2026-09-15
 
 - feat: add permit types support with filtering, sorting, and localization (#36) by @zigikralj
