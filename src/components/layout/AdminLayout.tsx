@@ -56,7 +56,7 @@ export const AdminLayout: React.FC<Props> = ({
 
   const location = useLocation();
   const navigate = useNavigate();
-  const currentApp = location.pathname.startsWith('/data-management') ? 'data-management' : 'project-tracker';
+
 
   useEffect(() => {
     if (isAdmin) return;
