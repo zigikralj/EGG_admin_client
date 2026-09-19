@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Toolbar } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
+import SecurityIcon from '@mui/icons-material/Security';
 
 import type { ProjectStats } from '../../types';
 import { useAuth } from '../../context/AuthContext';
@@ -31,6 +32,7 @@ export const AdminLayout: React.FC<Props> = ({
   const { t } = useLanguage();
   const {
     role,
+    isAdmin,
     isUser,
     isAccountant,
     canManageClients,
@@ -40,6 +42,7 @@ export const AdminLayout: React.FC<Props> = ({
     canManageInvoices,
     canManageProvidedServices,
     pendingUsersCount,
+    hasPermission,
     logout,
   } = useAuth();
 
@@ -53,21 +56,31 @@ export const AdminLayout: React.FC<Props> = ({
 
   const location = useLocation();
   const navigate = useNavigate();
-  const currentApp = location.pathname.startsWith('/data-management') ? 'data-management' : 'project-tracker';
+
 
   useEffect(() => {
-    if (currentApp === 'data-management' && (isUser || isAccountant || !(role === 'Administrator' || role === 'Manager'))) {
-      navigate('/project-tracker');
-    }
-  }, [currentApp, role, isUser, isAccountant, navigate]);
+    if (isAdmin) return;
 
-  useEffect(() => {
-    if (isUser && !location.pathname.startsWith('/project-tracker')) {
-      navigate('/project-tracker');
-    } else if (isAccountant && !location.pathname.startsWith('/project-tracker')) {
-      navigate('/project-tracker');
+    const parts = location.pathname.split('/').filter(Boolean);
+    const appName = parts[0];
+    const page = parts[1];
+
+    if (!appName) return;
+
+    const canAccessApp = hasPermission('apps', appName) || (appName === 'data-management' && role === 'Manager');
+
+    if (!canAccessApp) {
+      navigate(appName === 'data-management' ? '/project-tracker' : '/data-management/projects');
+      return;
     }
-  }, [isUser, isAccountant, location.pathname, navigate]);
+
+    if (page) {
+      const resource = page.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+      if (!hasPermission(resource, 'view')) {
+        navigate(appName === 'data-management' ? '/project-tracker' : '/data-management/projects');
+      }
+    }
+  }, [role, isAdmin, hasPermission, location.pathname, navigate]);
 
   useEffect(() => {
     // Scroll window and main content
@@ -105,6 +118,7 @@ export const AdminLayout: React.FC<Props> = ({
     { path: '/data-management/categories', label: t('tabCategories'), icon: <CategoryIcon />, count: stats.categoriesCount || 0, show: canManageServices },
     { path: '/data-management/reminders', label: t('tabReminders'), icon: <NotificationsActiveIcon />, count: stats.monitor, show: !isUser && !isAccountant, color: 'error' as const },
     { path: '/data-management/invoices', label: t('tabInvoices'), icon: <ReceiptLongIcon />, count: stats.invoicesCount || 0, show: !isAccountant && (!isUser && canManageInvoices) },
+    { path: '/data-management/roles', label: 'Roles', icon: <SecurityIcon />, count: 0, show: hasPermission('roles', 'view') || isAdmin },
   ];
 
   return (

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { User, UserRole, Project } from '../types';
+import type { User, UserRole, Project, Role } from '../types';
 import { apiFetch } from '../api';
 
 interface AuthContextType {
@@ -28,6 +28,7 @@ interface AuthContextType {
   canManageUsers: boolean;
   canEditUser: (targetUser: User) => boolean;
   canEditProject: (project: Project) => boolean;
+  hasPermission: (resource: string, action: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -52,8 +53,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (e) {
       console.error('Error loading stored auth user:', e);
     }
-    return null;
   });
+
+  const [roles, setRolesState] = useState<Role[]>([]);
+
+  useEffect(() => {
+    if (currentUser?.id) {
+      apiFetch('/api/roles', { headers: { 'X-User-Id': currentUser.id } })
+        .then(res => {
+          if (res.ok) return res.json();
+          throw new Error('Failed to fetch roles');
+        })
+        .then(data => setRolesState(data))
+        .catch(err => console.error('Error fetching roles for AuthContext:', err));
+    } else {
+      setRolesState([]);
+    }
+  }, [currentUser?.id]);
 
   const [roleViewState, setRoleViewState] = useState<UserRole>(() => {
     try {
@@ -310,6 +326,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [effectiveRole, currentUser]
   );
 
+  
+  const hasPermission = React.useCallback((resource: string, action: string) => {
+    let roleEnt = null;
+
+    if (isRealAdmin && roleView !== actualRole) {
+      // Find the role entity for the role we are impersonating
+      const impersonatedRole = roles.find(r => r.name === roleView);
+      if (impersonatedRole) {
+        roleEnt = impersonatedRole;
+      }
+    } else if (currentUser && (currentUser as any).roleEntity) {
+      roleEnt = (currentUser as any).roleEntity;
+    }
+
+    if (!roleEnt) {
+       // Fallback if role entity is not loaded or found
+       if (isAdmin && roleView === actualRole) return true;
+       if (resource === 'apps') {
+         if (action === 'project-tracker') return true;
+         if (action === 'data-management') return isAdmin || isManager;
+         return false;
+       }
+       return false;
+    }
+
+    if (roleEnt.isSystemAdmin) return true;
+    const perms = roleEnt.permissions || {};
+
+    if (resource === 'apps') {
+      if (!perms.apps || !Array.isArray(perms.apps)) {
+        if (action === 'project-tracker') return true;
+        if (action === 'data-management') return roleEnt.name === 'Administrator' || roleEnt.name === 'Manager';
+        return false;
+      }
+      return perms.apps.includes(action);
+    }
+
+    if (!perms[resource] || !Array.isArray(perms[resource])) {
+      if (resource.startsWith('tracker_')) {
+        const base = resource.replace('tracker_', '');
+        if (perms[base] && Array.isArray(perms[base])) {
+          return perms[base].includes(action);
+        }
+      }
+      return false;
+    }
+    return perms[resource].includes(action);
+  }, [currentUser, isRealAdmin, roleView, actualRole, isAdmin, isManager, roles]);
+
   const value = React.useMemo(
     () => ({
       currentUser,
@@ -337,6 +402,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       canManageUsers,
       canEditUser,
       canEditProject,
+      hasPermission,
     }),
     [
       currentUser,
@@ -363,6 +429,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       canManageUsers,
       canEditUser,
       canEditProject,
+      hasPermission,
     ]
   );
 

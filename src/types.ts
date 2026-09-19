@@ -249,7 +249,8 @@ export interface ProjectStats {
   permitsCount?: number;
 }
 
-export type ActiveTab = 'dashboard' | 'projects' | 'clients' | 'permits' | 'users' | 'services' | 'providedServices' | 'categories' | 'reminders' | 'invoices';
+export type ActiveTab = 'dashboard' | 'projects' | 'clients' | 'permits' | 'users' | 'services' | 'providedServices' | 'categories' | 'reminders' | 'invoices'
+  | 'roles';
 
 export type AppSection = 'project-tracker' | 'data-management';
 
@@ -373,4 +374,14 @@ declare global {
   const __APP_VERSION__: string;
   const __COMMIT_HASH__: string;
   const __BUILD_TIME__: string;
+}
+
+export interface Role {
+  name: string;
+  description: string | null;
+  isSystemAdmin: boolean;
+  permissions: Record<string, string[]>;
+  createdAt?: string;
+  updatedAt?: string;
+  _count?: { users: number };
 }

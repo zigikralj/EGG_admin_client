@@ -15,7 +15,8 @@ import type {
   Permit,
   WasteCatalog,
   ProjectStats,
-  SaveResult
+  SaveResult,
+  Role,
 } from '../types';
 
 export function useAuthHeaders() {
@@ -567,4 +568,65 @@ export function usePermitsMutations() {
     errorSaveMessageKey: 'errorSavingService',
     deleteConfirmMessageKey: 'confirmDeletePermit' as any,
   });
+}
+
+// ---------------------------------------------------------------------------
+// Roles
+// ---------------------------------------------------------------------------
+
+export function useRolesQuery() {
+  const getAuthHeaders = useAuthHeaders();
+  return useQuery<Role[]>({
+    queryKey: ['roles'],
+    queryFn: async () => {
+      const res = await apiFetch('/api/roles', { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error('Failed to fetch roles');
+      return res.json();
+    },
+  });
+}
+
+export function useRoleMutations() {
+  const queryClient = useQueryClient();
+  const getAuthHeaders = useAuthHeaders();
+
+  const createMutation = useMutation({
+    mutationFn: async (data: Partial<Role>) => {
+      const res = await apiFetch('/api/roles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error('Failed to create role');
+      return res.json() as Promise<Role>;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['roles'] }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ name, data }: { name: string; data: Partial<Role> }) => {
+      const res = await apiFetch(`/api/roles/${encodeURIComponent(name)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error('Failed to update role');
+      return res.json() as Promise<Role>;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['roles'] }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const res = await apiFetch(`/api/roles/${encodeURIComponent(name)}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error('Failed to delete role');
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['roles'] }),
+  });
+
+  return { createMutation, updateMutation, deleteMutation };
 }
