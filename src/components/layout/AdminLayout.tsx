@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Toolbar } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
+import SecurityIcon from '@mui/icons-material/Security';
 
 import type { ProjectStats } from '../../types';
 import { useAuth } from '../../context/AuthContext';
@@ -31,6 +32,7 @@ export const AdminLayout: React.FC<Props> = ({
   const { t } = useLanguage();
   const {
     role,
+    isAdmin,
     isUser,
     isAccountant,
     canManageClients,
@@ -40,6 +42,7 @@ export const AdminLayout: React.FC<Props> = ({
     canManageInvoices,
     canManageProvidedServices,
     pendingUsersCount,
+    hasPermission,
     logout,
   } = useAuth();
 
@@ -56,18 +59,28 @@ export const AdminLayout: React.FC<Props> = ({
   const currentApp = location.pathname.startsWith('/data-management') ? 'data-management' : 'project-tracker';
 
   useEffect(() => {
-    if (currentApp === 'data-management' && (isUser || isAccountant || !(role === 'Administrator' || role === 'Manager'))) {
-      navigate('/project-tracker');
+    if (currentApp === 'data-management') {
+      const isRolesPage = location.pathname.startsWith('/data-management/roles');
+      if (isRolesPage) {
+        if (!hasPermission('roles', 'view') && !isAdmin && role !== 'Administrator') {
+          navigate('/project-tracker');
+        }
+        return;
+      }
+      const canAccessDataManagement = hasPermission('apps', 'data-management') || isAdmin || role === 'Administrator' || role === 'Manager';
+      if (!canAccessDataManagement) {
+        navigate('/project-tracker');
+      }
+    } else if (currentApp === 'project-tracker') {
+      const canAccessProjectTracker = hasPermission('apps', 'project-tracker') || isAdmin || role === 'Administrator';
+      if (!canAccessProjectTracker) {
+        const canAccessDataManagement = hasPermission('apps', 'data-management') || isAdmin || role === 'Administrator' || role === 'Manager';
+        if (canAccessDataManagement) {
+          navigate('/data-management/projects');
+        }
+      }
     }
-  }, [currentApp, role, isUser, isAccountant, navigate]);
-
-  useEffect(() => {
-    if (isUser && !location.pathname.startsWith('/project-tracker')) {
-      navigate('/project-tracker');
-    } else if (isAccountant && !location.pathname.startsWith('/project-tracker')) {
-      navigate('/project-tracker');
-    }
-  }, [isUser, isAccountant, location.pathname, navigate]);
+  }, [currentApp, role, isAdmin, hasPermission, location.pathname, navigate]);
 
   useEffect(() => {
     // Scroll window and main content
@@ -105,6 +118,7 @@ export const AdminLayout: React.FC<Props> = ({
     { path: '/data-management/categories', label: t('tabCategories'), icon: <CategoryIcon />, count: stats.categoriesCount || 0, show: canManageServices },
     { path: '/data-management/reminders', label: t('tabReminders'), icon: <NotificationsActiveIcon />, count: stats.monitor, show: !isUser && !isAccountant, color: 'error' as const },
     { path: '/data-management/invoices', label: t('tabInvoices'), icon: <ReceiptLongIcon />, count: stats.invoicesCount || 0, show: !isAccountant && (!isUser && canManageInvoices) },
+    { path: '/data-management/roles', label: 'Roles', icon: <SecurityIcon />, count: 0, show: hasPermission('roles', 'view') || isAdmin },
   ];
 
   return (

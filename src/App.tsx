@@ -30,6 +30,7 @@ const ProvidedServicesPage = React.lazy(() => import('./pages/management/Provide
 const CategoriesPage = React.lazy(() => import('./pages/management/CategoriesPage'));
 const RemindersPage = React.lazy(() => import('./pages/management/RemindersPage'));
 const InvoicesPage = React.lazy(() => import('./pages/management/InvoicesPage'));
+const RolesPage = React.lazy(() => import('./pages/management/RolesPage'));
 const PermitsPage = React.lazy(() => import('./pages/management/PermitsPage'));
 const ProjectModal = React.lazy(() => import('./components/project/ProjectModal'));
 const ProjectViewModal = React.lazy(() => import('./components/project/ProjectViewModal'));
@@ -318,6 +319,7 @@ function MainApp() {
                 onQuickFiltersChange={(val) => updatePreference('quick_filter_reminders', val)}
               />
             } />
+            <Route path="/data-management/roles" element={<RolesPage />} />
             <Route path="/" element={<Navigate to="/project-tracker/projects" replace />} />
             <Route path="*" element={<Navigate to="/project-tracker/projects" replace />} />
           </Routes>

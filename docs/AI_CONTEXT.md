@@ -250,3 +250,4 @@ npm run deploy     # Build + deploy to GitHub Pages (gh-pages)
 5. **Icons must use barrel file** — Import from `./icons` or `../icons`, never from `@mui/icons-material` directly.
 6. **`App.tsx` is the God component** — Orchestrates routing and state. Future refactoring should extract routing and provider wiring.
 7. **NO BROWSER LOGIN VERIFICATION** — NEVER open the browser or use browser subagents to attempt logging in or verify authenticated flows. The AI assistant does NOT have valid credentials for login. Verification must rely on TypeScript compilation, build checks (`npm run build`), linting, and automated tests. Do not attempt to register or login.
+8. **Backend Updates** — You are allowed to update backend in `../server` dir, but when you do, you must read its `../server/docs/AI_CONTEXT.md` too.

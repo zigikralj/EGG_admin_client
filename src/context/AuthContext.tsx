@@ -28,6 +28,7 @@ interface AuthContextType {
   canManageUsers: boolean;
   canEditUser: (targetUser: User) => boolean;
   canEditProject: (project: Project) => boolean;
+  hasPermission: (resource: string, action: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -310,6 +311,96 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [effectiveRole, currentUser]
   );
 
+  
+  const hasPermission = React.useCallback((resource: string, action: string) => {
+    // If real admin is impersonating, we might not have the exact permissions of the impersonated role here
+    // unless we fetch all roles. For now, if impersonating a basic role, we fall back to minimal access.
+    if (isRealAdmin && roleView !== actualRole) {
+      if (roleView === 'Administrator') return true;
+      if (roleView === 'Manager') {
+        if (resource === 'apps') return true;
+        const defaultManagerPerms: Record<string, string[]> = {
+          projects: ['view','create','edit','delete'],
+          clients: ['view','create','edit','delete'],
+          permits: ['view','create','edit','delete'],
+          users: ['view'],
+          services: ['view','create','edit','delete'],
+          providedServices: ['view','create','edit','delete'],
+          categories: ['view','create','edit','delete'],
+          reminders: ['view','create','edit','delete'],
+          invoices: ['view','create','edit','delete'],
+          roles: ['view'],
+          wasteDisposal: ['view','create','edit','delete'],
+          statistics: ['view'],
+          tracker_projects: ['view','create','edit','delete'],
+          tracker_reminders: ['view','create','edit','delete'],
+          tracker_invoices: ['view','create','edit','delete']
+        };
+        return defaultManagerPerms[resource]?.includes(action) || false;
+      }
+      if (roleView === 'Accountant') {
+        if (resource === 'apps') return action === 'project-tracker';
+        const defaultAccPerms: Record<string, string[]> = {
+          projects: ['view'],
+          clients: ['view'],
+          permits: ['view'],
+          invoices: ['view','create','edit','delete'],
+          wasteDisposal: ['view'],
+          tracker_projects: ['view'],
+          tracker_reminders: ['view'],
+          tracker_invoices: ['view','create','edit','delete']
+        };
+        return defaultAccPerms[resource]?.includes(action) || false;
+      }
+      // User
+      if (resource === 'apps') return action === 'project-tracker';
+      const defaultUserPerms: Record<string, string[]> = {
+        projects: ['view'],
+        clients: ['view'],
+        permits: ['view'],
+        providedServices: ['view','create','edit'],
+        reminders: ['view','create','edit'],
+        invoices: ['view'],
+        tracker_projects: ['view'],
+        tracker_reminders: ['view']
+      };
+      return defaultUserPerms[resource]?.includes(action) || false;
+    }
+
+    if (!currentUser || !(currentUser as any).roleEntity) {
+       if (isAdmin) return true;
+       if (resource === 'apps') {
+         if (action === 'project-tracker') return true;
+         if (action === 'data-management') return isAdmin || isManager;
+         return false;
+       }
+       return false;
+    }
+    const roleEnt = (currentUser as any).roleEntity;
+    if (roleEnt.isSystemAdmin) return true;
+    const perms = roleEnt.permissions || {};
+
+    if (resource === 'apps') {
+      if (!perms.apps || !Array.isArray(perms.apps)) {
+        if (action === 'project-tracker') return true;
+        if (action === 'data-management') return roleEnt.name === 'Administrator' || roleEnt.name === 'Manager';
+        return false;
+      }
+      return perms.apps.includes(action);
+    }
+
+    if (!perms[resource] || !Array.isArray(perms[resource])) {
+      if (resource.startsWith('tracker_')) {
+        const base = resource.replace('tracker_', '');
+        if (perms[base] && Array.isArray(perms[base])) {
+          return perms[base].includes(action);
+        }
+      }
+      return false;
+    }
+    return perms[resource].includes(action);
+  }, [currentUser, isRealAdmin, roleView, actualRole, isAdmin, isManager]);
+
   const value = React.useMemo(
     () => ({
       currentUser,
@@ -337,6 +428,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       canManageUsers,
       canEditUser,
       canEditProject,
+      hasPermission,
     }),
     [
       currentUser,
@@ -363,6 +455,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       canManageUsers,
       canEditUser,
       canEditProject,
+      hasPermission,
     ]
   );
 
