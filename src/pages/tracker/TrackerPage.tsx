@@ -104,9 +104,9 @@ const DashboardView: React.FC<Props> = ({
   onWasteManagementRowsPerPageChange,
 }) => {
   const { t, getServiceLabel } = useLanguage();
-  const { currentUser, isAccountant, role } = useAuth();
+  const { currentUser, isAccountant, hasPermission } = useAuth();
   const { withLoading } = useLoading();
-  const canViewWasteDisposal = role === 'Administrator' || role === 'Manager' || isAccountant;
+  const canViewWasteDisposal = hasPermission('wasteDisposal', 'view');
 
   const { data: projects = [], refetch: refetchProjects, isRefetching: isRefetchingProjects } = useProjectsQuery();
   const { data: clients = [] } = useClientsQuery();

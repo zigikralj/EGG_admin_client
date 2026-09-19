@@ -27,6 +27,7 @@ import {
 } from '@mui/material';
 import { DashboardIcon, StorageIcon } from '../icons';
 import type { Role } from '../../types';
+import { useLanguage } from '../../context/LanguageContext';
 
 interface RoleModalProps {
   open: boolean;
@@ -76,6 +77,7 @@ const APPS: AppDefinition[] = [
       { id: 'reminders', label: 'Reminders' },
       { id: 'invoices', label: 'Invoices' },
       { id: 'roles', label: 'Roles' },
+      { id: 'companyInfo', label: 'Company Information' },
     ],
   },
 ];
@@ -89,6 +91,7 @@ export const RoleModal: React.FC<RoleModalProps> = ({
   role,
   canAssignSystemAdmin = true,
 }) => {
+  const { t } = useLanguage();
   const isEdit = !!role;
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -128,6 +131,28 @@ export const RoleModal: React.FC<RoleModalProps> = ({
   const currentAppDef = APPS.find((a) => a.id === selectedApp) || APPS[0];
   const currentResources = currentAppDef.resources;
   const isCurrentAppAllowed = appPermissions.includes(selectedApp);
+
+  const getResourceLabel = (res: AppResource) => {
+    switch (res.id) {
+      case 'tracker_projects': return `${t('tabProjects')} (Dashboard)`;
+      case 'tracker_reminders': return t('tabReminders');
+      case 'tracker_invoices': return t('tabInvoices');
+      case 'wasteDisposal': return t('subTabWasteDisposal');
+      case 'statistics': return t('subTabStatistic');
+      case 'projects': return t('tabProjects');
+      case 'clients': return t('tabClients');
+      case 'permits': return t('tabPermits');
+      case 'users': return t('tabUsers');
+      case 'services': return t('tabServices');
+      case 'providedServices': return t('tabProvidedServices');
+      case 'categories': return t('tabCategories');
+      case 'reminders': return t('tabReminders');
+      case 'invoices': return t('tabInvoices');
+      case 'roles': return 'Roles';
+      case 'companyInfo': return t('companyInfoTitle') || 'Company Information';
+      default: return res.label;
+    }
+  };
 
   const handleAppAccessToggle = (appId: string, allowed: boolean) => {
     setAppPermissions((prev) => {
@@ -310,7 +335,7 @@ export const RoleModal: React.FC<RoleModalProps> = ({
                     {currentResources.map((resource) => (
                       <TableRow key={resource.id} hover={isCurrentAppAllowed}>
                         <TableCell component="th" scope="row">
-                          {resource.label}
+                          {getResourceLabel(resource)}
                         </TableCell>
                         {ACTIONS.map((action) => {
                           const isChecked = permissions[resource.id]?.includes(action) || false;

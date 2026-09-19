@@ -96,11 +96,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   };
   const {
-    role,
     isRealAdmin,
     roleView,
     setRoleView,
-    isAccountant,
+    hasPermission,
   } = useAuth();
 
   const location = useLocation();
@@ -148,24 +147,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {currentApp === 'project-tracker' ? (
             <List component="nav" disablePadding sx={{ gap: 0.5, display: 'flex', flexDirection: 'column' }}>
               {(() => {
-                const canViewWasteDisposal = role === 'Administrator' || role === 'Manager' || isAccountant;
-                const dashboardItems: { id: DashboardSubTab; label: string; icon: React.ReactNode; show?: boolean }[] = [
-                  { id: 'projects', label: t('subTabProjects'), icon: <FolderIcon fontSize="small" />, show: true },
-                  { id: 'reminders', label: t('subTabReminders'), icon: <NotificationsActiveIcon fontSize="small" />, show: true },
-                ];
-
-                if (canViewWasteDisposal) {
-                  dashboardItems.push(
-                    { id: 'invoices', label: t('tabInvoices'), icon: <ReceiptLongIcon fontSize="small" />, show: true },
-                    { id: 'waste-disposal', label: t('subTabWasteDisposal'), icon: <DeleteSweepIcon fontSize="small" />, show: true }
-                  );
+                const dashboardItems: { id: DashboardSubTab; label: string; icon: React.ReactNode; show?: boolean }[] = [];
+                
+                if (hasPermission('tracker_projects', 'view')) {
+                  dashboardItems.push({ id: 'projects', label: t('subTabProjects'), icon: <FolderIcon fontSize="small" />, show: true });
+                }
+                if (hasPermission('tracker_reminders', 'view')) {
+                  dashboardItems.push({ id: 'reminders', label: t('subTabReminders'), icon: <NotificationsActiveIcon fontSize="small" />, show: true });
+                }
+                if (hasPermission('tracker_invoices', 'view')) {
+                  dashboardItems.push({ id: 'invoices', label: t('tabInvoices'), icon: <ReceiptLongIcon fontSize="small" />, show: true });
+                }
+                if (hasPermission('wasteDisposal', 'view')) {
+                  dashboardItems.push({ id: 'waste-disposal', label: t('subTabWasteDisposal'), icon: <DeleteSweepIcon fontSize="small" />, show: true });
                 }
 
-                const statisticSubItems: { id: DashboardSubTab; label: string; icon: React.ReactNode }[] = [
-                  { id: 'statistic', label: t('subTabProjects'), icon: <FolderIcon fontSize="small" /> },
-                ];
-
-                if (canViewWasteDisposal) {
+                const statisticSubItems: { id: DashboardSubTab; label: string; icon: React.ReactNode }[] = [];
+                if (hasPermission('tracker_projects', 'view')) {
+                  statisticSubItems.push({ id: 'statistic', label: t('subTabProjects'), icon: <FolderIcon fontSize="small" /> });
+                }
+                if (hasPermission('wasteDisposal', 'view')) {
                   statisticSubItems.push({
                     id: 'statistic-waste-disposal',
                     label: t('subTabWasteDisposal'),
@@ -223,7 +224,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     })}
 
                     {/* STATISTIC MENU ITEM WITH SUBMENU */}
-                    {canViewWasteDisposal ? (
+                    {hasPermission('statistics', 'view') ? (
                       <React.Fragment key="statistic-menu-group">
                         <ListItemButton
                           selected={isStatisticActive}

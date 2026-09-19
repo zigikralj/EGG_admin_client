@@ -110,6 +110,7 @@ export interface User {
   name: string;
   email?: string | null;
   role: UserRole | string;
+  roleEntity?: Role | null;
   phone?: string | null;
   avatarUrl?: string | null;
   gender?: string | null;

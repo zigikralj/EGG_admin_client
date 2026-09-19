@@ -139,6 +139,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (data.error === 'ACCOUNT_BLOCKED') {
             logout();
           }
+        } else if (res.ok) {
+          const updatedUser = await res.json();
+          if (updatedUser) {
+            setCurrentUser((prev) => {
+              if (!prev) return updatedUser;
+              if (
+                prev.id === updatedUser.id &&
+                prev.name === updatedUser.name &&
+                prev.email === updatedUser.email &&
+                prev.role === updatedUser.role &&
+                JSON.stringify(prev.roleEntity) === JSON.stringify(updatedUser.roleEntity)
+              ) {
+                return prev;
+              }
+              const merged = { ...prev, ...updatedUser };
+              localStorage.setItem('auth_user', JSON.stringify(merged));
+              return merged;
+            });
+          }
         }
       } catch (e) {}
     };
@@ -273,7 +292,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [users]);
 
   const actualRole: UserRole = (currentUser?.role as UserRole) || 'User';
-  const isRealAdmin = actualRole === 'Administrator';
+
+  const currentRoleEntity = React.useMemo(() => {
+    if (!currentUser) return null;
+    return currentUser.roleEntity || roles.find((r) => r.name === currentUser.role) || null;
+  }, [currentUser, roles]);
+
+  const isRealAdmin = Boolean(currentRoleEntity?.isSystemAdmin || actualRole === 'Administrator');
 
   const roleView: UserRole = isRealAdmin ? roleViewState : actualRole;
 
@@ -286,81 +311,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const effectiveRole: UserRole = isRealAdmin ? roleView : actualRole;
 
-  const isAdmin = effectiveRole === 'Administrator';
-  const isManager = effectiveRole === 'Manager';
-  const isAccountant = effectiveRole === 'Accountant';
-  const isUser = effectiveRole === 'User';
-
-  const canManageClients = effectiveRole === 'Administrator' || effectiveRole === 'Manager';
-  const canManagePermits = effectiveRole === 'Administrator' || effectiveRole === 'Manager';
-  const canManageServices = effectiveRole === 'Administrator' || effectiveRole === 'Manager';
-  const canManageUsers = effectiveRole === 'Administrator' || effectiveRole === 'Manager';
-  const canManageInvoices = effectiveRole === 'Administrator' || effectiveRole === 'Manager' || effectiveRole === 'Accountant';
-  const canManageProvidedServices = effectiveRole === 'Administrator' || effectiveRole === 'Manager';
-
-  const canEditUser = React.useCallback(
-    (targetUser: User): boolean => {
-      if (effectiveRole === 'Administrator') return true;
-      if (effectiveRole === 'Manager') {
-        return targetUser.role !== 'Administrator';
-      }
-      return false;
-    },
-    [effectiveRole]
-  );
-
-  const canEditProject = React.useCallback(
-    (project: Project): boolean => {
-      // Manager and Administrator can edit projects of other users even in User View mode
-      if (effectiveRole === 'Administrator' || effectiveRole === 'Manager') return true;
-      if (!currentUser) return false;
-
-      const respName = (project.responsible || '').trim().toLowerCase();
-      const curName = (currentUser.name || '').trim().toLowerCase();
-
-      if (respName && respName === curName) return true;
-      if ((project as any).responsibleId && (project as any).responsibleId === currentUser.id) return true;
-
-      return false;
-    },
-    [effectiveRole, currentUser]
-  );
-
-  
-  const hasPermission = React.useCallback((resource: string, action: string) => {
-    let roleEnt = null;
-
+  const effectiveRoleEntity = React.useMemo(() => {
     if (isRealAdmin && roleView !== actualRole) {
-      // Find the role entity for the role we are impersonating
-      const impersonatedRole = roles.find(r => r.name === roleView);
-      if (impersonatedRole) {
-        roleEnt = impersonatedRole;
-      }
-    } else if (currentUser && (currentUser as any).roleEntity) {
-      roleEnt = (currentUser as any).roleEntity;
+      return roles.find((r) => r.name === roleView) || null;
     }
+    return currentRoleEntity;
+  }, [isRealAdmin, roleView, actualRole, roles, currentRoleEntity]);
 
+  const hasPermission = React.useCallback((resource: string, action: string): boolean => {
+    const roleEnt = effectiveRoleEntity;
     if (!roleEnt) {
-       // Fallback if role entity is not loaded or found
-       if (isAdmin && roleView === actualRole) return true;
-       if (resource === 'apps') {
-         if (action === 'project-tracker') return true;
-         if (action === 'data-management') return isAdmin || isManager;
-         return false;
-       }
-       return false;
+      return false;
     }
 
     if (roleEnt.isSystemAdmin) return true;
     const perms = roleEnt.permissions || {};
 
     if (resource === 'apps') {
-      if (!perms.apps || !Array.isArray(perms.apps)) {
-        if (action === 'project-tracker') return true;
-        if (action === 'data-management') return roleEnt.name === 'Administrator' || roleEnt.name === 'Manager';
-        return false;
-      }
-      return perms.apps.includes(action);
+      return Array.isArray(perms.apps) && perms.apps.includes(action);
     }
 
     if (!perms[resource] || !Array.isArray(perms[resource])) {
@@ -373,7 +341,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return false;
     }
     return perms[resource].includes(action);
-  }, [currentUser, isRealAdmin, roleView, actualRole, isAdmin, isManager, roles]);
+  }, [effectiveRoleEntity]);
+
+  const isAdmin = Boolean(effectiveRoleEntity?.isSystemAdmin || effectiveRole === 'Administrator');
+  const isManager = effectiveRole === 'Manager';
+  const isAccountant = effectiveRole === 'Accountant';
+  const isUser = effectiveRole === 'User';
+
+  const canManageClients = Boolean(isAdmin || hasPermission('clients', 'edit') || hasPermission('clients', 'create'));
+  const canManagePermits = Boolean(isAdmin || hasPermission('permits', 'edit') || hasPermission('permits', 'create'));
+  const canManageServices = Boolean(isAdmin || hasPermission('services', 'edit') || hasPermission('services', 'create'));
+  const canManageUsers = Boolean(isAdmin || hasPermission('users', 'edit') || hasPermission('users', 'create'));
+  const canManageInvoices = Boolean(isAdmin || hasPermission('invoices', 'edit') || hasPermission('invoices', 'create'));
+  const canManageProvidedServices = Boolean(isAdmin || hasPermission('providedServices', 'edit') || hasPermission('providedServices', 'create'));
+
+  const canEditUser = React.useCallback(
+    (targetUser: User): boolean => {
+      if (isAdmin) return true;
+      const targetRoleEnt = targetUser.roleEntity || roles.find((r) => r.name === targetUser.role);
+      const isTargetAdmin = targetRoleEnt?.isSystemAdmin || targetUser.role === 'Administrator';
+      if (isTargetAdmin) return false;
+      return hasPermission('users', 'edit');
+    },
+    [isAdmin, roles, hasPermission]
+  );
+
+  const canEditProject = React.useCallback(
+    (project: Project): boolean => {
+      if (isAdmin || hasPermission('projects', 'edit')) return true;
+      if (!currentUser) return false;
+
+      const respName = (project.responsible || '').trim().toLowerCase();
+      const curName = (currentUser.name || '').trim().toLowerCase();
+
+      if (respName && respName === curName) return true;
+      if ((project as any).responsibleId && (project as any).responsibleId === currentUser.id) return true;
+
+      return false;
+    },
+    [isAdmin, hasPermission, currentUser]
+  );
 
   const value = React.useMemo(
     () => ({

@@ -77,15 +77,13 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     isRealAdmin,
     roleView,
     setRoleView,
-    isUser,
-    isAccountant,
     pendingUsersCount,
     hasPermission,
     logout,
   } = useAuth();
 
   const canAccessProjectTracker = hasPermission('apps', 'project-tracker');
-  const canAccessDataManagement = hasPermission('apps', 'data-management') || (!isUser && !isAccountant && (role === 'Administrator' || role === 'Manager'));
+  const canAccessDataManagement = hasPermission('apps', 'data-management');
 
   const canSeePendingUsers = (isRealAdmin || role === 'Manager') && pendingUsersCount > 0;
   const totalNotificationsCount = unreadCount + (canSeePendingUsers ? pendingUsersCount : 0);
@@ -191,32 +189,34 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           </Tooltip>
 
           {/* COMPANY INFO BUTTON */}
-          <Tooltip title={t('companyInfoTitle')} arrow>
-            <IconButton
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsCompanyInfoOpen(true);
-              }}
-              size="small"
-              sx={{
-                color: 'rgba(255, 255, 255, 0.9)',
-                bgcolor: 'rgba(255, 255, 255, 0.1)',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                p: { xs: 0.6, sm: 0.75 },
-                borderRadius: 2,
-                transition: 'all 0.2s ease',
-                '&:hover': {
-                  color: '#ffffff',
-                  bgcolor: 'rgba(255, 255, 255, 0.22)',
-                  borderColor: 'rgba(255, 255, 255, 0.4)',
-                  transform: 'translateY(-1px)',
-                },
-              }}
-              aria-label={t('companyInfoTitle')}
-            >
-              <BusinessIcon sx={{ fontSize: { xs: 18, sm: 20 } }} />
-            </IconButton>
-          </Tooltip>
+          {hasPermission('companyInfo', 'view') && (
+            <Tooltip title={t('companyInfoTitle')} arrow>
+              <IconButton
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsCompanyInfoOpen(true);
+                }}
+                size="small"
+                sx={{
+                  color: 'rgba(255, 255, 255, 0.9)',
+                  bgcolor: 'rgba(255, 255, 255, 0.1)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  p: { xs: 0.6, sm: 0.75 },
+                  borderRadius: 2,
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    color: '#ffffff',
+                    bgcolor: 'rgba(255, 255, 255, 0.22)',
+                    borderColor: 'rgba(255, 255, 255, 0.4)',
+                    transform: 'translateY(-1px)',
+                  },
+                }}
+                aria-label={t('companyInfoTitle')}
+              >
+                <BusinessIcon sx={{ fontSize: { xs: 18, sm: 20 } }} />
+              </IconButton>
+            </Tooltip>
+          )}
 
           {/* BRAND LOGO */}
           <Box
