@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { User, UserRole, Project } from '../types';
+import type { User, UserRole, Project, Role } from '../types';
 import { apiFetch } from '../api';
 
 interface AuthContextType {
@@ -53,8 +53,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (e) {
       console.error('Error loading stored auth user:', e);
     }
-    return null;
   });
+
+  const [roles, setRolesState] = useState<Role[]>([]);
+
+  useEffect(() => {
+    if (currentUser?.id) {
+      apiFetch('/api/roles', { headers: { 'X-User-Id': currentUser.id } })
+        .then(res => {
+          if (res.ok) return res.json();
+          throw new Error('Failed to fetch roles');
+        })
+        .then(data => setRolesState(data))
+        .catch(err => console.error('Error fetching roles for AuthContext:', err));
+    } else {
+      setRolesState([]);
+    }
+  }, [currentUser?.id]);
 
   const [roleViewState, setRoleViewState] = useState<UserRole>(() => {
     try {
@@ -313,61 +328,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   
   const hasPermission = React.useCallback((resource: string, action: string) => {
-    // If real admin is impersonating, we might not have the exact permissions of the impersonated role here
-    // unless we fetch all roles. For now, if impersonating a basic role, we fall back to minimal access.
+    let roleEnt = null;
+
     if (isRealAdmin && roleView !== actualRole) {
-      if (roleView === 'Manager') {
-        if (resource === 'apps') return true;
-        const defaultManagerPerms: Record<string, string[]> = {
-          projects: ['view','create','edit','delete'],
-          clients: ['view','create','edit','delete'],
-          permits: ['view','create','edit','delete'],
-          users: ['view'],
-          services: ['view','create','edit','delete'],
-          providedServices: ['view','create','edit','delete'],
-          categories: ['view','create','edit','delete'],
-          reminders: ['view','create','edit','delete'],
-          invoices: ['view','create','edit','delete'],
-          roles: ['view'],
-          wasteDisposal: ['view','create','edit','delete'],
-          statistics: ['view'],
-          tracker_projects: ['view','create','edit','delete'],
-          tracker_reminders: ['view','create','edit','delete'],
-          tracker_invoices: ['view','create','edit','delete']
-        };
-        return defaultManagerPerms[resource]?.includes(action) || false;
+      // Find the role entity for the role we are impersonating
+      const impersonatedRole = roles.find(r => r.name === roleView);
+      if (impersonatedRole) {
+        roleEnt = impersonatedRole;
       }
-      if (roleView === 'Accountant') {
-        if (resource === 'apps') return action === 'project-tracker';
-        const defaultAccPerms: Record<string, string[]> = {
-          projects: ['view'],
-          clients: ['view'],
-          permits: ['view'],
-          invoices: ['view','create','edit','delete'],
-          wasteDisposal: ['view'],
-          tracker_projects: ['view'],
-          tracker_reminders: ['view'],
-          tracker_invoices: ['view','create','edit','delete']
-        };
-        return defaultAccPerms[resource]?.includes(action) || false;
-      }
-      // User
-      if (resource === 'apps') return action === 'project-tracker';
-      const defaultUserPerms: Record<string, string[]> = {
-        projects: ['view'],
-        clients: ['view'],
-        permits: ['view'],
-        providedServices: ['view','create','edit'],
-        reminders: ['view','create','edit'],
-        invoices: ['view'],
-        tracker_projects: ['view'],
-        tracker_reminders: ['view']
-      };
-      return defaultUserPerms[resource]?.includes(action) || false;
+    } else if (currentUser && (currentUser as any).roleEntity) {
+      roleEnt = (currentUser as any).roleEntity;
     }
 
-    if (!currentUser || !(currentUser as any).roleEntity) {
-       if (isAdmin) return true;
+    if (!roleEnt) {
+       // Fallback if role entity is not loaded or found
+       if (isAdmin && roleView === actualRole) return true;
        if (resource === 'apps') {
          if (action === 'project-tracker') return true;
          if (action === 'data-management') return isAdmin || isManager;
@@ -375,7 +350,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
        }
        return false;
     }
-    const roleEnt = (currentUser as any).roleEntity;
+
     if (roleEnt.isSystemAdmin) return true;
     const perms = roleEnt.permissions || {};
 
@@ -398,7 +373,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return false;
     }
     return perms[resource].includes(action);
-  }, [currentUser, isRealAdmin, roleView, actualRole, isAdmin, isManager]);
+  }, [currentUser, isRealAdmin, roleView, actualRole, isAdmin, isManager, roles]);
 
   const value = React.useMemo(
     () => ({
