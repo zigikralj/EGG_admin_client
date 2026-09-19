@@ -336,8 +336,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (impersonatedRole) {
         roleEnt = impersonatedRole;
       }
-    } else if (currentUser && (currentUser as any).roleEntity) {
-      roleEnt = (currentUser as any).roleEntity;
+    } else if (currentUser) {
+      roleEnt = (currentUser as any).roleEntity || roles.find(r => r.name === currentUser.role);
     }
 
     if (!roleEnt) {

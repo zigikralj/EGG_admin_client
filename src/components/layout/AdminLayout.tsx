@@ -75,7 +75,17 @@ export const AdminLayout: React.FC<Props> = ({
     }
 
     if (page) {
-      const resource = page.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+      let resource = page.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+      
+      // Map project-tracker pages to their respective role resource IDs
+      if (appName === 'project-tracker') {
+        if (page === 'projects') resource = 'tracker_projects';
+        if (page === 'reminders') resource = 'tracker_reminders';
+        if (page === 'invoices') resource = 'tracker_invoices';
+        if (page === 'statistic') resource = 'statistics';
+        if (page === 'waste-disposal' || page === 'statistic-waste-disposal' || page === 'statistic-waste-management') resource = 'wasteDisposal';
+      }
+
       if (!hasPermission(resource, 'view')) {
         navigate(appName === 'data-management' ? '/project-tracker' : '/data-management/projects');
       }
