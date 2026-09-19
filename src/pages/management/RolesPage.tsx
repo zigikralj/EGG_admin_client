@@ -12,11 +12,9 @@ import {
   TableRow,
   IconButton,
   Chip,
-  Tooltip
+  Tooltip,
 } from '@mui/material';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
-import AddIcon from '@mui/icons-material/Add';
+import { EditIcon, DeleteIcon, AddIcon } from '../../components/icons';
 import { useRolesQuery, useRoleMutations } from '../../queries';
 import { RoleModal } from '../../components/role/RoleModal';
 import { ConfirmDeleteDialog } from '../../components/dialogs/ConfirmDeleteDialog';
@@ -127,7 +125,7 @@ const RolesPage: React.FC = () => {
                       </IconButton>
                     </Tooltip>
                   )}
-                  {canDelete && role.name !== 'Administrator' && (role._count?.users || 0) === 0 && (
+                  {canDelete && !role.isSystemAdmin && (role._count?.users || 0) === 0 && (
                     <Tooltip title="Delete Role">
                       <IconButton onClick={() => handleDeleteClick(role)} color="error">
                         <DeleteIcon />

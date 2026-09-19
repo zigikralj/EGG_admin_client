@@ -33,14 +33,6 @@ export const AdminLayout: React.FC<Props> = ({
   const {
     role,
     isAdmin,
-    isUser,
-    isAccountant,
-    canManageClients,
-    canManagePermits,
-    canManageUsers,
-    canManageServices,
-    canManageInvoices,
-    canManageProvidedServices,
     pendingUsersCount,
     hasPermission,
     logout,
@@ -67,7 +59,7 @@ export const AdminLayout: React.FC<Props> = ({
 
     if (!appName) return;
 
-    const canAccessApp = hasPermission('apps', appName) || (appName === 'data-management' && role === 'Manager');
+    const canAccessApp = hasPermission('apps', appName);
 
     if (!canAccessApp) {
       navigate(appName === 'data-management' ? '/project-tracker' : '/data-management/projects');
@@ -112,23 +104,23 @@ export const AdminLayout: React.FC<Props> = ({
 
   const navItems = [
     { path: '/project-tracker', label: t('tabDashboard'), icon: <DashboardIcon />, count: 0, show: true },
-    { path: '/data-management/projects', label: t('tabProjects'), icon: <FolderIcon />, count: stats.active, show: !isUser && !isAccountant },
-    { path: '/data-management/clients', label: t('tabClients'), icon: <BusinessIcon />, count: stats.clientsCount, show: canManageClients },
-    { path: '/data-management/permits', label: t('tabPermits'), icon: <AssignmentTurnedInIcon />, count: 0, show: canManagePermits },
+    { path: '/data-management/projects', label: t('tabProjects'), icon: <FolderIcon />, count: stats.active, show: hasPermission('projects', 'view') },
+    { path: '/data-management/clients', label: t('tabClients'), icon: <BusinessIcon />, count: stats.clientsCount, show: hasPermission('clients', 'view') },
+    { path: '/data-management/permits', label: t('tabPermits'), icon: <AssignmentTurnedInIcon />, count: 0, show: hasPermission('permits', 'view') },
     {
       path: '/data-management/users',
       label: t('tabUsers'),
       icon: <PeopleIcon />,
-      count: canManageUsers && pendingUsersCount > 0 ? pendingUsersCount : stats.usersCount,
-      color: canManageUsers && pendingUsersCount > 0 ? ('warning' as const) : undefined,
-      show: canManageUsers,
+      count: hasPermission('users', 'view') && pendingUsersCount > 0 ? pendingUsersCount : stats.usersCount,
+      color: hasPermission('users', 'view') && pendingUsersCount > 0 ? ('warning' as const) : undefined,
+      show: hasPermission('users', 'view'),
     },
-    { path: '/data-management/services', label: t('tabServices'), icon: <BuildIcon />, count: 0, show: canManageServices },
-    { path: '/data-management/provided-services', label: t('tabProvidedServices'), icon: <HandymanIcon />, count: 0, show: canManageProvidedServices },
-    { path: '/data-management/categories', label: t('tabCategories'), icon: <CategoryIcon />, count: stats.categoriesCount || 0, show: canManageServices },
-    { path: '/data-management/reminders', label: t('tabReminders'), icon: <NotificationsActiveIcon />, count: stats.monitor, show: !isUser && !isAccountant, color: 'error' as const },
-    { path: '/data-management/invoices', label: t('tabInvoices'), icon: <ReceiptLongIcon />, count: stats.invoicesCount || 0, show: !isAccountant && (!isUser && canManageInvoices) },
-    { path: '/data-management/roles', label: 'Roles', icon: <SecurityIcon />, count: 0, show: hasPermission('roles', 'view') || isAdmin },
+    { path: '/data-management/services', label: t('tabServices'), icon: <BuildIcon />, count: 0, show: hasPermission('services', 'view') },
+    { path: '/data-management/provided-services', label: t('tabProvidedServices'), icon: <HandymanIcon />, count: 0, show: hasPermission('providedServices', 'view') },
+    { path: '/data-management/categories', label: t('tabCategories'), icon: <CategoryIcon />, count: stats.categoriesCount || 0, show: hasPermission('categories', 'view') },
+    { path: '/data-management/reminders', label: t('tabReminders'), icon: <NotificationsActiveIcon />, count: stats.monitor, show: hasPermission('reminders', 'view'), color: 'error' as const },
+    { path: '/data-management/invoices', label: t('tabInvoices'), icon: <ReceiptLongIcon />, count: stats.invoicesCount || 0, show: hasPermission('invoices', 'view') },
+    { path: '/data-management/roles', label: 'Roles', icon: <SecurityIcon />, count: 0, show: hasPermission('roles', 'view') },
   ];
 
   return (

@@ -34,6 +34,7 @@ import {
 
 import { apiFetch } from '../../api';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
 import type { CompanyInfo } from '../../types';
 import { CloseIcon, BusinessIcon, ContentCopyIcon, CheckCircleIcon, LocationOnIcon, EmailIcon, AccountBalanceIcon, BadgeIcon, WorkIcon, EditIcon, SaveIcon, AddIcon, DeleteIcon } from '../icons';
 
@@ -59,6 +60,8 @@ const EMPTY_COMPANY_INFO: CompanyInfo = {
 
 export const CompanyInfoModal: React.FC<CompanyInfoModalProps> = ({ open, onClose }) => {
   const { t } = useLanguage();
+  const { hasPermission } = useAuth();
+  const canEdit = hasPermission('companyInfo', 'edit');
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
@@ -147,6 +150,7 @@ export const CompanyInfoModal: React.FC<CompanyInfoModalProps> = ({ open, onClos
   };
 
   const handleStartEdit = () => {
+    if (!canEdit) return;
     setFormData({ ...companyInfo, bankAccounts: [...companyInfo.bankAccounts] });
     setIsEditing(true);
   };
@@ -186,6 +190,7 @@ export const CompanyInfoModal: React.FC<CompanyInfoModalProps> = ({ open, onClos
   };
 
   const handleSave = async () => {
+    if (!canEdit) return;
     setIsSaving(true);
     try {
       const payload = {
@@ -878,20 +883,22 @@ export const CompanyInfoModal: React.FC<CompanyInfoModalProps> = ({ open, onClos
           ) : (
             <>
               <Box sx={{ display: 'flex', gap: 1 }}>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<EditIcon fontSize="small" />}
-                  onClick={handleStartEdit}
-                  disabled={isLoading}
-                  sx={{
-                    borderRadius: 2,
-                    textTransform: 'none',
-                    fontWeight: 600,
-                  }}
-                >
-                  {t('btnEditCompanyInfo')}
-                </Button>
+                {canEdit && (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<EditIcon fontSize="small" />}
+                    onClick={handleStartEdit}
+                    disabled={isLoading}
+                    sx={{
+                      borderRadius: 2,
+                      textTransform: 'none',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {t('btnEditCompanyInfo')}
+                  </Button>
+                )}
                 <Button
                   variant="outlined"
                   size="small"
