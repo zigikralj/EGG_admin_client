@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.3.3] - 2026-09-19
+
+- Dynamic roles (#44) by @zigikralj
+
 ## [v1.3.2] - 2026-09-19
 
 - Dynamic roles (#42) by @zigikralj
