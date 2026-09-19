@@ -59,28 +59,28 @@ export const AdminLayout: React.FC<Props> = ({
   const currentApp = location.pathname.startsWith('/data-management') ? 'data-management' : 'project-tracker';
 
   useEffect(() => {
-    if (currentApp === 'data-management') {
-      const isRolesPage = location.pathname.startsWith('/data-management/roles');
-      if (isRolesPage) {
-        if (!hasPermission('roles', 'view') && !isAdmin) {
-          navigate('/project-tracker');
-        }
-        return;
-      }
-      const canAccessDataManagement = hasPermission('apps', 'data-management') || isAdmin || role === 'Manager';
-      if (!canAccessDataManagement) {
-        navigate('/project-tracker');
-      }
-    } else if (currentApp === 'project-tracker') {
-      const canAccessProjectTracker = hasPermission('apps', 'project-tracker') || isAdmin;
-      if (!canAccessProjectTracker) {
-        const canAccessDataManagement = hasPermission('apps', 'data-management') || isAdmin || role === 'Manager';
-        if (canAccessDataManagement) {
-          navigate('/data-management/projects');
-        }
+    if (isAdmin) return;
+
+    const parts = location.pathname.split('/').filter(Boolean);
+    const appName = parts[0];
+    const page = parts[1];
+
+    if (!appName) return;
+
+    const canAccessApp = hasPermission('apps', appName) || (appName === 'data-management' && role === 'Manager');
+
+    if (!canAccessApp) {
+      navigate(appName === 'data-management' ? '/project-tracker' : '/data-management/projects');
+      return;
+    }
+
+    if (page) {
+      const resource = page.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+      if (!hasPermission(resource, 'view')) {
+        navigate(appName === 'data-management' ? '/project-tracker' : '/data-management/projects');
       }
     }
-  }, [currentApp, role, isAdmin, hasPermission, location.pathname, navigate]);
+  }, [role, isAdmin, hasPermission, location.pathname, navigate]);
 
   useEffect(() => {
     // Scroll window and main content
