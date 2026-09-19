@@ -62,19 +62,19 @@ export const AdminLayout: React.FC<Props> = ({
     if (currentApp === 'data-management') {
       const isRolesPage = location.pathname.startsWith('/data-management/roles');
       if (isRolesPage) {
-        if (!hasPermission('roles', 'view') && !isAdmin && role !== 'Administrator') {
+        if (!hasPermission('roles', 'view') && !isAdmin) {
           navigate('/project-tracker');
         }
         return;
       }
-      const canAccessDataManagement = hasPermission('apps', 'data-management') || isAdmin || role === 'Administrator' || role === 'Manager';
+      const canAccessDataManagement = hasPermission('apps', 'data-management') || isAdmin || role === 'Manager';
       if (!canAccessDataManagement) {
         navigate('/project-tracker');
       }
     } else if (currentApp === 'project-tracker') {
-      const canAccessProjectTracker = hasPermission('apps', 'project-tracker') || isAdmin || role === 'Administrator';
+      const canAccessProjectTracker = hasPermission('apps', 'project-tracker') || isAdmin;
       if (!canAccessProjectTracker) {
-        const canAccessDataManagement = hasPermission('apps', 'data-management') || isAdmin || role === 'Administrator' || role === 'Manager';
+        const canAccessDataManagement = hasPermission('apps', 'data-management') || isAdmin || role === 'Manager';
         if (canAccessDataManagement) {
           navigate('/data-management/projects');
         }

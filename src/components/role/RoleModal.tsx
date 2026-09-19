@@ -215,7 +215,7 @@ export const RoleModal: React.FC<RoleModalProps> = ({
             <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
               <FormControlLabel
                 control={<Switch checked={isSystemAdmin} onChange={(e) => setIsSystemAdmin(e.target.checked)} color="error" />}
-                label={<Typography fontWeight="bold" color="error">System Administrator</Typography>}
+                label={<Typography sx={{ fontWeight: 'bold' }} color="error">System Administrator</Typography>}
               />
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                 System administrators bypass all permission checks and have full access to everything. Grant with caution.

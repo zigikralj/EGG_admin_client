@@ -316,7 +316,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // If real admin is impersonating, we might not have the exact permissions of the impersonated role here
     // unless we fetch all roles. For now, if impersonating a basic role, we fall back to minimal access.
     if (isRealAdmin && roleView !== actualRole) {
-      if (roleView === 'Administrator') return true;
       if (roleView === 'Manager') {
         if (resource === 'apps') return true;
         const defaultManagerPerms: Record<string, string[]> = {

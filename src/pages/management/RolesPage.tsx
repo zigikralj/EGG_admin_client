@@ -81,7 +81,7 @@ const RolesPage: React.FC = () => {
   return (
     <Box sx={{ p: 3, maxWidth: 1200, margin: '0 auto' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" fontWeight="bold">
+        <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
           Roles & Permissions
         </Typography>
         {canCreate && (
@@ -106,7 +106,7 @@ const RolesPage: React.FC = () => {
             {roles?.map((role) => (
               <TableRow key={role.name} hover>
                 <TableCell>
-                  <Typography fontWeight="500">{role.name}</Typography>
+                  <Typography sx={{ fontWeight: 500 }}>{role.name}</Typography>
                 </TableCell>
                 <TableCell>{role.description}</TableCell>
                 <TableCell align="center">
