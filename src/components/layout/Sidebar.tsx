@@ -224,17 +224,103 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     })}
 
                     {/* STATISTIC MENU ITEM WITH SUBMENU */}
-                    {hasPermission('statistics', 'view') ? (
-                      <React.Fragment key="statistic-menu-group">
+                    {hasPermission('statistics', 'view') && (
+                      statisticSubItems.length > 1 ? (
+                        <React.Fragment key="statistic-menu-group">
+                          <ListItemButton
+                            selected={isStatisticActive}
+                            onClick={() => {
+                              if (!isStatisticActive) {
+                                navigate('/project-tracker/statistic');
+                                expandStatistic();
+                              } else {
+                                toggleStatisticExpanded();
+                              }
+                            }}
+                            sx={{
+                              borderRadius: 2,
+                              py: 1.2,
+                              px: 2,
+                              '&.Mui-selected': {
+                                bgcolor: 'primary.50',
+                                color: 'primary.main',
+                                fontWeight: 700,
+                                '& .MuiListItemIcon-root': {
+                                  color: 'primary.main',
+                                },
+                              },
+                            }}
+                          >
+                            <ListItemIcon sx={{ minWidth: 40, color: isStatisticActive ? 'primary.main' : 'text.secondary' }}>
+                              <BarChartIcon fontSize="small" />
+                            </ListItemIcon>
+                            <ListItemText
+                              primary={
+                                <Typography variant="body2" sx={{ fontWeight: isStatisticActive ? 700 : 500 }}>
+                                  {t('subTabStatistic')}
+                                </Typography>
+                              }
+                            />
+                            {statisticExpanded ? (
+                              <ExpandLessIcon fontSize="small" sx={{ color: isStatisticActive ? 'primary.main' : 'text.secondary' }} />
+                            ) : (
+                              <ExpandMoreIcon fontSize="small" sx={{ color: isStatisticActive ? 'primary.main' : 'text.secondary' }} />
+                            )}
+                          </ListItemButton>
+
+                          <Collapse in={statisticExpanded || isStatisticActive} timeout="auto">
+                            <List component="div" disablePadding sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, my: 0.25 }}>
+                              {statisticSubItems.map((sub) => {
+                                const isSubSelected = isDashboardActive && (location.pathname === `/project-tracker/${sub.id}`);
+                                return (
+                                  <ListItemButton
+                                    key={sub.id}
+                                    selected={isSubSelected}
+                                    onClick={() => {
+                                      navigate(`/project-tracker/${sub.id}`);
+                                      onMobileClose();
+                                    }}
+                                    sx={{
+                                      pl: 4,
+                                      py: 0.8,
+                                      pr: 2,
+                                      borderRadius: 2,
+                                      '&.Mui-selected': {
+                                        bgcolor: 'primary.50',
+                                        color: 'primary.main',
+                                        fontWeight: 700,
+                                        '& .MuiListItemIcon-root': {
+                                          color: 'primary.main',
+                                        },
+                                      },
+                                    }}
+                                  >
+                                    <ListItemIcon sx={{ minWidth: 32, color: isSubSelected ? 'primary.main' : 'text.secondary' }}>
+                                      {sub.icon}
+                                    </ListItemIcon>
+                                    <ListItemText
+                                      primary={
+                                        <Typography
+                                          variant="body2"
+                                          sx={{ fontWeight: isSubSelected ? 700 : 500, fontSize: '0.8125rem' }}
+                                        >
+                                          {sub.label}
+                                        </Typography>
+                                      }
+                                    />
+                                  </ListItemButton>
+                                );
+                              })}
+                            </List>
+                          </Collapse>
+                        </React.Fragment>
+                      ) : (
                         <ListItemButton
+                          key="statistic"
                           selected={isStatisticActive}
                           onClick={() => {
-                            if (!isStatisticActive) {
-                              navigate('/project-tracker/statistic');
-                              expandStatistic();
-                            } else {
-                              toggleStatisticExpanded();
-                            }
+                            navigate('/project-tracker/statistic');
+                            onMobileClose();
                           }}
                           sx={{
                             borderRadius: 2,
@@ -260,92 +346,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               </Typography>
                             }
                           />
-                          {statisticExpanded ? (
-                            <ExpandLessIcon fontSize="small" sx={{ color: isStatisticActive ? 'primary.main' : 'text.secondary' }} />
-                          ) : (
-                            <ExpandMoreIcon fontSize="small" sx={{ color: isStatisticActive ? 'primary.main' : 'text.secondary' }} />
-                          )}
                         </ListItemButton>
-
-                        <Collapse in={statisticExpanded || isStatisticActive} timeout="auto">
-                          <List component="div" disablePadding sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, my: 0.25 }}>
-                            {statisticSubItems.map((sub) => {
-                              const isSubSelected = isDashboardActive && (location.pathname === `/project-tracker/${sub.id}`);
-                              return (
-                                <ListItemButton
-                                  key={sub.id}
-                                  selected={isSubSelected}
-                                  onClick={() => {
-                                    navigate(`/project-tracker/${sub.id}`);
-                                    onMobileClose();
-                                  }}
-                                  sx={{
-                                    pl: 4,
-                                    py: 0.8,
-                                    pr: 2,
-                                    borderRadius: 2,
-                                    '&.Mui-selected': {
-                                      bgcolor: 'primary.50',
-                                      color: 'primary.main',
-                                      fontWeight: 700,
-                                      '& .MuiListItemIcon-root': {
-                                        color: 'primary.main',
-                                      },
-                                    },
-                                  }}
-                                >
-                                  <ListItemIcon sx={{ minWidth: 32, color: isSubSelected ? 'primary.main' : 'text.secondary' }}>
-                                    {sub.icon}
-                                  </ListItemIcon>
-                                  <ListItemText
-                                    primary={
-                                      <Typography
-                                        variant="body2"
-                                        sx={{ fontWeight: isSubSelected ? 700 : 500, fontSize: '0.8125rem' }}
-                                      >
-                                        {sub.label}
-                                      </Typography>
-                                    }
-                                  />
-                                </ListItemButton>
-                              );
-                            })}
-                          </List>
-                        </Collapse>
-                      </React.Fragment>
-                    ) : (
-                      <ListItemButton
-                        key="statistic"
-                        selected={isStatisticActive}
-                        onClick={() => {
-                          navigate('/project-tracker/statistic');
-                          onMobileClose();
-                        }}
-                        sx={{
-                          borderRadius: 2,
-                          py: 1.2,
-                          px: 2,
-                          '&.Mui-selected': {
-                            bgcolor: 'primary.50',
-                            color: 'primary.main',
-                            fontWeight: 700,
-                            '& .MuiListItemIcon-root': {
-                              color: 'primary.main',
-                            },
-                          },
-                        }}
-                      >
-                        <ListItemIcon sx={{ minWidth: 40, color: isStatisticActive ? 'primary.main' : 'text.secondary' }}>
-                          <BarChartIcon fontSize="small" />
-                        </ListItemIcon>
-                        <ListItemText
-                          primary={
-                            <Typography variant="body2" sx={{ fontWeight: isStatisticActive ? 700 : 500 }}>
-                              {t('subTabStatistic')}
-                            </Typography>
-                          }
-                        />
-                      </ListItemButton>
+                      )
                     )}
                   </>
                 );

@@ -189,6 +189,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
+    // Check auth immediately on mount to ensure fresh roleEntity & permissions
+    checkAuth();
+
     // Start polling only if tab is currently visible
     if (!document.hidden) {
       startPolling();
@@ -340,23 +343,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const perms = roleEnt.permissions || {};
 
     if (resource === 'apps') {
-      if (!Array.isArray(perms.apps)) {
-        // Fallback if role in DB lacks explicit 'apps' configuration (e.g. legacy/seed roles)
-        if (action === 'project-tracker') return true;
-        if (action === 'data-management') {
-          return Boolean(
-            roleEnt.isSystemAdmin ||
-            roleEnt.name === 'Administrator' ||
-            roleEnt.name === 'Manager' ||
-            roleEnt.name === 'Accountant' ||
-            perms.projects?.length ||
-            perms.invoices?.length ||
-            perms.clients?.length
-          );
-        }
-        return false;
+      if (action === 'project-tracker') {
+        if (!Array.isArray(perms.apps)) return true;
+        return perms.apps.includes('project-tracker');
       }
-      return perms.apps.includes(action);
+      if (action === 'data-management') {
+        if (roleEnt.isSystemAdmin || roleEnt.name === 'Administrator' || roleEnt.name === 'Manager') return true;
+        if (Array.isArray(perms.apps) && perms.apps.includes('data-management')) return true;
+        // Fallback: if role has permissions for ANY data management resources, allow data-management app access
+        return Boolean(
+          perms.projects?.length ||
+          perms.clients?.length ||
+          perms.permits?.length ||
+          perms.invoices?.length ||
+          perms.services?.length ||
+          perms.providedServices?.length ||
+          perms.categories?.length ||
+          perms.reminders?.length ||
+          perms.users?.length ||
+          perms.roles?.length ||
+          perms.companyInfo?.length
+        );
+      }
+      return Array.isArray(perms.apps) && perms.apps.includes(action);
     }
 
     if (!perms[resource] || !Array.isArray(perms[resource])) {
@@ -364,6 +373,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const base = resource.replace('tracker_', '');
         if (perms[base] && Array.isArray(perms[base])) {
           return perms[base].includes(action);
+        }
+      }
+      if (resource === 'wasteDisposal') {
+        if (perms.providedServices && Array.isArray(perms.providedServices)) {
+          return perms.providedServices.includes(action);
         }
       }
       return false;

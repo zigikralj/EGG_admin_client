@@ -111,7 +111,10 @@ export const RoleModal: React.FC<RoleModalProps> = ({
         if (Array.isArray(roleApps)) {
           setAppPermissions(roleApps);
         } else {
-          if (role.name === 'User') {
+          const hasDMResources = role.permissions && Object.keys(role.permissions).some(
+            (key) => ['projects', 'clients', 'permits', 'services', 'providedServices', 'categories', 'reminders', 'invoices', 'users', 'roles', 'companyInfo'].includes(key) && (role.permissions[key] || []).length > 0
+          );
+          if (role.name === 'User' && !hasDMResources) {
             setAppPermissions(['project-tracker']);
           } else {
             setAppPermissions(['project-tracker', 'data-management']);
@@ -165,18 +168,38 @@ export const RoleModal: React.FC<RoleModalProps> = ({
   };
 
   const handleSave = () => {
+    let finalApps = [...appPermissions];
+    const dataManagementResources = APPS.find((a) => a.id === 'data-management')?.resources.map((r) => r.id) || [];
+    const trackerResources = APPS.find((a) => a.id === 'project-tracker')?.resources.map((r) => r.id) || [];
+
+    const hasDataMgmtPerms = dataManagementResources.some((resId) => (permissions[resId] || []).length > 0);
+    const hasTrackerPerms = trackerResources.some((resId) => (permissions[resId] || []).length > 0);
+
+    if (hasDataMgmtPerms && !finalApps.includes('data-management')) {
+      finalApps.push('data-management');
+    }
+    if (hasTrackerPerms && !finalApps.includes('project-tracker')) {
+      finalApps.push('project-tracker');
+    }
+
     onSave(name, {
       name: isEdit ? undefined : name,
       description,
       isSystemAdmin: canAssignSystemAdmin ? isSystemAdmin : false,
       permissions: {
         ...permissions,
-        apps: appPermissions,
+        apps: finalApps,
       },
     });
   };
 
   const handlePermissionChange = (resourceId: string, action: string, checked: boolean) => {
+    if (checked) {
+      const parentApp = APPS.find((app) => app.resources.some((r) => r.id === resourceId));
+      if (parentApp) {
+        setAppPermissions((prev) => (prev.includes(parentApp.id) ? prev : [...prev, parentApp.id]));
+      }
+    }
     setPermissions((prev) => {
       const currentResourcePerms = prev[resourceId] || [];
       const newPerms = { ...prev };
