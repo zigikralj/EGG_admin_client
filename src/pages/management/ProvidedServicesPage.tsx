@@ -58,27 +58,11 @@ import {
   RefreshIcon,
 } from '../../components/icons';
 import { useTableView } from '../../hooks/useTableView';
-
-const normalizeKey = (str: string) =>
-  (str || '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/^_|_$/g, '');
-
-const isKeyMatch = (key: string, field: CustomFieldDefinition) => {
-  if (key === field.id) return true;
-  const nKey = normalizeKey(key);
-  const nFieldId = normalizeKey(field.id);
-  const nFieldName = normalizeKey(field.name);
-  if (nKey === nFieldId || nKey === nFieldName) return true;
-  if (nKey.includes('kolicin') && (nFieldName.includes('kolicin') || nFieldId.includes('kolicin'))) return true;
-  if (nKey.includes('vrst') && (nFieldName.includes('vrst') || nFieldId.includes('vrst'))) return true;
-  if (nKey.includes('datum') && (nFieldName.includes('datum') || nFieldId.includes('datum'))) return true;
-  return false;
-};
+import {
+  isKeyMatch,
+  resolveCustomFieldBadges,
+  formatFieldBadgeLabel,
+} from '../../utils/customFields';
 
 interface Props extends TableViewProps {
   subTab?: ProvidedServicesSubTab;
@@ -953,7 +937,6 @@ const ProvidedServicesPage: React.FC<Props> = ({
                   const cli = item.client || clients.find((c) => c.id === item.clientId);
                   const prj = item.project || projects.find((p) => p.id === item.projectId);
                   const inv = item.invoice || invoices.find((i) => i.id === item.invoiceId);
-                  const itemFields = srv ? getCustomModelForService(srv.id) : [];
 
                   return (
                     <TableRow key={item.id} hover>
@@ -1017,63 +1000,24 @@ const ProvidedServicesPage: React.FC<Props> = ({
                           {item.customData && Object.keys(item.customData).length > 0 ? (
                             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                               {(() => {
-                                const chips: React.ReactNode[] = [];
-
-                                if (itemFields.length > 0) {
-                                  itemFields.forEach((fieldDef) => {
-                                    let val = item.customData?.[fieldDef.id];
-                                    if (val === undefined || val === null || val === '') {
-                                      for (const [k, v] of Object.entries(item.customData || {})) {
-                                        if (v !== undefined && v !== null && v !== '' && isKeyMatch(k, fieldDef)) {
-                                          val = v;
-                                          break;
-                                        }
-                                      }
-                                    }
-                                    if (val !== undefined && val !== null && val !== '') {
-                                      const label = fieldDef.name;
-                                      const unitStr = fieldDef.unit ? ` ${fieldDef.unit}` : '';
-                                      let displayVal = String(val);
-                                      if (fieldDef.type === 'datetime' && typeof val === 'string' && val.includes('T')) {
-                                        displayVal = val.replace('T', ' ');
-                                      }
-                                      chips.push(
-                                        <Chip
-                                          key={fieldDef.id}
-                                          size="small"
-                                          label={`${label}: ${displayVal}${unitStr}`}
-                                          variant="outlined"
-                                          color="primary"
-                                          sx={{ fontSize: '0.75rem', height: 22 }}
-                                        />
-                                      );
-                                    }
-                                  });
-                                } else {
-                                  Object.entries(item.customData).forEach(([k, v]) => {
-                                    if (v === null || v === undefined || v === '') return;
-                                    if (k.startsWith('field_')) return;
-                                    chips.push(
-                                      <Chip
-                                        key={k}
-                                        size="small"
-                                        label={`${k}: ${String(v)}`}
-                                        variant="outlined"
-                                        color="primary"
-                                        sx={{ fontSize: '0.75rem', height: 22 }}
-                                      />
-                                    );
-                                  });
-                                }
-
-                                if (chips.length === 0) {
+                                const badges = resolveCustomFieldBadges(item, services);
+                                if (badges.length === 0) {
                                   return (
                                     <Typography variant="body2" color="text.secondary">
                                       —
                                     </Typography>
                                   );
                                 }
-                                return chips;
+                                return badges.map((badge) => (
+                                  <Chip
+                                    key={badge.id}
+                                    size="small"
+                                    label={formatFieldBadgeLabel(badge)}
+                                    variant="outlined"
+                                    color="primary"
+                                    sx={{ fontSize: '0.75rem', height: 22 }}
+                                  />
+                                ));
                               })()}
                             </Box>
                           ) : (

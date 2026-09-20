@@ -78,6 +78,7 @@ export { default as RedoIcon } from '@mui/icons-material/Redo';
 export { default as RefreshIcon } from '@mui/icons-material/Refresh';
 export { default as SaveIcon } from '@mui/icons-material/Save';
 export { default as SearchIcon } from '@mui/icons-material/Search';
+export { default as SecurityIcon } from '@mui/icons-material/Security';
 export { default as SettingsBrightnessIcon } from '@mui/icons-material/SettingsBrightness';
 export { default as SettingsIcon } from '@mui/icons-material/Settings';
 export { default as ShowChartIcon } from '@mui/icons-material/ShowChart';
