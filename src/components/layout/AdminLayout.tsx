@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Toolbar } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
-import SecurityIcon from '@mui/icons-material/Security';
 
 import type { ProjectStats } from '../../types';
 import { useAuth } from '../../context/AuthContext';
@@ -12,7 +11,7 @@ import { AppHeader } from './AppHeader';
 import { UserProfileDialog } from './UserProfileDialog';
 import { SettingsDialog } from './SettingsDialog';
 import { CompanyInfoModal } from '../dialogs/CompanyInfoModal';
-import { DashboardIcon, FolderIcon, BusinessIcon, AssignmentTurnedInIcon, PeopleIcon, BuildIcon, HandymanIcon, CategoryIcon, NotificationsActiveIcon, ReceiptLongIcon } from '../icons';
+import { DashboardIcon, FolderIcon, BusinessIcon, AssignmentTurnedInIcon, PeopleIcon, BuildIcon, HandymanIcon, CategoryIcon, NotificationsActiveIcon, ReceiptLongIcon, SecurityIcon } from '../icons';
 
 interface Props {
   stats: ProjectStats;
@@ -33,6 +32,7 @@ export const AdminLayout: React.FC<Props> = ({
   const {
     role,
     isAdmin,
+    isRolesLoading,
     pendingUsersCount,
     hasPermission,
     logout,
@@ -49,60 +49,7 @@ export const AdminLayout: React.FC<Props> = ({
   const location = useLocation();
   const navigate = useNavigate();
 
-
-  useEffect(() => {
-    if (isAdmin) return;
-
-    const parts = location.pathname.split('/').filter(Boolean);
-    const appName = parts[0];
-    const page = parts[1];
-
-    if (!appName) return;
-
-    const canAccessApp = hasPermission('apps', appName);
-
-    if (!canAccessApp) {
-      navigate(appName === 'data-management' ? '/project-tracker' : '/data-management/projects');
-      return;
-    }
-
-    if (page) {
-      let resource = page.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-      
-      // Map project-tracker pages to their respective role resource IDs
-      if (appName === 'project-tracker') {
-        if (page === 'projects') resource = 'tracker_projects';
-        if (page === 'reminders') resource = 'tracker_reminders';
-        if (page === 'invoices') resource = 'tracker_invoices';
-        if (page === 'statistic') resource = 'statistics';
-        if (page === 'waste-disposal' || page === 'statistic-waste-disposal' || page === 'statistic-waste-management') resource = 'wasteDisposal';
-      }
-
-      if (!hasPermission(resource, 'view')) {
-        navigate(appName === 'data-management' ? '/project-tracker' : '/data-management/projects');
-      }
-    }
-  }, [role, isAdmin, hasPermission, location.pathname, navigate]);
-
-  useEffect(() => {
-    // Scroll window and main content
-    const resetScroll = () => {
-      window.scrollTo({ top: 0, behavior: 'instant' });
-      const mainEl = document.getElementById('main-content');
-      if (mainEl) {
-        mainEl.scrollTo({ top: 0, behavior: 'instant' });
-      }
-    };
-    
-    // Call immediately
-    resetScroll();
-    
-    // Call again after a short delay to account for React.lazy / Suspense rendering new content
-    const timeoutId = setTimeout(resetScroll, 100);
-    return () => clearTimeout(timeoutId);
-  }, [location.pathname]);
-
-  const navItems = [
+  const navItems = useMemo(() => [
     { path: '/project-tracker', label: t('tabDashboard'), icon: <DashboardIcon />, count: 0, show: true },
     { path: '/data-management/projects', label: t('tabProjects'), icon: <FolderIcon />, count: stats.active, show: hasPermission('projects', 'view') },
     { path: '/data-management/clients', label: t('tabClients'), icon: <BusinessIcon />, count: stats.clientsCount, show: hasPermission('clients', 'view') },
@@ -121,7 +68,99 @@ export const AdminLayout: React.FC<Props> = ({
     { path: '/data-management/reminders', label: t('tabReminders'), icon: <NotificationsActiveIcon />, count: stats.monitor, show: hasPermission('reminders', 'view'), color: 'error' as const },
     { path: '/data-management/invoices', label: t('tabInvoices'), icon: <ReceiptLongIcon />, count: stats.invoicesCount || 0, show: hasPermission('invoices', 'view') },
     { path: '/data-management/roles', label: 'Roles', icon: <SecurityIcon />, count: 0, show: hasPermission('roles', 'view') },
-  ];
+  ], [t, stats, pendingUsersCount, hasPermission]);
+
+  useEffect(() => {
+    if (isAdmin || isRolesLoading) return;
+
+    const parts = location.pathname.split('/').filter(Boolean);
+    const appName = parts[0];
+    const page = parts[1];
+
+    if (!appName) return;
+
+    const canAccessTracker = hasPermission('apps', 'project-tracker');
+    const canAccessDataMgmt = hasPermission('apps', 'data-management');
+
+    const canAccessApp = appName === 'data-management' ? canAccessDataMgmt : canAccessTracker;
+
+    if (!canAccessApp) {
+      if (appName === 'data-management' && canAccessTracker) {
+        navigate('/project-tracker', { replace: true });
+        return;
+      }
+      if (appName === 'project-tracker' && canAccessDataMgmt) {
+        const firstAllowed = navItems.find((item) => item.show && item.path.startsWith('/data-management/'));
+        navigate(firstAllowed ? firstAllowed.path : '/data-management/projects', { replace: true });
+        return;
+      }
+      // If neither app is accessible, do not navigate in an infinite loop
+      return;
+    }
+
+    if (page) {
+      let resource = page.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+      
+      // Map project-tracker pages to their respective role resource IDs
+      if (appName === 'project-tracker') {
+        if (page === 'projects') resource = 'tracker_projects';
+        if (page === 'reminders') resource = 'tracker_reminders';
+        if (page === 'invoices') resource = 'tracker_invoices';
+        if (page === 'statistic') resource = 'statistics';
+        if (page === 'waste-disposal' || page === 'statistic-waste-disposal' || page === 'statistic-waste-management') resource = 'wasteDisposal';
+      }
+
+      if (!hasPermission(resource, 'view')) {
+        if (appName === 'data-management') {
+          const firstAllowed = navItems.find((item) => item.show && item.path.startsWith('/data-management/') && item.path !== location.pathname);
+          if (firstAllowed) {
+            navigate(firstAllowed.path, { replace: true });
+            return;
+          }
+          if (canAccessTracker) {
+            navigate('/project-tracker', { replace: true });
+            return;
+          }
+        } else if (appName === 'project-tracker') {
+          const trackerSubTabs = [
+            { path: '/project-tracker/projects', resource: 'tracker_projects' },
+            { path: '/project-tracker/invoices', resource: 'tracker_invoices' },
+            { path: '/project-tracker/reminders', resource: 'tracker_reminders' },
+            { path: '/project-tracker/waste-disposal', resource: 'wasteDisposal' },
+            { path: '/project-tracker/statistic', resource: 'statistics' },
+          ];
+          const firstAllowedSub = trackerSubTabs.find((sub) => hasPermission(sub.resource, 'view') && sub.path !== location.pathname);
+          if (firstAllowedSub) {
+            navigate(firstAllowedSub.path, { replace: true });
+            return;
+          }
+          if (canAccessDataMgmt) {
+            const firstAllowed = navItems.find((item) => item.show && item.path.startsWith('/data-management/'));
+            navigate(firstAllowed ? firstAllowed.path : '/data-management/projects', { replace: true });
+            return;
+          }
+        }
+      }
+    }
+  }, [role, isAdmin, isRolesLoading, hasPermission, location.pathname, navigate, navItems]);
+
+  useEffect(() => {
+    // Scroll window and main content
+    const resetScroll = () => {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      const mainEl = document.getElementById('main-content');
+      if (mainEl) {
+        mainEl.scrollTo({ top: 0, behavior: 'instant' });
+      }
+    };
+    
+    // Call immediately
+    resetScroll();
+    
+    // Call again after a short delay to account for React.lazy / Suspense rendering new content
+    const timeoutId = setTimeout(resetScroll, 100);
+    return () => clearTimeout(timeoutId);
+  }, [location.pathname]);
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>

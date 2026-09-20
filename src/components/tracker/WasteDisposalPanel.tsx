@@ -52,6 +52,11 @@ import {
 import { DashboardPanelSkeleton } from '../tracker/DashboardPanelSkeleton';
 import { type QuickFilterItem } from '../common/TableQuickFilters';
 import { useTableView } from '../../hooks/useTableView';
+import {
+  resolveCustomFieldBadges,
+  formatFieldBadgeLabel,
+  isKeyMatch,
+} from '../../utils/customFields';
 
 interface Props {
   providedServices?: ProvidedService[];
@@ -524,6 +529,42 @@ export const WasteDisposalPanel: React.FC<Props> = ({
     setIsDialogOpen(true);
   };
 
+  const prepareCustomDataForForm = (item: ProvidedService) => {
+    const rawCustomData: Record<string, any> = item.customData ? { ...item.customData } : {};
+    const itemService = item.service || services.find((s) => String(s.id) === String(item.serviceId));
+    const serviceFields =
+      itemService?.customDataModel && Array.isArray(itemService.customDataModel)
+        ? itemService.customDataModel
+        : [];
+    const initialCustomData: Record<string, any> = {};
+
+    if (serviceFields.length > 0) {
+      serviceFields.forEach((field) => {
+        let val = rawCustomData[field.id];
+        if (val === undefined || val === null || val === '') {
+          for (const [k, v] of Object.entries(rawCustomData)) {
+            if (v !== undefined && v !== null && v !== '' && isKeyMatch(k, field)) {
+              val = v;
+              break;
+            }
+          }
+        }
+        if (val !== undefined && val !== null && val !== '') {
+          initialCustomData[field.id] = val;
+        }
+      });
+      // Preserve any other non-matched keys
+      for (const [k, v] of Object.entries(rawCustomData)) {
+        if (initialCustomData[k] === undefined && !serviceFields.some((f) => isKeyMatch(k, f))) {
+          initialCustomData[k] = v;
+        }
+      }
+    } else {
+      Object.assign(initialCustomData, rawCustomData);
+    }
+    return initialCustomData;
+  };
+
   const handleOpenView = (item: ProvidedService) => {
     setEditingItem(item);
     setIsViewMode(true);
@@ -537,7 +578,7 @@ export const WasteDisposalPanel: React.FC<Props> = ({
       completionDate: item.completionDate ? item.completionDate.slice(0, 10) : '',
       location: item.location || '',
       notes: item.notes || '',
-      customData: item.customData ? { ...item.customData } : {},
+      customData: prepareCustomDataForForm(item),
     });
     setIsDialogOpen(true);
   };
@@ -555,7 +596,7 @@ export const WasteDisposalPanel: React.FC<Props> = ({
       completionDate: item.completionDate ? item.completionDate.slice(0, 10) : '',
       location: item.location || '',
       notes: item.notes || '',
-      customData: item.customData ? { ...item.customData } : {},
+      customData: prepareCustomDataForForm(item),
     });
     setIsDialogOpen(true);
   };
@@ -630,11 +671,14 @@ export const WasteDisposalPanel: React.FC<Props> = ({
 
   // Get current active custom model for the selected service
   const selectedService = useMemo(() => {
-    return services.find((s) => s.id === formData.serviceId);
-  }, [services, formData.serviceId]);
+    return (
+      services.find((s) => String(s.id) === String(formData.serviceId)) ||
+      (editingItem?.serviceId === formData.serviceId ? editingItem?.service : undefined)
+    );
+  }, [services, formData.serviceId, editingItem]);
 
   const activeCustomFields: CustomFieldDefinition[] = useMemo(() => {
-    if (selectedService?.customDataModel && Array.isArray(selectedService.customDataModel)) {
+    if (selectedService?.customDataModel && Array.isArray(selectedService.customDataModel) && selectedService.customDataModel.length > 0) {
       return selectedService.customDataModel;
     }
     // Standard waste fields fallback
@@ -648,41 +692,29 @@ export const WasteDisposalPanel: React.FC<Props> = ({
 
   // Extract useful waste badges from customData for an item
   const renderWasteBadges = (item: ProvidedService) => {
-    if (!item.customData || typeof item.customData !== 'object') return null;
-
-    const entries = Object.entries(item.customData).filter(
-      ([_, v]) => v !== null && v !== undefined && String(v).trim() !== ''
-    );
-
-    if (entries.length === 0) return null;
+    const badges = resolveCustomFieldBadges(item, services);
+    if (badges.length === 0) return null;
 
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', mt: 0.25 }}>
-        {entries.slice(0, 3).map(([key, val]) => {
-          let cleanKey = key.replace(/_/g, ' ');
-          if (cleanKey.toLowerCase().includes('kolicin')) cleanKey = 'Količina';
-          else if (cleanKey.toLowerCase().includes('vrst')) cleanKey = 'Vrsta';
-          else if (cleanKey.toLowerCase().includes('indeks')) cleanKey = 'Indeks';
-
-          return (
-            <Chip
-              key={key}
-              size="small"
-              variant="outlined"
-              label={`${cleanKey}: ${val}`}
-              sx={{
-                height: 20,
-                fontSize: '0.68rem',
-                bgcolor: 'action.hover',
-                borderColor: 'divider',
-                color: 'text.secondary',
-              }}
-            />
-          );
-        })}
-        {entries.length > 3 && (
+        {badges.slice(0, 3).map((badge) => (
+          <Chip
+            key={badge.id}
+            size="small"
+            variant="outlined"
+            label={formatFieldBadgeLabel(badge)}
+            sx={{
+              height: 20,
+              fontSize: '0.68rem',
+              bgcolor: 'action.hover',
+              borderColor: 'divider',
+              color: 'text.secondary',
+            }}
+          />
+        ))}
+        {badges.length > 3 && (
           <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.68rem' }}>
-            +{entries.length - 3}
+            +{badges.length - 3}
           </Typography>
         )}
       </Box>
@@ -1202,7 +1234,16 @@ export const WasteDisposalPanel: React.FC<Props> = ({
               <Grid size={{ xs: 12 }}>
                 <Grid container spacing={2}>
                   {activeCustomFields.map((field) => {
-                    const val = formData.customData[field.id] ?? formData.customData[field.name] ?? '';
+                    let val = formData.customData[field.id] ?? formData.customData[field.name];
+                    if (val === undefined || val === null || val === '') {
+                      for (const [k, v] of Object.entries(formData.customData)) {
+                        if (v !== undefined && v !== null && v !== '' && isKeyMatch(k, field)) {
+                          val = v;
+                          break;
+                        }
+                      }
+                    }
+                    val = val ?? '';
                     return (
                       <Grid size={{ xs: 12, md: 6 }} key={field.id}>
                         {field.type === 'list' && field.options && field.options.length > 0 ? (

@@ -26,6 +26,7 @@ interface AuthContextType {
   canManagePermits: boolean;
   canManageServices: boolean;
   canManageUsers: boolean;
+  isRolesLoading: boolean;
   canEditUser: (targetUser: User) => boolean;
   canEditProject: (project: Project) => boolean;
   hasPermission: (resource: string, action: string) => boolean;
@@ -56,18 +57,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   const [roles, setRolesState] = useState<Role[]>([]);
+  const [isRolesLoading, setIsRolesLoading] = useState<boolean>(() => Boolean(currentUser?.id));
 
   useEffect(() => {
     if (currentUser?.id) {
+      setIsRolesLoading(true);
       apiFetch('/api/roles', { headers: { 'X-User-Id': currentUser.id } })
         .then(res => {
           if (res.ok) return res.json();
           throw new Error('Failed to fetch roles');
         })
         .then(data => setRolesState(data))
-        .catch(err => console.error('Error fetching roles for AuthContext:', err));
+        .catch(err => console.error('Error fetching roles for AuthContext:', err))
+        .finally(() => setIsRolesLoading(false));
     } else {
       setRolesState([]);
+      setIsRolesLoading(false);
     }
   }, [currentUser?.id]);
 
@@ -321,6 +326,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const hasPermission = React.useCallback((resource: string, action: string): boolean => {
     const roleEnt = effectiveRoleEntity;
     if (!roleEnt) {
+      // Safe defaults while roles are still loading or if role entity is not yet found
+      if (resource === 'apps') {
+        if (action === 'project-tracker') return true;
+        if (action === 'data-management') {
+          return Boolean(isRealAdmin || actualRole === 'Administrator' || actualRole === 'Manager');
+        }
+      }
       return false;
     }
 
@@ -328,7 +340,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const perms = roleEnt.permissions || {};
 
     if (resource === 'apps') {
-      return Array.isArray(perms.apps) && perms.apps.includes(action);
+      if (!Array.isArray(perms.apps)) {
+        // Fallback if role in DB lacks explicit 'apps' configuration (e.g. legacy/seed roles)
+        if (action === 'project-tracker') return true;
+        if (action === 'data-management') {
+          return Boolean(
+            roleEnt.isSystemAdmin ||
+            roleEnt.name === 'Administrator' ||
+            roleEnt.name === 'Manager' ||
+            roleEnt.name === 'Accountant' ||
+            perms.projects?.length ||
+            perms.invoices?.length ||
+            perms.clients?.length
+          );
+        }
+        return false;
+      }
+      return perms.apps.includes(action);
     }
 
     if (!perms[resource] || !Array.isArray(perms[resource])) {
@@ -341,7 +369,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return false;
     }
     return perms[resource].includes(action);
-  }, [effectiveRoleEntity]);
+  }, [effectiveRoleEntity, isRealAdmin, actualRole]);
 
   const isAdmin = Boolean(effectiveRoleEntity?.isSystemAdmin || effectiveRole === 'Administrator');
   const isManager = effectiveRole === 'Manager';
@@ -407,6 +435,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       canManagePermits,
       canManageServices,
       canManageUsers,
+      isRolesLoading,
       canEditUser,
       canEditProject,
       hasPermission,
@@ -434,6 +463,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       canManagePermits,
       canManageServices,
       canManageUsers,
+      isRolesLoading,
       canEditUser,
       canEditProject,
       hasPermission,

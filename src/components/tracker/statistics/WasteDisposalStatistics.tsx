@@ -16,6 +16,7 @@ import {
 import { LineChart } from '@mui/x-charts/LineChart';
 import type { ProvidedService, Service, Client, Category, Invoice, Project } from '../../../types';
 import { useLanguage } from '../../../context/LanguageContext';
+import { resolveCustomFieldBadges } from '../../../utils/customFields';
 import {
   HandymanIcon,
   CheckCircleOutlinedIcon,
@@ -140,6 +141,32 @@ export const WasteDisposalStatistics: React.FC<Props> = ({
 
   const extractWasteKg = (item: ProvidedService): number => {
     if (!item.customData || typeof item.customData !== 'object') return 0;
+
+    // 1. Check resolved custom field definitions (checking name and unit)
+    const badges = resolveCustomFieldBadges(item, services);
+    for (const b of badges) {
+      const lower = `${b.label} ${b.unit || ''}`.toLowerCase();
+      if (
+        lower.includes('kolicina') ||
+        lower.includes('quantity') ||
+        lower.includes('kg') ||
+        lower.includes('tona') ||
+        lower.includes('tezina') ||
+        lower.includes('weight') ||
+        lower.includes('amount') ||
+        lower.includes('kol')
+      ) {
+        const num = parseFloat(String(b.rawValue ?? b.value).replace(',', '.').replace(/[^0-9.-]/g, ''));
+        if (!isNaN(num) && num > 0) {
+          if (lower.includes('tona') || lower.includes('_t') || String(b.value).toLowerCase().includes(' t')) {
+            return num * 1000;
+          }
+          return num;
+        }
+      }
+    }
+
+    // 2. Direct check on customData keys
     for (const [k, v] of Object.entries(item.customData)) {
       if (v === null || v === undefined || v === '') continue;
       const lower = k.toLowerCase();
@@ -162,6 +189,8 @@ export const WasteDisposalStatistics: React.FC<Props> = ({
         }
       }
     }
+
+    // 3. Fallback: first positive numeric value
     for (const [_, v] of Object.entries(item.customData)) {
       if (v === null || v === undefined || v === '') continue;
       const num = parseFloat(String(v).replace(',', '.').replace(/[^0-9.-]/g, ''));
