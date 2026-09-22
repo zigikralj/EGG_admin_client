@@ -41,7 +41,6 @@ import {
   AddIcon,
   EditIcon,
   DeleteIcon,
-  LockIcon,
   SettingsIcon,
   ArrowUpwardIcon,
   ArrowDownwardIcon,
@@ -66,7 +65,11 @@ const ServicesPage: React.FC<Props> = ({
   onSortChange,
 }) => {
   const { t, getServiceLabel } = useLanguage();
-  const { canManageServices } = useAuth();
+  const { isAdmin, hasPermission } = useAuth();
+  const canCreate = isAdmin || hasPermission('services', 'create');
+  const canEdit = isAdmin || hasPermission('services', 'edit');
+  const canDelete = isAdmin || hasPermission('services', 'delete');
+  const hasAnyRowAction = canEdit || canDelete;
   const [isOpen, setIsOpen] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const {
@@ -179,7 +182,7 @@ const ServicesPage: React.FC<Props> = ({
   const [searchQuery, setSearchQuery] = useState('');
 
   const openNew = () => {
-    if (!canManageServices) return;
+    if (!canCreate) return;
     setEditingService(null);
     setCode('');
     setName('');
@@ -190,7 +193,7 @@ const ServicesPage: React.FC<Props> = ({
   };
 
   const openEdit = (s: Service) => {
-    if (!canManageServices) return;
+    if (!canEdit) return;
     setEditingService(s);
     setCode(s.code);
     setName(s.name || getServiceLabel(s.code));
@@ -202,7 +205,7 @@ const ServicesPage: React.FC<Props> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canManageServices) return;
+    if (!canEdit && !canCreate) return;
     if (!name.trim()) {
       setErrorDialogState({
         open: true,
@@ -348,20 +351,13 @@ const ServicesPage: React.FC<Props> = ({
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%', flex: 1, minHeight: 0 }}>
       {/* TOP ACTION BAR */}
-      <Box sx={{ display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' }, alignItems: 'center' }}>
-        {canManageServices ? (
+      {canCreate && (
+        <Box sx={{ display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' }, alignItems: 'center' }}>
           <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={openNew} sx={{ width: { xs: '100%', sm: 'auto' } }}>
             {t('btnNewService')}
           </Button>
-        ) : (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
-            <LockIcon fontSize="small" />
-            <Typography variant="caption" sx={{ fontStyle: 'italic' }}>
-              {t('permissionDeniedServices')}
-            </Typography>
-          </Box>
-        )}
-      </Box>
+        </Box>
+      )}
 
       {/* TABLE CARD */}
       <Card variant="outlined" sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
@@ -536,13 +532,13 @@ const ServicesPage: React.FC<Props> = ({
                   </TableCell>
                 )}
                 {activeCols.includes('customData') && <TableCell>{t('colCustomData')}</TableCell>}
-                {canManageServices && <TableCell align="right">{t('colActions')}</TableCell>}
+                {hasAnyRowAction && <TableCell align="right">{t('colActions')}</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
               {sortedServices.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={activeCols.length + (canManageServices ? 1 : 0)} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                  <TableCell colSpan={activeCols.length + (hasAnyRowAction ? 1 : 0)} align="center" sx={{ py: 3, color: 'text.secondary' }}>
                     {t('emptyServices')}
                   </TableCell>
                 </TableRow>
@@ -616,26 +612,32 @@ const ServicesPage: React.FC<Props> = ({
                           )}
                         </TableCell>
                       )}
-                      {canManageServices && (
+                      {hasAnyRowAction && (
                         <TableCell align="right">
                           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
-                            <IconButton
-                              size="small"
-                              color="primary"
-                              title={t('btnEditCustomDataModel')}
-                              onClick={() => {
-                                setActiveModelService(s);
-                                setIsCustomModelModalOpen(true);
-                              }}
-                            >
-                              <SettingsIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton size="small" color="info" onClick={() => openEdit(s)}>
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton size="small" color="error" onClick={() => onDeleteService(s.id)}>
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
+                            {canEdit && (
+                              <>
+                                <IconButton
+                                  size="small"
+                                  color="primary"
+                                  title={t('btnEditCustomDataModel')}
+                                  onClick={() => {
+                                    setActiveModelService(s);
+                                    setIsCustomModelModalOpen(true);
+                                  }}
+                                >
+                                  <SettingsIcon fontSize="small" />
+                                </IconButton>
+                                <IconButton size="small" color="info" onClick={() => openEdit(s)}>
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                              </>
+                            )}
+                            {canDelete && (
+                              <IconButton size="small" color="error" onClick={() => onDeleteService(s.id)}>
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            )}
                           </Box>
                         </TableCell>
                       )}
@@ -666,7 +668,7 @@ const ServicesPage: React.FC<Props> = ({
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
               {editingService ? t('modalEditService') : t('modalNewService')}
             </Typography>
-            {editingService && canManageServices && (
+            {editingService && canDelete && (
               <Button
                 color="error"
                 size="small"
@@ -772,7 +774,7 @@ const ServicesPage: React.FC<Props> = ({
                       <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                         {t('customDataSection')}
                       </Typography>
-                      {canManageServices && (
+                      {canEdit && (
                         <Button
                           size="small"
                           variant="outlined"
@@ -796,7 +798,7 @@ const ServicesPage: React.FC<Props> = ({
                             <Typography variant="body2" color="text.secondary">
                               {t('noCustomFieldsDefined')}
                             </Typography>
-                            {canManageServices && (
+                            {canEdit && (
                               <Button
                                 size="small"
                                 variant="text"

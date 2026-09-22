@@ -138,6 +138,8 @@ export const ReminderPanel: React.FC<Props> = ({
   const { t } = useLanguage();
   const { currentUser, isAdmin, hasPermission } = useAuth();
 
+  const canCreate = isAdmin || hasPermission('reminders', 'create') || hasPermission('tracker_reminders', 'create');
+
   // Filters and sorting state
   const [searchQuery, setSearchQuery] = useState('');
   const [myRemindersOnly, setMyRemindersOnly] = useState(myRemindersOnlyProp);
@@ -461,13 +463,13 @@ export const ReminderPanel: React.FC<Props> = ({
     (sortOption !== 'dueDate' || sortDirection !== 'asc' ? 1 : 0);
 
   const canEditSelected = useMemo(() => {
-    if (!selectedReminder) return true; // new reminder
+    if (!selectedReminder) return canCreate; // new reminder
     if (isAdmin || hasPermission('reminders', 'edit') || hasPermission('tracker_reminders', 'edit')) return true;
     if (!currentUser) return false;
     const respName = (selectedReminder.responsible || '').trim().toLowerCase();
     const curName = (currentUser.name || '').trim().toLowerCase();
     return respName !== '' && respName === curName;
-  }, [isAdmin, hasPermission, currentUser, selectedReminder]);
+  }, [isAdmin, hasPermission, currentUser, selectedReminder, canCreate]);
 
   const handleOpenNew = () => {
     setSelectedReminder(null);
@@ -635,7 +637,7 @@ export const ReminderPanel: React.FC<Props> = ({
           onRowsPerPageChange: handleChangeRowsPerPage,
         }}
         actionButton={
-          onSaveReminder && (
+          onSaveReminder && canCreate && (
             <Button
               variant="contained"
               color="primary"
@@ -773,13 +775,24 @@ export const ReminderPanel: React.FC<Props> = ({
             const isLate = isOverdueItem(item);
             const isApproaching = isApproachingItem(item);
 
+            const isOwner =
+              Boolean(
+                currentUser &&
+                  item.responsible &&
+                  item.responsible.trim().toLowerCase() === (currentUser.name || '').trim().toLowerCase()
+              );
+
             const itemCanEdit =
               isAdmin ||
               hasPermission('reminders', 'edit') ||
               hasPermission('tracker_reminders', 'edit') ||
-              (currentUser &&
-                item.responsible &&
-                item.responsible.trim().toLowerCase() === (currentUser.name || '').trim().toLowerCase());
+              isOwner;
+
+            const itemCanDelete =
+              isAdmin ||
+              hasPermission('reminders', 'delete') ||
+              hasPermission('tracker_reminders', 'delete') ||
+              isOwner;
 
             let cardBgColor = isLate ? 'error.lighter' : isApproaching ? 'warning.lighter' : 'background.paper';
             let borderColor = isLate ? 'error.light' : isApproaching ? '#ff9800' : 'divider';
@@ -865,22 +878,24 @@ export const ReminderPanel: React.FC<Props> = ({
                 </Box>
 
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 1, flexShrink: 0 }}>
-                  <Tooltip title={isCompleted ? t('statusPending') : t('statusCompleted')}>
-                    <IconButton
-                      size="small"
-                      color={isCompleted ? 'default' : 'success'}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (onStatusChangeReminder) {
-                          onStatusChangeReminder(item.id, isCompleted ? 'Pending' : 'Completed');
-                        } else if (onSaveReminder) {
-                          onSaveReminder({ id: item.id, status: isCompleted ? 'Pending' : 'Completed' });
-                        }
-                      }}
-                    >
-                      <CheckIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
+                  {itemCanEdit && (
+                    <Tooltip title={isCompleted ? t('statusPending') : t('statusCompleted')}>
+                      <IconButton
+                        size="small"
+                        color={isCompleted ? 'default' : 'success'}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onStatusChangeReminder) {
+                            onStatusChangeReminder(item.id, isCompleted ? 'Pending' : 'Completed');
+                          } else if (onSaveReminder) {
+                            onSaveReminder({ id: item.id, status: isCompleted ? 'Pending' : 'Completed' });
+                          }
+                        }}
+                      >
+                        <CheckIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
                   <Tooltip title={itemCanEdit ? t('btnEdit') : t('btnDetails')}>
                     <IconButton
                       size="small"
@@ -893,7 +908,7 @@ export const ReminderPanel: React.FC<Props> = ({
                       {itemCanEdit ? <EditIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
                     </IconButton>
                   </Tooltip>
-                  {onDeleteReminder && itemCanEdit && (
+                  {onDeleteReminder && itemCanDelete && (
                     <Tooltip title={t('btnDelete')}>
                       <IconButton
                         size="small"

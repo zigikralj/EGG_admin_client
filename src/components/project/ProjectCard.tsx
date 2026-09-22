@@ -22,7 +22,7 @@ import {
 import type { Project, Service, Reminder, Invoice } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import { EditIcon, VisibilityIcon, LockIcon, WarningAmberIcon, ErrorIcon, NotesIcon, NotificationsActiveIcon, ReceiptLongIcon } from '../icons';
+import { EditIcon, VisibilityIcon, WarningAmberIcon, ErrorIcon, NotesIcon, NotificationsActiveIcon, ReceiptLongIcon } from '../icons';
 
 interface Props {
   project: Project;
@@ -515,7 +515,7 @@ export const ProjectCard: React.FC<Props> = ({
                 <VisibilityIcon fontSize="small" />
               </IconButton>
             </Tooltip>
-            {canEdit ? (
+            {canEdit && (
               <>
                 <Tooltip title={p.done ? t('btnReturnToProgress') : t('btnMarkDone')}>
                   <Checkbox
@@ -537,10 +537,6 @@ export const ProjectCard: React.FC<Props> = ({
                   </IconButton>
                 </Tooltip>
               </>
-            ) : (
-              <Tooltip title={t('permissionDeniedOnlyOwnProjects')}>
-                <LockIcon fontSize="small" color="action" />
-              </Tooltip>
             )}
           </Box>
         </Box>

@@ -104,7 +104,8 @@ const ProjectsPage: React.FC<Props> = ({
   onQuickFilterChange,
 }) => {
   const { t, getServiceLabel } = useLanguage();
-  const { canEditProject, currentUser, isAccountant } = useAuth();
+  const { canEditProject, canDeleteProject, isAdmin, hasPermission, currentUser, isAccountant } = useAuth();
+  const canCreateProject = isAdmin || hasPermission('projects', 'create');
 
   const { data: projects = [], refetch: refetchProjects, isRefetching } = useProjectsQuery();
   const { data: services = [] } = useServicesQuery();
@@ -451,17 +452,19 @@ const ProjectsPage: React.FC<Props> = ({
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%', flex: 1, minHeight: 0 }}>
       {/* TOP ACTION BAR */}
-      <Box sx={{ display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' }, alignItems: 'center' }}>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<AddIcon />}
-          onClick={onOpenNew}
-          sx={{ width: { xs: '100%', sm: 'auto' } }}
-        >
-          {t('btnNewProject')}
-        </Button>
-      </Box>
+      {canCreateProject && (
+        <Box sx={{ display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' }, alignItems: 'center' }}>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<AddIcon />}
+            onClick={onOpenNew}
+            sx={{ width: { xs: '100%', sm: 'auto' } }}
+          >
+            {t('btnNewProject')}
+          </Button>
+        </Box>
+      )}
 
       {/* TABLE CONTAINER CARD */}
       <Card variant="outlined" sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
@@ -734,6 +737,7 @@ const ProjectsPage: React.FC<Props> = ({
                 paginatedProjects.map((p) => {
                   const stale = isStale(p.start, p.done);
                   const editable = canEditProject(p);
+                  const deletable = canDeleteProject(p);
 
                   return (
                     <TableRow key={p.id} hover>
@@ -861,18 +865,18 @@ const ProjectsPage: React.FC<Props> = ({
                             </IconButton>
                           </Tooltip>
                           {editable && (
-                            <>
-                              <Tooltip title={t('btnEdit')}>
-                                <IconButton size="small" color="info" onClick={() => onEdit(p)}>
-                                  <EditIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                              <Tooltip title={t('btnDelete')}>
-                                <IconButton size="small" color="error" onClick={() => onDelete(p.id)}>
-                                  <DeleteIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            </>
+                            <Tooltip title={t('btnEdit')}>
+                              <IconButton size="small" color="info" onClick={() => onEdit(p)}>
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          {deletable && (
+                            <Tooltip title={t('btnDelete')}>
+                              <IconButton size="small" color="error" onClick={() => onDelete(p.id)}>
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
                           )}
                         </Box>
                       </TableCell>

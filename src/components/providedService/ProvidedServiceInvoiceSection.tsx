@@ -19,6 +19,7 @@ import {
 } from '@mui/material';
 import type { Invoice, SaveResult } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
 import { useInvoiceFormState } from '../../hooks/useInvoiceFormState';
 import { InvoiceStatusChip, InvoiceTypeChip, LinkedInvoiceChip } from '../invoice/InvoiceChips';
 import { InvoiceFormFields } from '../invoice/InvoiceFormFields';
@@ -65,6 +66,22 @@ export const ProvidedServiceInvoiceSection: React.FC<ProvidedServiceInvoiceSecti
   disabled = false,
 }) => {
   const { t } = useLanguage();
+  const { isAdmin, hasPermission } = useAuth();
+
+  const canCreateInvoice =
+    isAdmin ||
+    hasPermission('invoices', 'create') ||
+    hasPermission('tracker_invoices', 'create');
+
+  const canEditInvoice =
+    isAdmin ||
+    hasPermission('invoices', 'edit') ||
+    hasPermission('tracker_invoices', 'edit');
+
+  const canDeleteInvoice =
+    isAdmin ||
+    hasPermission('invoices', 'delete') ||
+    hasPermission('tracker_invoices', 'delete');
   const todayStr = new Date().toISOString().slice(0, 10);
 
   const invoiceFormState = useInvoiceFormState();
@@ -239,7 +256,7 @@ export const ProvidedServiceInvoiceSection: React.FC<ProvidedServiceInvoiceSecti
               {t('invoiceBoxTitle')}
             </Typography>
           </Box>
-          {!disabled && (
+          {!disabled && canCreateInvoice && (
             <Button
               size="small"
               variant={isAddingInvoice ? 'outlined' : 'contained'}
@@ -530,7 +547,7 @@ export const ProvidedServiceInvoiceSection: React.FC<ProvidedServiceInvoiceSecti
               {/* ACTIONS */}
               {!disabled && (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
-                  {linkedInvoice.status !== 'Paid' && onStatusChangeInvoice && (
+                  {canEditInvoice && linkedInvoice.status !== 'Paid' && onStatusChangeInvoice && (
                     <Tooltip title={t('markAsPaid')}>
                       <IconButton
                         size="small"
@@ -544,22 +561,24 @@ export const ProvidedServiceInvoiceSection: React.FC<ProvidedServiceInvoiceSecti
                       </IconButton>
                     </Tooltip>
                   )}
-                  <Tooltip title={t('btnEdit')}>
-                    <IconButton
-                      size="small"
-                      color="primary"
-                      onClick={() => startEditInvoice(linkedInvoice)}
-                      sx={{ p: 0.25 }}
-                    >
-                      <EditIcon sx={{ fontSize: 16 }} />
-                    </IconButton>
-                  </Tooltip>
+                  {canEditInvoice && (
+                    <Tooltip title={t('btnEdit')}>
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={() => startEditInvoice(linkedInvoice)}
+                        sx={{ p: 0.25 }}
+                      >
+                        <EditIcon sx={{ fontSize: 16 }} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
                   <Tooltip title={t('btnUnlinkInvoice')}>
                     <IconButton size="small" color="warning" onClick={handleUnlinkInvoice} sx={{ p: 0.25 }}>
                       <LinkOffIcon sx={{ fontSize: 16 }} />
                     </IconButton>
                   </Tooltip>
-                  {onDeleteInvoice && (
+                  {onDeleteInvoice && canDeleteInvoice && (
                     <Tooltip title={t('btnDelete')}>
                       <IconButton size="small" color="error" onClick={() => onDeleteInvoice(linkedInvoice.id)} sx={{ p: 0.25 }}>
                         <DeleteIcon sx={{ fontSize: 16 }} />

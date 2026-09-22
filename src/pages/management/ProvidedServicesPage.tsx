@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Card,
   Table,
@@ -51,7 +51,6 @@ import {
   AddIcon,
   EditIcon,
   DeleteIcon,
-  LockIcon,
   SettingsIcon,
   ArrowUpwardIcon,
   ArrowDownwardIcon,
@@ -108,7 +107,11 @@ const ProvidedServicesPage: React.FC<Props> = ({
   onQuickFilterChange,
 }) => {
   const { t, getServiceLabel } = useLanguage();
-  const { canManageProvidedServices } = useAuth();
+  const { isAdmin, hasPermission } = useAuth();
+  const canCreate = isAdmin || hasPermission('providedServices', 'create') || hasPermission('wasteDisposal', 'create');
+  const canEditAny = isAdmin || hasPermission('providedServices', 'edit') || hasPermission('wasteDisposal', 'edit');
+  const canDeleteAny = isAdmin || hasPermission('providedServices', 'delete') || hasPermission('wasteDisposal', 'delete');
+  const hasAnyRowAction = canEditAny || canDeleteAny;
   const [isOpen, setIsOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ProvidedService | null>(null);
   const {
@@ -261,8 +264,18 @@ const ProvidedServicesPage: React.FC<Props> = ({
     return getCustomModelForService(selectedServiceId);
   }, [selectedServiceId, services]);
 
+  const getItemPermissions = useCallback((item: ProvidedService | null) => {
+    if (!item) return { canEdit: canCreate, canDelete: false };
+    if (isAdmin) return { canEdit: true, canDelete: true };
+    const srv = item.service || services.find((s) => s.id === item.serviceId);
+    const isWaste = srv?.group === 'grp-waste' || srv?.code?.toLowerCase().includes('waste');
+    const canEdit = hasPermission('providedServices', 'edit') || (Boolean(isWaste) && hasPermission('wasteDisposal', 'edit'));
+    const canDelete = hasPermission('providedServices', 'delete') || (Boolean(isWaste) && hasPermission('wasteDisposal', 'delete'));
+    return { canEdit, canDelete };
+  }, [isAdmin, hasPermission, services, canCreate]);
+
   const openNew = () => {
-    if (!canManageProvidedServices) return;
+    if (!canCreate) return;
     setEditingItem(null);
     const initialServiceId = services[0]?.id || '';
     setSelectedServiceId(initialServiceId);
@@ -279,7 +292,8 @@ const ProvidedServicesPage: React.FC<Props> = ({
   };
 
   const openEdit = (item: ProvidedService) => {
-    if (!canManageProvidedServices) return;
+    const { canEdit } = getItemPermissions(item);
+    if (!canEdit) return;
     setEditingItem(item);
     setSelectedServiceId(item.serviceId);
     setSelectedClientId(item.clientId);
@@ -324,7 +338,8 @@ const ProvidedServicesPage: React.FC<Props> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canManageProvidedServices) return;
+    if (editingItem && !getItemPermissions(editingItem).canEdit) return;
+    if (!editingItem && !canCreate) return;
     if (!selectedServiceId.trim()) {
       setErrorDialogState({
         open: true,
@@ -636,8 +651,8 @@ const ProvidedServicesPage: React.FC<Props> = ({
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%', flex: 1, minHeight: 0 }}>
       {/* TOP ACTION BAR */}
-      <Box sx={{ display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' }, alignItems: 'center' }}>
-        {canManageProvidedServices ? (
+      {canCreate && (
+        <Box sx={{ display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' }, alignItems: 'center' }}>
           <Button
             variant="contained"
             color="primary"
@@ -647,15 +662,8 @@ const ProvidedServicesPage: React.FC<Props> = ({
           >
             {t('btnNewProvidedService')}
           </Button>
-        ) : (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
-            <LockIcon fontSize="small" />
-            <Typography variant="caption" sx={{ fontStyle: 'italic' }}>
-              {t('permissionDeniedProvidedServices')}
-            </Typography>
-          </Box>
-        )}
-      </Box>
+        </Box>
+      )}
 
       {/* TABLE CARD */}
       <Card variant="outlined" sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
@@ -917,14 +925,14 @@ const ProvidedServicesPage: React.FC<Props> = ({
                 )}
                 {activeCols.includes('customData') && <TableCell>{t('colCustomData')}</TableCell>}
                 {activeCols.includes('notes') && <TableCell>{t('colDescription')}</TableCell>}
-                {canManageProvidedServices && <TableCell align="right">{t('colActions')}</TableCell>}
+                {hasAnyRowAction && <TableCell align="right">{t('colActions')}</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
               {sortedItems.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={activeCols.length + (canManageProvidedServices ? 1 : 0)}
+                    colSpan={activeCols.length + (hasAnyRowAction ? 1 : 0)}
                     align="center"
                     sx={{ py: 3, color: 'text.secondary' }}
                   >
@@ -1042,15 +1050,19 @@ const ProvidedServicesPage: React.FC<Props> = ({
                           </Typography>
                         </TableCell>
                       )}
-                      {canManageProvidedServices && (
+                      {hasAnyRowAction && (
                         <TableCell align="right">
                           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
-                            <IconButton size="small" color="info" onClick={() => openEdit(item)}>
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton size="small" color="error" onClick={() => onDeleteProvidedService(item.id)}>
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
+                            {getItemPermissions(item).canEdit && (
+                              <IconButton size="small" color="info" onClick={() => openEdit(item)}>
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            )}
+                            {getItemPermissions(item).canDelete && (
+                              <IconButton size="small" color="error" onClick={() => onDeleteProvidedService(item.id)}>
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            )}
                           </Box>
                         </TableCell>
                       )}
@@ -1081,7 +1093,7 @@ const ProvidedServicesPage: React.FC<Props> = ({
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
               {editingItem ? t('modalEditProvidedService') : t('modalNewProvidedService')}
             </Typography>
-            {editingItem && canManageProvidedServices && (
+            {editingItem && getItemPermissions(editingItem).canDelete && (
               <Button
                 color="error"
                 size="small"
@@ -1221,7 +1233,7 @@ const ProvidedServicesPage: React.FC<Props> = ({
                   onDeleteInvoice={onDeleteInvoice}
                   onStatusChangeInvoice={handleStatusChangeInvoice}
                   setErrorDialogState={setErrorDialogState}
-                  disabled={!canManageProvidedServices}
+                  disabled={!getItemPermissions(editingItem).canEdit}
                 />
               </Grid>
 
@@ -1249,7 +1261,7 @@ const ProvidedServicesPage: React.FC<Props> = ({
                     <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                       {t('customDataSection')}
                     </Typography>
-                    {canManageProvidedServices && (
+                    {getItemPermissions(editingItem).canEdit && (
                       <Button
                         size="small"
                         variant="outlined"
@@ -1267,7 +1279,7 @@ const ProvidedServicesPage: React.FC<Props> = ({
                       <Typography variant="body2" color="text.secondary">
                         {t('noCustomFieldsDefined')}
                       </Typography>
-                      {canManageProvidedServices && (
+                      {getItemPermissions(editingItem).canEdit && (
                         <Button
                           size="small"
                           variant="text"

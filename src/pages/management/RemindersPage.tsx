@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Card,
   Table,
@@ -80,7 +80,25 @@ const RemindersPage: React.FC<Props> = ({
   onQuickFilterChange,
 }) => {
   const { t, getResponsibleLabel } = useLanguage();
-  const { currentUser } = useAuth();
+  const { isAdmin, hasPermission, currentUser } = useAuth();
+  const canCreate = isAdmin || hasPermission('reminders', 'create') || hasPermission('tracker_reminders', 'create');
+  const canEditAny = isAdmin || hasPermission('reminders', 'edit') || hasPermission('tracker_reminders', 'edit');
+  const canDeleteAny = isAdmin || hasPermission('reminders', 'delete') || hasPermission('tracker_reminders', 'delete');
+  const hasAnyRowAction = canEditAny || canDeleteAny || Boolean(currentUser);
+
+  const getItemPermissions = useCallback((rem: Reminder) => {
+    if (isAdmin) return { canEdit: true, canDelete: true };
+    const isOwner = Boolean(
+      currentUser && (
+        (rem.responsible && rem.responsible.trim().toLowerCase() === (currentUser.name || '').trim().toLowerCase()) ||
+        ((rem as any).responsibleId && (rem as any).responsibleId === currentUser.id)
+      )
+    );
+    const canEdit = hasPermission('reminders', 'edit') || hasPermission('tracker_reminders', 'edit') || isOwner;
+    const canDelete = hasPermission('reminders', 'delete') || hasPermission('tracker_reminders', 'delete') || isOwner;
+    return { canEdit, canDelete };
+  }, [isAdmin, hasPermission, currentUser]);
+
   const [isOpen, setIsOpen] = useState(false);
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const {
@@ -274,6 +292,7 @@ const RemindersPage: React.FC<Props> = ({
   const [permitNumber, setPermitNumber] = useState('');
 
   const handleOpenNew = () => {
+    if (!canCreate) return;
     setEditingReminder(null);
     setTitle('');
     setSelectedProjectId('');
@@ -291,6 +310,7 @@ const RemindersPage: React.FC<Props> = ({
   };
 
   const handleOpenEdit = (rem: Reminder) => {
+    if (!getItemPermissions(rem).canEdit) return;
     setEditingReminder(rem);
     setTitle(rem.title || rem.projectName || '');
     setSelectedProjectId(rem.projectId || '');
@@ -348,6 +368,8 @@ const RemindersPage: React.FC<Props> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (editingReminder && !getItemPermissions(editingReminder).canEdit) return;
+    if (!editingReminder && !canCreate) return;
     const finalTitle = title.trim() || projectName.trim();
     if (!finalTitle) {
       setErrorDialogState({
@@ -565,17 +587,19 @@ const RemindersPage: React.FC<Props> = ({
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%', flex: 1, minHeight: 0 }}>
       {/* TOP ACTION BAR */}
-      <Box sx={{ display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' }, alignItems: 'center' }}>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<AddIcon />}
-          onClick={handleOpenNew}
-          sx={{ fontWeight: 600, borderRadius: 2, width: { xs: '100%', sm: 'auto' } }}
-        >
-          {t('btnNewReminder')}
-        </Button>
-      </Box>
+      {canCreate && (
+        <Box sx={{ display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' }, alignItems: 'center' }}>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<AddIcon />}
+            onClick={handleOpenNew}
+            sx={{ fontWeight: 600, borderRadius: 2, width: { xs: '100%', sm: 'auto' } }}
+          >
+            {t('btnNewReminder')}
+          </Button>
+        </Box>
+      )}
 
       {/* TABLE CARD */}
       <Card variant="outlined" sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
@@ -812,19 +836,21 @@ const RemindersPage: React.FC<Props> = ({
                     </TableSortLabel>
                   </TableCell>
                 )}
-                <TableCell align="right">{t('colActions')}</TableCell>
+                {hasAnyRowAction && <TableCell align="right">{t('colActions')}</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
               {sortedReminders.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={activeCols.length + 1} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                  <TableCell colSpan={activeCols.length + (hasAnyRowAction ? 1 : 0)} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                     {t('emptyReminders')}
                   </TableCell>
                 </TableRow>
               ) : (
-                paginatedReminders.map((rem) => (
-                  <TableRow key={rem.id} hover>
+                paginatedReminders.map((rem) => {
+                  const { canEdit: itemCanEdit, canDelete: itemCanDelete } = getItemPermissions(rem);
+                  return (
+                    <TableRow key={rem.id} hover>
                     {activeCols.includes('title') && (
                       <TableCell>
                         <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
@@ -859,39 +885,46 @@ const RemindersPage: React.FC<Props> = ({
                         {rem.notes || '—'}
                       </TableCell>
                     )}
-                    <TableCell align="right">
-                      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
-                        {rem.status !== 'Completed' && (
-                          <Tooltip title={t('statusCompleted')}>
-                            <IconButton
-                              size="small"
-                              color="success"
-                              onClick={async () => {
-                                await handleStatusChange(rem.id, 'Completed');
-                              }}
-                            >
-                              <CheckIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                        <Tooltip title={t('btnEdit')}>
-                          <IconButton size="small" color="primary" onClick={() => handleOpenEdit(rem)}>
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title={t('btnDelete')}>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => onDeleteReminder(rem.id)}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ))
+                    {hasAnyRowAction && (
+                      <TableCell align="right">
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+                          {itemCanEdit && rem.status !== 'Completed' && (
+                            <Tooltip title={t('statusCompleted')}>
+                              <IconButton
+                                size="small"
+                                color="success"
+                                onClick={async () => {
+                                  await handleStatusChange(rem.id, 'Completed');
+                                }}
+                              >
+                                <CheckIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          {itemCanEdit && (
+                            <Tooltip title={t('btnEdit')}>
+                              <IconButton size="small" color="primary" onClick={() => handleOpenEdit(rem)}>
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          {itemCanDelete && (
+                            <Tooltip title={t('btnDelete')}>
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => onDeleteReminder(rem.id)}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </Box>
+                      </TableCell>
+                    )}
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>

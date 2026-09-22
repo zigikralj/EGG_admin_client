@@ -107,8 +107,10 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
   isRefreshing,
 }) => {
   const { t } = useLanguage();
-  const { canManageInvoices } = useAuth();
-  const canManage = canManageInvoices;
+  const { isAdmin, hasPermission } = useAuth();
+  const canCreate = isAdmin || hasPermission('tracker_invoices', 'create') || hasPermission('invoices', 'create');
+  const canEdit = isAdmin || hasPermission('tracker_invoices', 'edit') || hasPermission('invoices', 'edit');
+  const canDelete = isAdmin || hasPermission('tracker_invoices', 'delete') || hasPermission('invoices', 'delete');
 
   // Search & Filters state
   const [searchQuery, setSearchQuery] = useState('');
@@ -684,7 +686,7 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
           onRowsPerPageChange: handleChangeRowsPerPage,
         }}
         actionButton={
-          canManage && onSaveInvoice && (
+          canCreate && onSaveInvoice && (
             <Button
               variant="contained"
               color="primary"
@@ -995,7 +997,7 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
                   </Tooltip>
 
                   {/* PAID */}
-                  {onStatusChangeInvoice && (
+                  {canEdit && onStatusChangeInvoice && (
                     <Tooltip title={isPaid ? t('statusPaid') : t('markAsPaid')}>
                       <span>
                         <IconButton
@@ -1012,7 +1014,7 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
                   )}
 
                   {/* EDIT */}
-                  {canManage && onSaveInvoice && (
+                  {canEdit && onSaveInvoice && (
                     <Tooltip title={t('btnEdit')}>
                       <IconButton
                         size="small"
@@ -1026,7 +1028,7 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
                   )}
 
                   {/* DELETE */}
-                  {canManage && onDeleteInvoice && (
+                  {canDelete && onDeleteInvoice && (
                     <Tooltip title={t('btnDelete')}>
                       <IconButton
                         size="small"
@@ -1207,7 +1209,7 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
             </DialogContent>
 
             <DialogActions sx={{ p: 2 }}>
-              {canManage && onSaveInvoice && (
+              {canEdit && onSaveInvoice && (
                 <Button
                   startIcon={<EditIcon />}
                   variant="outlined"

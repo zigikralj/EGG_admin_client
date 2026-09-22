@@ -59,7 +59,6 @@ import {
   CloseIcon,
   LinkIcon,
   LinkOffIcon,
-  LockIcon,
   ArrowUpwardIcon,
   ArrowDownwardIcon,
   RefreshIcon,
@@ -181,7 +180,16 @@ const PermitsPage: React.FC<Props> = ({
   onQuickFilterChange,
 }) => {
   const { t } = useLanguage();
-  const { canManagePermits } = useAuth();
+  const { isAdmin, hasPermission } = useAuth();
+  const canCreate = isAdmin || hasPermission('permits', 'create');
+  const canEdit = isAdmin || hasPermission('permits', 'edit');
+  const canDelete = isAdmin || hasPermission('permits', 'delete');
+  const hasAnyRowAction = canEdit || canDelete;
+
+  const canCreateReminder = isAdmin || hasPermission('reminders', 'create') || hasPermission('tracker_reminders', 'create');
+  const canEditReminder = isAdmin || hasPermission('reminders', 'edit') || hasPermission('tracker_reminders', 'edit');
+  const canDeleteReminder = isAdmin || hasPermission('reminders', 'delete') || hasPermission('tracker_reminders', 'delete');
+
   const [isOpen, setIsOpen] = useState(false);
   const [editingPermit, setEditingPermit] = useState<Permit | null>(null);
 
@@ -475,7 +483,7 @@ const PermitsPage: React.FC<Props> = ({
   };
 
   const openNew = () => {
-    if (!canManagePermits) return;
+    if (!canCreate) return;
     setEditingPermit(null);
     setSelectedWasteCatalogIds([]);
     setSelectedCatalogItems([]);
@@ -500,7 +508,7 @@ const PermitsPage: React.FC<Props> = ({
   };
 
   const openEdit = async (p: Permit) => {
-    if (!canManagePermits) return;
+    if (!canEdit) return;
     setEditingPermit(p);
     const linkedClient = getLinkedClient(p);
     setSelectedClientId(linkedClient?.id || p.clientId || '');
@@ -661,7 +669,7 @@ const PermitsPage: React.FC<Props> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canManagePermits) return;
+    if (!canEdit && !canCreate) return;
     if (!permitNumber.trim() || selectedWasteCatalogIds.length === 0 || !startDate || !endDate) {
       setErrorDialogState({
         open: true,
@@ -979,18 +987,19 @@ const PermitsPage: React.FC<Props> = ({
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%', flex: 1, minHeight: 0 }}>
       {/* TOP ACTION BAR */}
-      <Box sx={{ display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' }, alignItems: 'center' }}>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={canManagePermits ? <AddIcon /> : <LockIcon />}
-          onClick={openNew}
-          disabled={!canManagePermits}
-          sx={{ width: { xs: '100%', sm: 'auto' } }}
-        >
-          {t('btnNewPermit')}
-        </Button>
-      </Box>
+      {canCreate && (
+        <Box sx={{ display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' }, alignItems: 'center' }}>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<AddIcon />}
+            onClick={openNew}
+            sx={{ width: { xs: '100%', sm: 'auto' } }}
+          >
+            {t('btnNewPermit')}
+          </Button>
+        </Box>
+      )}
 
       {/* TABLE CONTAINER CARD */}
       <Card variant="outlined" sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
@@ -1010,33 +1019,31 @@ const PermitsPage: React.FC<Props> = ({
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
               {t('permitsListTitle') || t('tabPermits')}
             </Typography>
-            {true && (
-              <Tooltip title={t('btnRefresh')}>
-                <IconButton
-                  size="small"
-                  onClick={handleRefresh}
-                  disabled={isRefreshing}
-                  color="primary"
+            <Tooltip title={t('btnRefresh')}>
+              <IconButton
+                size="small"
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                color="primary"
+                sx={{
+                  border: 1,
+                  borderColor: 'divider',
+                  borderRadius: 2,
+                  p: 0.7,
+                }}
+              >
+                <RefreshIcon
+                  fontSize="small"
                   sx={{
-                    border: 1,
-                    borderColor: 'divider',
-                    borderRadius: 2,
-                    p: 0.7,
+                    animation: isRefreshing ? 'spin 1s linear infinite' : undefined,
+                    '@keyframes spin': {
+                      '0%': { transform: 'rotate(0deg)' },
+                      '100%': { transform: 'rotate(360deg)' },
+                    },
                   }}
-                >
-                  <RefreshIcon
-                    fontSize="small"
-                    sx={{
-                      animation: isRefreshing ? 'spin 1s linear infinite' : undefined,
-                      '@keyframes spin': {
-                        '0%': { transform: 'rotate(0deg)' },
-                        '100%': { transform: 'rotate(360deg)' },
-                      },
-                    }}
-                  />
-                </IconButton>
-              </Tooltip>
-            )}
+                />
+              </IconButton>
+            </Tooltip>
           </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', width: { xs: '100%', sm: 'auto' } }}>
@@ -1276,15 +1283,17 @@ const PermitsPage: React.FC<Props> = ({
                     {t('colNotes')}
                   </TableCell>
                 )}
-                <TableCell align="right" sx={{ width: 120 }}>
-                  {t('colActions')}
-                </TableCell>
+                {hasAnyRowAction && (
+                  <TableCell align="right" sx={{ width: 120 }}>
+                    {t('colActions')}
+                  </TableCell>
+                )}
               </TableRow>
             </TableHead>
             <TableBody>
               {paginatedPermits.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={activeCols.length + 1} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={activeCols.length + (hasAnyRowAction ? 1 : 0)} align="center" sx={{ py: 6 }}>
                     <Typography variant="body1" color="text.secondary">
                       {t('emptyPermits')}
                     </Typography>
@@ -1401,7 +1410,7 @@ const PermitsPage: React.FC<Props> = ({
                                 -
                               </Typography>
                             )}
-                            {true && (
+                            {canCreateReminder && (
                               <Tooltip title={t('btnAddReminderForPermit')}>
                                 <IconButton
                                   size="small"
@@ -1432,30 +1441,34 @@ const PermitsPage: React.FC<Props> = ({
                           </Typography>
                         </TableCell>
                       )}
-                      <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
-                          <Tooltip title={t('btnEdit')}>
-                            <IconButton
-                              size="small"
-                              onClick={() => openEdit(permit)}
-                              disabled={!canManagePermits}
-                              color="primary"
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title={t('btnDelete')}>
-                            <IconButton
-                              size="small"
-                              onClick={() => onDeletePermit(permit.id)}
-                              disabled={!canManagePermits}
-                              color="error"
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </Box>
-                      </TableCell>
+                      {hasAnyRowAction && (
+                        <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+                            {canEdit && (
+                              <Tooltip title={t('btnEdit')}>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => openEdit(permit)}
+                                  color="primary"
+                                >
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            {canDelete && (
+                              <Tooltip title={t('btnDelete')}>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => onDeletePermit(permit.id)}
+                                  color="error"
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                          </Box>
+                        </TableCell>
+                      )}
                     </TableRow>
                   );
                 })
@@ -1745,7 +1758,7 @@ const PermitsPage: React.FC<Props> = ({
                   {t('tabReminders')} ({totalRemindersCount})
                 </Typography>
               </Box>
-              {true && (
+              {canCreateReminder && (
                 <Button
                   size="small"
                   variant={isAddingReminderInline ? 'outlined' : 'contained'}
@@ -2028,17 +2041,19 @@ const PermitsPage: React.FC<Props> = ({
                           color={rem.status === 'Completed' ? 'success' : rem.status === 'Overdue' ? 'error' : 'warning'}
                           sx={{ fontWeight: 600 }}
                         />
-                        <Tooltip title={t('btnEdit')}>
-                          <IconButton size="small" color="primary" onClick={() => handleOpenEditReminder(rem)}>
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
+                        {canEditReminder && (
+                          <Tooltip title={t('btnEdit')}>
+                            <IconButton size="small" color="primary" onClick={() => handleOpenEditReminder(rem)}>
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
                         <Tooltip title={t('btnUnlinkReminder')}>
                           <IconButton size="small" color="warning" onClick={() => handleUnlinkReminder(rem.id)}>
                             <LinkOffIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                        {onDeleteReminder && (
+                        {onDeleteReminder && canDeleteReminder && (
                           <Tooltip title={t('btnDelete')}>
                             <IconButton size="small" color="error" onClick={() => onDeleteReminder(rem.id)}>
                               <DeleteIcon fontSize="small" />
