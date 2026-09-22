@@ -52,10 +52,10 @@ const ClientsPage: React.FC<Props> = ({
   onSortChange,
 }) => {
   const { t } = useLanguage();
-  const { isAdmin, hasPermission } = useAuth();
-  const canCreate = isAdmin || hasPermission('clients', 'create');
-  const canEdit = isAdmin || hasPermission('clients', 'edit');
-  const canDelete = isAdmin || hasPermission('clients', 'delete');
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission('clients', 'create');
+  const canEdit = hasPermission('clients', 'edit');
+  const canDelete = hasPermission('clients', 'delete');
   const hasAnyRowAction = canEdit || canDelete;
   const [isOpen, setIsOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);

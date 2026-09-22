@@ -104,8 +104,8 @@ const ProjectsPage: React.FC<Props> = ({
   onQuickFilterChange,
 }) => {
   const { t, getServiceLabel } = useLanguage();
-  const { canEditProject, canDeleteProject, isAdmin, hasPermission, currentUser, isAccountant } = useAuth();
-  const canCreateProject = isAdmin || hasPermission('projects', 'create');
+  const { canEditProject, canDeleteProject, hasPermission, currentUser, isAccountant } = useAuth();
+  const canCreateProject = hasPermission('projects', 'create');
 
   const { data: projects = [], refetch: refetchProjects, isRefetching } = useProjectsQuery();
   const { data: services = [] } = useServicesQuery();

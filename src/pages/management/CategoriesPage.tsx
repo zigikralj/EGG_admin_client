@@ -51,10 +51,10 @@ const CategoriesPage: React.FC<Props> = ({
   onSortChange,
 }) => {
   const { t } = useLanguage();
-  const { isAdmin, hasPermission } = useAuth();
-  const canCreate = isAdmin || hasPermission('categories', 'create');
-  const canEdit = isAdmin || hasPermission('categories', 'edit');
-  const canDelete = isAdmin || hasPermission('categories', 'delete');
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission('categories', 'create');
+  const canEdit = hasPermission('categories', 'edit');
+  const canDelete = hasPermission('categories', 'delete');
   const hasAnyRowAction = canEdit || canDelete;
   const [isOpen, setIsOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);

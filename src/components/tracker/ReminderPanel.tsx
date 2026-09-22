@@ -136,9 +136,9 @@ export const ReminderPanel: React.FC<Props> = ({
   isRefreshing,
 }) => {
   const { t } = useLanguage();
-  const { currentUser, isAdmin, hasPermission } = useAuth();
+  const { currentUser, hasPermission } = useAuth();
 
-  const canCreate = isAdmin || hasPermission('reminders', 'create') || hasPermission('tracker_reminders', 'create');
+  const canCreate = hasPermission('reminders', 'create') || hasPermission('tracker_reminders', 'create');
 
   // Filters and sorting state
   const [searchQuery, setSearchQuery] = useState('');
@@ -464,12 +464,12 @@ export const ReminderPanel: React.FC<Props> = ({
 
   const canEditSelected = useMemo(() => {
     if (!selectedReminder) return canCreate; // new reminder
-    if (isAdmin || hasPermission('reminders', 'edit') || hasPermission('tracker_reminders', 'edit')) return true;
+    if (hasPermission('reminders', 'edit') || hasPermission('tracker_reminders', 'edit')) return true;
     if (!currentUser) return false;
     const respName = (selectedReminder.responsible || '').trim().toLowerCase();
     const curName = (currentUser.name || '').trim().toLowerCase();
     return respName !== '' && respName === curName;
-  }, [isAdmin, hasPermission, currentUser, selectedReminder, canCreate]);
+  }, [hasPermission, currentUser, selectedReminder, canCreate]);
 
   const handleOpenNew = () => {
     setSelectedReminder(null);
@@ -783,16 +783,13 @@ export const ReminderPanel: React.FC<Props> = ({
               );
 
             const itemCanEdit =
-              isAdmin ||
               hasPermission('reminders', 'edit') ||
               hasPermission('tracker_reminders', 'edit') ||
               isOwner;
 
             const itemCanDelete =
-              isAdmin ||
               hasPermission('reminders', 'delete') ||
-              hasPermission('tracker_reminders', 'delete') ||
-              isOwner;
+              hasPermission('tracker_reminders', 'delete');
 
             let cardBgColor = isLate ? 'error.lighter' : isApproaching ? 'warning.lighter' : 'background.paper';
             let borderColor = isLate ? 'error.light' : isApproaching ? '#ff9800' : 'divider';

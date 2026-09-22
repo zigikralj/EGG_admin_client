@@ -520,8 +520,7 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
                         !projectToEdit ||
                         isAdmin ||
                         hasPermission('reminders', 'delete') ||
-                        hasPermission('tracker_reminders', 'delete') ||
-                        isOwner;
+                        hasPermission('tracker_reminders', 'delete');
 
                       return (
                         <>
