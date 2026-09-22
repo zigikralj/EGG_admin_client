@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.3.8] - 2026-09-22
+
+- refactor: centralize admin check in hasPermission to simplify permiss… (#54) by @zigikralj
+
 ## [v1.3.7] - 2026-09-22
 
 - refactor: replace coarse-grained permission checks with granular crea… (#52) by @zigikralj
