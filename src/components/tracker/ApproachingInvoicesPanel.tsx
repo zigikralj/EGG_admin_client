@@ -107,10 +107,10 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
   isRefreshing,
 }) => {
   const { t } = useLanguage();
-  const { isAdmin, hasPermission } = useAuth();
-  const canCreate = isAdmin || hasPermission('tracker_invoices', 'create') || hasPermission('invoices', 'create');
-  const canEdit = isAdmin || hasPermission('tracker_invoices', 'edit') || hasPermission('invoices', 'edit');
-  const canDelete = isAdmin || hasPermission('tracker_invoices', 'delete') || hasPermission('invoices', 'delete');
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission('tracker_invoices', 'create') || hasPermission('invoices', 'create');
+  const canEdit = hasPermission('tracker_invoices', 'edit') || hasPermission('invoices', 'edit');
+  const canDelete = hasPermission('tracker_invoices', 'delete') || hasPermission('invoices', 'delete');
 
   // Search & Filters state
   const [searchQuery, setSearchQuery] = useState('');

@@ -180,15 +180,15 @@ const PermitsPage: React.FC<Props> = ({
   onQuickFilterChange,
 }) => {
   const { t } = useLanguage();
-  const { isAdmin, hasPermission } = useAuth();
-  const canCreate = isAdmin || hasPermission('permits', 'create');
-  const canEdit = isAdmin || hasPermission('permits', 'edit');
-  const canDelete = isAdmin || hasPermission('permits', 'delete');
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission('permits', 'create');
+  const canEdit = hasPermission('permits', 'edit');
+  const canDelete = hasPermission('permits', 'delete');
   const hasAnyRowAction = canEdit || canDelete;
 
-  const canCreateReminder = isAdmin || hasPermission('reminders', 'create') || hasPermission('tracker_reminders', 'create');
-  const canEditReminder = isAdmin || hasPermission('reminders', 'edit') || hasPermission('tracker_reminders', 'edit');
-  const canDeleteReminder = isAdmin || hasPermission('reminders', 'delete') || hasPermission('tracker_reminders', 'delete');
+  const canCreateReminder = hasPermission('reminders', 'create');
+  const canEditReminder = hasPermission('reminders', 'edit');
+  const canDeleteReminder = hasPermission('reminders', 'delete');
 
   const [isOpen, setIsOpen] = useState(false);
   const [editingPermit, setEditingPermit] = useState<Permit | null>(null);

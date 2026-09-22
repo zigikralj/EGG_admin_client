@@ -65,10 +65,10 @@ const ServicesPage: React.FC<Props> = ({
   onSortChange,
 }) => {
   const { t, getServiceLabel } = useLanguage();
-  const { isAdmin, hasPermission } = useAuth();
-  const canCreate = isAdmin || hasPermission('services', 'create');
-  const canEdit = isAdmin || hasPermission('services', 'edit');
-  const canDelete = isAdmin || hasPermission('services', 'delete');
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission('services', 'create');
+  const canEdit = hasPermission('services', 'edit');
+  const canDelete = hasPermission('services', 'delete');
   const hasAnyRowAction = canEdit || canDelete;
   const [isOpen, setIsOpen] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);

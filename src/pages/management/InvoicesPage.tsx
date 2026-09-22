@@ -83,10 +83,10 @@ const InvoicesPage: React.FC<Props> = ({
   onSortChange,
 }) => {
   const { t } = useLanguage();
-  const { isAdmin, hasPermission } = useAuth();
-  const canCreate = isAdmin || hasPermission('invoices', 'create') || hasPermission('tracker_invoices', 'create');
-  const canEdit = isAdmin || hasPermission('invoices', 'edit') || hasPermission('tracker_invoices', 'edit');
-  const canDelete = isAdmin || hasPermission('invoices', 'delete') || hasPermission('tracker_invoices', 'delete');
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission('invoices', 'create');
+  const canEdit = hasPermission('invoices', 'edit');
+  const canDelete = hasPermission('invoices', 'delete');
   const hasAnyRowAction = canEdit || canDelete;
   const [isOpen, setIsOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);

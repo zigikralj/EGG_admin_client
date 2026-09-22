@@ -80,24 +80,15 @@ const RemindersPage: React.FC<Props> = ({
   onQuickFilterChange,
 }) => {
   const { t, getResponsibleLabel } = useLanguage();
-  const { isAdmin, hasPermission, currentUser } = useAuth();
-  const canCreate = isAdmin || hasPermission('reminders', 'create') || hasPermission('tracker_reminders', 'create');
-  const canEditAny = isAdmin || hasPermission('reminders', 'edit') || hasPermission('tracker_reminders', 'edit');
-  const canDeleteAny = isAdmin || hasPermission('reminders', 'delete') || hasPermission('tracker_reminders', 'delete');
-  const hasAnyRowAction = canEditAny || canDeleteAny || Boolean(currentUser);
+  const { hasPermission, currentUser } = useAuth();
+  const canCreate = hasPermission('reminders', 'create');
+  const canEdit = hasPermission('reminders', 'edit');
+  const canDelete = hasPermission('reminders', 'delete');
+  const hasAnyRowAction = canEdit || canDelete;
 
-  const getItemPermissions = useCallback((rem: Reminder) => {
-    if (isAdmin) return { canEdit: true, canDelete: true };
-    const isOwner = Boolean(
-      currentUser && (
-        (rem.responsible && rem.responsible.trim().toLowerCase() === (currentUser.name || '').trim().toLowerCase()) ||
-        ((rem as any).responsibleId && (rem as any).responsibleId === currentUser.id)
-      )
-    );
-    const canEdit = hasPermission('reminders', 'edit') || hasPermission('tracker_reminders', 'edit') || isOwner;
-    const canDelete = hasPermission('reminders', 'delete') || hasPermission('tracker_reminders', 'delete') || isOwner;
+  const getItemPermissions = useCallback((_rem: Reminder) => {
     return { canEdit, canDelete };
-  }, [isAdmin, hasPermission, currentUser]);
+  }, [canEdit, canDelete]);
 
   const [isOpen, setIsOpen] = useState(false);
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
@@ -146,7 +137,10 @@ const RemindersPage: React.FC<Props> = ({
   const { handleSave, handleDelete, handleStatusChangeReminder: handleStatusChange } = useRemindersMutations();
 
   const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
-  const onDeleteReminder = (id: string) => handleDelete(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
+  const onDeleteReminder = (id: string) => {
+    if (!canDelete) return;
+    handleDelete(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
+  };
 
   const [searchQuery, setSearchQuery] = useState('');
 

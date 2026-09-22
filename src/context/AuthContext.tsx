@@ -356,7 +356,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return currentRoleEntity;
   }, [isRealAdmin, roleView, actualRole, roles, currentRoleEntity]);
 
+  const isAdmin = Boolean(effectiveRoleEntity?.isSystemAdmin || effectiveRole === 'Administrator');
+  const isManager = effectiveRole === 'Manager';
+  const isAccountant = effectiveRole === 'Accountant';
+  const isUser = effectiveRole === 'User';
+
   const hasPermission = React.useCallback((resource: string, action: string): boolean => {
+    if (isAdmin) return true;
+
     const roleEnt = effectiveRoleEntity;
     if (!roleEnt) {
       // Safe defaults while roles are still loading or if role entity is not yet found
@@ -415,19 +422,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return false;
     }
     return perms[resource].includes(action);
-  }, [effectiveRoleEntity, isRealAdmin, actualRole]);
+  }, [isAdmin, effectiveRoleEntity, isRealAdmin, actualRole]);
 
-  const isAdmin = Boolean(effectiveRoleEntity?.isSystemAdmin || effectiveRole === 'Administrator');
-  const isManager = effectiveRole === 'Manager';
-  const isAccountant = effectiveRole === 'Accountant';
-  const isUser = effectiveRole === 'User';
-
-  const canManageClients = Boolean(isAdmin || hasPermission('clients', 'edit') || hasPermission('clients', 'create'));
-  const canManagePermits = Boolean(isAdmin || hasPermission('permits', 'edit') || hasPermission('permits', 'create'));
-  const canManageServices = Boolean(isAdmin || hasPermission('services', 'edit') || hasPermission('services', 'create'));
-  const canManageUsers = Boolean(isAdmin || hasPermission('users', 'edit') || hasPermission('users', 'create'));
-  const canManageInvoices = Boolean(isAdmin || hasPermission('invoices', 'edit') || hasPermission('invoices', 'create'));
-  const canManageProvidedServices = Boolean(isAdmin || hasPermission('providedServices', 'edit') || hasPermission('providedServices', 'create'));
+  const canManageClients = Boolean(hasPermission('clients', 'edit') || hasPermission('clients', 'create'));
+  const canManagePermits = Boolean(hasPermission('permits', 'edit') || hasPermission('permits', 'create'));
+  const canManageServices = Boolean(hasPermission('services', 'edit') || hasPermission('services', 'create'));
+  const canManageUsers = Boolean(hasPermission('users', 'edit') || hasPermission('users', 'create'));
+  const canManageInvoices = Boolean(hasPermission('invoices', 'edit') || hasPermission('invoices', 'create'));
+  const canManageProvidedServices = Boolean(hasPermission('providedServices', 'edit') || hasPermission('providedServices', 'create'));
 
   const canEditUser = React.useCallback(
     (targetUser: User): boolean => {
@@ -455,7 +457,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const canEditProject = React.useCallback(
     (project: Project): boolean => {
-      if (isAdmin || hasPermission('projects', 'edit') || hasPermission('tracker_projects', 'edit')) return true;
+      if (hasPermission('projects', 'edit') || hasPermission('tracker_projects', 'edit')) return true;
       if (!currentUser) return false;
 
       const respName = (project.responsible || '').trim().toLowerCase();
@@ -466,12 +468,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       return false;
     },
-    [isAdmin, hasPermission, currentUser]
+    [hasPermission, currentUser]
   );
 
   const canDeleteProject = React.useCallback(
     (project: Project): boolean => {
-      if (isAdmin || hasPermission('projects', 'delete') || hasPermission('tracker_projects', 'delete')) return true;
+      if (hasPermission('projects', 'delete') || hasPermission('tracker_projects', 'delete')) return true;
       if (!currentUser) return false;
 
       const respName = (project.responsible || '').trim().toLowerCase();
@@ -482,7 +484,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       return false;
     },
-    [isAdmin, hasPermission, currentUser]
+    [hasPermission, currentUser]
   );
 
   const value = React.useMemo(
