@@ -27,6 +27,7 @@ interface AuthContextType {
   canManageServices: boolean;
   canManageUsers: boolean;
   isRolesLoading: boolean;
+  refreshRoles: () => Promise<void>;
   canEditUser: (targetUser: User) => boolean;
   canEditProject: (project: Project) => boolean;
   hasPermission: (resource: string, action: string) => boolean;
@@ -59,22 +60,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [roles, setRolesState] = useState<Role[]>([]);
   const [isRolesLoading, setIsRolesLoading] = useState<boolean>(() => Boolean(currentUser?.id));
 
-  useEffect(() => {
-    if (currentUser?.id) {
-      setIsRolesLoading(true);
-      apiFetch('/api/roles', { headers: { 'X-User-Id': currentUser.id } })
-        .then(res => {
-          if (res.ok) return res.json();
-          throw new Error('Failed to fetch roles');
-        })
-        .then(data => setRolesState(data))
-        .catch(err => console.error('Error fetching roles for AuthContext:', err))
-        .finally(() => setIsRolesLoading(false));
-    } else {
+  const refreshRoles = React.useCallback(async () => {
+    if (!currentUser?.id) {
       setRolesState([]);
       setIsRolesLoading(false);
+      return;
     }
-  }, [currentUser?.id]);
+    try {
+      setIsRolesLoading(true);
+      const res = await apiFetch('/api/roles', { headers: { 'X-User-Id': currentUser.id } });
+      if (res.ok) {
+        const data: Role[] = await res.json();
+        setRolesState(data);
+        const myUpdatedRole = data.find((r: Role) => r.name === currentUser.role);
+        if (myUpdatedRole) {
+          setCurrentUser((prev) => {
+            if (!prev) return null;
+            if (JSON.stringify(prev.roleEntity) === JSON.stringify(myUpdatedRole)) return prev;
+            const next = { ...prev, roleEntity: myUpdatedRole };
+            localStorage.setItem('auth_user', JSON.stringify(next));
+            return next;
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching roles for AuthContext:', err);
+    } finally {
+      setIsRolesLoading(false);
+    }
+  }, [currentUser?.id, currentUser?.role]);
+
+  useEffect(() => {
+    refreshRoles();
+  }, [refreshRoles]);
+
+  useEffect(() => {
+    const handleRolesChanged = () => {
+      refreshRoles();
+    };
+    window.addEventListener('roles:changed', handleRolesChanged);
+    return () => {
+      window.removeEventListener('roles:changed', handleRolesChanged);
+    };
+  }, [refreshRoles]);
 
   const [roleViewState, setRoleViewState] = useState<UserRole>(() => {
     try {
@@ -303,7 +331,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const currentRoleEntity = React.useMemo(() => {
     if (!currentUser) return null;
-    return currentUser.roleEntity || roles.find((r) => r.name === currentUser.role) || null;
+    return roles.find((r) => r.name === currentUser.role) || currentUser.roleEntity || null;
   }, [currentUser, roles]);
 
   const isRealAdmin = Boolean(currentRoleEntity?.isSystemAdmin || actualRole === 'Administrator');
@@ -349,7 +377,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       if (action === 'data-management') {
         if (roleEnt.isSystemAdmin || roleEnt.name === 'Administrator' || roleEnt.name === 'Manager') return true;
-        if (Array.isArray(perms.apps) && perms.apps.includes('data-management')) return true;
+        if (Array.isArray(perms.apps)) {
+          return perms.apps.includes('data-management');
+        }
         // Fallback: if role has permissions for ANY data management resources, allow data-management app access
         return Boolean(
           perms.projects?.length ||
@@ -400,7 +430,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const canEditUser = React.useCallback(
     (targetUser: User): boolean => {
       if (isAdmin) return true;
-      const targetRoleEnt = targetUser.roleEntity || roles.find((r) => r.name === targetUser.role);
+      const targetRoleEnt = roles.find((r) => r.name === targetUser.role) || targetUser.roleEntity;
       const isTargetAdmin = targetRoleEnt?.isSystemAdmin || targetUser.role === 'Administrator';
       if (isTargetAdmin) return false;
       return hasPermission('users', 'edit');
@@ -450,6 +480,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       canManageServices,
       canManageUsers,
       isRolesLoading,
+      refreshRoles,
       canEditUser,
       canEditProject,
       hasPermission,
@@ -478,6 +509,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       canManageServices,
       canManageUsers,
       isRolesLoading,
+      refreshRoles,
       canEditUser,
       canEditProject,
       hasPermission,

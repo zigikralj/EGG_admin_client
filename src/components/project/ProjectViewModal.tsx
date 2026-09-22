@@ -93,7 +93,6 @@ const ProjectViewModal: React.FC<Props> = ({
     reminders,
     invoices,
     currentUser,
-    isUser: false,
   });
 
 

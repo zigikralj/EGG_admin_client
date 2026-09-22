@@ -53,7 +53,7 @@ const ProjectModal: React.FC<Props> = ({
   };
 
   const { t, getServiceLabel, getResponsibleLabel } = useLanguage();
-  const { currentUser, canEditProject, isUser } = useAuth();
+  const { currentUser, canEditProject } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
   const [errorDialogState, setErrorDialogState] = useState<{ open: boolean; message: string }>({
     open: false,
@@ -78,7 +78,6 @@ const ProjectModal: React.FC<Props> = ({
     reminders,
     invoices,
     currentUser,
-    isUser,
   });
 
   const {
@@ -112,7 +111,7 @@ const ProjectModal: React.FC<Props> = ({
       return;
     }
 
-    const finalResponsible = isUser ? (currentUser?.name || responsible) : responsible;
+    const finalResponsible = responsible || currentUser?.name || '';
     const finalProgress = done ? 100 : Math.max(0, Math.min(100, Number(progress) || 0));
 
     setIsSaving(true);
@@ -373,7 +372,7 @@ const ProjectModal: React.FC<Props> = ({
               {/* RESPONSIBLE */}
               <Grid size={{ xs: 12, sm: 6 }}>
                 {(() => {
-                  const respLabel = getResponsibleLabel(responsible || (isUser ? currentUser?.name : ''), users);
+                  const respLabel = getResponsibleLabel(responsible || currentUser?.name || '', users);
                   const selectableUsers = users.filter((u) => {
                     const isMe = Boolean(currentUser?.name) && u.name.trim().toLowerCase() === currentUser?.name?.trim().toLowerCase();
                     const isSelected = Boolean(responsible) && u.name.trim().toLowerCase() === responsible.trim().toLowerCase();
@@ -383,15 +382,7 @@ const ProjectModal: React.FC<Props> = ({
                     if (u.role === 'Administrator') return false;
                     return true;
                   });
-                  return isUser ? (
-                    <TextField
-                      fullWidth
-                      label={respLabel}
-                      value={currentUser?.name || ''}
-                      disabled
-                      size="small"
-                    />
-                  ) : users.length > 0 ? (
+                  return users.length > 0 ? (
                     <Autocomplete
                       key={respLabel}
                       size="small"
@@ -409,6 +400,7 @@ const ProjectModal: React.FC<Props> = ({
                         <TextField
                           {...params}
                           label={respLabel}
+                          placeholder={currentUser?.name || ''}
                         />
                       )}
                     />

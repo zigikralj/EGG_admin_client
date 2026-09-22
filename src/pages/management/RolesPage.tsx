@@ -18,6 +18,7 @@ import { EditIcon, DeleteIcon, AddIcon } from '../../components/icons';
 import { useRolesQuery, useRoleMutations } from '../../queries';
 import { RoleModal } from '../../components/role/RoleModal';
 import { ConfirmDeleteDialog } from '../../components/dialogs/ConfirmDeleteDialog';
+import { ErrorDialog } from '../../components/dialogs/ErrorDialog';
 import type { Role } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 
@@ -30,6 +31,10 @@ const RolesPage: React.FC = () => {
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [roleToDelete, setRoleToDelete] = useState<Role | null>(null);
+  const [errorDialogState, setErrorDialogState] = useState<{ open: boolean; message: string }>({
+    open: false,
+    message: '',
+  });
 
   const canCreate = hasPermission('roles', 'create');
   const canEdit = hasPermission('roles', 'edit');
@@ -56,11 +61,13 @@ const RolesPage: React.FC = () => {
   const handleSaveRole = (name: string, data: Partial<Role>) => {
     if (editingRole) {
       updateMutation.mutate({ name, data }, {
-        onSuccess: () => setModalOpen(false)
+        onSuccess: () => setModalOpen(false),
+        onError: (err: any) => setErrorDialogState({ open: true, message: err?.message || 'Failed to update role' }),
       });
     } else {
       createMutation.mutate(data, {
-        onSuccess: () => setModalOpen(false)
+        onSuccess: () => setModalOpen(false),
+        onError: (err: any) => setErrorDialogState({ open: true, message: err?.message || 'Failed to create role' }),
       });
     }
   };
@@ -68,7 +75,8 @@ const RolesPage: React.FC = () => {
   const confirmDelete = () => {
     if (roleToDelete) {
       deleteMutation.mutate(roleToDelete.name, {
-        onSuccess: () => setDeleteConfirmOpen(false)
+        onSuccess: () => setDeleteConfirmOpen(false),
+        onError: (err: any) => setErrorDialogState({ open: true, message: err?.message || 'Failed to delete role' }),
       });
     }
   };
@@ -160,6 +168,12 @@ const RolesPage: React.FC = () => {
         onConfirm={confirmDelete}
         title="Delete Role"
         message={`Are you sure you want to delete the role "${roleToDelete?.name}"?`}
+      />
+
+      <ErrorDialog
+        open={errorDialogState.open}
+        message={errorDialogState.message}
+        onClose={() => setErrorDialogState({ open: false, message: '' })}
       />
     </Box>
   );

@@ -143,8 +143,9 @@ export const WasteDisposalPanel: React.FC<Props> = ({
   isRefreshing,
 }) => {
   const { t, getServiceLabel } = useLanguage();
-  const { canManageProvidedServices, isUser } = useAuth();
-  const canManage = canManageProvidedServices || !isUser;
+  const { hasPermission } = useAuth();
+  const canEdit = hasPermission('wasteDisposal', 'edit') || hasPermission('providedServices', 'edit');
+  const canDelete = hasPermission('wasteDisposal', 'delete') || hasPermission('providedServices', 'delete');
 
   // Search & Filters state
   const [searchQuery, setSearchQuery] = useState('');
@@ -1042,7 +1043,7 @@ export const WasteDisposalPanel: React.FC<Props> = ({
 
               {/* ACTION BUTTONS */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                {!isCompleted && canManage && (
+                {!isCompleted && canEdit && (
                   <Tooltip title={t('btnMarkDone')}>
                     <IconButton
                       size="small"
@@ -1066,30 +1067,30 @@ export const WasteDisposalPanel: React.FC<Props> = ({
                   </IconButton>
                 </Tooltip>
 
-                {canManage && (
-                  <>
-                    <Tooltip title={t('btnEdit')}>
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenEdit(item);
-                        }}
-                      >
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
+                {canEdit && (
+                  <Tooltip title={t('btnEdit')}>
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenEdit(item);
+                      }}
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
 
-                    <Tooltip title={t('btnDelete')}>
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={(e) => handleDelete(item.id, e)}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </>
+                {canDelete && (
+                  <Tooltip title={t('btnDelete')}>
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={(e) => handleDelete(item.id, e)}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
                 )}
               </Box>
             </Box>
@@ -1343,7 +1344,7 @@ export const WasteDisposalPanel: React.FC<Props> = ({
         <DialogActions sx={{ px: 3, py: 2 }}>
           {isViewMode ? (
             <>
-              {canManage && (
+              {canEdit && (
                 <Button
                   variant="outlined"
                   onClick={() => setIsViewMode(false)}

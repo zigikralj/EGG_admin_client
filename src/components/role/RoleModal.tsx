@@ -106,7 +106,13 @@ export const RoleModal: React.FC<RoleModalProps> = ({
         setName(role.name);
         setDescription(role.description || '');
         setIsSystemAdmin(role.isSystemAdmin);
-        setPermissions(role.permissions || {});
+        const initialPerms: Record<string, string[]> = {};
+        if (role.permissions) {
+          Object.entries(role.permissions).forEach(([k, v]) => {
+            if (Array.isArray(v)) initialPerms[k] = [...v];
+          });
+        }
+        setPermissions(initialPerms);
         const roleApps = role.permissions?.apps;
         if (Array.isArray(roleApps)) {
           setAppPermissions(roleApps);
@@ -165,30 +171,29 @@ export const RoleModal: React.FC<RoleModalProps> = ({
         return prev.filter((id) => id !== appId);
       }
     });
+
+    if (!allowed) {
+      const appDef = APPS.find((a) => a.id === appId);
+      if (appDef) {
+        setPermissions((prev) => {
+          const next = { ...prev };
+          appDef.resources.forEach((r) => {
+            next[r.id] = [];
+          });
+          return next;
+        });
+      }
+    }
   };
 
   const handleSave = () => {
-    let finalApps = [...appPermissions];
-    const dataManagementResources = APPS.find((a) => a.id === 'data-management')?.resources.map((r) => r.id) || [];
-    const trackerResources = APPS.find((a) => a.id === 'project-tracker')?.resources.map((r) => r.id) || [];
-
-    const hasDataMgmtPerms = dataManagementResources.some((resId) => (permissions[resId] || []).length > 0);
-    const hasTrackerPerms = trackerResources.some((resId) => (permissions[resId] || []).length > 0);
-
-    if (hasDataMgmtPerms && !finalApps.includes('data-management')) {
-      finalApps.push('data-management');
-    }
-    if (hasTrackerPerms && !finalApps.includes('project-tracker')) {
-      finalApps.push('project-tracker');
-    }
-
     onSave(name, {
       name: isEdit ? undefined : name,
       description,
       isSystemAdmin: canAssignSystemAdmin ? isSystemAdmin : false,
       permissions: {
         ...permissions,
-        apps: finalApps,
+        apps: appPermissions,
       },
     });
   };

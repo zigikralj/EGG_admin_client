@@ -136,7 +136,7 @@ export const ReminderPanel: React.FC<Props> = ({
   isRefreshing,
 }) => {
   const { t } = useLanguage();
-  const { currentUser, isAdmin, isManager } = useAuth();
+  const { currentUser, isAdmin, hasPermission } = useAuth();
 
   // Filters and sorting state
   const [searchQuery, setSearchQuery] = useState('');
@@ -462,12 +462,12 @@ export const ReminderPanel: React.FC<Props> = ({
 
   const canEditSelected = useMemo(() => {
     if (!selectedReminder) return true; // new reminder
-    if (isAdmin || isManager) return true;
+    if (isAdmin || hasPermission('reminders', 'edit') || hasPermission('tracker_reminders', 'edit')) return true;
     if (!currentUser) return false;
     const respName = (selectedReminder.responsible || '').trim().toLowerCase();
     const curName = (currentUser.name || '').trim().toLowerCase();
     return respName !== '' && respName === curName;
-  }, [isAdmin, isManager, currentUser, selectedReminder]);
+  }, [isAdmin, hasPermission, currentUser, selectedReminder]);
 
   const handleOpenNew = () => {
     setSelectedReminder(null);
@@ -775,7 +775,8 @@ export const ReminderPanel: React.FC<Props> = ({
 
             const itemCanEdit =
               isAdmin ||
-              isManager ||
+              hasPermission('reminders', 'edit') ||
+              hasPermission('tracker_reminders', 'edit') ||
               (currentUser &&
                 item.responsible &&
                 item.responsible.trim().toLowerCase() === (currentUser.name || '').trim().toLowerCase());
