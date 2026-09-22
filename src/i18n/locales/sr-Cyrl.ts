@@ -469,6 +469,7 @@ const srCyrlTranslations: TranslationKeys = {
   "btnCancel": "Откажи",
   "btnSave": "Сачувај",
   "alertProjectValidation": "Молимо унесите назив пројекта и изаберите клијента.",
+  "confirmAction": "Потврда акције",
   "confirmDeleteTitle": "Потврда брисања",
   "confirmDeleteProject": "Обрисати овај пројекат?",
   "confirmDeleteClient": "Обрисати овог клијента?",

@@ -1173,8 +1173,9 @@ const RemindersPage: React.FC<Props> = ({
       />
       <ConfirmDialog
         open={deleteConfirmState.open}
-        title={t('confirmAction' as any)}
+        title={t('confirmDeleteTitle')}
         message={deleteConfirmState.message}
+        confirmLabel={t('btnDelete')}
         onConfirm={deleteConfirmState.onConfirm}
         onClose={() => setDeleteConfirmState((prev) => ({ ...prev, open: false }))}
         confirmColor="warning"

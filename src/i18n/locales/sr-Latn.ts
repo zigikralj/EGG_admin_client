@@ -469,6 +469,7 @@ const srLatnTranslations: TranslationKeys = {
   "btnCancel": "Otkaži",
   "btnSave": "Sačuvaj",
   "alertProjectValidation": "Molimo unesite naziv projekta i izaberite klijenta.",
+  "confirmAction": "Potvrda akcije",
   "confirmDeleteTitle": "Potvrda brisanja",
   "confirmDeleteProject": "Obrisati ovaj projekat?",
   "confirmDeleteClient": "Obrisati ovog klijenta?",

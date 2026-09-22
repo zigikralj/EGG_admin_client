@@ -502,6 +502,7 @@ export interface TranslationKeys {
   alertProjectValidation: string;
 
   // Common UI & Dialogs
+  confirmAction: string;
   confirmDeleteTitle: string;
   confirmDeleteProject: string;
   confirmDeleteClient: string;

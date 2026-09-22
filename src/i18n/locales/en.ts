@@ -469,6 +469,7 @@ const enTranslations: TranslationKeys = {
   "btnCancel": "Cancel",
   "btnSave": "Save",
   "alertProjectValidation": "Please enter a project name and select or enter a client.",
+  "confirmAction": "Confirm Action",
   "confirmDeleteTitle": "Confirm Deletion",
   "confirmDeleteProject": "Are you sure you want to delete this project?",
   "confirmDeleteClient": "Are you sure you want to delete this client?",
