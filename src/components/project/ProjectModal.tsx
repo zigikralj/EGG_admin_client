@@ -552,8 +552,9 @@ const ProjectModal: React.FC<Props> = ({
 
       <ConfirmDialog
         open={deleteConfirmState.open}
-        title={t('confirmAction' as any)}
+        title={t('confirmDeleteTitle')}
         message={deleteConfirmState.message}
+        confirmLabel={t('btnDelete')}
         onConfirm={() => {
           deleteConfirmState.onConfirm();
           setDeleteConfirmState(prev => ({ ...prev, open: false }));
