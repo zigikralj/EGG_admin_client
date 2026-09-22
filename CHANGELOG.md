@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.3.6] - 2026-09-22
+
+- refactor: update confirm dialogs to use specific delete titles and la… (#50) by @zigikralj
+
 ## [v1.3.5] - 2026-09-22
 
 - refactor: update authentication context, role modal, and sidebar comp… (#48) by @zigikralj
