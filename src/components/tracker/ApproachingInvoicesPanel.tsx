@@ -107,8 +107,8 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
   isRefreshing,
 }) => {
   const { t } = useLanguage();
-  const { isUser, canManageInvoices } = useAuth();
-  const canManage = canManageInvoices || !isUser;
+  const { canManageInvoices } = useAuth();
+  const canManage = canManageInvoices;
 
   // Search & Filters state
   const [searchQuery, setSearchQuery] = useState('');

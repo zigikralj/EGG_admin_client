@@ -597,10 +597,16 @@ export function useRoleMutations() {
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error('Failed to create role');
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || errData.message || 'Failed to create role');
+      }
       return res.json() as Promise<Role>;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['roles'] }),
+    onSuccess: (role) => {
+      queryClient.invalidateQueries({ queryKey: ['roles'] });
+      window.dispatchEvent(new CustomEvent('roles:changed', { detail: role }));
+    },
   });
 
   const updateMutation = useMutation({
@@ -610,10 +616,16 @@ export function useRoleMutations() {
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error('Failed to update role');
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || errData.message || 'Failed to update role');
+      }
       return res.json() as Promise<Role>;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['roles'] }),
+    onSuccess: (role) => {
+      queryClient.invalidateQueries({ queryKey: ['roles'] });
+      window.dispatchEvent(new CustomEvent('roles:changed', { detail: role }));
+    },
   });
 
   const deleteMutation = useMutation({
@@ -622,10 +634,16 @@ export function useRoleMutations() {
         method: 'DELETE',
         headers: getAuthHeaders(),
       });
-      if (!res.ok) throw new Error('Failed to delete role');
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || errData.message || 'Failed to delete role');
+      }
       return res.json();
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['roles'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['roles'] });
+      window.dispatchEvent(new CustomEvent('roles:changed'));
+    },
   });
 
   return { createMutation, updateMutation, deleteMutation };

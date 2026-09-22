@@ -11,7 +11,6 @@ export function useProjectForm({
   reminders = [],
   invoices = [],
   currentUser,
-  isUser,
 }: {
   projectToEdit?: Project | null;
   clients: Client[];
@@ -20,7 +19,6 @@ export function useProjectForm({
   reminders?: Reminder[];
   invoices?: Invoice[];
   currentUser?: User | null;
-  isUser?: boolean;
 }) {
   const todayStr = new Date().toISOString().slice(0, 10);
 
@@ -93,7 +91,7 @@ export function useProjectForm({
       setIsAddingInvoice(false);
       setEditingInvoice(null);
     }
-  }, [projectToEdit, clients, users, services, currentUser, isUser, todayStr]);
+  }, [projectToEdit, clients, users, services, currentUser, todayStr]);
 
   const handleClientSelectChange = (id: string) => {
     setClientId(id);

@@ -83,8 +83,8 @@ const InvoicesPage: React.FC<Props> = ({
   onSortChange,
 }) => {
   const { t } = useLanguage();
-  const { isUser, canManageInvoices } = useAuth();
-  const canManage = canManageInvoices || !isUser;
+  const { canManageInvoices } = useAuth();
+  const canManage = canManageInvoices;
   const [isOpen, setIsOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const {
