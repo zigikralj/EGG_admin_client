@@ -29,7 +29,9 @@ interface AuthContextType {
   isRolesLoading: boolean;
   refreshRoles: () => Promise<void>;
   canEditUser: (targetUser: User) => boolean;
+  canDeleteUser: (targetUser: User) => boolean;
   canEditProject: (project: Project) => boolean;
+  canDeleteProject: (project: Project) => boolean;
   hasPermission: (resource: string, action: string) => boolean;
 }
 
@@ -438,9 +440,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [isAdmin, roles, hasPermission]
   );
 
+  const canDeleteUser = React.useCallback(
+    (targetUser: User): boolean => {
+      if (!currentUser) return false;
+      if (targetUser.id === currentUser.id) return false;
+      if (isAdmin) return true;
+      const targetRoleEnt = roles.find((r) => r.name === targetUser.role) || targetUser.roleEntity;
+      const isTargetAdmin = targetRoleEnt?.isSystemAdmin || targetUser.role === 'Administrator';
+      if (isTargetAdmin) return false;
+      return hasPermission('users', 'delete');
+    },
+    [isAdmin, roles, hasPermission, currentUser]
+  );
+
   const canEditProject = React.useCallback(
     (project: Project): boolean => {
-      if (isAdmin || hasPermission('projects', 'edit')) return true;
+      if (isAdmin || hasPermission('projects', 'edit') || hasPermission('tracker_projects', 'edit')) return true;
+      if (!currentUser) return false;
+
+      const respName = (project.responsible || '').trim().toLowerCase();
+      const curName = (currentUser.name || '').trim().toLowerCase();
+
+      if (respName && respName === curName) return true;
+      if ((project as any).responsibleId && (project as any).responsibleId === currentUser.id) return true;
+
+      return false;
+    },
+    [isAdmin, hasPermission, currentUser]
+  );
+
+  const canDeleteProject = React.useCallback(
+    (project: Project): boolean => {
+      if (isAdmin || hasPermission('projects', 'delete') || hasPermission('tracker_projects', 'delete')) return true;
       if (!currentUser) return false;
 
       const respName = (project.responsible || '').trim().toLowerCase();
@@ -482,7 +513,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isRolesLoading,
       refreshRoles,
       canEditUser,
+      canDeleteUser,
       canEditProject,
+      canDeleteProject,
       hasPermission,
     }),
     [
@@ -511,7 +544,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isRolesLoading,
       refreshRoles,
       canEditUser,
+      canDeleteUser,
       canEditProject,
+      canDeleteProject,
       hasPermission,
     ]
   );

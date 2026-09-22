@@ -53,7 +53,7 @@ const ProjectModal: React.FC<Props> = ({
   };
 
   const { t, getServiceLabel, getResponsibleLabel } = useLanguage();
-  const { currentUser, canEditProject } = useAuth();
+  const { currentUser, canEditProject, canDeleteProject } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
   const [errorDialogState, setErrorDialogState] = useState<{ open: boolean; message: string }>({
     open: false,
@@ -227,6 +227,7 @@ const ProjectModal: React.FC<Props> = ({
   if (!isOpen) return null;
 
   const isEditable = projectToEdit ? canEditProject(projectToEdit) : true;
+  const isDeletable = projectToEdit ? canDeleteProject(projectToEdit) : false;
 
   return (
     <>
@@ -293,7 +294,7 @@ const ProjectModal: React.FC<Props> = ({
               </Button>
             )}
 
-            {projectToEdit && isEditable && (
+            {projectToEdit && isDeletable && (
               <Button
                 color="error"
                 variant="outlined"

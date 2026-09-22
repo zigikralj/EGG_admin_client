@@ -83,8 +83,11 @@ const InvoicesPage: React.FC<Props> = ({
   onSortChange,
 }) => {
   const { t } = useLanguage();
-  const { canManageInvoices } = useAuth();
-  const canManage = canManageInvoices;
+  const { isAdmin, hasPermission } = useAuth();
+  const canCreate = isAdmin || hasPermission('invoices', 'create') || hasPermission('tracker_invoices', 'create');
+  const canEdit = isAdmin || hasPermission('invoices', 'edit') || hasPermission('tracker_invoices', 'edit');
+  const canDelete = isAdmin || hasPermission('invoices', 'delete') || hasPermission('tracker_invoices', 'delete');
+  const hasAnyRowAction = canEdit || canDelete;
   const [isOpen, setIsOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const {
@@ -358,6 +361,7 @@ const InvoicesPage: React.FC<Props> = ({
 
   // Open modal for new invoice
   const handleOpenNew = () => {
+    if (!canCreate) return;
     setEditingInvoice(null);
     setFormData({
       invoiceNumber: '',
@@ -381,6 +385,7 @@ const InvoicesPage: React.FC<Props> = ({
 
   // Open modal for editing invoice
   const handleOpenEdit = (inv: Invoice) => {
+    if (!canEdit) return;
     const { cleanNotes, invoiceType: pType, parentInvoiceId: pParentId } = parseInvoiceNotes(inv.notes);
     const linkedPs = providedServices?.find(ps => ps.invoiceId === inv.id);
     setEditingInvoice(inv);
@@ -707,7 +712,7 @@ const InvoicesPage: React.FC<Props> = ({
           )}
         </Box>
 
-        {canManage && (
+        {canCreate && (
           <Button
             variant="contained"
             color="primary"
@@ -1016,7 +1021,7 @@ const InvoicesPage: React.FC<Props> = ({
                     </TableSortLabel>
                   </TableCell>
                 )}
-                {canManage && (
+                {hasAnyRowAction && (
                   <TableCell align="right">
                     <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                       {t('colAction')}
@@ -1029,7 +1034,7 @@ const InvoicesPage: React.FC<Props> = ({
             <TableBody>
               {sortedInvoices.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={activeCols.length + 2} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={activeCols.length + 1 + (hasAnyRowAction ? 1 : 0)} align="center" sx={{ py: 6 }}>
                     <Typography variant="body1" color="text.secondary">
                       {t('emptyInvoices')}
                     </Typography>
@@ -1200,10 +1205,10 @@ const InvoicesPage: React.FC<Props> = ({
                             </TableCell>
                           )}
 
-                          {canManage && (
+                          {hasAnyRowAction && (
                             <TableCell align="right">
                               <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
-                                {!isPaid && (
+                                {canEdit && !isPaid && (
                                   <Tooltip title={t('markAsPaid')}>
                                     <IconButton
                                       size="small"
@@ -1215,21 +1220,25 @@ const InvoicesPage: React.FC<Props> = ({
                                   </Tooltip>
                                 )}
 
-                                <Tooltip title={t('btnEdit')}>
-                                  <IconButton size="small" color="primary" onClick={() => handleOpenEdit(inv)}>
-                                    <EditIcon fontSize="small" />
-                                  </IconButton>
-                                </Tooltip>
+                                {canEdit && (
+                                  <Tooltip title={t('btnEdit')}>
+                                    <IconButton size="small" color="primary" onClick={() => handleOpenEdit(inv)}>
+                                      <EditIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                )}
 
-                                <Tooltip title={t('btnDelete')}>
-                                  <IconButton
-                                    size="small"
-                                    color="error"
-                                    onClick={() => onDeleteInvoice(inv.id)}
-                                  >
-                                    <DeleteIcon fontSize="small" />
-                                  </IconButton>
-                                </Tooltip>
+                                {canDelete && (
+                                  <Tooltip title={t('btnDelete')}>
+                                    <IconButton
+                                      size="small"
+                                      color="error"
+                                      onClick={() => onDeleteInvoice(inv.id)}
+                                    >
+                                      <DeleteIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                )}
                               </Box>
                             </TableCell>
                           )}
@@ -1237,7 +1246,7 @@ const InvoicesPage: React.FC<Props> = ({
 
                         {/* EXPANDABLE ITEMS BREAKDOWN & LINKED INVOICES */}
                         <TableRow>
-                          <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={activeCols.length + 2}>
+                          <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={activeCols.length + 1 + (hasAnyRowAction ? 1 : 0)}>
                             <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                               <Box sx={{ margin: 2, p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
                                 {/* LINKED INVOICES BREAKDOWN CARD */}

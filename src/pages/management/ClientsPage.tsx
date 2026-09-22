@@ -32,7 +32,7 @@ import { TableOptionsSelector, type ColumnDef } from '../../components/common/Co
 import { TableFilterSelector } from '../../components/common/TableFilterSelector';
 import { TableSearchInput } from '../../components/common/TableSearchInput';
 import { ErrorDialog } from '../../components/dialogs/ErrorDialog';
-import { AddIcon, EditIcon, DeleteIcon, LockIcon, ArrowUpwardIcon, ArrowDownwardIcon, RefreshIcon } from '../../components/icons';
+import { AddIcon, EditIcon, DeleteIcon, ArrowUpwardIcon, ArrowDownwardIcon, RefreshIcon } from '../../components/icons';
 
 interface Props extends TableViewProps {}
 
@@ -52,7 +52,11 @@ const ClientsPage: React.FC<Props> = ({
   onSortChange,
 }) => {
   const { t } = useLanguage();
-  const { canManageClients } = useAuth();
+  const { isAdmin, hasPermission } = useAuth();
+  const canCreate = isAdmin || hasPermission('clients', 'create');
+  const canEdit = isAdmin || hasPermission('clients', 'edit');
+  const canDelete = isAdmin || hasPermission('clients', 'delete');
+  const hasAnyRowAction = canEdit || canDelete;
   const [isOpen, setIsOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
 
@@ -149,7 +153,7 @@ const ClientsPage: React.FC<Props> = ({
   }, [permits]);
 
   const openNew = () => {
-    if (!canManageClients) return;
+    if (!canCreate) return;
     setEditingClient(null);
     setName('');
     setContactPerson('');
@@ -161,7 +165,7 @@ const ClientsPage: React.FC<Props> = ({
   };
 
   const openEdit = (c: Client) => {
-    if (!canManageClients) return;
+    if (!canEdit) return;
     setEditingClient(c);
     setName(c.name);
     setContactPerson(c.contactPerson || '');
@@ -175,7 +179,7 @@ const ClientsPage: React.FC<Props> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canManageClients) return;
+    if (!canEdit && !canCreate) return;
     if (!name.trim()) {
       setErrorDialogState({
         open: true,
@@ -327,20 +331,13 @@ const ClientsPage: React.FC<Props> = ({
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%', flex: 1, minHeight: 0 }}>
       {/* TOP ACTION BAR */}
-      <Box sx={{ display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' }, alignItems: 'center' }}>
-        {canManageClients ? (
+      {canCreate && (
+        <Box sx={{ display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' }, alignItems: 'center' }}>
           <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={openNew} sx={{ width: { xs: '100%', sm: 'auto' } }}>
             {t('btnNewClient')}
           </Button>
-        ) : (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
-            <LockIcon fontSize="small" />
-            <Typography variant="caption" sx={{ fontStyle: 'italic' }}>
-              {t('permissionDeniedClients')}
-            </Typography>
-          </Box>
-        )}
-      </Box>
+        </Box>
+      )}
 
       {/* TABLE CARD */}
       <Card variant="outlined" sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
@@ -547,13 +544,13 @@ const ClientsPage: React.FC<Props> = ({
                     </TableSortLabel>
                   </TableCell>
                 )}
-                {canManageClients && <TableCell align="right">{t('colActions')}</TableCell>}
+                {hasAnyRowAction && <TableCell align="right">{t('colActions')}</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
               {sortedClients.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={activeCols.length + (canManageClients ? 1 : 0)} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                  <TableCell colSpan={activeCols.length + (hasAnyRowAction ? 1 : 0)} align="center" sx={{ py: 3, color: 'text.secondary' }}>
                     {t('emptyClients')}
                   </TableCell>
                 </TableRow>
@@ -602,15 +599,19 @@ const ClientsPage: React.FC<Props> = ({
                         />
                       </TableCell>
                     )}
-                    {canManageClients && (
+                    {hasAnyRowAction && (
                       <TableCell align="right">
                         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
-                          <IconButton size="small" color="info" onClick={() => openEdit(c)}>
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton size="small" color="error" onClick={() => onDeleteClient(c.id)}>
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
+                          {canEdit && (
+                            <IconButton size="small" color="info" onClick={() => openEdit(c)}>
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          )}
+                          {canDelete && (
+                            <IconButton size="small" color="error" onClick={() => onDeleteClient(c.id)}>
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          )}
                         </Box>
                       </TableCell>
                     )}
@@ -640,7 +641,7 @@ const ClientsPage: React.FC<Props> = ({
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
               {editingClient ? t('modalEditClient') : t('modalNewClient')}
             </Typography>
-            {editingClient && canManageClients && (
+            {editingClient && canDelete && (
               <Button
                 color="error"
                 size="small"

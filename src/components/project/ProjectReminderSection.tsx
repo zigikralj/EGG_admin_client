@@ -30,6 +30,7 @@ import {
 
 import type { Reminder, User, Project } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
 import { NotificationsActiveIcon, AddIcon, CloseIcon, CalendarTodayIcon, CheckIcon, EditIcon, DeleteIcon } from '../icons';
 
 interface ProjectReminderSectionProps {
@@ -64,6 +65,13 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
   disabled = false,
 }) => {
   const { t, getResponsibleLabel } = useLanguage();
+  const { currentUser, isAdmin, hasPermission } = useAuth();
+
+  const canCreateReminder =
+    !projectToEdit ||
+    isAdmin ||
+    hasPermission('reminders', 'create') ||
+    hasPermission('tracker_reminders', 'create');
 
   const {
     isAddingReminder, setIsAddingReminder,
@@ -235,7 +243,7 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
               {t("reminderBoxTitle")}
             </Typography>
           </Box>
-          {!disabled && (
+          {!disabled && canCreateReminder && (
             <Button
               size="small"
               variant={isAddingReminder ? "outlined" : "contained"}
@@ -493,54 +501,81 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
                   </Box>
 
                   <Box sx={{ display: "flex", alignItems: "center", gap: 0.25, flexShrink: 0 }}>
-                    {!disabled && (
-                      <>
-                        <Tooltip title={isCompleted ? t("statusPending") : t("statusCompleted")}>
-                          <IconButton
-                            size="small"
-                            color={isCompleted ? "default" : "success"}
-                            onClick={() => {
-                              const newStatus = isCompleted ? "Pending" : "Completed";
-                              if (projectToEdit) {
-                                if (onStatusChangeReminder) {
-                                  onStatusChangeReminder(rem.id, newStatus);
-                                } else if (onSaveReminder) {
-                                  onSaveReminder({ id: rem.id, status: newStatus });
-                                }
-                              } else if (toggleStagedReminderStatus) {
-                                toggleStagedReminderStatus(rem.id, newStatus);
-                              }
-                            }}
-                            sx={{ p: 0.25 }}
-                          >
-                            <CheckIcon sx={{ fontSize: 16 }} />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title={t("btnEdit")}>
-                          <IconButton size="small" color="primary" onClick={() => handleStartEditReminder(rem)} sx={{ p: 0.25 }}>
-                            <EditIcon sx={{ fontSize: 16 }} />
-                          </IconButton>
-                        </Tooltip>
-                        {(!projectToEdit || onDeleteReminder) && (
-                          <Tooltip title={t("btnDelete")}>
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => {
-                                if (projectToEdit && onDeleteReminder) {
-                                  onDeleteReminder(rem.id);
-                                } else if (!projectToEdit && removeStagedReminder) {
-                                  removeStagedReminder(rem.id);
-                                }
-                              }}
-                              sx={{ p: 0.25 }}
-                            >
-                              <DeleteIcon sx={{ fontSize: 16 }} />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </>
-                    )}
+                    {!disabled && (() => {
+                      const isOwner =
+                        Boolean(
+                          currentUser &&
+                            rem.responsible &&
+                            rem.responsible.trim().toLowerCase() === (currentUser.name || '').trim().toLowerCase()
+                        );
+
+                      const remCanEdit =
+                        !projectToEdit ||
+                        isAdmin ||
+                        hasPermission('reminders', 'edit') ||
+                        hasPermission('tracker_reminders', 'edit') ||
+                        isOwner;
+
+                      const remCanDelete =
+                        !projectToEdit ||
+                        isAdmin ||
+                        hasPermission('reminders', 'delete') ||
+                        hasPermission('tracker_reminders', 'delete') ||
+                        isOwner;
+
+                      return (
+                        <>
+                          {remCanEdit && (
+                            <Tooltip title={isCompleted ? t("statusPending") : t("statusCompleted")}>
+                              <IconButton
+                                size="small"
+                                color={isCompleted ? "default" : "success"}
+                                onClick={() => {
+                                  const newStatus = isCompleted ? "Pending" : "Completed";
+                                  if (projectToEdit) {
+                                    if (onStatusChangeReminder) {
+                                      onStatusChangeReminder(rem.id, newStatus);
+                                    } else if (onSaveReminder) {
+                                      onSaveReminder({ id: rem.id, status: newStatus });
+                                    }
+                                  } else if (toggleStagedReminderStatus) {
+                                    toggleStagedReminderStatus(rem.id, newStatus);
+                                  }
+                                }}
+                                sx={{ p: 0.25 }}
+                              >
+                                <CheckIcon sx={{ fontSize: 16 }} />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          {remCanEdit && (
+                            <Tooltip title={t("btnEdit")}>
+                              <IconButton size="small" color="primary" onClick={() => handleStartEditReminder(rem)} sx={{ p: 0.25 }}>
+                                <EditIcon sx={{ fontSize: 16 }} />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          {remCanDelete && (!projectToEdit || onDeleteReminder) && (
+                            <Tooltip title={t("btnDelete")}>
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => {
+                                  if (projectToEdit && onDeleteReminder) {
+                                    onDeleteReminder(rem.id);
+                                  } else if (!projectToEdit && removeStagedReminder) {
+                                    removeStagedReminder(rem.id);
+                                  }
+                                }}
+                                sx={{ p: 0.25 }}
+                              >
+                                <DeleteIcon sx={{ fontSize: 16 }} />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </>
+                      );
+                    })()}
                   </Box>
                 </Box>
               );

@@ -39,7 +39,7 @@ import { TableSearchInput } from '../../components/common/TableSearchInput';
 import { TableQuickFilters, type QuickFilterItem } from '../../components/common/TableQuickFilters';
 import { ErrorDialog } from '../../components/dialogs/ErrorDialog';
 import { useTableView } from '../../hooks/useTableView';
-import { AddIcon, EditIcon, DeleteIcon, LockIcon, HowToRegIcon, HourglassEmptyIcon, ArrowUpwardIcon, ArrowDownwardIcon, CheckCircleIcon, HighlightOffIcon, BlockIcon, VpnKeyIcon, Visibility, VisibilityOff, ExitToAppIcon, RefreshIcon } from '../../components/icons';
+import { AddIcon, EditIcon, DeleteIcon, HowToRegIcon, HourglassEmptyIcon, ArrowUpwardIcon, ArrowDownwardIcon, CheckCircleIcon, HighlightOffIcon, BlockIcon, VpnKeyIcon, Visibility, VisibilityOff, ExitToAppIcon, RefreshIcon } from '../../components/icons';
 
 interface Props extends TableViewProps {
   initialFilterStatus?: string;
@@ -70,7 +70,11 @@ const UsersPage: React.FC<Props> = ({
   onQuickFilterChange,
 }) => {
   const { t } = useLanguage();
-  const { canManageUsers, canEditUser, isAdmin, currentUser } = useAuth();
+  const { canEditUser, canDeleteUser, isAdmin, hasPermission, currentUser } = useAuth();
+  const canCreate = isAdmin || hasPermission('users', 'create');
+  const canEditAny = isAdmin || hasPermission('users', 'edit');
+  const canDeleteAny = isAdmin || hasPermission('users', 'delete');
+  const hasAnyRowAction = canEditAny || canDeleteAny;
   const [isOpen, setIsOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   
@@ -228,7 +232,7 @@ const UsersPage: React.FC<Props> = ({
   };
 
   const openNew = () => {
-    if (!canManageUsers) return;
+    if (!canCreate) return;
     setEditingUser(null);
     setName('');
     setEmail('');
@@ -290,7 +294,7 @@ const UsersPage: React.FC<Props> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canManageUsers) return;
+    if (editingUser ? !canEditUser(editingUser) : !canCreate) return;
     if (!name.trim()) {
       setErrorDialogState({
         open: true,
@@ -459,20 +463,13 @@ const UsersPage: React.FC<Props> = ({
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%', flex: 1, minHeight: 0 }}>
       {/* TOP ACTION BAR */}
-      <Box sx={{ display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' }, alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
-        {canManageUsers ? (
+      {canCreate && (
+        <Box sx={{ display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' }, alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
           <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={openNew} sx={{ width: { xs: '100%', sm: 'auto' } }}>
             {t('btnNewUser')}
           </Button>
-        ) : (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
-            <LockIcon fontSize="small" />
-            <Typography variant="caption" sx={{ fontStyle: 'italic' }}>
-              {t('permissionDeniedUsers')}
-            </Typography>
-          </Box>
-        )}
-      </Box>
+        </Box>
+      )}
 
       {/* TABLE CARD */}
       <Card variant="outlined" sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
@@ -674,19 +671,20 @@ const UsersPage: React.FC<Props> = ({
                     </TableSortLabel>
                   </TableCell>
                 )}
-                {canManageUsers && <TableCell align="right">{t('colActions')}</TableCell>}
+                {hasAnyRowAction && <TableCell align="right">{t('colActions')}</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
               {sortedUsers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={activeCols.length + (canManageUsers ? 1 : 0)} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                  <TableCell colSpan={activeCols.length + (hasAnyRowAction ? 1 : 0)} align="center" sx={{ py: 3, color: 'text.secondary' }}>
                     {t('emptyUsers')}
                   </TableCell>
                 </TableRow>
               ) : (
                 paginatedUsers.map((u) => {
                   const editable = canEditUser(u);
+                  const deletable = canDeleteUser(u);
                   const isPending = u.status === 'PENDING';
                   const isBlocked = u.status === 'BLOCKED';
                   return (
@@ -780,24 +778,26 @@ const UsersPage: React.FC<Props> = ({
                       {activeCols.includes('gender') && <TableCell>{getGenderLabel(u.gender)}</TableCell>}
                       {activeCols.includes('email') && <TableCell>{u.email || '—'}</TableCell>}
                       {activeCols.includes('phone') && <TableCell>{u.phone || '—'}</TableCell>}
-                      {canManageUsers && (
+                      {hasAnyRowAction && (
                         <TableCell align="right">
                           {isPending ? (
-                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
-                              <Tooltip title={t('btnApproveAndAssignRole')}>
-                                <IconButton size="small" color="success" onClick={() => openApproveModal(u)}>
-                                  <HowToRegIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                              <Tooltip title={t('btnRejectRegistration')}>
-                                <IconButton size="small" color="error" onClick={() => handleConfirmReject(u)}>
-                                  <HighlightOffIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            </Box>
-                          ) : editable ? (
+                            editable && (
+                              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+                                <Tooltip title={t('btnApproveAndAssignRole')}>
+                                  <IconButton size="small" color="success" onClick={() => openApproveModal(u)}>
+                                    <HowToRegIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                                <Tooltip title={t('btnRejectRegistration')}>
+                                  <IconButton size="small" color="error" onClick={() => handleConfirmReject(u)}>
+                                    <HighlightOffIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              </Box>
+                            )
+                          ) : (editable || deletable) ? (
                             <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.5 }}>
-                              {u.isOnline && u.id !== currentUser?.id && (
+                              {editable && u.isOnline && u.id !== currentUser?.id && (
                                 <Tooltip title={t('btnForceLogout')}>
                                   <IconButton
                                     size="small"
@@ -814,12 +814,16 @@ const UsersPage: React.FC<Props> = ({
                                   </IconButton>
                                 </Tooltip>
                               )}
-                              <IconButton size="small" color="info" onClick={() => openEdit(u)}>
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                              <IconButton size="small" color="error" onClick={() => onDeleteUser(u.id)}>
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
+                              {editable && (
+                                <IconButton size="small" color="info" onClick={() => openEdit(u)}>
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                              )}
+                              {deletable && (
+                                <IconButton size="small" color="error" onClick={() => onDeleteUser(u.id)}>
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              )}
                             </Box>
                           ) : (
                             <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
@@ -911,7 +915,7 @@ const UsersPage: React.FC<Props> = ({
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
               {editingUser ? t('modalEditUser') : t('modalNewUser')}
             </Typography>
-            {editingUser && canEditUser(editingUser) && (
+            {editingUser && canDeleteUser(editingUser) && (
               <Button
                 color="error"
                 size="small"

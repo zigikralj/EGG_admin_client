@@ -26,6 +26,7 @@ import {
 
 import type { Invoice, Project } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
 import { parseInvoiceNotes, serializeInvoiceNotes } from '../../utils/invoiceUtils';
 import { InvoiceStatusChip, InvoiceTypeChip, LinkedInvoiceChip } from '../invoice/InvoiceChips';
 import { InvoiceFormFields } from '../invoice/InvoiceFormFields';
@@ -60,6 +61,25 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
   disabled = false,
 }) => {
   const { t } = useLanguage();
+  const { isAdmin, hasPermission } = useAuth();
+
+  const canCreateInvoice =
+    !projectToEdit ||
+    isAdmin ||
+    hasPermission('invoices', 'create') ||
+    hasPermission('tracker_invoices', 'create');
+
+  const canEditInvoice =
+    !projectToEdit ||
+    isAdmin ||
+    hasPermission('invoices', 'edit') ||
+    hasPermission('tracker_invoices', 'edit');
+
+  const canDeleteInvoice =
+    !projectToEdit ||
+    isAdmin ||
+    hasPermission('invoices', 'delete') ||
+    hasPermission('tracker_invoices', 'delete');
   const todayStr = new Date().toISOString().slice(0, 10);
 
   const {
@@ -273,7 +293,7 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
               {t("invoiceBoxTitle")}
             </Typography>
           </Box>
-          {!disabled && (
+          {!disabled && canCreateInvoice && (
             <Button
               size="small"
               variant={isAddingInvoice ? "outlined" : "contained"}
@@ -520,7 +540,7 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
                     {/* ACTIONS */}
                     {!disabled && (
                       <Box sx={{ display: "flex", alignItems: "center", gap: 0.25, flexShrink: 0 }}>
-                        {!isPaid && (
+                        {canEditInvoice && !isPaid && (
                           <Tooltip title={t("markAsPaid")}>
                             <IconButton
                               size="small"
@@ -542,17 +562,21 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
                             </IconButton>
                           </Tooltip>
                         )}
-                        <Tooltip title={t("btnEdit")}>
-                          <IconButton size="small" color="primary" onClick={() => handleStartEditInvoice(inv)} sx={{ p: 0.25 }}>
-                            <EditIcon sx={{ fontSize: 16 }} />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title={t("btnUnlinkInvoice")}>
-                          <IconButton size="small" color="warning" onClick={() => handleUnlinkInvoice(inv.id)} sx={{ p: 0.25 }}>
-                            <LinkOffIcon sx={{ fontSize: 16 }} />
-                          </IconButton>
-                        </Tooltip>
-                        {(!projectToEdit || onDeleteInvoice) && (
+                        {canEditInvoice && (
+                          <Tooltip title={t("btnEdit")}>
+                            <IconButton size="small" color="primary" onClick={() => handleStartEditInvoice(inv)} sx={{ p: 0.25 }}>
+                              <EditIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        {canEditInvoice && (
+                          <Tooltip title={t("btnUnlinkInvoice")}>
+                            <IconButton size="small" color="warning" onClick={() => handleUnlinkInvoice(inv.id)} sx={{ p: 0.25 }}>
+                              <LinkOffIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        {canDeleteInvoice && (!projectToEdit || onDeleteInvoice) && (
                           <Tooltip title={t("btnDelete")}>
                             <IconButton
                               size="small"

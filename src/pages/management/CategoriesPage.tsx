@@ -31,7 +31,7 @@ import { TableFilterSelector } from '../../components/common/TableFilterSelector
 import { TableSearchInput } from '../../components/common/TableSearchInput';
 import { ErrorDialog } from '../../components/dialogs/ErrorDialog';
 import { useTableView } from '../../hooks/useTableView';
-import { AddIcon, EditIcon, DeleteIcon, LockIcon, ArrowUpwardIcon, ArrowDownwardIcon, RefreshIcon } from '../../components/icons';
+import { AddIcon, EditIcon, DeleteIcon, ArrowUpwardIcon, ArrowDownwardIcon, RefreshIcon } from '../../components/icons';
 
 interface Props extends TableViewProps {}
 
@@ -51,7 +51,11 @@ const CategoriesPage: React.FC<Props> = ({
   onSortChange,
 }) => {
   const { t } = useLanguage();
-  const { canManageServices } = useAuth(); // Admin & Manager can manage
+  const { isAdmin, hasPermission } = useAuth();
+  const canCreate = isAdmin || hasPermission('categories', 'create');
+  const canEdit = isAdmin || hasPermission('categories', 'edit');
+  const canDelete = isAdmin || hasPermission('categories', 'delete');
+  const hasAnyRowAction = canEdit || canDelete;
   const [isOpen, setIsOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
 
@@ -111,7 +115,7 @@ const CategoriesPage: React.FC<Props> = ({
   const [searchQuery, setSearchQuery] = useState('');
 
   const openNew = () => {
-    if (!canManageServices) return;
+    if (!canCreate) return;
     setEditingCategory(null);
     setCode('');
     setName('');
@@ -120,7 +124,7 @@ const CategoriesPage: React.FC<Props> = ({
   };
 
   const openEdit = (c: Category) => {
-    if (!canManageServices) return;
+    if (!canEdit) return;
     setEditingCategory(c);
     setCode(c.code);
     setName(c.name);
@@ -130,7 +134,7 @@ const CategoriesPage: React.FC<Props> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canManageServices) return;
+    if (!canEdit && !canCreate) return;
     if (!code.trim() || !name.trim()) {
       setErrorDialogState({
         open: true,
@@ -224,20 +228,13 @@ const CategoriesPage: React.FC<Props> = ({
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%', flex: 1, minHeight: 0 }}>
       {/* TOP ACTION BAR */}
-      <Box sx={{ display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' }, alignItems: 'center' }}>
-        {canManageServices ? (
+      {canCreate && (
+        <Box sx={{ display: 'flex', justifyContent: { xs: 'stretch', sm: 'flex-end' }, alignItems: 'center' }}>
           <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={openNew} sx={{ width: { xs: '100%', sm: 'auto' } }}>
             {t('btnNewCategory')}
           </Button>
-        ) : (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
-            <LockIcon fontSize="small" />
-            <Typography variant="caption" sx={{ fontStyle: 'italic' }}>
-              {t('permissionDeniedCategories')}
-            </Typography>
-          </Box>
-        )}
-      </Box>
+        </Box>
+      )}
 
       {/* TABLE CARD */}
       <Card variant="outlined" sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
@@ -362,14 +359,14 @@ const CategoriesPage: React.FC<Props> = ({
                     </TableSortLabel>
                   </TableCell>
                 )}
-                {canManageServices && <TableCell align="right">{t('colActions')}</TableCell>}
+                {hasAnyRowAction && <TableCell align="right">{t('colActions')}</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
               {sortedCategories.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={activeCols.length + (canManageServices ? 1 : 0)}
+                    colSpan={activeCols.length + (hasAnyRowAction ? 1 : 0)}
                     align="center"
                     sx={{ py: 3, color: 'text.secondary' }}
                   >
@@ -393,15 +390,19 @@ const CategoriesPage: React.FC<Props> = ({
                         </Typography>
                       </TableCell>
                     )}
-                    {canManageServices && (
+                    {hasAnyRowAction && (
                       <TableCell align="right">
                         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
-                          <IconButton size="small" color="info" onClick={() => openEdit(c)}>
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton size="small" color="error" onClick={() => onDeleteCategory(c.id)}>
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
+                          {canEdit && (
+                            <IconButton size="small" color="info" onClick={() => openEdit(c)}>
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          )}
+                          {canDelete && (
+                            <IconButton size="small" color="error" onClick={() => onDeleteCategory(c.id)}>
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          )}
                         </Box>
                       </TableCell>
                     )}
@@ -431,7 +432,7 @@ const CategoriesPage: React.FC<Props> = ({
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
               {editingCategory ? t('modalEditCategory') : t('modalNewCategory')}
             </Typography>
-            {editingCategory && canManageServices && (
+            {editingCategory && canDelete && (
               <Button
                 color="error"
                 size="small"
