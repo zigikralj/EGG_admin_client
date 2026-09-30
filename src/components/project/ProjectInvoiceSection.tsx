@@ -61,23 +61,20 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
   disabled = false,
 }) => {
   const { t } = useLanguage();
-  const { isAdmin, hasPermission } = useAuth();
+  const { hasPermission } = useAuth();
 
   const canCreateInvoice =
     !projectToEdit ||
-    isAdmin ||
     hasPermission('invoices', 'create') ||
     hasPermission('tracker_invoices', 'create');
 
   const canEditInvoice =
     !projectToEdit ||
-    isAdmin ||
     hasPermission('invoices', 'edit') ||
     hasPermission('tracker_invoices', 'edit');
 
   const canDeleteInvoice =
     !projectToEdit ||
-    isAdmin ||
     hasPermission('invoices', 'delete') ||
     hasPermission('tracker_invoices', 'delete');
   const todayStr = new Date().toISOString().slice(0, 10);

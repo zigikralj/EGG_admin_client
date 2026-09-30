@@ -107,7 +107,7 @@ const ProvidedServicesPage: React.FC<Props> = ({
   onQuickFilterChange,
 }) => {
   const { t, getServiceLabel } = useLanguage();
-  const { isAdmin, hasPermission } = useAuth();
+  const { hasPermission } = useAuth();
   const canCreate = hasPermission('providedServices', 'create') || hasPermission('wasteDisposal', 'create');
   const canEditAny = hasPermission('providedServices', 'edit') || hasPermission('wasteDisposal', 'edit');
   const canDeleteAny = hasPermission('providedServices', 'delete') || hasPermission('wasteDisposal', 'delete');
@@ -266,13 +266,12 @@ const ProvidedServicesPage: React.FC<Props> = ({
 
   const getItemPermissions = useCallback((item: ProvidedService | null) => {
     if (!item) return { canEdit: canCreate, canDelete: false };
-    if (isAdmin) return { canEdit: true, canDelete: true };
     const srv = item.service || services.find((s) => s.id === item.serviceId);
     const isWaste = srv?.group === 'grp-waste' || srv?.code?.toLowerCase().includes('waste');
     const canEdit = hasPermission('providedServices', 'edit') || (Boolean(isWaste) && hasPermission('wasteDisposal', 'edit'));
     const canDelete = hasPermission('providedServices', 'delete') || (Boolean(isWaste) && hasPermission('wasteDisposal', 'delete'));
     return { canEdit, canDelete };
-  }, [isAdmin, hasPermission, services, canCreate]);
+  }, [hasPermission, services, canCreate]);
 
   const openNew = () => {
     if (!canCreate) return;

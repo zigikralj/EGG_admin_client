@@ -98,7 +98,7 @@ export const RoleModal: React.FC<RoleModalProps> = ({
   const [isSystemAdmin, setIsSystemAdmin] = useState(false);
   const [selectedApp, setSelectedApp] = useState<string>('project-tracker');
   const [appPermissions, setAppPermissions] = useState<string[]>(['project-tracker', 'data-management']);
-  const [permissions, setPermissions] = useState<Record<string, string[]>>({});
+  const [permissions, setPermissions] = useState<Record<string, any>>({});
 
   useEffect(() => {
     if (open) {
@@ -106,10 +106,14 @@ export const RoleModal: React.FC<RoleModalProps> = ({
         setName(role.name);
         setDescription(role.description || '');
         setIsSystemAdmin(role.isSystemAdmin);
-        const initialPerms: Record<string, string[]> = {};
+        const initialPerms: Record<string, any> = {};
         if (role.permissions) {
           Object.entries(role.permissions).forEach(([k, v]) => {
-            if (Array.isArray(v)) initialPerms[k] = [...v];
+            if (Array.isArray(v)) {
+              initialPerms[k] = [...v];
+            } else {
+              initialPerms[k] = v;
+            }
           });
         }
         setPermissions(initialPerms);
@@ -208,11 +212,21 @@ export const RoleModal: React.FC<RoleModalProps> = ({
     setPermissions((prev) => {
       const currentResourcePerms = prev[resourceId] || [];
       const newPerms = { ...prev };
+      
       if (checked) {
         newPerms[resourceId] = [...currentResourcePerms, action];
       } else {
-        newPerms[resourceId] = currentResourcePerms.filter((a) => a !== action);
+        newPerms[resourceId] = currentResourcePerms.filter((a: string) => a !== action);
       }
+      return newPerms;
+    });
+  };
+
+  const handleOnlyOwnChange = (resourceId: string, checked: boolean) => {
+    setPermissions((prev) => {
+      const onlyOwnKey = `${resourceId}_onlyOwn`;
+      const newPerms = { ...prev };
+      newPerms[onlyOwnKey] = checked;
       return newPerms;
     });
   };
@@ -225,7 +239,7 @@ export const RoleModal: React.FC<RoleModalProps> = ({
         if (checked) {
           if (!current.includes(action)) newPerms[res.id] = [...current, action];
         } else {
-          newPerms[res.id] = current.filter((a) => a !== action);
+          newPerms[res.id] = current.filter((a: string) => a !== action);
         }
       });
       return newPerms;
@@ -315,7 +329,7 @@ export const RoleModal: React.FC<RoleModalProps> = ({
                   <TableHead>
                     {/* APP LEVEL PERMISSION HEADER ROW */}
                     <TableRow sx={{ bgcolor: 'action.hover', borderBottom: '2px solid', borderColor: 'divider' }}>
-                      <TableCell colSpan={5} sx={{ py: 1.5 }}>
+                      <TableCell colSpan={6} sx={{ py: 1.5 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                           <FormControlLabel
                             control={
@@ -357,16 +371,25 @@ export const RoleModal: React.FC<RoleModalProps> = ({
                           />
                         </TableCell>
                       ))}
+                      <TableCell align="center" sx={{ width: 90 }}>
+                        <strong style={{ color: '#ed6c02' }}>Only Own</strong>
+                      </TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody sx={{ opacity: isCurrentAppAllowed ? 1 : 0.45, pointerEvents: isCurrentAppAllowed ? 'auto' : 'none' }}>
-                    {currentResources.map((resource) => (
+                    {currentResources.map((resource) => {
+                      const onlyOwnKey = `${resource.id}_onlyOwn`;
+                      const isOnlyOwnChecked = permissions[onlyOwnKey] === true;
+                      const hasAnyAction = ACTIONS.some(a => permissions[resource.id]?.includes(a));
+
+                      return (
                       <TableRow key={resource.id} hover={isCurrentAppAllowed}>
                         <TableCell component="th" scope="row">
                           {getResourceLabel(resource)}
                         </TableCell>
                         {ACTIONS.map((action) => {
                           const isChecked = permissions[resource.id]?.includes(action) || false;
+                          
                           return (
                             <TableCell key={action} align="center">
                               <Checkbox 
@@ -378,8 +401,18 @@ export const RoleModal: React.FC<RoleModalProps> = ({
                             </TableCell>
                           );
                         })}
+                        <TableCell align="center">
+                          <Checkbox
+                            size="small"
+                            disabled={!isCurrentAppAllowed || !hasAnyAction}
+                            checked={isOnlyOwnChecked}
+                            onChange={(e) => handleOnlyOwnChange(resource.id, e.target.checked)}
+                            color="warning"
+                          />
+                        </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </TableContainer>

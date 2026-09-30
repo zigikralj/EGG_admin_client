@@ -103,13 +103,13 @@ export interface Permit {
   updatedAt?: string;
 }
 
-export type UserRole = 'Administrator' | 'Manager' | 'User' | 'Accountant';
+export type UserRole = string;
 
 export interface User {
   id: string;
   name: string;
   email?: string | null;
-  role: UserRole | string;
+  role: UserRole;
   roleEntity?: Role | null;
   phone?: string | null;
   avatarUrl?: string | null;
@@ -379,9 +379,9 @@ declare global {
 
 export interface Role {
   name: string;
-  description: string | null;
+  description?: string;
   isSystemAdmin: boolean;
-  permissions: Record<string, string[]>;
+  permissions: Record<string, any>;
   createdAt?: string;
   updatedAt?: string;
   _count?: { users: number };

@@ -28,6 +28,7 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import { useRoleLabels } from '../../hooks/useRoleLabels';
 import type { DashboardSubTab, ProvidedServicesSubTab } from '../../types';
 import {
   ExpandMoreIcon,
@@ -99,8 +100,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     isRealAdmin,
     roleView,
     setRoleView,
+    roles,
     hasPermission,
   } = useAuth();
+  const { getRoleBadgeLabel } = useRoleLabels();
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -125,18 +128,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onChange={(e) => setRoleView(e.target.value as any)}
                     sx={{ borderRadius: 2, fontSize: '0.875rem' }}
                   >
-                    <MenuItem value="Administrator" sx={{ fontSize: '0.875rem' }}>
-                      {t('roleAdministrator')}
-                    </MenuItem>
-                    <MenuItem value="Manager" sx={{ fontSize: '0.875rem' }}>
-                      {t('roleManager')}
-                    </MenuItem>
-                    <MenuItem value="User" sx={{ fontSize: '0.875rem' }}>
-                      {t('roleUser')}
-                    </MenuItem>
-                    <MenuItem value="Accountant" sx={{ fontSize: '0.875rem' }}>
-                      {t('roleAccountant')}
-                    </MenuItem>
+                    {roles.map((r) => (
+                      <MenuItem key={r.name} value={r.name} sx={{ fontSize: '0.875rem' }}>
+                        {getRoleBadgeLabel(r.name)}
+                      </MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
               </Box>

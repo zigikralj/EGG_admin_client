@@ -400,6 +400,9 @@ export interface TranslationKeys {
   permissionDeniedCategories: string;
   permissionDeniedUsers: string;
   readOnlyNotice: string;
+  roleProjectRestrictedTitle: string;
+  roleProjectRestrictedDesc: string;
+  roleBadgeProjectRestricted: string;
 
   // Services View
   btnNewService: string;

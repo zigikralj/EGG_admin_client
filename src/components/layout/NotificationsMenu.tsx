@@ -64,8 +64,8 @@ export const NotificationsMenu: React.FC<NotificationsMenuProps> = ({
 }) => {
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const { role, isRealAdmin, roleView, setRoleView, pendingUsersCount } = useAuth();
-  const hasPendingUsers = (isRealAdmin || role === 'Manager') && pendingUsersCount > 0;
+  const { isRealAdmin, roleView, setRoleView, pendingUsersCount, hasPermission } = useAuth();
+  const hasPendingUsers = hasPermission('users', 'edit') && pendingUsersCount > 0;
   const {
     notifications,
     unreadCount,

@@ -31,7 +31,6 @@ export const AdminLayout: React.FC<Props> = ({
   const { t } = useLanguage();
   const {
     role,
-    isAdmin,
     isRolesLoading,
     pendingUsersCount,
     hasPermission,
@@ -71,7 +70,7 @@ export const AdminLayout: React.FC<Props> = ({
   ], [t, stats, pendingUsersCount, hasPermission]);
 
   useEffect(() => {
-    if (isAdmin || isRolesLoading) return;
+    if (isRolesLoading) return;
 
     const parts = location.pathname.split('/').filter(Boolean);
     const appName = parts[0];
@@ -142,7 +141,7 @@ export const AdminLayout: React.FC<Props> = ({
         }
       }
     }
-  }, [role, isAdmin, isRolesLoading, hasPermission, location.pathname, navigate, navItems]);
+  }, [role, isRolesLoading, hasPermission, location.pathname, navigate, navItems]);
 
   useEffect(() => {
     // Scroll window and main content

@@ -53,7 +53,7 @@ const ProjectModal: React.FC<Props> = ({
   };
 
   const { t, getServiceLabel, getResponsibleLabel } = useLanguage();
-  const { currentUser, canEditProject, canDeleteProject } = useAuth();
+  const { currentUser, canEditProject, canDeleteProject, isRestrictedToOwn } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
   const [errorDialogState, setErrorDialogState] = useState<{ open: boolean; message: string }>({
     open: false,
@@ -374,25 +374,28 @@ const ProjectModal: React.FC<Props> = ({
               <Grid size={{ xs: 12, sm: 6 }}>
                 {(() => {
                   const respLabel = getResponsibleLabel(responsible || currentUser?.name || '', users);
+                  const isUserProjectRestricted = isRestrictedToOwn('projects') || isRestrictedToOwn('tracker_projects');
                   const selectableUsers = users.filter((u) => {
                     const isMe = Boolean(currentUser?.name) && u.name.trim().toLowerCase() === currentUser?.name?.trim().toLowerCase();
+                    if (isUserProjectRestricted) return isMe;
                     const isSelected = Boolean(responsible) && u.name.trim().toLowerCase() === responsible.trim().toLowerCase();
                     if (isSelected || isMe) return true;
                     const isBlocked = u.status === 'BLOCKED' || u.status?.toLowerCase() === 'blocked' || (u.isApproved === false && u.status !== 'PENDING');
                     if (isBlocked) return false;
-                    if (u.role === 'Administrator') return false;
+                    if (u.role === 'Administrator' || u.roleEntity?.isSystemAdmin) return false;
                     return true;
                   });
                   return users.length > 0 ? (
                     <Autocomplete
                       key={respLabel}
                       size="small"
+                      disabled={isUserProjectRestricted}
                       options={selectableUsers}
                       getOptionLabel={(u) => {
                         const isMe = currentUser?.name && u.name.trim().toLowerCase() === currentUser.name.trim().toLowerCase();
                         return `${isMe ? `${t('lblMe')} (${u.name})` : u.name} (${u.role})`;
                       }}
-                      value={selectableUsers.find((u) => u.name === responsible) || null}
+                      value={selectableUsers.find((u) => u.name === responsible) || (isUserProjectRestricted && currentUser ? selectableUsers.find((u) => u.name === currentUser.name) || null : null)}
                       onChange={(_, newValue) => {
                         setResponsible(newValue ? newValue.name : '');
                       }}
@@ -408,6 +411,7 @@ const ProjectModal: React.FC<Props> = ({
                   ) : (
                     <TextField
                       fullWidth
+                      disabled={isUserProjectRestricted}
                       label={respLabel}
                       placeholder={t('phResponsiblePerson')}
                       value={responsible}
