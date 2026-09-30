@@ -116,11 +116,13 @@ const RolesPage: React.FC = () => {
                 </TableCell>
                 <TableCell>{role.description}</TableCell>
                 <TableCell align="center">
-                  {role.isSystemAdmin ? (
-                    <Chip label="System Admin" color="error" size="small" />
-                  ) : (
-                    <Chip label="Custom" color="primary" size="small" variant="outlined" />
-                  )}
+                  <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center', flexWrap: 'wrap' }}>
+                    {role.isSystemAdmin ? (
+                      <Chip label="System Admin" color="error" size="small" />
+                    ) : (
+                      <Chip label="Custom" color="primary" size="small" variant="outlined" />
+                    )}
+                  </Box>
                 </TableCell>
                 <TableCell align="center">
                   <Chip label={role._count?.users || 0} size="small" />

@@ -104,7 +104,9 @@ const DashboardView: React.FC<Props> = ({
   onWasteManagementRowsPerPageChange,
 }) => {
   const { t, getServiceLabel } = useLanguage();
-  const { currentUser, isAccountant, hasPermission } = useAuth();
+  const { currentUser, isRestrictedToOwn, role, hasPermission, isRealAdmin, roleView, actualRole } = useAuth();
+  const isProjectsRestricted = isRestrictedToOwn('projects') || isRestrictedToOwn('tracker_projects');
+  const isRemindersRestricted = isRestrictedToOwn('reminders') || isRestrictedToOwn('tracker_reminders');
   const { withLoading } = useLoading();
   const canViewWasteDisposal = hasPermission('wasteDisposal', 'view');
 
@@ -116,6 +118,18 @@ const DashboardView: React.FC<Props> = ({
   const { data: providedServices = [], refetch: refetchProvidedServices, isRefetching: isRefetchingProvidedServices } = useProvidedServicesQuery();
   const { data: reminders = [], refetch: refetchReminders, isRefetching: isRefetchingReminders } = useRemindersQuery();
   const { data: invoices = [], refetch: refetchInvoices, isRefetching: isRefetchingInvoices } = useInvoicesQuery();
+
+  const displayReminders = useMemo(() => {
+    if (!isRemindersRestricted || !currentUser) return reminders;
+    return reminders.filter((rem) => {
+      const isMyName =
+        rem.responsible &&
+        currentUser.name &&
+        rem.responsible.trim().toLowerCase() === currentUser.name.trim().toLowerCase();
+      const isMyId = rem.responsibleId && rem.responsibleId === currentUser.id;
+      return isMyName || isMyId;
+    });
+  }, [reminders, isRemindersRestricted, currentUser]);
 
   const { markSampledMutation, toggleDoneMutation } = useProjectsMutations();
   const handleMarkSampled = async (id: string) => await markSampledMutation.mutateAsync(id);
@@ -141,31 +155,42 @@ const DashboardView: React.FC<Props> = ({
 
   // Projects subtab state & filtering
   const [searchQuery, setSearchQuery] = useState('');
-  const [quickFilters, setQuickFilters] = useState<string[]>(() =>
-    quickFiltersProp !== undefined ? quickFiltersProp : (isAccountant ? ['active'] : ['my', 'active'])
-  );
+  const [quickFilters, setQuickFilters] = useState<string[]>(() => {
+    const defaultFilters = isProjectsRestricted ? ['active'] : ['my', 'active'];
+    if (quickFiltersProp !== undefined) {
+      return isProjectsRestricted ? quickFiltersProp.filter((k) => k !== 'my') : quickFiltersProp;
+    }
+    return defaultFilters;
+  });
 
   useEffect(() => {
     if (quickFiltersProp !== undefined) {
-      setQuickFilters(quickFiltersProp);
-      if (quickFiltersProp.includes('my') && currentUser?.name) {
+      const sanitized = isProjectsRestricted ? quickFiltersProp.filter((k) => k !== 'my') : quickFiltersProp;
+      setQuickFilters(sanitized);
+      if (sanitized.includes('my') && currentUser?.name) {
         setFilterResponsible(currentUser.name);
-      } else if (!quickFiltersProp.includes('my') && currentUser?.name) {
+      } else if (!sanitized.includes('my') && currentUser?.name) {
         setFilterResponsible((prev) => (prev === currentUser.name ? 'all' : prev));
       }
-      if (quickFiltersProp.includes('overdue')) {
+      if (sanitized.includes('overdue')) {
         setFilterStatus('overdue');
-      } else if (quickFiltersProp.includes('stale')) {
+      } else if (sanitized.includes('stale')) {
         setFilterStatus('stale');
-      } else if (quickFiltersProp.includes('done')) {
+      } else if (sanitized.includes('done')) {
         setFilterStatus('done');
       } else {
         setFilterStatus((prev) => (['overdue', 'stale', 'done'].includes(prev) ? 'all' : prev));
       }
     } else {
-      setQuickFilters(isAccountant ? ['active'] : ['my', 'active']);
+      setQuickFilters(isProjectsRestricted ? ['active'] : ['my', 'active']);
     }
-  }, [quickFiltersProp, currentUser?.name, isAccountant]);
+  }, [quickFiltersProp, currentUser?.name, isProjectsRestricted]);
+
+  useEffect(() => {
+    if (isProjectsRestricted) {
+      setQuickFilters((prev) => prev.filter((k) => k !== 'my'));
+    }
+  }, [isProjectsRestricted]);
 
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterClient, setFilterClient] = useState<string>('all');
@@ -215,12 +240,12 @@ const DashboardView: React.FC<Props> = ({
   };
 
   const projectQuickFilterOptions: QuickFilterItem[] = useMemo(() => [
-    { key: 'my', label: t('quickFilterMyProjects'), hidden: isAccountant, color: 'primary' },
+    { key: 'my', label: t('quickFilterMyProjects'), hidden: isProjectsRestricted, color: 'primary' },
     { key: 'active', label: t('quickFilterActive'), color: 'primary' },
     { key: 'missing_invoice', label: t('quickFilterMissingInvoice'), color: 'warning' },
-    { key: 'stale', label: t('quickFilterStale'), hidden: isAccountant, color: 'primary' },
-    { key: 'overdue', label: t('quickFilterOverdue'), hidden: isAccountant, color: 'error', labelColor: 'error.main' },
-  ], [t, isAccountant]);
+    { key: 'stale', label: t('quickFilterStale'), color: 'primary' },
+    { key: 'overdue', label: t('quickFilterOverdue'), color: 'error', labelColor: 'error.main' },
+  ], [t, isProjectsRestricted]);
 
   const handleQuickFiltersChange = (newKeys: string[]) => {
     const added = newKeys.find((k) => !quickFilters.includes(k));
@@ -289,11 +314,19 @@ const DashboardView: React.FC<Props> = ({
   }, [projects, currentUser]);
 
   const responsibleOptions = useMemo(() => {
+    if (isProjectsRestricted) {
+      if (isRealAdmin && roleView !== actualRole) {
+        const roleUsers = users.filter((u) => u.role === roleView);
+        const names = roleUsers.map((u) => u.name).filter(Boolean);
+        return names.length > 0 ? names : (currentUser?.name ? [currentUser.name] : []);
+      }
+      return currentUser?.name ? [currentUser.name] : [];
+    }
     const list: string[] = [];
     if (currentUser?.name) list.push(currentUser.name);
     list.push(...otherResponsibles);
     return list;
-  }, [currentUser?.name, otherResponsibles]);
+  }, [currentUser?.name, otherResponsibles, isProjectsRestricted, role, isRealAdmin, roleView, actualRole, users]);
 
   const sortOptions = useMemo(() => [
     { value: 'deadline', label: t('deadline') },
@@ -339,6 +372,24 @@ const DashboardView: React.FC<Props> = ({
 
     return projects
       .filter((p) => {
+        if (isProjectsRestricted) {
+          if (isRealAdmin && roleView !== actualRole) {
+            const roleUsers = users.filter((u) => u.role === roleView);
+            const isRoleProject = roleUsers.some((u) =>
+              (p.responsible && u.name && p.responsible.trim().toLowerCase() === u.name.trim().toLowerCase()) ||
+              ((p as any).responsibleId && (p as any).responsibleId === u.id)
+            );
+            if (!isRoleProject) return false;
+          } else {
+            const isMyName =
+              p.responsible &&
+              currentUser?.name &&
+              p.responsible.trim().toLowerCase() === currentUser.name.trim().toLowerCase();
+            const isMyId = (p as any).responsibleId && (p as any).responsibleId === currentUser?.id;
+            if (!isMyName && !isMyId) return false;
+          }
+        }
+
         if (quickFilters.includes('my') && currentUser) {
           const isMyName =
             p.responsible &&
@@ -436,7 +487,7 @@ const DashboardView: React.FC<Props> = ({
         }
         return sortDirection === 'asc' ? res : -res;
       });
-  }, [projects, invoices, quickFilters, currentUser, filterCategory, filterClient, filterResponsible, filterStatus, filterDateFrom, filterDateTo, filterDateField, searchQuery, getServiceLabel, sortOption, sortDirection]);
+  }, [projects, invoices, quickFilters, currentUser, filterCategory, filterClient, filterResponsible, filterStatus, filterDateFrom, filterDateTo, filterDateField, searchQuery, getServiceLabel, sortOption, sortDirection, isProjectsRestricted, isRealAdmin, roleView, actualRole, users]);
 
   const activeFilterCount =
     (filterCategory !== 'all' ? 1 : 0) +
@@ -453,7 +504,7 @@ const DashboardView: React.FC<Props> = ({
   const renderRemindersPanel = (isFullHeight = false, hideNotch = false) => (
     <ReminderPanel
       projects={projects}
-      reminders={reminders}
+      reminders={displayReminders}
       clients={clients}
       users={users}
       onMarkSampled={handleMarkSampled}
@@ -545,7 +596,18 @@ const DashboardView: React.FC<Props> = ({
           </Box>
           <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>}>
             <ProjectsStatistics
-              projects={projects}
+              projects={isProjectsRestricted && currentUser ? projects.filter((p) => {
+                if (isRealAdmin && roleView !== actualRole) {
+                  const roleUsers = users.filter((u) => u.role === roleView);
+                  return roleUsers.some((u) =>
+                    (p.responsible && u.name && p.responsible.trim().toLowerCase() === u.name.trim().toLowerCase()) ||
+                    ((p as any).responsibleId && (p as any).responsibleId === u.id)
+                  );
+                }
+                const isMyName = p.responsible && currentUser.name && p.responsible.trim().toLowerCase() === currentUser.name.trim().toLowerCase();
+                const isMyId = (p as any).responsibleId && (p as any).responsibleId === currentUser.id;
+                return isMyName || isMyId;
+              }) : projects}
               clients={clients}
               users={users}
               categories={categories}
@@ -581,7 +643,7 @@ const DashboardView: React.FC<Props> = ({
               <Typography variant="h6" sx={{ fontWeight: 700 }}>
                 {t('remindersTitle')}
               </Typography>
-              <Chip label={(reminders || []).length} size="small" color="primary" sx={{ fontWeight: 700 }} />
+              <Chip label={(displayReminders || []).length} size="small" color="primary" sx={{ fontWeight: 700 }} />
             </Box>
             {true && (
               <Button

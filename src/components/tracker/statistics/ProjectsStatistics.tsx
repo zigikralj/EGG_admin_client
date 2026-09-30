@@ -77,7 +77,7 @@ const ProjectsStatistics: React.FC<Props> = ({
   const adminNames = useMemo(() => {
     const set = new Set<string>();
     users.forEach((u) => {
-      if (u.role === 'Administrator' || u.role?.toLowerCase() === 'administrator') {
+      if (u.role === 'Administrator' || u.role?.toLowerCase() === 'administrator' || u.roleEntity?.isSystemAdmin) {
         if (u.name) set.add(u.name.trim().toLowerCase());
       }
     });
@@ -92,7 +92,7 @@ const ProjectsStatistics: React.FC<Props> = ({
       const found = users.find(
         (u) => u.id === userNameOrId || u.name.trim().toLowerCase() === trimmed
       );
-      return found ? (found.role === 'Administrator' || found.role?.toLowerCase() === 'administrator') : false;
+      return found ? (found.role === 'Administrator' || found.role?.toLowerCase() === 'administrator' || found.roleEntity?.isSystemAdmin) : false;
     },
     [adminNames, users]
   );

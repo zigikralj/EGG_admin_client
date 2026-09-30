@@ -20,10 +20,11 @@ import type {
 } from '../types';
 
 export function useAuthHeaders() {
-  const { currentUser } = useAuth();
+  const { currentUser, roleView, isRealAdmin } = useAuth();
   return () => {
     const headers: Record<string, string> = {};
     if (currentUser?.id) headers['X-User-Id'] = currentUser.id;
+    if (isRealAdmin && roleView && roleView !== 'Administrator') headers['X-Role-View'] = roleView;
     return headers;
   };
 }
@@ -31,9 +32,10 @@ export function useAuthHeaders() {
 // --- Queries ---
 
 export function useProjectsQuery(searchQuery: string = '') {
+  const { currentUser, roleView } = useAuth();
   const getAuthHeaders = useAuthHeaders();
   return useQuery<Project[]>({
-    queryKey: ['projects', searchQuery],
+    queryKey: ['projects', currentUser?.id, searchQuery, roleView],
     queryFn: async () => {
       const q = searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : '';
       const res = await apiFetch(`/api/projects${q}`, { headers: getAuthHeaders() });
@@ -148,9 +150,10 @@ export function usePreferencesMutations() {
 }
 
 export function useRemindersQuery() {
+  const { currentUser, roleView } = useAuth();
   const getAuthHeaders = useAuthHeaders();
   return useQuery<Reminder[]>({
-    queryKey: ['reminders'],
+    queryKey: ['reminders', currentUser?.id, roleView],
     queryFn: async () => {
       const res = await apiFetch('/api/reminders', { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch reminders');
@@ -196,9 +199,10 @@ export function useWasteCatalogQuery() {
 }
 
 export function useStatsQuery() {
+  const { currentUser, roleView } = useAuth();
   const getAuthHeaders = useAuthHeaders();
   return useQuery<ProjectStats>({
-    queryKey: ['stats'],
+    queryKey: ['stats', currentUser?.id, roleView],
     queryFn: async () => {
       const res = await apiFetch('/api/projects/stats', { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch stats');
@@ -208,9 +212,10 @@ export function useStatsQuery() {
 }
 
 export function usePreferencesQuery() {
+  const { currentUser } = useAuth();
   const getAuthHeaders = useAuthHeaders();
   return useQuery<Record<string, any>>({
-    queryKey: ['preferences'],
+    queryKey: ['preferences', currentUser?.id],
     queryFn: async () => {
       const res = await apiFetch('/api/preferences', { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch preferences');

@@ -136,15 +136,20 @@ export const ReminderPanel: React.FC<Props> = ({
   isRefreshing,
 }) => {
   const { t } = useLanguage();
-  const { currentUser, hasPermission } = useAuth();
+  const { currentUser, hasPermission, isRestrictedToOwn } = useAuth();
+  const isRemindersRestricted = isRestrictedToOwn('reminders') || isRestrictedToOwn('tracker_reminders');
 
   const canCreate = hasPermission('reminders', 'create') || hasPermission('tracker_reminders', 'create');
 
   // Filters and sorting state
   const [searchQuery, setSearchQuery] = useState('');
-  const [myRemindersOnly, setMyRemindersOnly] = useState(myRemindersOnlyProp);
+  const [myRemindersOnly, setMyRemindersOnly] = useState(() => (isRemindersRestricted ? false : myRemindersOnlyProp));
 
   useEffect(() => {
+    if (isRemindersRestricted) {
+      setMyRemindersOnly(false);
+      return;
+    }
     if (myRemindersOnlyProp !== undefined) {
       setMyRemindersOnly(myRemindersOnlyProp);
       if (myRemindersOnlyProp && currentUser?.name) {
@@ -153,7 +158,7 @@ export const ReminderPanel: React.FC<Props> = ({
         setFilterResponsible((prev) => (prev === currentUser.name ? 'all' : prev));
       }
     }
-  }, [myRemindersOnlyProp, currentUser?.name]);
+  }, [myRemindersOnlyProp, currentUser?.name, isRemindersRestricted]);
 
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterClient, setFilterClient] = useState<string>('all');
@@ -295,6 +300,7 @@ export const ReminderPanel: React.FC<Props> = ({
   }, [rawItems, clients]);
 
   const otherResponsibles = useMemo(() => {
+    if (isRemindersRestricted) return [];
     const currentName = currentUser?.name?.trim().toLowerCase();
     const set = new Set<string>();
     rawItems.forEach((r) => {
@@ -308,9 +314,12 @@ export const ReminderPanel: React.FC<Props> = ({
     return Array.from(set)
       .filter((r) => !currentName || r.trim().toLowerCase() !== currentName)
       .sort((a, b) => a.localeCompare(b));
-  }, [rawItems, users, currentUser]);
+  }, [rawItems, users, currentUser, isRemindersRestricted]);
 
   const responsibleOptions = useMemo(() => {
+    if (isRemindersRestricted) {
+      return currentUser?.name ? [currentUser.name] : [];
+    }
     const list: string[] = [];
     if (currentUser?.name) {
       list.push(currentUser.name);
@@ -319,7 +328,7 @@ export const ReminderPanel: React.FC<Props> = ({
       if (!list.includes(r)) list.push(r);
     });
     return list;
-  }, [currentUser, otherResponsibles]);
+  }, [currentUser, otherResponsibles, isRemindersRestricted]);
 
   const sortOptions = useMemo(() => [
     { value: 'dueDate', label: t('lblDueDate') },
@@ -344,8 +353,19 @@ export const ReminderPanel: React.FC<Props> = ({
         // Exclude completed reminders completely
         if (isCompletedStatus(item.status)) return false;
 
+        // Restriction to own reminders
+        if (isRemindersRestricted && currentUser) {
+          const isMyName =
+            item.responsible &&
+            item.responsible !== '—' &&
+            currentUser.name &&
+            item.responsible.trim().toLowerCase() === currentUser.name.trim().toLowerCase();
+          const isMyId = item.responsibleId && item.responsibleId === currentUser.id;
+          if (!isMyName && !isMyId) return false;
+        }
+
         // Quick filter: My Reminders
-        if (myRemindersOnly && currentUser) {
+        if (!isRemindersRestricted && myRemindersOnly && currentUser) {
           const isMyName =
             item.responsible &&
             item.responsible !== '—' &&
@@ -464,12 +484,16 @@ export const ReminderPanel: React.FC<Props> = ({
 
   const canEditSelected = useMemo(() => {
     if (!selectedReminder) return canCreate; // new reminder
-    if (hasPermission('reminders', 'edit') || hasPermission('tracker_reminders', 'edit')) return true;
-    if (!currentUser) return false;
-    const respName = (selectedReminder.responsible || '').trim().toLowerCase();
-    const curName = (currentUser.name || '').trim().toLowerCase();
-    return respName !== '' && respName === curName;
-  }, [hasPermission, currentUser, selectedReminder, canCreate]);
+    if (!hasPermission('reminders', 'edit') && !hasPermission('tracker_reminders', 'edit')) return false;
+    if (isRestrictedToOwn('reminders') || isRestrictedToOwn('tracker_reminders')) {
+      if (!currentUser) return false;
+      const respName = (selectedReminder.responsible || '').trim().toLowerCase();
+      const curName = (currentUser.name || '').trim().toLowerCase();
+      const isIdMatch = Boolean(selectedReminder.responsibleId && selectedReminder.responsibleId === currentUser.id);
+      return (respName !== '' && respName === curName) || isIdMatch;
+    }
+    return true;
+  }, [hasPermission, isRestrictedToOwn, currentUser, selectedReminder, canCreate]);
 
   const handleOpenNew = () => {
     setSelectedReminder(null);
@@ -659,11 +683,11 @@ export const ReminderPanel: React.FC<Props> = ({
             {
               key: 'my',
               label: t('quickFilterMyReminders'),
-              hidden: !currentUser,
+              hidden: !currentUser || isRemindersRestricted,
               color: 'primary',
             },
           ],
-          selectedKeys: myRemindersOnly ? ['my'] : [],
+          selectedKeys: !isRemindersRestricted && myRemindersOnly ? ['my'] : [],
           onChange: (keys) => handleToggleMyReminders(keys.includes('my')),
         }}
         refreshProps={onRefresh ? { onRefresh, isRefreshing } : undefined}
@@ -778,18 +802,20 @@ export const ReminderPanel: React.FC<Props> = ({
             const isOwner =
               Boolean(
                 currentUser &&
-                  item.responsible &&
-                  item.responsible.trim().toLowerCase() === (currentUser.name || '').trim().toLowerCase()
+                  ((item.responsible &&
+                    item.responsible.trim().toLowerCase() === (currentUser.name || '').trim().toLowerCase()) ||
+                    (item.responsibleId && item.responsibleId === currentUser.id))
               );
 
+            const isItemRestricted = isRestrictedToOwn('reminders') || isRestrictedToOwn('tracker_reminders');
+
             const itemCanEdit =
-              hasPermission('reminders', 'edit') ||
-              hasPermission('tracker_reminders', 'edit') ||
-              isOwner;
+              (hasPermission('reminders', 'edit') || hasPermission('tracker_reminders', 'edit')) &&
+              (!isItemRestricted ? true : isOwner);
 
             const itemCanDelete =
-              hasPermission('reminders', 'delete') ||
-              hasPermission('tracker_reminders', 'delete');
+              (hasPermission('reminders', 'delete') || hasPermission('tracker_reminders', 'delete')) &&
+              (!isItemRestricted ? true : isOwner);
 
             let cardBgColor = isLate ? 'error.lighter' : isApproaching ? 'warning.lighter' : 'background.paper';
             let borderColor = isLate ? 'error.light' : isApproaching ? '#ff9800' : 'divider';
@@ -1043,7 +1069,7 @@ export const ReminderPanel: React.FC<Props> = ({
                 <Autocomplete
                   freeSolo
                   size="small"
-                  disabled={!canEditSelected}
+                  disabled={!canEditSelected || isRemindersRestricted}
                   options={users}
                   getOptionLabel={(option) => {
                     if (typeof option === 'string') return option;

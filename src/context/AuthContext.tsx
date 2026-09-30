@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { User, UserRole, Project, Role } from '../types';
 import { apiFetch } from '../api';
 
@@ -16,10 +17,8 @@ interface AuthContextType {
   isRealAdmin: boolean;
   roleView: UserRole;
   setRoleView: (role: UserRole) => void;
-  isAdmin: boolean;
-  isManager: boolean;
-  isUser: boolean;
-  isAccountant: boolean;
+  isRestrictedToOwn: (resource: string) => boolean;
+  roles: Role[];
   canManageInvoices: boolean;
   canManageProvidedServices: boolean;
   canManageClients: boolean;
@@ -38,6 +37,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const queryClient = useQueryClient();
   const [users, setUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     try {
@@ -54,8 +54,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const parsed = JSON.parse(stored);
         if (parsed && parsed.id) return parsed;
       }
+      return null;
     } catch (e) {
       console.error('Error loading stored auth user:', e);
+      return null;
     }
   });
 
@@ -109,7 +111,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [roleViewState, setRoleViewState] = useState<UserRole>(() => {
     try {
       const stored = localStorage.getItem('admin_role_view');
-      if (stored && ['Administrator', 'Manager', 'User', 'Accountant'].includes(stored)) {
+      if (stored) {
         return stored as UserRole;
       }
     } catch (e) {}
@@ -119,13 +121,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 
   const logout = React.useCallback(() => {
+    try {
+      queryClient.clear();
+    } catch (e) {}
     localStorage.removeItem('auth_user');
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_session_expires_at');
     localStorage.removeItem('admin_role_view');
     setRoleViewState('Administrator');
     setCurrentUser(null);
-  }, []);
+  }, [queryClient]);
 
   // Keep currentUser synced when users list updates, logging out if blocked
   useEffect(() => {
@@ -273,11 +278,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (data.user) {
+        try {
+          queryClient.clear();
+        } catch (e) {}
         setCurrentUser(data.user);
         localStorage.setItem('auth_user', JSON.stringify(data.user));
         if (data.token) {
           localStorage.setItem('auth_token', data.token);
         }
+        localStorage.removeItem('admin_role_view');
+        setRoleViewState('Administrator');
         const expiresInMs = (data.expiresIn || 9 * 3600) * 1000;
         localStorage.setItem('auth_session_expires_at', (Date.now() + expiresInMs).toString());
         return { success: true };
@@ -287,7 +297,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Login error:', error);
       return { success: false, message: 'Network error. Please try again.' };
     }
-  }, []);
+  }, [queryClient]);
 
   const register = React.useCallback(async (userData: { name: string; email: string; phone?: string; password: string }) => {
     try {
@@ -343,9 +353,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const setRoleView = React.useCallback((newRole: UserRole) => {
     setRoleViewState(newRole);
     try {
-      localStorage.setItem('admin_role_view', newRole);
+      if (newRole === 'Administrator') {
+        localStorage.removeItem('admin_role_view');
+      } else {
+        localStorage.setItem('admin_role_view', newRole);
+      }
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
+      queryClient.invalidateQueries({ queryKey: ['reminders'] });
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
     } catch (e) {}
-  }, []);
+  }, [queryClient]);
 
   const effectiveRole: UserRole = isRealAdmin ? roleView : actualRole;
 
@@ -356,23 +374,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return currentRoleEntity;
   }, [isRealAdmin, roleView, actualRole, roles, currentRoleEntity]);
 
-  const isAdmin = Boolean(effectiveRoleEntity?.isSystemAdmin || effectiveRole === 'Administrator');
-  const isManager = effectiveRole === 'Manager';
-  const isAccountant = effectiveRole === 'Accountant';
-  const isUser = effectiveRole === 'User';
+  const isSystemAdmin = Boolean(effectiveRoleEntity?.isSystemAdmin || effectiveRole === 'Administrator');
+  const activeRoleEntity = roles?.find((r) => r.name === effectiveRole);
+  
+  const isRestrictedToOwn = React.useCallback((resource: string): boolean => {
+    if (isSystemAdmin) return false;
+    const roleEnt = effectiveRoleEntity || activeRoleEntity;
+    if (!roleEnt) return false;
+    if (roleEnt.isSystemAdmin) return false;
+
+    const perms = roleEnt.permissions || {};
+    const checkOnlyOwn = (key: string) => {
+      const val = perms[key];
+      if (val === true) return true;
+      if (Array.isArray(val) && val.length > 0) return true;
+      return false;
+    };
+
+    if (checkOnlyOwn(`${resource}_onlyOwn`)) return true;
+
+    if (resource.startsWith('tracker_')) {
+      const base = resource.replace('tracker_', '');
+      if (checkOnlyOwn(`${base}_onlyOwn`)) return true;
+    } else {
+      if (checkOnlyOwn(`tracker_${resource}_onlyOwn`)) return true;
+    }
+
+    return false;
+  }, [isSystemAdmin, effectiveRoleEntity, activeRoleEntity]);
 
   const hasPermission = React.useCallback((resource: string, action: string): boolean => {
-    if (isAdmin) return true;
+    if (isSystemAdmin) return true;
 
     const roleEnt = effectiveRoleEntity;
     if (!roleEnt) {
-      // Safe defaults while roles are still loading or if role entity is not yet found
-      if (resource === 'apps') {
-        if (action === 'project-tracker') return true;
-        if (action === 'data-management') {
-          return Boolean(isRealAdmin || actualRole === 'Administrator' || actualRole === 'Manager');
-        }
-      }
       return false;
     }
 
@@ -380,49 +415,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const perms = roleEnt.permissions || {};
 
     if (resource === 'apps') {
-      if (action === 'project-tracker') {
-        if (!Array.isArray(perms.apps)) return true;
-        return perms.apps.includes('project-tracker');
-      }
-      if (action === 'data-management') {
-        if (roleEnt.isSystemAdmin || roleEnt.name === 'Administrator' || roleEnt.name === 'Manager') return true;
-        if (Array.isArray(perms.apps)) {
-          return perms.apps.includes('data-management');
-        }
-        // Fallback: if role has permissions for ANY data management resources, allow data-management app access
-        return Boolean(
-          perms.projects?.length ||
-          perms.clients?.length ||
-          perms.permits?.length ||
-          perms.invoices?.length ||
-          perms.services?.length ||
-          perms.providedServices?.length ||
-          perms.categories?.length ||
-          perms.reminders?.length ||
-          perms.users?.length ||
-          perms.roles?.length ||
-          perms.companyInfo?.length
-        );
-      }
       return Array.isArray(perms.apps) && perms.apps.includes(action);
     }
 
-    if (!perms[resource] || !Array.isArray(perms[resource])) {
-      if (resource.startsWith('tracker_')) {
-        const base = resource.replace('tracker_', '');
-        if (perms[base] && Array.isArray(perms[base])) {
-          return perms[base].includes(action);
-        }
-      }
-      if (resource === 'wasteDisposal') {
-        if (perms.providedServices && Array.isArray(perms.providedServices)) {
-          return perms.providedServices.includes(action);
-        }
-      }
-      return false;
+    // Direct check
+    if (perms[resource] && Array.isArray(perms[resource]) && perms[resource].includes(action)) {
+      return true;
     }
-    return perms[resource].includes(action);
-  }, [isAdmin, effectiveRoleEntity, isRealAdmin, actualRole]);
+
+    // Bidirectional fallback between tracker_* and base resource
+    if (resource.startsWith('tracker_')) {
+      const base = resource.replace('tracker_', '');
+      if (perms[base] && Array.isArray(perms[base]) && perms[base].includes(action)) {
+        return true;
+      }
+    } else {
+      const trackerKey = `tracker_${resource}`;
+      if (perms[trackerKey] && Array.isArray(perms[trackerKey]) && perms[trackerKey].includes(action)) {
+        return true;
+      }
+    }
+
+    // Waste disposal / provided services fallback
+    if (resource === 'wasteDisposal') {
+      if (perms.providedServices && Array.isArray(perms.providedServices) && perms.providedServices.includes(action)) {
+        return true;
+      }
+    } else if (resource === 'providedServices') {
+      if (perms.wasteDisposal && Array.isArray(perms.wasteDisposal) && perms.wasteDisposal.includes(action)) {
+        return true;
+      }
+    }
+
+    return false;
+  }, [isSystemAdmin, effectiveRoleEntity]);
 
   const canManageClients = Boolean(hasPermission('clients', 'edit') || hasPermission('clients', 'create'));
   const canManagePermits = Boolean(hasPermission('permits', 'edit') || hasPermission('permits', 'create'));
@@ -433,58 +459,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const canEditUser = React.useCallback(
     (targetUser: User): boolean => {
-      if (isAdmin) return true;
+      if (isSystemAdmin) return true;
       const targetRoleEnt = roles.find((r) => r.name === targetUser.role) || targetUser.roleEntity;
       const isTargetAdmin = targetRoleEnt?.isSystemAdmin || targetUser.role === 'Administrator';
       if (isTargetAdmin) return false;
       return hasPermission('users', 'edit');
     },
-    [isAdmin, roles, hasPermission]
+    [isSystemAdmin, roles, hasPermission]
   );
 
   const canDeleteUser = React.useCallback(
     (targetUser: User): boolean => {
       if (!currentUser) return false;
       if (targetUser.id === currentUser.id) return false;
-      if (isAdmin) return true;
+      if (isSystemAdmin) return true;
       const targetRoleEnt = roles.find((r) => r.name === targetUser.role) || targetUser.roleEntity;
       const isTargetAdmin = targetRoleEnt?.isSystemAdmin || targetUser.role === 'Administrator';
       if (isTargetAdmin) return false;
       return hasPermission('users', 'delete');
     },
-    [isAdmin, roles, hasPermission, currentUser]
+    [isSystemAdmin, roles, hasPermission, currentUser]
   );
 
   const canEditProject = React.useCallback(
     (project: Project): boolean => {
-      if (hasPermission('projects', 'edit') || hasPermission('tracker_projects', 'edit')) return true;
-      if (!currentUser) return false;
+      const isOwner = Boolean(
+        currentUser && (
+          ((project.responsible || '').trim().toLowerCase() === (currentUser.name || '').trim().toLowerCase()) ||
+          ((project as any).responsibleId && (project as any).responsibleId === currentUser.id)
+        )
+      );
 
-      const respName = (project.responsible || '').trim().toLowerCase();
-      const curName = (currentUser.name || '').trim().toLowerCase();
+      const hasEdit = hasPermission('projects', 'edit') || hasPermission('tracker_projects', 'edit');
+      if (!hasEdit) return false;
 
-      if (respName && respName === curName) return true;
-      if ((project as any).responsibleId && (project as any).responsibleId === currentUser.id) return true;
+      if (isRestrictedToOwn('projects') || isRestrictedToOwn('tracker_projects')) {
+        return isOwner;
+      }
 
-      return false;
+      return true;
     },
-    [hasPermission, currentUser]
+    [hasPermission, isRestrictedToOwn, currentUser]
   );
 
   const canDeleteProject = React.useCallback(
     (project: Project): boolean => {
-      if (hasPermission('projects', 'delete') || hasPermission('tracker_projects', 'delete')) return true;
-      if (!currentUser) return false;
+      const isOwner = Boolean(
+        currentUser && (
+          ((project.responsible || '').trim().toLowerCase() === (currentUser.name || '').trim().toLowerCase()) ||
+          ((project as any).responsibleId && (project as any).responsibleId === currentUser.id)
+        )
+      );
 
-      const respName = (project.responsible || '').trim().toLowerCase();
-      const curName = (currentUser.name || '').trim().toLowerCase();
+      const hasDelete = hasPermission('projects', 'delete') || hasPermission('tracker_projects', 'delete');
+      if (!hasDelete) return false;
 
-      if (respName && respName === curName) return true;
-      if ((project as any).responsibleId && (project as any).responsibleId === currentUser.id) return true;
+      if (isRestrictedToOwn('projects') || isRestrictedToOwn('tracker_projects')) {
+        return isOwner;
+      }
 
-      return false;
+      return true;
     },
-    [hasPermission, currentUser]
+    [hasPermission, isRestrictedToOwn, currentUser]
   );
 
   const value = React.useMemo(
@@ -502,10 +538,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isRealAdmin,
       roleView,
       setRoleView,
-      isAdmin,
-      isManager,
-      isUser,
-      isAccountant,
+      isRestrictedToOwn,
+      roles,
       canManageInvoices,
       canManageProvidedServices,
       canManageClients,
@@ -533,10 +567,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isRealAdmin,
       roleView,
       setRoleView,
-      isAdmin,
-      isManager,
-      isUser,
-      isAccountant,
+      isRestrictedToOwn,
+      roles,
       canManageInvoices,
       canManageProvidedServices,
       canManageClients,

@@ -140,7 +140,7 @@ graph LR
     B -->|No| D["actualRole<br/>(used as-is)"]
     C --> E["effectiveRole"]
     D --> E
-    E --> F["RBAC Booleans<br/>isAdmin, isManager,<br/>isUser, isAccountant,<br/>canManage*"]
+    E --> F["Permissions<br/>hasPermission()<br/>canManage*"]
 ```
 
 | Role | Dashboard | Projects | Clients | Permits | Users | Services | ProvidedServices | Categories | Reminders | Invoices |

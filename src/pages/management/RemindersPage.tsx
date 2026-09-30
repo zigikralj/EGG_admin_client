@@ -80,15 +80,27 @@ const RemindersPage: React.FC<Props> = ({
   onQuickFilterChange,
 }) => {
   const { t, getResponsibleLabel } = useLanguage();
-  const { hasPermission, currentUser } = useAuth();
+  const { hasPermission, currentUser, isRestrictedToOwn } = useAuth();
+  const isRemindersRestricted = isRestrictedToOwn('reminders') || isRestrictedToOwn('tracker_reminders');
   const canCreate = hasPermission('reminders', 'create');
   const canEdit = hasPermission('reminders', 'edit');
   const canDelete = hasPermission('reminders', 'delete');
   const hasAnyRowAction = canEdit || canDelete;
 
-  const getItemPermissions = useCallback((_rem: Reminder) => {
-    return { canEdit, canDelete };
-  }, [canEdit, canDelete]);
+  const getItemPermissions = useCallback((rem: Reminder) => {
+    let canEditRem = canEdit;
+    let canDeleteRem = canDelete;
+    const isItemRestricted = isRestrictedToOwn('reminders') || isRestrictedToOwn('tracker_reminders');
+    if (isItemRestricted && currentUser) {
+      const isMyName = rem.responsible && currentUser.name && rem.responsible.trim().toLowerCase() === currentUser.name.trim().toLowerCase();
+      const isMyId = rem.responsibleId && rem.responsibleId === currentUser.id;
+      if (!isMyName && !isMyId) {
+        canEditRem = false;
+        canDeleteRem = false;
+      }
+    }
+    return { canEdit: canEditRem, canDelete: canDeleteRem };
+  }, [canEdit, canDelete, isRestrictedToOwn, currentUser]);
 
   const [isOpen, setIsOpen] = useState(false);
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
@@ -146,9 +158,10 @@ const RemindersPage: React.FC<Props> = ({
 
   // Quick Filter state
   const [quickFilters, setQuickFilters] = useState<string[]>(() => {
-    if (Array.isArray(quickFiltersProp)) return quickFiltersProp;
-    if (typeof quickFilterProp === 'string' && quickFilterProp !== 'all') return [quickFilterProp];
-    return [];
+    let initial: string[] = [];
+    if (Array.isArray(quickFiltersProp)) initial = quickFiltersProp;
+    else if (typeof quickFilterProp === 'string' && quickFilterProp !== 'all') initial = [quickFilterProp];
+    return isRemindersRestricted ? initial.filter((k) => k !== 'my') : initial;
   });
 
   // Popover Filter states
@@ -161,11 +174,18 @@ const RemindersPage: React.FC<Props> = ({
 
   useEffect(() => {
     if (Array.isArray(quickFiltersProp)) {
-      setQuickFilters(quickFiltersProp);
+      setQuickFilters(isRemindersRestricted ? quickFiltersProp.filter((k) => k !== 'my') : quickFiltersProp);
     } else if (typeof quickFilterProp === 'string') {
-      setQuickFilters(quickFilterProp === 'all' ? [] : [quickFilterProp]);
+      const initial = quickFilterProp === 'all' ? [] : [quickFilterProp];
+      setQuickFilters(isRemindersRestricted ? initial.filter((k) => k !== 'my') : initial);
     }
-  }, [quickFiltersProp, quickFilterProp]);
+  }, [quickFiltersProp, quickFilterProp, isRemindersRestricted]);
+
+  useEffect(() => {
+    if (isRemindersRestricted) {
+      setQuickFilters((prev) => prev.filter((k) => k !== 'my'));
+    }
+  }, [isRemindersRestricted]);
 
   const handleToggleFilter = (filterKey: string, checked: boolean) => {
     const updated = checked
@@ -191,9 +211,9 @@ const RemindersPage: React.FC<Props> = ({
   };
 
   const reminderQuickFilterOptions: QuickFilterItem[] = useMemo(() => [
-    { key: 'my', label: t('quickFilterMyReminders'), hidden: !currentUser, color: 'primary' },
+    { key: 'my', label: t('quickFilterMyReminders'), hidden: !currentUser || isRemindersRestricted, color: 'primary' },
     { key: 'pending', label: t('statusPending'), color: 'primary' },
-  ], [t, currentUser]);
+  ], [t, currentUser, isRemindersRestricted]);
 
   const handleQuickFiltersChange = (newKeys: string[]) => {
     const added = newKeys.find((k) => !quickFilters.includes(k));
@@ -295,8 +315,13 @@ const RemindersPage: React.FC<Props> = ({
     setClientName('');
     setSelectedPermitId('');
     setPermitNumber('');
-    setSelectedResponsibleId('');
-    setResponsible('');
+    if (isRemindersRestricted && currentUser) {
+      setSelectedResponsibleId(currentUser.id || '');
+      setResponsible(currentUser.name || '');
+    } else {
+      setSelectedResponsibleId('');
+      setResponsible('');
+    }
     setStatus('Pending');
     setNotes('');
     setDueDate('');
@@ -417,15 +442,27 @@ const RemindersPage: React.FC<Props> = ({
     new Set(reminders.map((r) => r.clientName).filter(Boolean) as string[])
   ).sort((a, b) => a.localeCompare(b));
 
-  const otherResponsibles = Array.from(
-    new Set(reminders.map((r) => r.responsible).filter(Boolean) as string[])
-  )
-    .filter((r) => !currentUser?.name || r.trim().toLowerCase() !== currentUser.name.trim().toLowerCase())
-    .sort((a, b) => a.localeCompare(b));
+  const otherResponsibles = (isRemindersRestricted)
+    ? []
+    : Array.from(
+        new Set(reminders.map((r) => r.responsible).filter(Boolean) as string[])
+      )
+        .filter((r) => !currentUser?.name || r.trim().toLowerCase() !== currentUser.name.trim().toLowerCase())
+        .sort((a, b) => a.localeCompare(b));
 
   // 1. Apply Quick & Popover Filters
   const filteredReminders = reminders.filter((rem) => {
-    if (quickFilters.includes('my') && currentUser) {
+    // 0) Enforce reminder restriction to own immediately
+    if (isRemindersRestricted && currentUser) {
+      const isMyName =
+        rem.responsible &&
+        currentUser.name &&
+        rem.responsible.trim().toLowerCase() === currentUser.name.trim().toLowerCase();
+      const isMyId = rem.responsibleId && rem.responsibleId === currentUser.id;
+      if (!isMyName && !isMyId) return false;
+    }
+
+    if (!isRemindersRestricted && quickFilters.includes('my') && currentUser) {
       const isMyName =
         rem.responsible &&
         currentUser.name &&
@@ -555,11 +592,14 @@ const RemindersPage: React.FC<Props> = ({
   };
 
   const responsibleOptions = useMemo(() => {
+    if (isRemindersRestricted) {
+      return currentUser?.name ? [currentUser.name] : [];
+    }
     const list: string[] = [];
     if (currentUser?.name) list.push(currentUser.name);
     list.push(...otherResponsibles);
     return list;
-  }, [currentUser?.name, otherResponsibles]);
+  }, [currentUser?.name, otherResponsibles, isRemindersRestricted]);
 
   const sortOptions = useMemo(() => [
     { value: 'title', label: t('colTitle') },
@@ -1090,13 +1130,15 @@ const RemindersPage: React.FC<Props> = ({
               {(() => {
                 const respLabel = getResponsibleLabel(selectedResponsibleId || responsible, users);
                 const selectableUsers = users.filter((u) => {
+                  const isMe = Boolean(currentUser?.name) && u.name.trim().toLowerCase() === currentUser?.name?.trim().toLowerCase();
+                  if (isRemindersRestricted) return isMe;
                   const isSelected =
                     (Boolean(selectedResponsibleId) && u.id === selectedResponsibleId) ||
                     (Boolean(responsible) && u.name.trim().toLowerCase() === responsible.trim().toLowerCase());
                   if (isSelected) return true;
                   const isBlocked = u.status === 'BLOCKED' || u.status?.toLowerCase() === 'blocked' || (u.isApproved === false && u.status !== 'PENDING');
                   if (isBlocked) return false;
-                  if (u.role === 'Administrator') return false;
+                  if (u.role === 'Administrator' || u.roleEntity?.isSystemAdmin) return false;
                   return true;
                 });
                 return (
@@ -1105,6 +1147,7 @@ const RemindersPage: React.FC<Props> = ({
                       key={respLabel}
                       freeSolo
                       size="small"
+                      disabled={isRemindersRestricted || (!editingReminder ? !canCreate : !getItemPermissions(editingReminder).canEdit)}
                       options={selectableUsers}
                       getOptionLabel={(option) => {
                         if (typeof option === 'string') return option;

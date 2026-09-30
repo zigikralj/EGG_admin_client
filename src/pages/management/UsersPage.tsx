@@ -51,7 +51,7 @@ interface Props extends TableViewProps {
 
 const DEFAULT_COLUMNS = ['name', 'role', 'status', 'email', 'phone', 'gender'];
 
-import { useUsersQuery, useUsersMutations } from '../../queries';
+import { useUsersQuery, useUsersMutations, useRolesQuery } from '../../queries';
 import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
 
 const UsersPage: React.FC<Props> = ({
@@ -70,7 +70,7 @@ const UsersPage: React.FC<Props> = ({
   onQuickFilterChange,
 }) => {
   const { t } = useLanguage();
-  const { canEditUser, canDeleteUser, isAdmin, hasPermission, currentUser } = useAuth();
+  const { canEditUser, canDeleteUser, hasPermission, currentUser } = useAuth();
   const canCreate = hasPermission('users', 'create');
   const canEditAny = hasPermission('users', 'edit');
   const canDeleteAny = hasPermission('users', 'delete');
@@ -79,6 +79,7 @@ const UsersPage: React.FC<Props> = ({
   const [editingUser, setEditingUser] = useState<User | null>(null);
   
   const { data: users = [], refetch: refetchUsers } = useUsersQuery();
+  const { data: rolesList = [] } = useRolesQuery();
   const { handleSave, handleDelete, handleApproveUser, handleRejectUser, handleForceLogoutUser } = useUsersMutations();
 
   const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
@@ -337,9 +338,7 @@ const UsersPage: React.FC<Props> = ({
   const pendingUsers = users.filter((u) => u.status === 'PENDING');
   const onlineUsers = users.filter((u) => u.isOnline);
 
-  const uniqueRoles = Array.from(
-    new Set(users.map((u) => u.role).filter(Boolean))
-  ) as string[];
+  const uniqueRoles = useMemo(() => rolesList.map((r) => r.name), [rolesList]);
 
   // 1. Apply Filter
   const filteredUsers = users.filter((u) => {
@@ -884,10 +883,14 @@ const UsersPage: React.FC<Props> = ({
                 label={t('lblSelectRole')}
                 onChange={(e) => setApproveRole(e.target.value as string)}
               >
-                {isAdmin && <MenuItem value="Administrator">{t('roleAdministrator')}</MenuItem>}
-                <MenuItem value="Manager">{t('roleManager')}</MenuItem>
-                <MenuItem value="User">{t('roleUser')}</MenuItem>
-                <MenuItem value="Accountant">{t('roleAccountant')}</MenuItem>
+                {rolesList.map((r) => {
+                  if (r.name === 'Administrator' && !hasPermission('roles', 'edit')) return null;
+                  return (
+                    <MenuItem key={r.name} value={r.name}>
+                      {getRoleLabel(r.name)}
+                    </MenuItem>
+                  );
+                })}
               </Select>
             </FormControl>
           </Box>
@@ -951,10 +954,14 @@ const UsersPage: React.FC<Props> = ({
                     label={t('lblRole')}
                     onChange={(e) => setRole(e.target.value as string)}
                   >
-                    {isAdmin && <MenuItem value="Administrator">{t('roleAdministrator')}</MenuItem>}
-                    <MenuItem value="Manager">{t('roleManager')}</MenuItem>
-                    <MenuItem value="User">{t('roleUser')}</MenuItem>
-                    <MenuItem value="Accountant">{t('roleAccountant')}</MenuItem>
+                    {rolesList.map((r) => {
+                      if (r.name === 'Administrator' && !hasPermission('roles', 'edit')) return null;
+                      return (
+                        <MenuItem key={r.name} value={r.name}>
+                          {getRoleLabel(r.name)}
+                        </MenuItem>
+                      );
+                    })}
                   </Select>
                 </FormControl>
               </Grid>

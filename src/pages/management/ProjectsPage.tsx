@@ -81,7 +81,7 @@ function fmtDate(d: string | null): string {
   return `${day}.${m}.${y}.`;
 }
 
-import { useProjectsQuery, useServicesQuery, useInvoicesQuery, useProjectsMutations } from '../../queries';
+import { useProjectsQuery, useServicesQuery, useInvoicesQuery, useUsersQuery, useProjectsMutations } from '../../queries';
 import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
 
 const ProjectsPage: React.FC<Props> = ({
@@ -104,12 +104,14 @@ const ProjectsPage: React.FC<Props> = ({
   onQuickFilterChange,
 }) => {
   const { t, getServiceLabel } = useLanguage();
-  const { canEditProject, canDeleteProject, hasPermission, currentUser, isAccountant } = useAuth();
-  const canCreateProject = hasPermission('projects', 'create');
+  const { canEditProject, canDeleteProject, hasPermission, currentUser, isRestrictedToOwn, isRealAdmin, roleView, actualRole } = useAuth();
+  const isProjectsRestricted = isRestrictedToOwn('projects') || isRestrictedToOwn('tracker_projects');
+  const canCreateProject = hasPermission('projects', 'create') || hasPermission('tracker_projects', 'create');
 
   const { data: projects = [], refetch: refetchProjects, isRefetching } = useProjectsQuery();
   const { data: services = [] } = useServicesQuery();
   const { data: invoices = [] } = useInvoicesQuery();
+  const { data: users = [] } = useUsersQuery();
   const hasInvoices = (project: Project) => invoices.some((inv) => inv.projectId === project.id);
   const { handleDelete } = useProjectsMutations();
   const [completeConfirmState, setCompleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
@@ -152,9 +154,10 @@ const ProjectsPage: React.FC<Props> = ({
 
   // Quick Filter state
   const [quickFilters, setQuickFilters] = useState<string[]>(() => {
-    if (Array.isArray(quickFiltersProp)) return quickFiltersProp;
-    if (typeof quickFilterProp === 'string' && quickFilterProp !== 'all') return [quickFilterProp];
-    return [];
+    let initial: string[] = [];
+    if (Array.isArray(quickFiltersProp)) initial = quickFiltersProp;
+    else if (typeof quickFilterProp === 'string' && quickFilterProp !== 'all') initial = [quickFilterProp];
+    return isProjectsRestricted ? initial.filter((k) => k !== 'my') : initial;
   });
   // Popover Filter states
   const [filterCategory, setFilterCategory] = useState<string>('all');
@@ -167,11 +170,18 @@ const ProjectsPage: React.FC<Props> = ({
 
   useEffect(() => {
     if (Array.isArray(quickFiltersProp)) {
-      setQuickFilters(quickFiltersProp);
+      setQuickFilters(isProjectsRestricted ? quickFiltersProp.filter((k) => k !== 'my') : quickFiltersProp);
     } else if (typeof quickFilterProp === 'string') {
-      setQuickFilters(quickFilterProp === 'all' ? [] : [quickFilterProp]);
+      const initial = quickFilterProp === 'all' ? [] : [quickFilterProp];
+      setQuickFilters(isProjectsRestricted ? initial.filter((k) => k !== 'my') : initial);
     }
-  }, [quickFiltersProp, quickFilterProp]);
+  }, [quickFiltersProp, quickFilterProp, isProjectsRestricted]);
+
+  useEffect(() => {
+    if (isProjectsRestricted) {
+      setQuickFilters((prev) => prev.filter((k) => k !== 'my'));
+    }
+  }, [isProjectsRestricted]);
 
   const handleToggleFilter = (filterKey: string, checked: boolean) => {
     const updated = checked
@@ -203,12 +213,12 @@ const ProjectsPage: React.FC<Props> = ({
   };
 
   const projectQuickFilterOptions: QuickFilterItem[] = useMemo(() => [
-    { key: 'my', label: t('quickFilterMyProjects'), hidden: isAccountant, color: 'primary' },
+    { key: 'my', label: t('quickFilterMyProjects'), hidden: isProjectsRestricted, color: 'primary' },
     { key: 'active', label: t('quickFilterActive'), color: 'primary' },
     { key: 'missing_invoice', label: t('quickFilterMissingInvoice'), color: 'warning' },
-    { key: 'stale', label: t('quickFilterStale'), hidden: isAccountant, color: 'primary' },
-    { key: 'overdue', label: t('quickFilterOverdue'), hidden: isAccountant, color: 'error', labelColor: 'error.main' },
-  ], [t, isAccountant]);
+    { key: 'stale', label: t('quickFilterStale'), color: 'primary' },
+    { key: 'overdue', label: t('quickFilterOverdue'), color: 'error', labelColor: 'error.main' },
+  ], [t, isProjectsRestricted]);
 
   const handleQuickFiltersChange = (newKeys: string[]) => {
     const added = newKeys.find((k) => !quickFilters.includes(k));
@@ -285,14 +295,36 @@ const ProjectsPage: React.FC<Props> = ({
 
   const uniqueCategories = Array.from(new Set(projects.map((p) => p.type).filter(Boolean)));
   const uniqueClients = Array.from(new Set(projects.map((p) => p.clientName).filter(Boolean))).sort((a, b) => a.localeCompare(b));
-  const otherResponsibles = Array.from(
-    new Set(projects.map((p) => p.responsible).filter(Boolean) as string[])
-  )
-    .filter((r) => !currentUser?.name || r.trim().toLowerCase() !== currentUser.name.trim().toLowerCase())
-    .sort((a, b) => a.localeCompare(b));
+  const otherResponsibles = (isProjectsRestricted)
+    ? (isRealAdmin && roleView !== actualRole
+        ? users.filter((u) => u.role === roleView).map((u) => u.name).filter(Boolean)
+        : [])
+    : Array.from(
+        new Set(projects.map((p) => p.responsible).filter(Boolean) as string[])
+      )
+        .filter((r) => !currentUser?.name || r.trim().toLowerCase() !== currentUser.name.trim().toLowerCase())
+        .sort((a, b) => a.localeCompare(b));
 
   // 1. Apply Quick & Popover Filters
   const filteredProjects = projects.filter((p) => {
+    if (isProjectsRestricted) {
+      if (isRealAdmin && roleView !== actualRole) {
+        const roleUsers = users.filter((u) => u.role === roleView);
+        const isRoleProject = roleUsers.some((u) =>
+          (p.responsible && u.name && p.responsible.trim().toLowerCase() === u.name.trim().toLowerCase()) ||
+          ((p as any).responsibleId && (p as any).responsibleId === u.id)
+        );
+        if (!isRoleProject) return false;
+      } else {
+        const isMyName =
+          p.responsible &&
+          currentUser?.name &&
+          p.responsible.trim().toLowerCase() === currentUser.name.trim().toLowerCase();
+        const isMyId = (p as any).responsibleId && (p as any).responsibleId === currentUser?.id;
+        if (!isMyName && !isMyId) return false;
+      }
+    }
+
     if (quickFilters.includes('my') && currentUser) {
       const isMyName =
         p.responsible &&

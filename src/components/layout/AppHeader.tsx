@@ -77,6 +77,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     isRealAdmin,
     roleView,
     setRoleView,
+    roles,
     pendingUsersCount,
     hasPermission,
     logout,
@@ -85,7 +86,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   const canAccessProjectTracker = hasPermission('apps', 'project-tracker');
   const canAccessDataManagement = hasPermission('apps', 'data-management');
 
-  const canSeePendingUsers = (isRealAdmin || role === 'Manager') && pendingUsersCount > 0;
+  const canSeePendingUsers = hasPermission('users', 'edit') && pendingUsersCount > 0;
   const totalNotificationsCount = unreadCount + (canSeePendingUsers ? pendingUsersCount : 0);
 
   const [appsAnchorEl, setAppsAnchorEl] = React.useState<null | HTMLElement>(null);
@@ -296,18 +297,11 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                   '.MuiSvgIcon-root': { color: '#ffffff' },
                 }}
               >
-                <MenuItem value="Administrator" sx={{ fontSize: '0.8125rem' }}>
-                  {t('roleAdministrator')}
-                </MenuItem>
-                <MenuItem value="Manager" sx={{ fontSize: '0.8125rem' }}>
-                  {t('roleManager')}
-                </MenuItem>
-                <MenuItem value="User" sx={{ fontSize: '0.8125rem' }}>
-                  {t('roleUser')}
-                </MenuItem>
-                <MenuItem value="Accountant" sx={{ fontSize: '0.8125rem' }}>
-                  {t('roleAccountant')}
-                </MenuItem>
+                {roles.map((r) => (
+                  <MenuItem key={r.name} value={r.name} sx={{ fontSize: '0.8125rem' }}>
+                    {getRoleBadgeLabel(r.name)}
+                  </MenuItem>
+                ))}
               </Select>
             </FormControl>
           )}

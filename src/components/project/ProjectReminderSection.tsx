@@ -65,11 +65,10 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
   disabled = false,
 }) => {
   const { t, getResponsibleLabel } = useLanguage();
-  const { currentUser, isAdmin, hasPermission } = useAuth();
+  const { currentUser, hasPermission } = useAuth();
 
   const canCreateReminder =
     !projectToEdit ||
-    isAdmin ||
     hasPermission('reminders', 'create') ||
     hasPermission('tracker_reminders', 'create');
 
@@ -320,7 +319,7 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
                       if (isSelected) return true;
                       const isBlocked = u.status === "BLOCKED" || u.status?.toLowerCase() === "blocked" || (u.isApproved === false && u.status !== "PENDING");
                       if (isBlocked) return false;
-                      if (u.role === "Administrator") return false;
+                      if (u.role === "Administrator" || u.roleEntity?.isSystemAdmin) return false;
                       return true;
                     });
                     return (
@@ -511,14 +510,12 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
 
                       const remCanEdit =
                         !projectToEdit ||
-                        isAdmin ||
                         hasPermission('reminders', 'edit') ||
                         hasPermission('tracker_reminders', 'edit') ||
                         isOwner;
 
                       const remCanDelete =
                         !projectToEdit ||
-                        isAdmin ||
                         hasPermission('reminders', 'delete') ||
                         hasPermission('tracker_reminders', 'delete');
 
@@ -646,7 +643,7 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
                       u.status?.toLowerCase() === 'blocked' ||
                       (u.isApproved === false && u.status !== 'PENDING');
                     if (isBlocked) return false;
-                    if (u.role === 'Administrator') return false;
+                    if (u.role === 'Administrator' || u.roleEntity?.isSystemAdmin) return false;
                     return true;
                   });
                   return (
