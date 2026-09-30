@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.4.0] - 2026-09-30
+
+- feat: add restriction support for viewing and editing own reminders (#56) by @zigikralj
+
 ## [v1.3.8] - 2026-09-22
 
 - refactor: centralize admin check in hasPermission to simplify permiss… (#54) by @zigikralj
