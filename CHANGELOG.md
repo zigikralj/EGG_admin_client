@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.5.0] - 2026-10-01
+
+- feat: add waste catalog autocomplete and linked list filtering suppor… (#58) by @zigikralj
+
 ## [v1.4.0] - 2026-09-30
 
 - feat: add restriction support for viewing and editing own reminders (#56) by @zigikralj
