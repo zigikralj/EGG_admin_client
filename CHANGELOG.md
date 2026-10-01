@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.6.0] - 2026-10-01
+
+- feat: add utilities for detecting and extracting waste weights in cus… (#60) by @zigikralj
+
 ## [v1.5.0] - 2026-10-01
 
 - feat: add waste catalog autocomplete and linked list filtering suppor… (#58) by @zigikralj
