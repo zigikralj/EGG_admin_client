@@ -202,3 +202,176 @@ export const formatFieldBadgeLabel = (
 
   return `${label}: ${val}${unitStr}`;
 };
+
+/**
+ * Checks whether a given identifier/label/unit indicates a waste weight/quantity field.
+ * Explicitly rejects non-weight fields like index numbers, documents, dates, etc.
+ */
+export const isWasteWeightField = (
+  fieldId: string,
+  label?: string,
+  unit?: string
+): boolean => {
+  const fullText = `${fieldId} ${label || ''} ${unit || ''}`;
+  const norm = normalizeKey(fullText);
+
+  // 1. Explicit disqualifiers: index numbers, documents, codes, types, entities, dates
+  if (
+    norm.includes('indeks') ||
+    norm.includes('index') ||
+    norm.includes('sifra') ||
+    norm.includes('katalog') ||
+    norm.includes('kretanj') ||
+    norm.includes('dokument') ||
+    norm.includes('ugovor') ||
+    norm.includes('broj') ||
+    norm.includes('kod') ||
+    norm.includes('code') ||
+    norm.includes('vrst') ||
+    norm.includes('datum') ||
+    norm.includes('date') ||
+    norm.includes('operat') ||
+    norm.includes('prevoz') ||
+    norm.includes('transport') ||
+    norm.includes('vozil') ||
+    norm.includes('klijent') ||
+    norm.includes('client') ||
+    norm.includes('lokacij') ||
+    norm.includes('mesto') ||
+    norm.includes('opis') ||
+    norm.includes('napomen') ||
+    norm.includes('status')
+  ) {
+    return false;
+  }
+
+  // 2. Unit is explicitly kg or tons
+  const normUnit = normalizeKey(unit || '');
+  if (
+    normUnit === 'kg' ||
+    normUnit === 'kilogram' ||
+    normUnit === 't' ||
+    normUnit === 'tona' ||
+    normUnit === 'tone' ||
+    normUnit === 'ton'
+  ) {
+    return true;
+  }
+
+  // 3. Positive qualifiers for quantity / weight
+  if (
+    norm.includes('kolicin') ||
+    norm.includes('quantity') ||
+    norm.includes('qty') ||
+    norm.includes('tezin') ||
+    norm.includes('weight') ||
+    norm.includes('masa') ||
+    norm.includes('mass') ||
+    norm.split('_').includes('kg') ||
+    norm.split('_').includes('tona') ||
+    norm.split('_').includes('tone') ||
+    norm.split('_').includes('t')
+  ) {
+    return true;
+  }
+
+  return false;
+};
+
+/**
+ * Safely parses a waste weight value and converts tons to kg if needed.
+ * Disqualifies index numbers (e.g. "15 01 01"), code arrays, and non-numeric content.
+ */
+export const parseWasteWeightValue = (
+  val: any,
+  unit?: string,
+  label?: string
+): number => {
+  if (val === null || val === undefined || val === '') return 0;
+  if (Array.isArray(val)) return 0;
+
+  let num: number | null = null;
+  if (typeof val === 'number') {
+    num = val;
+  } else if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (!trimmed) return 0;
+
+    // Disqualify waste index codes (e.g. "15 01 01", "15 01 01*", "150101")
+    if (/^\d{2}\s+\d{2}\s+\d{2}/.test(trimmed)) {
+      return 0;
+    }
+
+    let clean = trimmed;
+    // Format handling: "1.500,50" -> "1500.50", "1 500,50" -> "1500.50"
+    if (/^\d{1,3}(\.\d{3})+,\d+$/.test(clean)) {
+      clean = clean.replace(/\./g, '').replace(',', '.');
+    } else if (/^\d{1,3}( \d{3})+,\d+$/.test(clean)) {
+      clean = clean.replace(/\s+/g, '').replace(',', '.');
+    } else {
+      clean = clean.replace(',', '.');
+    }
+
+    const match = clean.match(/-?\d+(?:\.\d+)?/);
+    if (!match) return 0;
+    num = parseFloat(match[0]);
+  }
+
+  if (num === null || isNaN(num) || num <= 0) return 0;
+
+  // Convert tons to kg (x1000)
+  const normUnit = normalizeKey(unit || '');
+  const normLabel = normalizeKey(label || '');
+  const labelTokens = normLabel.split('_');
+
+  const isKg = normUnit === 'kg' || labelTokens.includes('kg');
+  const isTons =
+    !isKg &&
+    (normUnit === 't' ||
+      normUnit === 'tona' ||
+      normUnit === 'tone' ||
+      normUnit === 'ton' ||
+      normUnit === 'tons' ||
+      labelTokens.includes('tona') ||
+      labelTokens.includes('tone') ||
+      labelTokens.includes('tonama') ||
+      labelTokens.includes('t'));
+
+  if (isTons) {
+    return num * 1000;
+  }
+
+  return num;
+};
+
+/**
+ * Extracts waste weight in kilograms from a ProvidedService.
+ * Returns 0 if no weight was specified. Never parses index numbers or other non-weight fields.
+ */
+export const extractWasteKg = (
+  item: ProvidedService,
+  services: Service[] = []
+): number => {
+  if (!item.customData || typeof item.customData !== 'object') return 0;
+
+  // 1. Check resolved custom field definitions (highest accuracy)
+  const badges = resolveCustomFieldBadges(item, services);
+  for (const b of badges) {
+    if (isWasteWeightField(b.id, b.label, b.unit)) {
+      const kg = parseWasteWeightValue(b.rawValue ?? b.value, b.unit, b.label);
+      if (kg > 0) return kg;
+    }
+  }
+
+  // 2. Direct check on customData keys
+  for (const [k, v] of Object.entries(item.customData)) {
+    if (v === null || v === undefined || v === '') continue;
+    if (isWasteWeightField(k)) {
+      const kg = parseWasteWeightValue(v);
+      if (kg > 0) return kg;
+    }
+  }
+
+  return 0;
+};
+
