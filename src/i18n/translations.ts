@@ -136,10 +136,16 @@ export interface TranslationKeys {
   typeText: string;
   typeNumber: string;
   typeList: string;
+  typeClient: string;
   typeDateTime: string;
   typeDate: string;
   lblListOptions: string;
   phListOptions: string;
+  lblFilterByPermitType: string;
+  optAllClients: string;
+  helperFilterByPermitType: string;
+  lblClientsMatching: string;
+  lblFilteredByPermit: string;
   customDataSection: string;
   noCustomFieldsDefined: string;
   btnDefineModel: string;
@@ -699,6 +705,14 @@ export interface TranslationKeys {
   loadingRefreshing: string;
   loadingElapsedTime: string;
   loadingPleaseWait: string;
+
+  lblLinkedList: string;
+  valNone: string;
+  valClients: string;
+  valIndexNumber: string;
+  valPermitType: string;
+  valUsers: string;
+  valCategory: string;
 }
 
 export const serviceTypeTranslations: Record<Language, Record<string, string>> = {

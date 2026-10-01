@@ -133,10 +133,16 @@ const srLatnTranslations: TranslationKeys = {
   "typeText": "Tekst",
   "typeNumber": "Broj",
   "typeList": "Lista (Izbor)",
+  "typeClient": "Klijent",
   "typeDateTime": "Datum/vreme",
   "typeDate": "Datum",
   "lblListOptions": "Opcije (razdvojene zarezom)",
   "phListOptions": "Opcija 1, Opcija 2, Opcija 3",
+  "lblFilterByPermitType": "Filtriraj po vrsti dozvole",
+  "optAllClients": "Svi klijenti (bez filtera)",
+  "helperFilterByPermitType": "Samo klijenti koji poseduju dozvolu za ovaj tip biće ponuđeni u listi",
+  "lblClientsMatching": "klijenata pronađeno",
+  "lblFilteredByPermit": "Dozvola",
   "customDataSection": "Prilagođeni podaci",
   "noCustomFieldsDefined": "Za ovu uslugu još uvek nisu definisana prilagođena polja.",
   "btnDefineModel": "Definiši model podataka",
@@ -657,7 +663,14 @@ const srLatnTranslations: TranslationKeys = {
   "loadingConnecting": "Povezivanje sa serverom...",
   "loadingRefreshing": "Osvežavanje podataka...",
   "loadingElapsedTime": "Proteklo vreme: {seconds}s",
-  "loadingPleaseWait": "Molimo sačekajte..."
+  "loadingPleaseWait": "Molimo sačekajte...",
+  "lblLinkedList": "Poveži sa postojećom listom",
+  "valNone": "Prilagođena lista (Ništa)",
+  "valClients": "Klijenti",
+  "valIndexNumber": "Broj indeksa",
+  "valPermitType": "Tip dozvole",
+  "valUsers": "Korisnici",
+  "valCategory": "Kategorija"
 };
 
 export default srLatnTranslations;

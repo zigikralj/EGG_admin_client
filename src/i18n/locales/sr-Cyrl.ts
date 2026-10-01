@@ -133,10 +133,16 @@ const srCyrlTranslations: TranslationKeys = {
   "typeText": "Текст",
   "typeNumber": "Број",
   "typeList": "Листа (Избор)",
+  "typeClient": "Клијент",
   "typeDateTime": "Датум/време",
   "typeDate": "Датум",
   "lblListOptions": "Опције (раздвојене зарезом)",
   "phListOptions": "Опција 1, Опција 2, Опција 3",
+  "lblFilterByPermitType": "Филтрирај по врсти дозволе",
+  "optAllClients": "Сви клијенти (без филтера)",
+  "helperFilterByPermitType": "Само клијенти који поседују дозволу за овај тип биће понуђени у листи",
+  "lblClientsMatching": "клијената пронађено",
+  "lblFilteredByPermit": "Дозвола",
   "customDataSection": "Прилагођени подаци",
   "noCustomFieldsDefined": "За ову услугу још увек нису дефинисана прилагођена поља.",
   "btnDefineModel": "Дефиниши модел података",
@@ -657,7 +663,14 @@ const srCyrlTranslations: TranslationKeys = {
   "loadingConnecting": "Повезивање са сервером...",
   "loadingRefreshing": "Освежавање података...",
   "loadingElapsedTime": "Протекло време: {seconds}с",
-  "loadingPleaseWait": "Молимо сачекајте..."
+  "loadingPleaseWait": "Молимо сачекајте...",
+  "lblLinkedList": "Повежи са постојећом листом",
+  "valNone": "Прилагођена листа (Ништа)",
+  "valClients": "Клијенти",
+  "valIndexNumber": "Број индекса",
+  "valPermitType": "Тип дозволе",
+  "valUsers": "Корисници",
+  "valCategory": "Категорија"
 };
 
 export default srCyrlTranslations;

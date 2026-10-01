@@ -29,7 +29,6 @@ import {
   FormControl,
   InputLabel,
   Divider,
-  CircularProgress,
 } from '@mui/material';
 
 import {
@@ -39,10 +38,8 @@ import {
   type PermitType,
   type Reminder,
   type WasteCatalog,
-  type WasteCatalogResponse,
   type TableViewProps,
 } from '../../types';
-import { apiFetch } from '../../api';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTableView } from '../../hooks/useTableView';
@@ -51,6 +48,7 @@ import { TableFilterSelector } from '../../components/common/TableFilterSelector
 import { TableSearchInput } from '../../components/common/TableSearchInput';
 import { TableQuickFilters, type QuickFilterItem } from '../../components/common/TableQuickFilters';
 import { DateRangeFilter } from '../../components/common/DateRangeFilter';
+import { WasteCatalogAutocomplete } from '../../components/common/WasteCatalogAutocomplete';
 import { ErrorDialog } from '../../components/dialogs/ErrorDialog';
 import {
   AddIcon,
@@ -67,8 +65,6 @@ import {
   CheckCircleIcon,
   WarningAmberIcon,
   ErrorIcon,
-  StarIcon,
-  StarBorderIcon,
 } from '../../components/icons';
 
 interface Props extends TableViewProps {
@@ -394,108 +390,21 @@ const PermitsPage: React.FC<Props> = ({
   const [searchQuery, setSearchQuery] = useState('');
 
   // Lazy-loaded Waste Catalog state
-  const [catalogOptions, setCatalogOptions] = useState<WasteCatalog[]>([]);
-  const [catalogLoading, setCatalogLoading] = useState(false);
-  const [catalogLoadingMore, setCatalogLoadingMore] = useState(false);
-  const [catalogPage, setCatalogPage] = useState(1);
-  const [catalogHasMore, setCatalogHasMore] = useState(true);
-  const [catalogSearchTerm, setCatalogSearchTerm] = useState('');
-  const [catalogInputValue, setCatalogInputValue] = useState('');
   const [selectedCatalogItems, setSelectedCatalogItems] = useState<WasteCatalog[]>([]);
 
-  const fetchCatalogPage = useCallback(
-    async (pageToFetch: number, search: string, isAppend = false) => {
-      try {
-        if (isAppend) {
-          setCatalogLoadingMore(true);
-        } else {
-          setCatalogLoading(true);
-        }
-        const params = new URLSearchParams({
-          page: String(pageToFetch),
-          limit: '20',
-        });
-        if (search.trim()) {
-          params.set('search', search.trim());
-        }
-        const res = await apiFetch(`/api/waste-catalog?${params.toString()}`);
-        if (res.ok) {
-          const data: WasteCatalogResponse = await res.json();
-          const items = data.items || [];
-          setCatalogOptions((prev) => {
-            if (!isAppend) return items;
-            const existingIds = new Set(prev.map((it) => it.id));
-            const newItems = items.filter((it) => !existingIds.has(it.id));
-            return [...prev, ...newItems];
-          });
-          setCatalogPage(data.page || pageToFetch);
-          setCatalogHasMore(Boolean(data.hasMore));
-        }
-      } catch (err) {
-        console.error('Error fetching waste catalog page:', err);
-      } finally {
-        setCatalogLoading(false);
-        setCatalogLoadingMore(false);
-      }
-    },
-    []
-  );
 
-  // Debounced search when typing in the catalog Autocomplete
-  useEffect(() => {
-    if (!isOpen) return;
-    const timer = setTimeout(() => {
-      fetchCatalogPage(1, catalogSearchTerm, false);
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [catalogSearchTerm, isOpen, fetchCatalogPage]);
-
-  // Ensure selected items are present in options list so label/chips render
-  const combinedCatalogOptions = useMemo(() => {
-    const newOptions = [...catalogOptions];
-    selectedCatalogItems.forEach(item => {
-      if (!newOptions.some((o) => o.id === item.id)) {
-        newOptions.unshift(item);
-      }
-    });
-    return newOptions;
-  }, [selectedCatalogItems, catalogOptions]);
-
-  const handleToggleFrequent = async (e: React.MouseEvent, item: WasteCatalog) => {
-    e.stopPropagation();
-    e.preventDefault();
-    try {
-      const res = await apiFetch(`/api/waste-catalog/${item.id}/frequent`, {
-        method: 'PATCH',
-      });
-      if (res.ok) {
-        const updated: WasteCatalog = await res.json();
-        setCatalogOptions((prev) =>
-          prev.map((it) => (it.id === updated.id ? updated : it))
-        );
-        if (selectedCatalogItems.some(item => item.id === updated.id)) {
-          setSelectedCatalogItems(prev => prev.map(item => item.id === updated.id ? updated : item));
-        }
-      }
-    } catch (err) {
-      console.error('Error toggling frequent status:', err);
-    }
-  };
 
   const openNew = () => {
     if (!canCreate) return;
     setEditingPermit(null);
     setSelectedWasteCatalogIds([]);
     setSelectedCatalogItems([]);
-    setCatalogInputValue('');
-    setCatalogSearchTerm('');
     setPermitNumber('');
     setPermitTypes([]);
     setSelectedClientId('');
     setStartDate('');
     setEndDate('');
     setNotes('');
-    setCatalogPage(1);
     setIsAddingReminderInline(false);
     setStagedNewReminders([]);
     setStagedLinkReminderIds([]);
@@ -504,7 +413,6 @@ const PermitsPage: React.FC<Props> = ({
     setInlineReminderNotes('');
     setSelectedExistingReminderId('');
     setIsOpen(true);
-    fetchCatalogPage(1, '', false);
   };
 
   const openEdit = async (p: Permit) => {
@@ -518,15 +426,12 @@ const PermitsPage: React.FC<Props> = ({
     
     setSelectedWasteCatalogIds(ids);
     setSelectedCatalogItems(items);
-    setCatalogInputValue('');
 
     setPermitNumber(p.permitNumber || '');
     setPermitTypes((p.permitTypes || []) as string[]);
     setStartDate(p.startDate ? p.startDate.split('T')[0] : '');
     setEndDate(p.endDate ? p.endDate.split('T')[0] : '');
     setNotes(p.notes || '');
-    setCatalogSearchTerm('');
-    setCatalogPage(1);
     setIsAddingReminderInline(false);
     setStagedNewReminders([]);
     setStagedLinkReminderIds([]);
@@ -535,7 +440,6 @@ const PermitsPage: React.FC<Props> = ({
     setInlineReminderNotes('');
     setSelectedExistingReminderId('');
     setIsOpen(true);
-    fetchCatalogPage(1, '', false);
   };
 
   const availableExistingReminders = useMemo(() => {
@@ -1518,148 +1422,13 @@ const PermitsPage: React.FC<Props> = ({
 
               {/* Index Number (Waste Catalog) */}
               <Grid size={{ xs: 12 }}>
-                <Autocomplete
-                  multiple={true}
-                  size="small"
-                  options={combinedCatalogOptions}
-                  loading={catalogLoading}
-                  filterOptions={(options) => options}
+                <WasteCatalogAutocomplete
                   value={selectedCatalogItems}
-                  onChange={(_, newValue) => {
-                    const validValues = (newValue as WasteCatalog[]).filter(Boolean);
+                  onChange={(validValues: WasteCatalog[]) => {
                     setSelectedCatalogItems(validValues);
-                    setSelectedWasteCatalogIds(validValues.map(v => v.id));
+                    setSelectedWasteCatalogIds(validValues.map((v) => v.id));
                   }}
-                  inputValue={catalogInputValue}
-                  onInputChange={(_, newInputValue, reason) => {
-                    setCatalogInputValue(newInputValue);
-                    if (reason === 'input') {
-                      setCatalogSearchTerm(newInputValue);
-                    } else if (reason === 'clear') {
-                      setCatalogSearchTerm('');
-                    }
-                  }}
-                  getOptionLabel={(option) =>
-                    typeof option === 'string' ? option : option.code
-                  }
-                  isOptionEqualToValue={(option, val) => option.id === val.id}
-                  slotProps={{
-                    listbox: {
-                      onScroll: (event: React.SyntheticEvent) => {
-                        const listboxNode = event.currentTarget;
-                        if (
-                          listboxNode.scrollTop + listboxNode.clientHeight >=
-                          listboxNode.scrollHeight - 25
-                        ) {
-                          if (!catalogLoading && !catalogLoadingMore && catalogHasMore) {
-                            fetchCatalogPage(catalogPage + 1, catalogSearchTerm, true);
-                          }
-                        }
-                      },
-                      sx: { maxHeight: 320 },
-                    } as any,
-                  }}
-                  noOptionsText={catalogLoading ? 'Učitavanje...' : 'Nema rezultata'}
-                  loadingText="Učitavanje..."
-                  renderOption={(props, option) => {
-                    const { key, ...otherProps } = props as any;
-                    const isStarred = option.frequent !== null && option.frequent !== undefined;
-                    return (
-                      <Box
-                        key={key || option.id}
-                        component="li"
-                        {...otherProps}
-                        sx={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          py: 0.8,
-                          px: 1.5,
-                          borderBottom: '1px solid',
-                          borderColor: 'divider',
-                          '&:last-child': { borderBottom: 'none' },
-                          bgcolor: isStarred ? 'action.hover' : 'inherit',
-                        }}
-                      >
-                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', flex: 1, pr: 1 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                            <Typography variant="body2" sx={{ fontWeight: 700, fontFamily: 'monospace' }}>
-                              {option.code}
-                            </Typography>
-                            {option.isHazardous && (
-                              <Chip
-                                label="Opasan"
-                                size="small"
-                                color="error"
-                                variant="outlined"
-                                sx={{ height: 18, fontSize: '0.65rem' }}
-                              />
-                            )}
-                            {option.hazardListMark && (
-                              <Typography variant="caption" color="text.secondary">
-                                ({option.hazardListMark})
-                              </Typography>
-                            )}
-                          </Box>
-                          <Typography variant="caption" color="text.secondary" sx={{ mt: 0.25, lineHeight: 1.3 }}>
-                            {option.description}
-                          </Typography>
-                        </Box>
-
-                        <Tooltip
-                          title={
-                            isStarred
-                              ? 'Ukloni iz preporučenih (čestih)'
-                              : 'Označi kao preporučeno (često)'
-                          }
-                        >
-                          <IconButton
-                            size="small"
-                            onClick={(e) => handleToggleFrequent(e, option)}
-                            sx={{
-                              p: 0.5,
-                              color: isStarred ? '#f59e0b' : 'action.disabled',
-                              '&:hover': {
-                                color: '#f59e0b',
-                                bgcolor: 'rgba(245, 158, 11, 0.12)',
-                              },
-                            }}
-                          >
-                            {isStarred ? (
-                              <StarIcon fontSize="small" />
-                            ) : (
-                              <StarBorderIcon fontSize="small" />
-                            )}
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                    );
-                  }}
-                  renderInput={(params) => {
-                    const { slotProps: pSlotProps, ...restParams } = params as any;
-                    return (
-                      <TextField
-                        {...restParams}
-                        label={t('lblIndexNumber')}
-                        placeholder={t('phIndexNumber')}
-                        required={selectedWasteCatalogIds.length === 0}
-                        slotProps={{
-                          ...pSlotProps,
-                          input: {
-                            ...pSlotProps?.input,
-                            endAdornment: (
-                              <>
-                                {catalogLoading || catalogLoadingMore ? (
-                                  <CircularProgress color="inherit" size={18} sx={{ mr: 1 }} />
-                                ) : null}
-                                {pSlotProps?.input?.endAdornment}
-                              </>
-                            ),
-                          },
-                        }}
-                      />
-                    );
-                  }}
+                  required={selectedWasteCatalogIds.length === 0}
                 />
               </Grid>
 
@@ -1769,7 +1538,7 @@ const PermitsPage: React.FC<Props> = ({
                     setIsAddingReminderInline(willOpen);
                     if (willOpen) {
                       setAddReminderMode('new');
-                      const idxStr = catalogInputValue ? catalogInputValue.split(' - ')[0] : '';
+                      const idxStr = selectedCatalogItems.length > 0 ? selectedCatalogItems[0].code : '';
                       setInlineReminderTitle(
                         permitNumber.trim()
                           ? `${t('lblPermit')}: ${permitNumber.trim()}${idxStr ? ` (${idxStr})` : ''}`
