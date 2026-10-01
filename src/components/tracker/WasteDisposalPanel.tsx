@@ -48,6 +48,7 @@ import {
   VisibilityIcon,
   EditIcon,
   DeleteIcon,
+  SettingsIcon,
 } from '../icons';
 import { DashboardPanelSkeleton } from '../tracker/DashboardPanelSkeleton';
 import { type QuickFilterItem } from '../common/TableQuickFilters';
@@ -57,6 +58,10 @@ import {
   formatFieldBadgeLabel,
   isKeyMatch,
 } from '../../utils/customFields';
+import { useLinkedListOptions } from '../../hooks/useLinkedListOptions';
+import { WasteCatalogAutocomplete } from '../common/WasteCatalogAutocomplete';
+import { CustomDataModelModal } from '../dialogs/CustomDataModelModal';
+import { useServicesMutations } from '../../queries';
 
 interface Props {
   providedServices?: ProvidedService[];
@@ -142,10 +147,19 @@ export const WasteDisposalPanel: React.FC<Props> = ({
   onRefresh,
   isRefreshing,
 }) => {
-  const { t, getServiceLabel } = useLanguage();
+  const { t, getServiceLabel, getPermitTypeLabel } = useLanguage();
   const { hasPermission } = useAuth();
+  const { resolveListOptions } = useLinkedListOptions();
+  const { handleSave: handleSaveService } = useServicesMutations();
   const canEdit = hasPermission('wasteDisposal', 'edit') || hasPermission('providedServices', 'edit');
   const canDelete = hasPermission('wasteDisposal', 'delete') || hasPermission('providedServices', 'delete');
+  const canManageServices = hasPermission('services', 'edit');
+
+  const [isCustomModelModalOpen, setIsCustomModelModalOpen] = useState(false);
+
+  const handleSaveCustomModel = async (serviceId: string, fields: CustomFieldDefinition[]) => {
+    await handleSaveService({ id: serviceId, customDataModel: fields });
+  };
 
   // Search & Filters state
   const [searchQuery, setSearchQuery] = useState('');
@@ -370,9 +384,13 @@ export const WasteDisposalPanel: React.FC<Props> = ({
           (item.status && item.status.toLowerCase().includes(q));
 
         if (!match && item.customData && typeof item.customData === 'object') {
-          match = Object.values(item.customData).some((val) =>
-            val !== null && val !== undefined && String(val).toLowerCase().includes(q)
-          );
+          match = Object.values(item.customData).some((val) => {
+            if (val === null || val === undefined) return false;
+            if (Array.isArray(val)) {
+              return val.some((v) => String(v).toLowerCase().includes(q));
+            }
+            return String(val).toLowerCase().includes(q);
+          });
         }
 
         if (!match) return false;
@@ -542,15 +560,16 @@ export const WasteDisposalPanel: React.FC<Props> = ({
     if (serviceFields.length > 0) {
       serviceFields.forEach((field) => {
         let val = rawCustomData[field.id];
-        if (val === undefined || val === null || val === '') {
+        const isValEmpty = val === undefined || val === null || val === '' || (Array.isArray(val) && val.length === 0);
+        if (isValEmpty) {
           for (const [k, v] of Object.entries(rawCustomData)) {
-            if (v !== undefined && v !== null && v !== '' && isKeyMatch(k, field)) {
+            if (v !== undefined && v !== null && v !== '' && (!Array.isArray(v) || v.length > 0) && isKeyMatch(k, field)) {
               val = v;
               break;
             }
           }
         }
-        if (val !== undefined && val !== null && val !== '') {
+        if (val !== undefined && val !== null && val !== '' && (!Array.isArray(val) || val.length > 0)) {
           initialCustomData[field.id] = val;
         }
       });
@@ -1233,6 +1252,22 @@ export const WasteDisposalPanel: React.FC<Props> = ({
             {/* DYNAMIC CUSTOM FIELDS (Vrsta otpada, Količina, Indeksni broj, etc.) */}
             {activeCustomFields.length > 0 && (
               <Grid size={{ xs: 12 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.secondary' }}>
+                    {t('customDataSection')}
+                  </Typography>
+                  {!isViewMode && canManageServices && selectedService && (
+                    <Button
+                      size="small"
+                      variant="text"
+                      startIcon={<SettingsIcon sx={{ fontSize: '15px !important' }} />}
+                      onClick={() => setIsCustomModelModalOpen(true)}
+                      sx={{ textTransform: 'none', py: 0 }}
+                    >
+                      {t('btnDefineModel')}
+                    </Button>
+                  )}
+                </Box>
                 <Grid container spacing={2}>
                   {activeCustomFields.map((field) => {
                     let val = formData.customData[field.id] ?? formData.customData[field.name];
@@ -1245,28 +1280,52 @@ export const WasteDisposalPanel: React.FC<Props> = ({
                       }
                     }
                     val = val ?? '';
+                    const isListOrClient = field.type === 'list' || field.type === 'client';
+                    const resolvedOptions = isListOrClient ? resolveListOptions(field) : [];
+                    const optionsToDisplay =
+                      val && typeof val === 'string' && !resolvedOptions.includes(val)
+                        ? [val, ...resolvedOptions]
+                        : resolvedOptions;
                     return (
                       <Grid size={{ xs: 12, md: 6 }} key={field.id}>
-                        {field.type === 'list' && field.options && field.options.length > 0 ? (
-                          <FormControl fullWidth size="small" disabled={isViewMode}>
-                            <InputLabel>{field.name}</InputLabel>
-                            <Select
-                              value={val}
-                              label={field.name}
-                              onChange={(e) =>
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  customData: { ...prev.customData, [field.id]: e.target.value },
-                                }))
-                              }
-                            >
-                              {field.options.map((opt) => (
-                                <MenuItem key={opt} value={opt}>
-                                  {opt}
-                                </MenuItem>
-                              ))}
-                            </Select>
-                          </FormControl>
+                        {(field.type === 'list' && field.linkedList === 'index_number') || field.id === 'indeksni_broj' ? (
+                          <WasteCatalogAutocomplete
+                            multiple={true}
+                            size="small"
+                            fullWidth
+                            disabled={isViewMode}
+                            label={field.name}
+                            placeholder={t('lblNoneOptional')}
+                            value={val || []}
+                            onChange={(_, codes) => {
+                              setFormData((prev) => ({
+                                ...prev,
+                                customData: { ...prev.customData, [field.id]: codes || [] },
+                              }));
+                            }}
+                          />
+                        ) : isListOrClient && (optionsToDisplay.length > 0 || field.linkedList === 'clients' || field.type === 'client') ? (
+                          <Autocomplete
+                            size="small"
+                            fullWidth
+                            disabled={isViewMode}
+                            options={optionsToDisplay}
+                            value={val || null}
+                            onChange={(_, newValue) => {
+                              setFormData((prev) => ({
+                                ...prev,
+                                customData: { ...prev.customData, [field.id]: newValue || '' },
+                              }));
+                            }}
+                            renderInput={(params) => (
+                              <TextField
+                                {...params}
+                                label={field.name}
+                                placeholder={t('lblNoneOptional')}
+                                helperText={field.permitTypeFilter ? `${t('lblFilteredByPermit')}: ${getPermitTypeLabel(field.permitTypeFilter)}` : undefined}
+                              />
+                            )}
+                          />
                         ) : field.type === 'number' ? (
                           <TextField
                             fullWidth
@@ -1371,6 +1430,18 @@ export const WasteDisposalPanel: React.FC<Props> = ({
           )}
         </DialogActions>
       </Dialog>
+
+      <CustomDataModelModal
+        isOpen={isCustomModelModalOpen}
+        onClose={() => setIsCustomModelModalOpen(false)}
+        service={selectedService || null}
+        initialFields={
+          selectedService?.customDataModel && Array.isArray(selectedService.customDataModel)
+            ? selectedService.customDataModel
+            : []
+        }
+        onSave={handleSaveCustomModel}
+      />
 
       <ErrorDialog
         open={errorDialogState.open}

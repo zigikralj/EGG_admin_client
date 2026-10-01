@@ -13,10 +13,14 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  FormHelperText,
   Paper,
 } from '@mui/material';
 import type { Service, CustomFieldDefinition, CustomFieldType } from '../../types';
+import { PERMIT_TYPE_OPTIONS } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
+import { useClientsQuery, usePermitsQuery } from '../../queries';
+import { clientHasPermitType } from '../../hooks/useLinkedListOptions';
 import { AddIcon, DeleteIcon } from '../icons';
 
 interface Props {
@@ -34,10 +38,16 @@ export const CustomDataModelModal: React.FC<Props> = ({
   initialFields,
   onSave,
 }) => {
-  const { t, getServiceLabel } = useLanguage();
+  const { t, getServiceLabel, getPermitTypeLabel } = useLanguage();
+  const { data: clients = [] } = useClientsQuery();
+  const { data: permits = [] } = usePermitsQuery();
   const [fields, setFields] = useState<CustomFieldDefinition[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const getClientCountForPermitType = (permitType: string) => {
+    return clients.filter((c) => clientHasPermitType(c, permits, permitType)).length;
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -79,9 +89,12 @@ export const CustomDataModelModal: React.FC<Props> = ({
         setError(t('alertServiceRequired'));
         return;
       }
-      if (f.type === 'list' && (!f.options || f.options.length === 0)) {
-        setError(t('phListOptions'));
-        return;
+      if (f.type === 'list') {
+        const isLinkedList = f.linkedList && f.linkedList !== 'none';
+        if (!isLinkedList && (!f.options || f.options.length === 0)) {
+          setError(t('phListOptions'));
+          return;
+        }
       }
     }
 
@@ -185,6 +198,16 @@ export const CustomDataModelModal: React.FC<Props> = ({
                                   ? field.options
                                   : ['Opcija 1', 'Opcija 2']
                                 : undefined,
+                            linkedList:
+                              newType === 'list'
+                                ? field.linkedList
+                                : newType === 'client'
+                                ? 'clients'
+                                : undefined,
+                            permitTypeFilter:
+                              newType === 'client' || (newType === 'list' && field.linkedList === 'clients')
+                                ? field.permitTypeFilter
+                                : undefined,
                             unit: newType === 'number' ? field.unit || '' : undefined,
                           });
                         }}
@@ -192,6 +215,7 @@ export const CustomDataModelModal: React.FC<Props> = ({
                         <MenuItem value="text">{t('typeText')}</MenuItem>
                         <MenuItem value="number">{t('typeNumber')}</MenuItem>
                         <MenuItem value="list">{t('typeList')}</MenuItem>
+                        <MenuItem value="client">{t('typeClient')}</MenuItem>
                         <MenuItem value="datetime">{t('typeDateTime')}</MenuItem>
                         <MenuItem value="date">{t('typeDate')}</MenuItem>
                       </Select>
@@ -209,20 +233,103 @@ export const CustomDataModelModal: React.FC<Props> = ({
                     )}
                   </Box>
 
+                  {field.type === 'client' && (
+                    <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
+                      <FormControl size="small" fullWidth>
+                        <InputLabel>{t('lblFilterByPermitType')}</InputLabel>
+                        <Select
+                          value={field.permitTypeFilter || 'all'}
+                          label={t('lblFilterByPermitType')}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            handleUpdateField(idx, { permitTypeFilter: val === 'all' ? undefined : val });
+                          }}
+                        >
+                          <MenuItem value="all">
+                            {t('optAllClients')} ({clients.length})
+                          </MenuItem>
+                          {PERMIT_TYPE_OPTIONS.map((pt) => {
+                            const count = getClientCountForPermitType(pt);
+                            return (
+                              <MenuItem key={pt} value={pt}>
+                                {getPermitTypeLabel(pt)} ({count})
+                              </MenuItem>
+                            );
+                          })}
+                        </Select>
+                        <FormHelperText>{t('helperFilterByPermitType')}</FormHelperText>
+                      </FormControl>
+                    </Box>
+                  )}
+
                   {field.type === 'list' && (
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label={t('lblListOptions')}
-                      placeholder={t('phListOptions')}
-                      value={(field.options || []).join(', ')}
-                      onChange={(e) => {
-                        const raw = e.target.value;
-                        const opts = raw.split(',').map((s) => s.trim()).filter(Boolean);
-                        handleUpdateField(idx, { options: opts });
-                      }}
-                      helperText={t('phListOptions')}
-                    />
+                    <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
+                      <FormControl size="small" fullWidth>
+                        <InputLabel>{t('lblLinkedList') || 'Link to existing list'}</InputLabel>
+                        <Select
+                          value={field.linkedList || 'none'}
+                          label={t('lblLinkedList') || 'Link to existing list'}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            handleUpdateField(idx, { 
+                              linkedList: val === 'none' ? undefined : val,
+                              permitTypeFilter: val === 'clients' ? field.permitTypeFilter : undefined,
+                              options: val === 'none' ? field.options || ['Opcija 1', 'Opcija 2'] : []
+                            });
+                          }}
+                        >
+                          <MenuItem value="none">{t('valNone') || 'Custom list (None)'}</MenuItem>
+                          <MenuItem value="clients">{t('valClients') || 'Clients'}</MenuItem>
+                          <MenuItem value="index_number">{t('valIndexNumber') || 'Index Number'}</MenuItem>
+                          <MenuItem value="permit_type">{t('valPermitType') || 'Permit Type'}</MenuItem>
+                          <MenuItem value="users">{t('valUsers') || 'Users'}</MenuItem>
+                          <MenuItem value="category">{t('valCategory') || 'Category'}</MenuItem>
+                        </Select>
+                      </FormControl>
+
+                      {field.linkedList === 'clients' && (
+                        <FormControl size="small" fullWidth>
+                          <InputLabel>{t('lblFilterByPermitType')}</InputLabel>
+                          <Select
+                            value={field.permitTypeFilter || 'all'}
+                            label={t('lblFilterByPermitType')}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              handleUpdateField(idx, { permitTypeFilter: val === 'all' ? undefined : val });
+                            }}
+                          >
+                            <MenuItem value="all">
+                              {t('optAllClients')} ({clients.length})
+                            </MenuItem>
+                            {PERMIT_TYPE_OPTIONS.map((pt) => {
+                              const count = getClientCountForPermitType(pt);
+                              return (
+                                <MenuItem key={pt} value={pt}>
+                                  {getPermitTypeLabel(pt)} ({count})
+                                </MenuItem>
+                              );
+                            })}
+                          </Select>
+                          <FormHelperText>{t('helperFilterByPermitType')}</FormHelperText>
+                        </FormControl>
+                      )}
+                      
+                      {(!field.linkedList || field.linkedList === 'none') && (
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label={t('lblListOptions')}
+                          placeholder={t('phListOptions')}
+                          value={(field.options || []).join(', ')}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            const opts = raw.split(',').map((s) => s.trim()).filter(Boolean);
+                            handleUpdateField(idx, { options: opts });
+                          }}
+                          helperText={t('phListOptions')}
+                        />
+                      )}
+                    </Box>
                   )}
                 </Paper>
               ))}

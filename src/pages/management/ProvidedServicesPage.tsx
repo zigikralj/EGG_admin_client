@@ -62,6 +62,8 @@ import {
   resolveCustomFieldBadges,
   formatFieldBadgeLabel,
 } from '../../utils/customFields';
+import { useLinkedListOptions } from '../../hooks/useLinkedListOptions';
+import { WasteCatalogAutocomplete } from '../../components/common/WasteCatalogAutocomplete';
 
 interface Props extends TableViewProps {
   subTab?: ProvidedServicesSubTab;
@@ -106,7 +108,7 @@ const ProvidedServicesPage: React.FC<Props> = ({
   quickFilter: quickFilterProp,
   onQuickFilterChange,
 }) => {
-  const { t, getServiceLabel } = useLanguage();
+  const { t, getServiceLabel, getPermitTypeLabel } = useLanguage();
   const { hasPermission } = useAuth();
   const canCreate = hasPermission('providedServices', 'create') || hasPermission('wasteDisposal', 'create');
   const canEditAny = hasPermission('providedServices', 'edit') || hasPermission('wasteDisposal', 'edit');
@@ -156,6 +158,7 @@ const ProvidedServicesPage: React.FC<Props> = ({
   const { data: projects = [] } = useProjectsQuery();
   const { data: invoices = [] } = useInvoicesQuery();
   const { data: categories = [] } = useCategoriesQuery();
+  const { resolveListOptions } = useLinkedListOptions();
 
   const { handleSave, handleDelete } = useProvidedServicesMutations();
   const { handleSave: handleSaveService } = useServicesMutations();
@@ -311,15 +314,16 @@ const ProvidedServicesPage: React.FC<Props> = ({
     if (serviceFields.length > 0) {
       serviceFields.forEach((field) => {
         let val = rawCustomData[field.id];
-        if (val === undefined || val === null || val === '') {
+        const isValEmpty = val === undefined || val === null || val === '' || (Array.isArray(val) && val.length === 0);
+        if (isValEmpty) {
           for (const [k, v] of Object.entries(rawCustomData)) {
-            if (v !== undefined && v !== null && v !== '' && isKeyMatch(k, field)) {
+            if (v !== undefined && v !== null && v !== '' && (!Array.isArray(v) || v.length > 0) && isKeyMatch(k, field)) {
               val = v;
               break;
             }
           }
         }
-        if (val !== undefined && val !== null && val !== '') {
+        if (val !== undefined && val !== null && val !== '' && (!Array.isArray(val) || val.length > 0)) {
           initialCustomData[field.id] = val;
         }
       });
@@ -358,7 +362,7 @@ const ProvidedServicesPage: React.FC<Props> = ({
     if (customData && Object.keys(customData).length > 0) {
       const cleaned: Record<string, any> = {};
       for (const [k, v] of Object.entries(customData)) {
-        if (v !== undefined && v !== null && v !== '') {
+        if (v !== undefined && v !== null && v !== '' && (!Array.isArray(v) || v.length > 0)) {
           if (currentCustomFields.length > 0) {
             if (currentCustomFields.some((f) => f.id === k)) {
               cleaned[k] = v;
@@ -1331,26 +1335,45 @@ const ProvidedServicesPage: React.FC<Props> = ({
                               }}
                             />
                           )}
-                          {field.type === 'list' && (
-                            <FormControl fullWidth size="small">
-                              <InputLabel>{field.name}</InputLabel>
-                              <Select
-                                value={customData[field.id] || ''}
+                          {(field.type === 'list' || field.type === 'client') && (
+                            field.linkedList === 'index_number' ? (
+                              <WasteCatalogAutocomplete
+                                multiple={true}
+                                size="small"
+                                fullWidth
                                 label={field.name}
-                                onChange={(e) =>
-                                  setCustomData((prev) => ({ ...prev, [field.id]: e.target.value }))
-                                }
-                              >
-                                <MenuItem value="">
-                                  <em>{t('lblNoneOptional')}</em>
-                                </MenuItem>
-                                {(field.options || []).map((opt: string) => (
-                                  <MenuItem key={opt} value={opt}>
-                                    {opt}
-                                  </MenuItem>
-                                ))}
-                              </Select>
-                            </FormControl>
+                                placeholder={t('lblNoneOptional')}
+                                value={customData[field.id] || []}
+                                onChange={(_, codes) => {
+                                  setCustomData((prev) => ({ ...prev, [field.id]: codes || [] }));
+                                }}
+                              />
+                            ) : (
+                              <Autocomplete
+                                size="small"
+                                fullWidth
+                                options={(() => {
+                                  const opts = resolveListOptions(field);
+                                  const currentVal = customData[field.id];
+                                  if (currentVal && typeof currentVal === 'string' && !opts.includes(currentVal)) {
+                                    return [currentVal, ...opts];
+                                  }
+                                  return opts;
+                                })()}
+                                value={customData[field.id] || null}
+                                onChange={(_, newValue) => {
+                                  setCustomData((prev) => ({ ...prev, [field.id]: newValue || '' }));
+                                }}
+                                renderInput={(params) => (
+                                  <TextField
+                                    {...params}
+                                    label={field.name}
+                                    placeholder={t('lblNoneOptional')}
+                                    helperText={field.permitTypeFilter ? `${t('lblFilteredByPermit')}: ${getPermitTypeLabel(field.permitTypeFilter)}` : undefined}
+                                  />
+                                )}
+                              />
+                            )
                           )}
                           {(field.type === 'datetime' || field.type === 'date') && (
                             <TextField

@@ -133,10 +133,16 @@ const enTranslations: TranslationKeys = {
   "typeText": "Text",
   "typeNumber": "Number",
   "typeList": "List (Selection)",
+  "typeClient": "Client",
   "typeDateTime": "Date/Time",
   "typeDate": "Date",
   "lblListOptions": "Options (comma-separated)",
   "phListOptions": "Option 1, Option 2, Option 3",
+  "lblFilterByPermitType": "Filter by permit type",
+  "optAllClients": "All clients (no filter)",
+  "helperFilterByPermitType": "Only clients holding a permit with this permit type will be available in the dropdown",
+  "lblClientsMatching": "clients match",
+  "lblFilteredByPermit": "Permit",
   "customDataSection": "Custom Data",
   "noCustomFieldsDefined": "No custom fields defined for this service yet.",
   "btnDefineModel": "Define Data Model",
@@ -657,7 +663,14 @@ const enTranslations: TranslationKeys = {
   "loadingConnecting": "Connecting to server...",
   "loadingRefreshing": "Refreshing data...",
   "loadingElapsedTime": "Elapsed time: {seconds}s",
-  "loadingPleaseWait": "Please wait..."
+  "loadingPleaseWait": "Please wait...",
+  "lblLinkedList": "Link to existing list",
+  "valNone": "Custom list (None)",
+  "valClients": "Clients",
+  "valIndexNumber": "Index Number",
+  "valPermitType": "Permit Type",
+  "valUsers": "Users",
+  "valCategory": "Category"
 };
 
 export default enTranslations;

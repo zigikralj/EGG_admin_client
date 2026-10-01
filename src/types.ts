@@ -204,7 +204,7 @@ export interface Invoice {
   updatedAt?: string;
 }
 
-export type CustomFieldType = 'text' | 'number' | 'list' | 'datetime' | 'date';
+export type CustomFieldType = 'text' | 'number' | 'list' | 'datetime' | 'date' | 'client';
 
 export interface CustomFieldDefinition {
   id: string;
@@ -212,6 +212,8 @@ export interface CustomFieldDefinition {
   type: CustomFieldType;
   unit?: string;
   options?: string[];
+  linkedList?: string;
+  permitTypeFilter?: string;
   required?: boolean;
 }
 

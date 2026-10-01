@@ -14,6 +14,7 @@ interface LanguageContextType {
     usersList?: { id: string; name: string; gender?: string | null }[]
   ) => string;
   getErrorMessage: (rawError?: string | null) => string;
+  getPermitTypeLabel: (type?: string | null) => string;
 }
 
 const STORAGE_KEY = 'app_language';
@@ -123,8 +124,26 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return rawError;
   };
 
+  const getPermitTypeLabel = (type?: string | null): string => {
+    if (!type) return '';
+    switch (type) {
+      case 'Sakupljanje':
+        return t('permitTypeSakupljanje');
+      case 'Transport':
+        return t('permitTypeTransport');
+      case 'Skladistenje':
+        return t('permitTypeSkladistenje');
+      case 'Tretman':
+        return t('permitTypeTretman');
+      case 'Odlaganje':
+        return t('permitTypeOdlaganje');
+      default:
+        return type;
+    }
+  };
+
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t, getServiceLabel, getResponsibleLabel, getErrorMessage }}>
+    <LanguageContext.Provider value={{ language, setLanguage, t, getServiceLabel, getResponsibleLabel, getErrorMessage, getPermitTypeLabel }}>
       {children}
     </LanguageContext.Provider>
   );

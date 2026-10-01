@@ -31,6 +31,7 @@ export const isKeyMatch = (key: string, field: CustomFieldDefinition): boolean =
   if (nKey.includes('kretanj') && (nFieldName.includes('kretanj') || nFieldId.includes('kretanj'))) return true;
   if (nKey.includes('operat') && (nFieldName.includes('operat') || nFieldId.includes('operat'))) return true;
   if (nKey.includes('prevoz') && (nFieldName.includes('prevoz') || nFieldId.includes('prevoz'))) return true;
+  if (nKey.includes('transport') && (nFieldName.includes('transport') || nFieldId.includes('transport'))) return true;
 
   return false;
 };
@@ -58,6 +59,9 @@ export const buildCustomFieldsMap = (services: Service[] = []): Map<string, Cust
  */
 export const formatCustomFieldValue = (val: any, type?: CustomFieldType): string => {
   if (val === null || val === undefined) return '';
+  if (Array.isArray(val)) {
+    return val.map((v) => (typeof v === 'object' && v?.code ? v.code : String(v))).join(', ');
+  }
   let str = String(val).trim();
   if (type === 'datetime' && str.includes('T')) {
     str = str.replace('T', ' ');
@@ -86,7 +90,7 @@ export const resolveCustomFieldBadges = (
 
   const rawData: Record<string, any> = item.customData;
   const entries = Object.entries(rawData).filter(
-    ([_, v]) => v !== null && v !== undefined && String(v).trim() !== ''
+    ([_, v]) => v !== null && v !== undefined && (Array.isArray(v) ? v.length > 0 : String(v).trim() !== '')
   );
 
   if (entries.length === 0) return [];
@@ -108,7 +112,8 @@ export const resolveCustomFieldBadges = (
       let val = rawData[fieldDef.id];
       let matchedKey = fieldDef.id;
 
-      if (val === undefined || val === null || String(val).trim() === '') {
+      const isValEmpty = val === undefined || val === null || (Array.isArray(val) ? val.length === 0 : String(val).trim() === '');
+      if (isValEmpty) {
         for (const [k, v] of entries) {
           if (!handledKeys.has(k) && isKeyMatch(k, fieldDef)) {
             val = v;
@@ -118,7 +123,7 @@ export const resolveCustomFieldBadges = (
         }
       }
 
-      if (val !== undefined && val !== null && String(val).trim() !== '') {
+      if (val !== undefined && val !== null && (Array.isArray(val) ? val.length > 0 : String(val).trim() !== '')) {
         handledKeys.add(fieldDef.id);
         handledKeys.add(matchedKey);
         badges.push({
@@ -160,6 +165,7 @@ export const resolveCustomFieldBadges = (
     else if (lowerKey.includes('kretanj')) cleanKey = 'Dokument';
     else if (lowerKey.includes('operat')) cleanKey = 'Operater';
     else if (lowerKey.includes('prevoz')) cleanKey = 'Prevoznik';
+    else if (lowerKey.includes('transport')) cleanKey = 'Transport';
     else if (key.startsWith('field_') || lowerKey.startsWith('field ')) {
       // Unresolvable field ID hash - NEVER display raw "field 123456..." to the user
       continue;
