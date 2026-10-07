@@ -32,7 +32,9 @@ const MAX_QUEUE_SIZE = 100;
 function getSessionId(): string {
   let sid = sessionStorage.getItem('activity_session_id');
   if (!sid) {
-    sid = 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+    const randomBytes = window.crypto.getRandomValues(new Uint8Array(8));
+    const randomPart = Array.from(randomBytes, (b) => b.toString(16).padStart(2, '0')).join('');
+    sid = 'sess_' + Date.now() + '_' + randomPart;
     sessionStorage.setItem('activity_session_id', sid);
   }
   return sid;
