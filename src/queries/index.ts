@@ -17,6 +17,7 @@ import type {
   ProjectStats,
   SaveResult,
   Role,
+  ActivityLog,
 } from '../types';
 
 export function useAuthHeaders() {
@@ -25,6 +26,12 @@ export function useAuthHeaders() {
     const headers: Record<string, string> = {};
     if (currentUser?.id) headers['X-User-Id'] = currentUser.id;
     if (isRealAdmin && roleView && roleView !== 'Administrator') headers['X-Role-View'] = roleView;
+    
+    const sid = sessionStorage.getItem('activity_session_id');
+    if (sid) {
+      headers['X-Session-Id'] = sid;
+    }
+    
     return headers;
   };
 }
@@ -209,6 +216,170 @@ export function useStatsQuery() {
       return res.json();
     }
   });
+}
+
+/**
+ * Activity log list WITHOUT the heavy `details` column (diffs are lazy-loaded per row).
+ * @param from ISO timestamp — only logs at/after this time are fetched (server-side filter).
+ */
+export function useActivityLogsQuery(from?: string) {
+  const getAuthHeaders = useAuthHeaders();
+  return useQuery<ActivityLog[]>({
+    queryKey: ['activity-logs', from ?? 'all'],
+    queryFn: async () => {
+      const params = new URLSearchParams({ includeDetails: 'false' });
+      if (from) params.set('from', from);
+      const res = await apiFetch(`/api/activity-logs?${params.toString()}`, { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error('Failed to fetch activity logs');
+      return res.json();
+    },
+    staleTime: 10_000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: 'always',
+    // Background refresh only while the tab is visible (React Query pauses in background by default).
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
+    placeholderData: (prev) => prev,
+  });
+}
+
+/** Lazy-loads a single activity log including its `details` (diff) when a row is expanded. */
+export function useActivityLogDetailsQuery(id: string | undefined, enabled: boolean) {
+  const getAuthHeaders = useAuthHeaders();
+  return useQuery<ActivityLog>({
+    queryKey: ['activity-log-details', id],
+    queryFn: async () => {
+      const res = await apiFetch(`/api/activity-logs/${encodeURIComponent(id!)}`, { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error('Failed to fetch activity log details');
+      return res.json();
+    },
+    enabled: enabled && !!id,
+    staleTime: Infinity, // logs are immutable
+    gcTime: 10 * 60_000,
+  });
+}
+
+export function useActivityLogsMutations() {
+  const queryClient = useQueryClient();
+  const getAuthHeaders = useAuthHeaders();
+
+  const clearAllMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiFetch('/api/activity-logs/clear-all', {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error('Failed to clear all activity logs');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
+    },
+  });
+
+  const deleteSessionMutation = useMutation({
+    mutationFn: async (payload: { sessionId?: string, ids?: string[] }) => {
+      if (payload.ids && payload.ids.length > 0) {
+        const res = await apiFetch('/api/activity-logs/bulk-delete', {
+          method: 'POST',
+          headers: {
+            ...getAuthHeaders(),
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ ids: payload.ids })
+        });
+        if (!res.ok) throw new Error('Failed to bulk delete activity logs');
+        return res.json();
+      } else if (payload.sessionId) {
+        const res = await apiFetch(`/api/activity-logs/session/${encodeURIComponent(payload.sessionId)}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders(),
+        });
+        if (!res.ok) throw new Error('Failed to delete session activity logs');
+        return res.json();
+      }
+      throw new Error('No ids or sessionId provided');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
+    },
+  });
+
+  const deleteIndividualMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiFetch(`/api/activity-logs/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error('Failed to delete activity log');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
+    },
+  });
+
+  return { clearAllMutation, deleteSessionMutation, deleteIndividualMutation };
+}
+
+export interface ActivityLogStatus {
+  enabled: boolean;
+  retentionDays: number;
+}
+
+/** Fetches whether activity logging is enabled globally and the retention policy (days). */
+export function useActivityLogStatusQuery() {
+  const getAuthHeaders = useAuthHeaders();
+  return useQuery<ActivityLogStatus>({
+    queryKey: ['activity-logs-status'],
+    queryFn: async () => {
+      const res = await apiFetch('/api/activity-logs/status', { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error('Failed to fetch activity log status');
+      return res.json();
+    },
+    staleTime: 30_000,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: 'always',
+  });
+}
+
+/** Updates activity log settings (enabled and/or retentionDays) globally (Administrator only). */
+export function useActivityLogUpdateSettingsMutation() {
+  const queryClient = useQueryClient();
+  const getAuthHeaders = useAuthHeaders();
+
+  return useMutation({
+    mutationFn: async (settings: { enabled?: boolean; retentionDays?: number }) => {
+      const res = await apiFetch('/api/activity-logs/status', {
+        method: 'PATCH',
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(settings),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || 'Failed to update activity log settings');
+      }
+      return res.json() as Promise<ActivityLogStatus>;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(['activity-logs-status'], data);
+      queryClient.invalidateQueries({ queryKey: ['activity-logs-status'] });
+      queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
+    },
+  });
+}
+
+/** Toggles whether activity logging is enabled globally (Administrator only). */
+export function useActivityLogToggleMutation() {
+  const updateMutation = useActivityLogUpdateSettingsMutation();
+  return {
+    ...updateMutation,
+    mutate: (enabled: boolean) => updateMutation.mutate({ enabled }),
+    mutateAsync: (enabled: boolean) => updateMutation.mutateAsync({ enabled }),
+  };
 }
 
 export function usePreferencesQuery() {

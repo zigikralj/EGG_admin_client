@@ -134,7 +134,7 @@ const UsersPage: React.FC<Props> = ({
   const [quickFilters, setQuickFilters] = useState<string[]>(() => {
     if (Array.isArray(quickFiltersProp)) return quickFiltersProp;
     if (typeof quickFilterProp === 'string' && quickFilterProp !== 'all') return [quickFilterProp];
-    if (initialFilterStatus === 'online' || initialFilterStatus === 'pending') return [initialFilterStatus];
+    if (initialFilterStatus === 'pending') return [initialFilterStatus];
     return [];
   });
 
@@ -150,7 +150,7 @@ const UsersPage: React.FC<Props> = ({
   useEffect(() => {
     if (initialFilterStatus && initialFilterStatus !== prevInitialFilterStatus.current) {
       prevInitialFilterStatus.current = initialFilterStatus;
-      if (initialFilterStatus === 'online' || initialFilterStatus === 'pending') {
+      if (initialFilterStatus === 'pending') {
         setQuickFilters([initialFilterStatus]);
       } else {
         setFilterStatus(initialFilterStatus);
@@ -187,7 +187,6 @@ const UsersPage: React.FC<Props> = ({
     { id: 'name', label: t('colFullName') },
     { id: 'role', label: t('colRole') },
     { id: 'status', label: t('colApprovalStatus') },
-    { id: 'online', label: t('colOnlineStatus') },
     { id: 'gender', label: t('colGender') },
     { id: 'email', label: t('colEmail') },
     { id: 'phone', label: t('colPhone') },
@@ -336,49 +335,27 @@ const UsersPage: React.FC<Props> = ({
   };
 
   const pendingUsers = users.filter((u) => u.status === 'PENDING');
-  const onlineUsers = users.filter((u) => u.isOnline);
 
   const uniqueRoles = useMemo(() => rolesList.map((r) => r.name), [rolesList]);
 
   // 1. Apply Filter
   const filteredUsers = users.filter((u) => {
     if (filterRole !== 'all' && u.role !== filterRole) return false;
-    if (quickFilters.includes('online') && !u.isOnline) return false;
     if (quickFilters.includes('pending') && u.status !== 'PENDING') return false;
     if (filterStatus === 'pending' && u.status !== 'PENDING') return false;
     if (filterStatus === 'approved' && u.status !== 'APPROVED') return false;
     if (filterStatus === 'blocked' && u.status !== 'BLOCKED') return false;
-    if (filterStatus === 'online' && !u.isOnline) return false;
     return true;
   });
 
   const userQuickFilterOptions: QuickFilterItem[] = useMemo(() => [
-    {
-      key: 'online',
-      label: (
-        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
-          <Box
-            component="span"
-            sx={{
-              width: 7,
-              height: 7,
-              borderRadius: '50%',
-              bgcolor: 'success.main',
-              display: 'inline-block',
-            }}
-          />
-          {t('quickFilterOnline')}{onlineUsers.length > 0 ? ` (${onlineUsers.length})` : ''}
-        </Box>
-      ),
-      color: 'success',
-    },
     {
       key: 'pending',
       label: `${t('statusPending')}${pendingUsers.length > 0 ? ` (${pendingUsers.length})` : ''}`,
       color: 'warning',
       labelColor: 'warning.main',
     },
-  ], [t, onlineUsers.length, pendingUsers.length]);
+  ], [t, pendingUsers.length]);
 
   // 2. Search among filtered items
   const searchedUsers = filteredUsers.filter((u) => {
@@ -407,9 +384,6 @@ const UsersPage: React.FC<Props> = ({
       }
       case 'status':
         res = (a.status || '').localeCompare(b.status || '');
-        break;
-      case 'online':
-        res = (a.isOnline ? 1 : 0) - (b.isOnline ? 1 : 0);
         break;
       case 'email':
         res = (a.email || '').localeCompare(b.email || '');
@@ -446,7 +420,6 @@ const UsersPage: React.FC<Props> = ({
     { value: 'name', label: t('colFullName') },
     { value: 'role', label: t('colRole') },
     { value: 'status', label: t('colApprovalStatus') },
-    { value: 'online', label: t('colOnlineStatus') },
     { value: 'email', label: t('colEmail') },
     { value: 'phone', label: t('colPhone') },
     { value: 'createdAt', label: t('lblCreatedDate') },
@@ -454,7 +427,6 @@ const UsersPage: React.FC<Props> = ({
 
   const statusOptions = useMemo(() => [
     { value: 'approved', label: t('statusApproved') },
-    { value: 'online', label: t('statusOnline') },
     { value: 'pending', label: t('statusPending') },
     { value: 'blocked', label: t('statusBlocked') },
   ], [t]);
@@ -626,17 +598,6 @@ const UsersPage: React.FC<Props> = ({
                     </TableSortLabel>
                   </TableCell>
                 )}
-                {activeCols.includes('online') && (
-                  <TableCell>
-                    <TableSortLabel
-                      active={sortColumn === 'online'}
-                      direction={sortColumn === 'online' ? sortDirection : 'asc'}
-                      onClick={() => handleSort('online')}
-                    >
-                      {t('colOnlineStatus')}
-                    </TableSortLabel>
-                  </TableCell>
-                )}
                 {activeCols.includes('gender') && (
                   <TableCell>
                     <TableSortLabel
@@ -736,44 +697,6 @@ const UsersPage: React.FC<Props> = ({
                           )}
                         </TableCell>
                       )}
-                      {activeCols.includes('online') && (
-                        <TableCell>
-                          {u.isOnline ? (
-                            <Chip
-                              icon={
-                                <Box
-                                  component="span"
-                                  sx={{
-                                    width: 8,
-                                    height: 8,
-                                    borderRadius: '50%',
-                                    bgcolor: '#4caf50',
-                                    boxShadow: '0 0 0 2px rgba(76, 175, 80, 0.4)',
-                                    animation: 'pulse 1.5s infinite',
-                                    '@keyframes pulse': {
-                                      '0%': { transform: 'scale(0.95)', boxShadow: '0 0 0 0 rgba(76, 175, 80, 0.7)' },
-                                      '70%': { transform: 'scale(1.1)', boxShadow: '0 0 0 5px rgba(76, 175, 80, 0)' },
-                                      '100%': { transform: 'scale(0.95)', boxShadow: '0 0 0 0 rgba(76, 175, 80, 0)' },
-                                    },
-                                  }}
-                                />
-                              }
-                              label={t('statusOnline')}
-                              size="small"
-                              color="success"
-                              variant="outlined"
-                              sx={{ fontWeight: 700, height: 24, fontSize: '0.75rem' }}
-                            />
-                          ) : (
-                            <Chip
-                              label={t('statusOffline')}
-                              size="small"
-                              variant="outlined"
-                              sx={{ height: 22, fontSize: '0.7rem', color: 'text.secondary', borderColor: 'divider' }}
-                            />
-                          )}
-                        </TableCell>
-                      )}
                       {activeCols.includes('gender') && <TableCell>{getGenderLabel(u.gender)}</TableCell>}
                       {activeCols.includes('email') && <TableCell>{u.email || '—'}</TableCell>}
                       {activeCols.includes('phone') && <TableCell>{u.phone || '—'}</TableCell>}
@@ -796,7 +719,7 @@ const UsersPage: React.FC<Props> = ({
                             )
                           ) : (editable || deletable) ? (
                             <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.5 }}>
-                              {editable && u.isOnline && u.id !== currentUser?.id && (
+                              {editable && u.id !== currentUser?.id && (
                                 <Tooltip title={t('btnForceLogout')}>
                                   <IconButton
                                     size="small"

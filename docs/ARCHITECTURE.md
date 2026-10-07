@@ -267,11 +267,11 @@ graph TD
     end
 
     subgraph "Dashboard Panels"
-        SC[StatisticsCharts]
+        SC[ProjectsStatistics]
         RP[ReminderPanel]
         AIP[ApproachingInvoicesPanel]
         WDP[WasteDisposalPanel]
-        PSS[ProvidedServicesStatistics]
+        PSS[WasteDisposalStatistics]
     end
 
     subgraph "Project Components"
@@ -498,6 +498,7 @@ client/
 │   │   ├── usePermits.ts          # Permit + waste catalog
 │   │   ├── useProjectForm.ts      # Project form state
 │   │   ├── useInvoiceFormState.ts  # Invoice form state
+│   │   ├── useLinkedListOptions.ts # Dynamic options & cascaded dependencies
 │   │   ├── useStatusUpdate.ts     # Generic status PATCH
 │   │   ├── useVersionCheck.ts     # Deployment update detection
 │   │   └── useRoleLabels.ts       # Role translation
@@ -511,6 +512,8 @@ client/
 │   ├── theme/
 │   │   └── theme.ts               # MUI theme config
 │   ├── utils/
+│   │   ├── customFields.ts        # Custom fields & weight extraction
+│   │   ├── router.ts              # Router basename helper
 │   │   └── invoiceUtils.ts        # Invoice note metadata
 │   ├── components/                # Modular UI components
 │   │   ├── icons.ts               # MUI icon barrel (~90 icons)
@@ -520,7 +523,8 @@ client/
 │   │   │   ├── LanguageSelector.tsx
 │   │   │   ├── RichTextEditor.tsx
 │   │   │   ├── TableFilterSelector.tsx
-│   │   │   └── TableSearchInput.tsx
+│   │   │   ├── TableSearchInput.tsx
+│   │   │   └── WasteCatalogAutocomplete.tsx
 │   │   ├── dialogs/
 │   │   │   ├── CompanyInfoModal.tsx
 │   │   │   ├── ConfirmDeleteDialog.tsx
@@ -549,16 +553,18 @@ client/
 │   │   ├── providedService/
 │   │   │   └── ProvidedServiceInvoiceSection.tsx
 │   │   └── tracker/
+│   │       ├── statistics/
+│   │       │   ├── ProjectsStatistics.tsx
+│   │       │   └── WasteDisposalStatistics.tsx
 │   │       ├── ApproachingInvoicesPanel.tsx
 │   │       ├── DashboardPanelSkeleton.tsx
-│   │       ├── ProvidedServicesStatistics.tsx
 │   │       ├── ReminderPanel.tsx
-│   │       ├── StatisticsCharts.tsx
 │   │       └── WasteDisposalPanel.tsx
 │   ├── pages/                     # Full page views
 │   │   ├── auth/
 │   │   │   └── LoginPage.tsx
 │   │   ├── management/
+│   │   │   ├── ActivityLogsPage.tsx
 │   │   │   ├── CategoriesPage.tsx
 │   │   │   ├── ClientsPage.tsx
 │   │   │   ├── InvoicesPage.tsx

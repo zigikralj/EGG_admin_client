@@ -17,6 +17,18 @@ export interface Project {
   updatedAt?: string;
 }
 
+export interface ActivityLog {
+  id: string;
+  userId: string;
+  userName?: string;
+  type: string;
+  path?: string;
+  details?: string;
+  durationSeconds?: number;
+  sessionId?: string | null;
+  timestamp: string;
+}
+
 export interface ClientExtraData {
   id: string;
   clientId: string;
@@ -116,8 +128,6 @@ export interface User {
   gender?: string | null;
   isApproved?: boolean;
   status?: string;
-  isOnline?: boolean;
-  lastActiveAt?: string | null;
   createdAt?: string;
 }
 
@@ -253,7 +263,7 @@ export interface ProjectStats {
 }
 
 export type ActiveTab = 'dashboard' | 'projects' | 'clients' | 'permits' | 'users' | 'services' | 'providedServices' | 'categories' | 'reminders' | 'invoices'
-  | 'roles';
+  | 'roles' | 'activityLogs';
 
 export type AppSection = 'project-tracker' | 'data-management';
 

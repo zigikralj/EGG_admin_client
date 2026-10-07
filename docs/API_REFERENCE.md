@@ -638,3 +638,63 @@ Update a single preference.
 ```
 
 **Used by:** [`useAppData.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/hooks/useAppData.ts) — `updatePreference(key, value)` with optimistic updates
+
+---
+
+## Activity Logs
+
+> **Base Path:** `/api/activity-logs`
+
+### `GET /api/activity-logs/status`
+Check if activity logging is enabled globally.
+- **Roles:** Any authenticated user.
+- **Returns:** `{ enabled: boolean }`
+
+### `PATCH /api/activity-logs/status`
+Toggle activity logging globally.
+- **Roles:** Administrator
+- **Body:** `{ enabled: boolean }`
+- **Returns:** `{ enabled: boolean }`
+
+### `GET /api/activity-logs`
+Fetch paginated list of activity logs.
+- **Roles:** Administrator
+- **Query Params:**
+  - `userId` (optional): Filter by user
+  - `sessionId` (optional): Filter by session
+  - `from` (optional): ISO date string to fetch logs after
+  - `limit` (optional): Max number of logs (default: 1000)
+  - `includeDetails` (optional): Set to 'true' to load the full diff payload
+- **Returns:** Array of `ActivityLog` objects.
+
+### `GET /api/activity-logs/:id`
+Fetch a single activity log with its full details payload.
+- **Roles:** Administrator
+- **Returns:** `ActivityLog` object.
+
+### `POST /api/activity-logs`
+Ingest client activity events (e.g. navigation, user interaction). Buffered on the server.
+- **Roles:** Any authenticated user
+- **Body:** `ActivityLog | ActivityLog[]`
+- **Returns:** HTTP 202 Accepted.
+
+### `DELETE /api/activity-logs/clear-all`
+Clear all activity logs from the database.
+- **Roles:** Administrator
+- **Returns:** `{ count: number }`
+
+### `POST /api/activity-logs/bulk-delete`
+Delete selected activity logs by ID.
+- **Roles:** Administrator
+- **Body:** `{ ids: string[] }`
+- **Returns:** `{ count: number }`
+
+### `DELETE /api/activity-logs/session/:sessionId`
+Delete all logs matching a specific session ID.
+- **Roles:** Administrator
+- **Returns:** `{ count: number }`
+
+### `DELETE /api/activity-logs/:id`
+Delete a specific activity log.
+- **Roles:** Administrator
+- **Returns:** `{ success: boolean }`
