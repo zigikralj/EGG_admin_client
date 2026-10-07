@@ -26,6 +26,7 @@ import {
   ToggleButton,
   Select,
   MenuItem,
+  Menu,
   FormControl,
   InputLabel,
   Divider,
@@ -65,6 +66,7 @@ import {
   CheckCircleIcon,
   WarningAmberIcon,
   ErrorIcon,
+  FilterListIcon,
 } from '../../components/icons';
 
 interface Props extends TableViewProps {
@@ -317,6 +319,7 @@ const PermitsPage: React.FC<Props> = ({
   const [filterDateFrom, setFilterDateFrom] = useState<string>('');
   const [filterDateTo, setFilterDateTo] = useState<string>('');
   const [filterDateField, setFilterDateField] = useState<string>('endDate');
+  const [permitTypeHeaderAnchor, setPermitTypeHeaderAnchor] = useState<null | HTMLElement>(null);
 
   const activeFilterCount =
     quickFilters.length +
@@ -742,8 +745,8 @@ const PermitsPage: React.FC<Props> = ({
 
       // Permit Type filter
       if (filterPermitType !== 'all') {
-        const types = permit.permitTypes || [];
-        if (!types.includes(filterPermitType)) {
+        const types = (permit.permitTypes || []).map((t) => String(t).trim().toLowerCase());
+        if (!types.includes(filterPermitType.trim().toLowerCase())) {
           return false;
         }
       }
@@ -958,6 +961,21 @@ const PermitsPage: React.FC<Props> = ({
               onChange={handleQuickFiltersChange}
             />
 
+            {/* ACTIVE PERMIT TYPE FILTER CHIP */}
+            {filterPermitType !== 'all' && (
+              <Chip
+                size="small"
+                color="primary"
+                variant="outlined"
+                label={`${t('filterPermitType')}: ${getPermitTypeLabel(filterPermitType)}`}
+                onDelete={() => {
+                  setFilterPermitType('all');
+                  setPage(0);
+                }}
+                sx={{ fontWeight: 600, height: 32 }}
+              />
+            )}
+
             {/* SEARCH FIELD */}
             <TableSearchInput
               value={searchQuery}
@@ -1006,66 +1024,7 @@ const PermitsPage: React.FC<Props> = ({
                   </IconButton>
                 </Box>
               }
-            >
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {/* Filter by Client */}
-                <Autocomplete
-                  size="small"
-                  fullWidth
-                  options={[{ id: 'all', name: t('quickFilterAll') }, ...clients]}
-                  getOptionLabel={(option) => option.name}
-                  isOptionEqualToValue={(option, val) => option.id === val.id}
-                  value={
-                    filterClient === 'all'
-                      ? { id: 'all', name: t('quickFilterAll') }
-                      : clients.find((c) => c.id === filterClient) || { id: 'all', name: t('quickFilterAll') }
-                  }
-                  onChange={(_, newValue) => {
-                    setFilterClient(newValue ? newValue.id : 'all');
-                    setPage(0);
-                  }}
-                  renderInput={(params) => <TextField {...params} label={t('lblClient')} size="small" />}
-                />
-
-                {/* Filter by Status */}
-                <FormControl size="small" fullWidth>
-                  <InputLabel>{t('colStatus')}</InputLabel>
-                  <Select
-                    value={filterStatus}
-                    label={t('colStatus')}
-                    onChange={(e) => {
-                      setFilterStatus(e.target.value);
-                      setPage(0);
-                    }}
-                  >
-                    <MenuItem value="all">{t('filterAllStatus')}</MenuItem>
-                    <MenuItem value="active">{t('statusActivePermit')}</MenuItem>
-                    <MenuItem value="expiring">{t('statusExpiring')}</MenuItem>
-                    <MenuItem value="expired">{t('statusExpired')}</MenuItem>
-                  </Select>
-                </FormControl>
-
-                {/* Filter by Permit Type */}
-                <FormControl size="small" fullWidth>
-                  <InputLabel>{t('filterPermitType')}</InputLabel>
-                  <Select
-                    value={filterPermitType}
-                    label={t('filterPermitType')}
-                    onChange={(e) => {
-                      setFilterPermitType(e.target.value);
-                      setPage(0);
-                    }}
-                  >
-                    <MenuItem value="all">{t('quickFilterAll')}</MenuItem>
-                    {PERMIT_TYPE_OPTIONS.map((opt) => (
-                      <MenuItem key={opt} value={opt}>
-                        {getPermitTypeLabel(opt)}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-
-                {/* Date range filter */}
+              dateRangeContent={
                 <DateRangeFilter
                   startDate={filterDateFrom}
                   endDate={filterDateTo}
@@ -1084,8 +1043,68 @@ const PermitsPage: React.FC<Props> = ({
                     { value: 'startDate', label: t('colStartDate') },
                   ]}
                 />
-              </Box>
-            </TableFilterSelector>
+              }
+              filteringContent={
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {/* Filter by Permit Type */}
+                  <FormControl size="small" fullWidth>
+                    <InputLabel>{t('filterPermitType')}</InputLabel>
+                    <Select
+                      value={filterPermitType}
+                      label={t('filterPermitType')}
+                      onChange={(e) => {
+                        setFilterPermitType(e.target.value);
+                        setPage(0);
+                      }}
+                    >
+                      <MenuItem value="all">{t('quickFilterAll')}</MenuItem>
+                      {PERMIT_TYPE_OPTIONS.map((opt) => (
+                        <MenuItem key={opt} value={opt}>
+                          {getPermitTypeLabel(opt)}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  {/* Filter by Client */}
+                  <Autocomplete
+                    size="small"
+                    fullWidth
+                    options={[{ id: 'all', name: t('quickFilterAll') }, ...clients]}
+                    getOptionLabel={(option) => option.name}
+                    isOptionEqualToValue={(option, val) => option.id === val.id}
+                    value={
+                      filterClient === 'all'
+                        ? { id: 'all', name: t('quickFilterAll') }
+                        : clients.find((c) => c.id === filterClient) || { id: 'all', name: t('quickFilterAll') }
+                    }
+                    onChange={(_, newValue) => {
+                      setFilterClient(newValue ? newValue.id : 'all');
+                      setPage(0);
+                    }}
+                    renderInput={(params) => <TextField {...params} label={t('lblClient')} size="small" />}
+                  />
+
+                  {/* Filter by Status */}
+                  <FormControl size="small" fullWidth>
+                    <InputLabel>{t('colStatus')}</InputLabel>
+                    <Select
+                      value={filterStatus}
+                      label={t('colStatus')}
+                      onChange={(e) => {
+                        setFilterStatus(e.target.value);
+                        setPage(0);
+                      }}
+                    >
+                      <MenuItem value="all">{t('filterAllStatus')}</MenuItem>
+                      <MenuItem value="active">{t('statusActivePermit')}</MenuItem>
+                      <MenuItem value="expiring">{t('statusExpiring')}</MenuItem>
+                      <MenuItem value="expired">{t('statusExpired')}</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
+              }
+            />
 
             {/* TABLE OPTIONS SELECTOR (Columns, Rows per page) */}
             <TableOptionsSelector
@@ -1130,13 +1149,39 @@ const PermitsPage: React.FC<Props> = ({
                 )}
                 {activeCols.includes('permitTypes') && (
                   <TableCell>
-                    <TableSortLabel
-                      active={sortColumn === 'permitTypes'}
-                      direction={sortColumn === 'permitTypes' ? sortDirection : 'asc'}
-                      onClick={() => handleSort('permitTypes')}
-                    >
-                      {t('colPermitType')}
-                    </TableSortLabel>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.5 }}>
+                      <TableSortLabel
+                        active={sortColumn === 'permitTypes'}
+                        direction={sortColumn === 'permitTypes' ? sortDirection : 'asc'}
+                        onClick={() => handleSort('permitTypes')}
+                      >
+                        {t('colPermitType')}
+                      </TableSortLabel>
+                      <Tooltip
+                        title={
+                          filterPermitType !== 'all'
+                            ? `${t('filterPermitType')}: ${getPermitTypeLabel(filterPermitType)}`
+                            : t('filterPermitType')
+                        }
+                      >
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPermitTypeHeaderAnchor(e.currentTarget);
+                          }}
+                          color={filterPermitType !== 'all' ? 'primary' : 'default'}
+                          sx={{
+                            p: 0.4,
+                            border: filterPermitType !== 'all' ? 1 : 0,
+                            borderColor: 'primary.main',
+                            bgcolor: filterPermitType !== 'all' ? 'action.selected' : 'transparent',
+                          }}
+                        >
+                          <FilterListIcon fontSize="small" sx={{ fontSize: '1rem' }} />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
                   </TableCell>
                 )}
                 {activeCols.includes('client') && (
@@ -1252,20 +1297,41 @@ const PermitsPage: React.FC<Props> = ({
                         <TableCell>
                           {permit.permitTypes && permit.permitTypes.length > 0 ? (
                             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                              {permit.permitTypes.map((pt) => (
-                                <Chip
-                                  key={pt}
-                                  label={getPermitTypeLabel(pt)}
-                                  size="small"
-                                  variant="outlined"
-                                  sx={{
-                                    fontSize: '0.725rem',
-                                    fontWeight: 500,
-                                    height: 22,
-                                    bgcolor: 'action.hover',
-                                  }}
-                                />
-                              ))}
+                              {permit.permitTypes.map((pt) => {
+                                const isSelected = filterPermitType === pt;
+                                return (
+                                  <Tooltip
+                                    key={pt}
+                                    title={
+                                      isSelected
+                                        ? t('btnClearFilters')
+                                        : `${t('filterPermitType')}: ${getPermitTypeLabel(pt)}`
+                                    }
+                                  >
+                                    <Chip
+                                      label={getPermitTypeLabel(pt)}
+                                      size="small"
+                                      variant={isSelected ? 'filled' : 'outlined'}
+                                      color={isSelected ? 'primary' : 'default'}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setFilterPermitType(isSelected ? 'all' : pt);
+                                        setPage(0);
+                                      }}
+                                      sx={{
+                                        fontSize: '0.725rem',
+                                        fontWeight: isSelected ? 700 : 500,
+                                        height: 22,
+                                        cursor: 'pointer',
+                                        bgcolor: isSelected ? undefined : 'action.hover',
+                                        '&:hover': {
+                                          bgcolor: isSelected ? undefined : 'action.selected',
+                                        },
+                                      }}
+                                    />
+                                  </Tooltip>
+                                );
+                              })}
                             </Box>
                           ) : (
                             <Typography variant="body2" color="text.disabled">
@@ -1968,6 +2034,38 @@ const PermitsPage: React.FC<Props> = ({
           </form>
         )}
       </Dialog>
+
+      {/* PERMIT TYPE HEADER FILTER MENU */}
+      <Menu
+        anchorEl={permitTypeHeaderAnchor}
+        open={Boolean(permitTypeHeaderAnchor)}
+        onClose={() => setPermitTypeHeaderAnchor(null)}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <MenuItem
+          selected={filterPermitType === 'all'}
+          onClick={() => {
+            setFilterPermitType('all');
+            setPage(0);
+            setPermitTypeHeaderAnchor(null);
+          }}
+        >
+          {t('quickFilterAll')}
+        </MenuItem>
+        {PERMIT_TYPE_OPTIONS.map((opt) => (
+          <MenuItem
+            key={opt}
+            selected={filterPermitType === opt}
+            onClick={() => {
+              setFilterPermitType(opt);
+              setPage(0);
+              setPermitTypeHeaderAnchor(null);
+            }}
+          >
+            {getPermitTypeLabel(opt)}
+          </MenuItem>
+        ))}
+      </Menu>
 
       {/* ERROR DIALOG */}
       <ErrorDialog

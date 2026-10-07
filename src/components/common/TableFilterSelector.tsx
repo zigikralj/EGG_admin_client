@@ -136,6 +136,12 @@ export const TableFilterSelector: React.FC<Props> = ({
                   {filteringContent}
                 </Box>
               )}
+              {children && (
+                <>
+                  {(sortingContent || dateRangeContent || filteringContent) && <Divider sx={{ my: 0.5 }} />}
+                  {children}
+                </>
+              )}
             </>
           ) : (
             <>
