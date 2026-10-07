@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.7.2] - 2026-10-07
+
+- refactor: update permits filtering layout and add table header filter… (#66) by @zigikralj
+
 ## [v1.7.1] - 2026-10-07
 
 - Roles bugfixing (#64) by @zigikralj
