@@ -11,7 +11,7 @@ import { AppHeader } from './AppHeader';
 import { UserProfileDialog } from './UserProfileDialog';
 import { SettingsDialog } from './SettingsDialog';
 import { CompanyInfoModal } from '../dialogs/CompanyInfoModal';
-import { DashboardIcon, FolderIcon, BusinessIcon, AssignmentTurnedInIcon, PeopleIcon, BuildIcon, HandymanIcon, CategoryIcon, NotificationsActiveIcon, ReceiptLongIcon, SecurityIcon } from '../icons';
+import { DashboardIcon, FolderIcon, BusinessIcon, AssignmentTurnedInIcon, PeopleIcon, BuildIcon, HandymanIcon, CategoryIcon, NotificationsActiveIcon, ReceiptLongIcon, SecurityIcon, AccessTimeIcon } from '../icons';
 
 interface Props {
   stats: ProjectStats;
@@ -67,6 +67,7 @@ export const AdminLayout: React.FC<Props> = ({
     { path: '/data-management/reminders', label: t('tabReminders'), icon: <NotificationsActiveIcon />, count: stats.monitor, show: hasPermission('reminders', 'view'), color: 'error' as const },
     { path: '/data-management/invoices', label: t('tabInvoices'), icon: <ReceiptLongIcon />, count: stats.invoicesCount || 0, show: hasPermission('invoices', 'view') },
     { path: '/data-management/roles', label: 'Roles', icon: <SecurityIcon />, count: 0, show: hasPermission('roles', 'view') },
+    { path: '/data-management/activity-logs', label: t('tabActivityLogs'), icon: <AccessTimeIcon />, count: 0, show: hasPermission('activityLogs', 'view') },
   ], [t, stats, pendingUsersCount, hasPermission]);
 
   useEffect(() => {

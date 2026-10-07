@@ -357,15 +357,10 @@ export interface TranslationKeys {
   colFullName: string;
   colRole: string;
   colGender: string;
-  colOnlineStatus: string;
-  statusOnline: string;
-  statusOffline: string;
   btnForceLogout: string;
   confirmForceLogoutTitle: string;
   confirmForceLogoutMessage: string;
   msgForceLogoutSuccess: string;
-  quickFilterOnline: string;
-  onlineUsersCount: string;
   cantForceLogoutSelf: string;
   emptyUsers: string;
 
@@ -713,6 +708,59 @@ export interface TranslationKeys {
   valPermitType: string;
   valUsers: string;
   valCategory: string;
+
+  // Activity Logs
+  tabActivityLogs: string;
+  colTimestamp: string;
+  colActivityType: string;
+  colPath: string;
+  colDuration: string;
+  emptyActivityLogs: string;
+  colUser: string;
+  totalTrackedUsers: string;
+  totalSessions: string;
+  totalTrackedTime: string;
+  allUsers: string;
+  activeSession: string;
+  completedSession: string;
+  sessionDuration: string;
+  accumulatedActivities: string;
+  rawEventTimeline: string;
+  accumulatedView: string;
+  timelineView: string;
+  timePercentage: string;
+  visitsCount: string;
+  lastActive: string;
+  firstActivity: string;
+  expandAll: string;
+  collapseAll: string;
+  filterTimeRange: string;
+  filterAllTime: string;
+  filterToday: string;
+  filterLast7Days: string;
+  activityLogsStatusActive: string;
+  activityLogsStatusPaused: string;
+  activityLogsDeactivateTitle: string;
+  activityLogsDeactivateMessage: string;
+  activityLogsDeactivatedBanner: string;
+  activityLogsAdminOnly: string;
+  activityLogsRetention: string;
+  activityLogsRetentionDays: string;
+  activityLogsRetentionHelper: string;
+  retention30Days: string;
+  retention60Days: string;
+  retention90Days: string;
+  retention180Days: string;
+  retention365Days: string;
+  retentionCustom: string;
+  retentionCustomTitle: string;
+  retentionCustomDaysLabel: string;
+  retentionCustomPrompt: string;
+  filterLast30Days: string;
+  searchActivities: string;
+  sessionNumber: string;
+  noSessionsFound: string;
+  topModule: string;
 }
 
 export const serviceTypeTranslations: Record<Language, Record<string, string>> = {

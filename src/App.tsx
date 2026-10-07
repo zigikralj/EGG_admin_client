@@ -18,6 +18,7 @@ import { ConfirmDeleteDialog } from './components/dialogs/ConfirmDeleteDialog';
 import { VersionUpdatePrompt } from './components/dialogs/VersionUpdatePrompt';
 import { LoginPage } from './pages/auth/LoginPage';
 import { useProjectsQuery, useRemindersQuery, useStatsQuery, usePreferencesQuery, usePreferencesMutations } from './queries';
+import { useActivityTracker } from './hooks/useActivityTracker';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import './index.css';
 
@@ -34,8 +35,10 @@ const RolesPage = React.lazy(() => import('./pages/management/RolesPage'));
 const PermitsPage = React.lazy(() => import('./pages/management/PermitsPage'));
 const ProjectModal = React.lazy(() => import('./components/project/ProjectModal'));
 const ProjectViewModal = React.lazy(() => import('./components/project/ProjectViewModal'));
+const ActivityLogsPage = React.lazy(() => import('./pages/management/ActivityLogsPage'));
 
 function MainApp() {
+  useActivityTracker();
   const { t } = useLanguage();
   const { currentUser, hasPermission, isRestrictedToOwn, isRealAdmin, roleView, actualRole, users } = useAuth();
   const isProjectsRestricted = isRestrictedToOwn('projects') || isRestrictedToOwn('tracker_projects');
@@ -352,6 +355,7 @@ function MainApp() {
               />
             } />
             <Route path="/data-management/roles" element={<RolesPage />} />
+            <Route path="/data-management/activity-logs" element={<ActivityLogsPage />} />
             <Route path="/" element={<Navigate to="/project-tracker/projects" replace />} />
             <Route path="*" element={<Navigate to="/project-tracker/projects" replace />} />
           </Routes>

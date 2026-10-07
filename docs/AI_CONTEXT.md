@@ -50,6 +50,8 @@ The client talks to a separate Express 5 REST API server (see `../server/`).
 | `useVersionCheck.ts` | Polls `/version.json` to detect new deployments, shows update banner. Uses Page Visibility API. |
 | `useRoleLabels.ts` | Maps `UserRole` strings to translated labels. |
 | `useStatusUpdate.ts` | Generic status-change helper (PATCH to arbitrary endpoint). Used by reminders, invoices, user management. |
+| `useLinkedListOptions.ts` | Handles dynamic hierarchical options fetching and dependency resolution for custom fields (e.g., linked list cascaded selects). |
+| `useActivityTracker.ts` | Non-intrusive batched page activity tracker. Sends batched events on 30s idle intervals and flush on unload/visibility change. Automatically pauses when activity logging is globally deactivated. |
 
 ### React Query Hooks (`src/queries/`)
 | File | Purpose |
@@ -74,6 +76,7 @@ The client talks to a separate Express 5 REST API server (see `../server/`).
 | `management/ProjectsPage.tsx` | Projects | Table + card list, quick filters (Active, Missing Invoice, Stale, Late), column selector. |
 | `management/ClientsPage.tsx` | Clients | Table with permit linking, inline project/invoice counts. |
 | `management/PermitsPage.tsx` | Permits | Permit CRUD with waste catalog multi-select picker. |
+| `management/ActivityLogsPage.tsx` | Activity Logs | Administrator-only view for audit logs, tracking user actions and navigation. |
 | `management/UsersPage.tsx` | Users | Status filters (All/Active/Pending/Blocked), approve/reject, force logout. |
 | `management/ServicesPage.tsx` | Services | Service type definitions with custom data model editor. |
 | `management/ProvidedServicesPage.tsx` | Provided Services | Service delivery records with sub-tabs (Summary, Statistics). |
@@ -101,6 +104,7 @@ The client talks to a separate Express 5 REST API server (see `../server/`).
 | `dialogs/ConfirmDialog.tsx` / `ConfirmDeleteDialog.tsx` | Reusable confirmation modals. |
 | `dialogs/ErrorDialog.tsx` | Error display dialog. |
 | `dialogs/VersionUpdatePrompt.tsx` | Non-intrusive update banner when new version detected. |
+| `common/WasteCatalogAutocomplete.tsx` | Autocomplete picker for waste catalog entries (used in Permits and Custom Data Models). |
 | `icons.ts` | Barrel file — re-exports ~90 MUI icons as named per-file imports for tree-shaking. |
 
 #### Feature Sub-Components
@@ -109,8 +113,8 @@ The client talks to a separate Express 5 REST API server (see `../server/`).
 | `components/project/` | `ProjectInvoiceSection.tsx`, `ProjectProgressSlider.tsx`, `ProjectReminderSection.tsx` | Nested sections within project modal. |
 | `components/invoice/` | `InvoiceChips.tsx`, `InvoiceFormFields.tsx`, `InvoiceItemsList.tsx` | Shared invoice UI components (extracted during refactoring). |
 | `components/providedService/` | `ProvidedServiceInvoiceSection.tsx` | Invoice management within provided service detail. |
-| `components/dialogs/` | `ConfirmDialog.tsx`, `ErrorDialog.tsx`, `CompanyInfoModal.tsx` | Reusable popups and modals. |
-| `components/common/` | `ColumnSelector.tsx`, `DateRangeFilter.tsx`, `TableSearchInput.tsx` | Shared table utilities and controls. |
+| `components/dialogs/` | `ConfirmDialog.tsx`, `ErrorDialog.tsx`, `CompanyInfoModal.tsx`, `CustomDataModelModal.tsx` | Reusable popups, modals, and the custom data model editor. |
+| `components/common/` | `ColumnSelector.tsx`, `DateRangeFilter.tsx`, `TableSearchInput.tsx`, `WasteCatalogAutocomplete.tsx` | Shared table utilities and controls. |
 | `components/tracker/` | `ReminderPanel.tsx`, `WasteDisposalPanel.tsx`, `statistics/` | Dashboard tracker panels. |
 
 ### Internationalization (`src/i18n/`)
@@ -131,6 +135,8 @@ The client talks to a separate Express 5 REST API server (see `../server/`).
 | File | Purpose |
 |---|---|
 | `invoiceUtils.ts` | `parseInvoiceNotes()` / `serializeInvoiceNotes()` — embeds invoice metadata (type, parent link) as HTML comment in notes field. `enhanceInvoicesWithLinks()` — resolves parent/child invoice relationships. |
+| `customFields.ts` | Core utilities for custom fields including structure validation, linked list dependencies, and automatic extraction of waste weights. |
+| `router.ts` | `getRouterBasename()` — handles dynamic resolution of the router basename. |
 
 ### Styling
 | File | Purpose |
