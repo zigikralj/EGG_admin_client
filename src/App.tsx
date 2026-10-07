@@ -40,7 +40,7 @@ const ActivityLogsPage = React.lazy(() => import('./pages/management/ActivityLog
 function MainApp() {
   useActivityTracker();
   const { t } = useLanguage();
-  const { currentUser, hasPermission, isRestrictedToOwn, isRealAdmin, roleView, actualRole, users } = useAuth();
+  const { currentUser, hasPermission, isRestrictedToOwn } = useAuth();
   const isProjectsRestricted = isRestrictedToOwn('projects') || isRestrictedToOwn('tracker_projects');
   const isRemindersRestricted = isRestrictedToOwn('reminders') || isRestrictedToOwn('tracker_reminders');
 
@@ -84,13 +84,6 @@ function MainApp() {
 
     const userReminders = (isRemindersRestricted && currentUser)
       ? reminders.filter((r) => {
-          if (isRealAdmin && roleView !== actualRole) {
-            const roleUsers = users.filter((u) => u.role === roleView);
-            return roleUsers.some((u) =>
-              (r.responsible && u.name && r.responsible.trim().toLowerCase() === u.name.trim().toLowerCase()) ||
-              (r.responsibleId && r.responsibleId === u.id)
-            );
-          }
           const isMyName = r.responsible && currentUser.name && r.responsible.trim().toLowerCase() === currentUser.name.trim().toLowerCase();
           const isMyId = r.responsibleId && r.responsibleId === currentUser.id;
           return isMyName || isMyId;
@@ -99,13 +92,6 @@ function MainApp() {
 
     const userProjects = (isProjectsRestricted && currentUser)
       ? projects.filter((p) => {
-          if (isRealAdmin && roleView !== actualRole) {
-            const roleUsers = users.filter((u) => u.role === roleView);
-            return roleUsers.some((u) =>
-              (p.responsible && u.name && p.responsible.trim().toLowerCase() === u.name.trim().toLowerCase()) ||
-              ((p as any).responsibleId && (p as any).responsibleId === u.id)
-            );
-          }
           const isMyName = p.responsible && currentUser.name && p.responsible.trim().toLowerCase() === currentUser.name.trim().toLowerCase();
           const isMyId = (p as any).responsibleId && (p as any).responsibleId === currentUser.id;
           return isMyName || isMyId;
@@ -130,7 +116,7 @@ function MainApp() {
       monitor: approachingCount,
       overdue: overdueCount,
     };
-  }, [stats, reminders, projects, isProjectsRestricted, isRemindersRestricted, currentUser, isRealAdmin, roleView, actualRole, users]);
+  }, [stats, reminders, projects, isProjectsRestricted, isRemindersRestricted, currentUser]);
 
   const currentViewingProject = useMemo(() => {
     if (!viewingProject) return null;

@@ -21,11 +21,10 @@ import type {
 } from '../types';
 
 export function useAuthHeaders() {
-  const { currentUser, roleView, isRealAdmin } = useAuth();
+  const { currentUser } = useAuth();
   return () => {
     const headers: Record<string, string> = {};
     if (currentUser?.id) headers['X-User-Id'] = currentUser.id;
-    if (isRealAdmin && roleView && roleView !== 'Administrator') headers['X-Role-View'] = roleView;
     
     const sid = sessionStorage.getItem('activity_session_id');
     if (sid) {
@@ -39,10 +38,10 @@ export function useAuthHeaders() {
 // --- Queries ---
 
 export function useProjectsQuery(searchQuery: string = '') {
-  const { currentUser, roleView } = useAuth();
+  const { currentUser } = useAuth();
   const getAuthHeaders = useAuthHeaders();
   return useQuery<Project[]>({
-    queryKey: ['projects', currentUser?.id, searchQuery, roleView],
+    queryKey: ['projects', currentUser?.id, searchQuery],
     queryFn: async () => {
       const q = searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : '';
       const res = await apiFetch(`/api/projects${q}`, { headers: getAuthHeaders() });
@@ -157,10 +156,10 @@ export function usePreferencesMutations() {
 }
 
 export function useRemindersQuery() {
-  const { currentUser, roleView } = useAuth();
+  const { currentUser } = useAuth();
   const getAuthHeaders = useAuthHeaders();
   return useQuery<Reminder[]>({
-    queryKey: ['reminders', currentUser?.id, roleView],
+    queryKey: ['reminders', currentUser?.id],
     queryFn: async () => {
       const res = await apiFetch('/api/reminders', { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch reminders');
@@ -206,10 +205,10 @@ export function useWasteCatalogQuery() {
 }
 
 export function useStatsQuery() {
-  const { currentUser, roleView } = useAuth();
+  const { currentUser } = useAuth();
   const getAuthHeaders = useAuthHeaders();
   return useQuery<ProjectStats>({
-    queryKey: ['stats', currentUser?.id, roleView],
+    queryKey: ['stats', currentUser?.id],
     queryFn: async () => {
       const res = await apiFetch('/api/projects/stats', { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch stats');

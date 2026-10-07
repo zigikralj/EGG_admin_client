@@ -367,8 +367,6 @@ const srCyrlTranslations: TranslationKeys = {
   "roleChemicalAdvisor": "Саветник за хемикалије",
   "roleOperator": "Оперативац",
   "switchActiveUser": "Промени активни налог",
-  "switchRoleView": "Преглед по улози",
-  "lblRoleView": "Приказ по улози",
   "switchWorkOnEntities": "Менаџерски режим",
   "lblEntityWorkModeOn": "Рад са ентитетима (УКЉУЧЕНО)",
   "lblEntityWorkModeOff": "Кориснички приказ",

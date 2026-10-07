@@ -4,9 +4,6 @@ import {
   Toolbar,
   Box,
   Typography,
-  FormControl,
-  Select,
-  MenuItem,
   List,
   ListItemButton,
   ListItemIcon,
@@ -28,7 +25,6 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import { useRoleLabels } from '../../hooks/useRoleLabels';
 import type { DashboardSubTab, ProvidedServicesSubTab } from '../../types';
 import {
   ExpandMoreIcon,
@@ -97,13 +93,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   };
   const {
-    isRealAdmin,
-    roleView,
-    setRoleView,
-    roles,
     hasPermission,
   } = useAuth();
-  const { getRoleBadgeLabel } = useRoleLabels();
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -115,30 +106,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <Toolbar />
       <Box sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1, overflow: 'hidden' }}>
         <Box sx={{ overflowY: 'auto', flexGrow: 1, p: 1.5 }}>
-          {/* ROLE VIEW SWITCHER (MOBILE ONLY - REAL ADMIN ONLY) */}
-          {isRealAdmin && (
-            <Box sx={{ mb: 2, pb: 1.5, borderBottom: '1px solid', borderColor: 'divider', display: { xs: 'flex', md: 'none' }, flexDirection: 'column', gap: 1.5 }}>
-              <Box>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', mb: 0.5 }}>
-                  {t('lblRoleView')}
-                </Typography>
-                <FormControl fullWidth size="small">
-                  <Select
-                    value={roleView}
-                    onChange={(e) => setRoleView(e.target.value as any)}
-                    sx={{ borderRadius: 2, fontSize: '0.875rem' }}
-                  >
-                    {roles.map((r) => (
-                      <MenuItem key={r.name} value={r.name} sx={{ fontSize: '0.875rem' }}>
-                        {getRoleBadgeLabel(r.name)}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Box>
-            </Box>
-          )}
-
           {/* APP-SPECIFIC NAVIGATION ITEMS */}
           {currentApp === 'project-tracker' ? (
             <List component="nav" disablePadding sx={{ gap: 0.5, display: 'flex', flexDirection: 'column' }}>

@@ -81,7 +81,7 @@ function fmtDate(d: string | null): string {
   return `${day}.${m}.${y}.`;
 }
 
-import { useProjectsQuery, useServicesQuery, useInvoicesQuery, useUsersQuery, useProjectsMutations } from '../../queries';
+import { useProjectsQuery, useServicesQuery, useInvoicesQuery, useProjectsMutations } from '../../queries';
 import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
 
 const ProjectsPage: React.FC<Props> = ({
@@ -104,14 +104,13 @@ const ProjectsPage: React.FC<Props> = ({
   onQuickFilterChange,
 }) => {
   const { t, getServiceLabel } = useLanguage();
-  const { canEditProject, canDeleteProject, hasPermission, currentUser, isRestrictedToOwn, isRealAdmin, roleView, actualRole } = useAuth();
+  const { canEditProject, canDeleteProject, hasPermission, currentUser, isRestrictedToOwn } = useAuth();
   const isProjectsRestricted = isRestrictedToOwn('projects') || isRestrictedToOwn('tracker_projects');
   const canCreateProject = hasPermission('projects', 'create') || hasPermission('tracker_projects', 'create');
 
   const { data: projects = [], refetch: refetchProjects, isRefetching } = useProjectsQuery();
   const { data: services = [] } = useServicesQuery();
   const { data: invoices = [] } = useInvoicesQuery();
-  const { data: users = [] } = useUsersQuery();
   const hasInvoices = (project: Project) => invoices.some((inv) => inv.projectId === project.id);
   const { handleDelete } = useProjectsMutations();
   const [completeConfirmState, setCompleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
@@ -295,10 +294,8 @@ const ProjectsPage: React.FC<Props> = ({
 
   const uniqueCategories = Array.from(new Set(projects.map((p) => p.type).filter(Boolean)));
   const uniqueClients = Array.from(new Set(projects.map((p) => p.clientName).filter(Boolean))).sort((a, b) => a.localeCompare(b));
-  const otherResponsibles = (isProjectsRestricted)
-    ? (isRealAdmin && roleView !== actualRole
-        ? users.filter((u) => u.role === roleView).map((u) => u.name).filter(Boolean)
-        : [])
+  const otherResponsibles = isProjectsRestricted
+    ? []
     : Array.from(
         new Set(projects.map((p) => p.responsible).filter(Boolean) as string[])
       )
@@ -308,21 +305,12 @@ const ProjectsPage: React.FC<Props> = ({
   // 1. Apply Quick & Popover Filters
   const filteredProjects = projects.filter((p) => {
     if (isProjectsRestricted) {
-      if (isRealAdmin && roleView !== actualRole) {
-        const roleUsers = users.filter((u) => u.role === roleView);
-        const isRoleProject = roleUsers.some((u) =>
-          (p.responsible && u.name && p.responsible.trim().toLowerCase() === u.name.trim().toLowerCase()) ||
-          ((p as any).responsibleId && (p as any).responsibleId === u.id)
-        );
-        if (!isRoleProject) return false;
-      } else {
-        const isMyName =
-          p.responsible &&
-          currentUser?.name &&
-          p.responsible.trim().toLowerCase() === currentUser.name.trim().toLowerCase();
-        const isMyId = (p as any).responsibleId && (p as any).responsibleId === currentUser?.id;
-        if (!isMyName && !isMyId) return false;
-      }
+      const isMyName =
+        p.responsible &&
+        currentUser?.name &&
+        p.responsible.trim().toLowerCase() === currentUser.name.trim().toLowerCase();
+      const isMyId = (p as any).responsibleId && (p as any).responsibleId === currentUser?.id;
+      if (!isMyName && !isMyId) return false;
     }
 
     if (quickFilters.includes('my') && currentUser) {

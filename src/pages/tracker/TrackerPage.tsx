@@ -104,7 +104,7 @@ const DashboardView: React.FC<Props> = ({
   onWasteManagementRowsPerPageChange,
 }) => {
   const { t, getServiceLabel } = useLanguage();
-  const { currentUser, isRestrictedToOwn, role, hasPermission, isRealAdmin, roleView, actualRole } = useAuth();
+  const { currentUser, isRestrictedToOwn, hasPermission } = useAuth();
   const isProjectsRestricted = isRestrictedToOwn('projects') || isRestrictedToOwn('tracker_projects');
   const isRemindersRestricted = isRestrictedToOwn('reminders') || isRestrictedToOwn('tracker_reminders');
   const { withLoading } = useLoading();
@@ -315,18 +315,13 @@ const DashboardView: React.FC<Props> = ({
 
   const responsibleOptions = useMemo(() => {
     if (isProjectsRestricted) {
-      if (isRealAdmin && roleView !== actualRole) {
-        const roleUsers = users.filter((u) => u.role === roleView);
-        const names = roleUsers.map((u) => u.name).filter(Boolean);
-        return names.length > 0 ? names : (currentUser?.name ? [currentUser.name] : []);
-      }
       return currentUser?.name ? [currentUser.name] : [];
     }
     const list: string[] = [];
     if (currentUser?.name) list.push(currentUser.name);
     list.push(...otherResponsibles);
     return list;
-  }, [currentUser?.name, otherResponsibles, isProjectsRestricted, role, isRealAdmin, roleView, actualRole, users]);
+  }, [currentUser?.name, otherResponsibles, isProjectsRestricted]);
 
   const sortOptions = useMemo(() => [
     { value: 'deadline', label: t('deadline') },
@@ -373,21 +368,12 @@ const DashboardView: React.FC<Props> = ({
     return projects
       .filter((p) => {
         if (isProjectsRestricted) {
-          if (isRealAdmin && roleView !== actualRole) {
-            const roleUsers = users.filter((u) => u.role === roleView);
-            const isRoleProject = roleUsers.some((u) =>
-              (p.responsible && u.name && p.responsible.trim().toLowerCase() === u.name.trim().toLowerCase()) ||
-              ((p as any).responsibleId && (p as any).responsibleId === u.id)
-            );
-            if (!isRoleProject) return false;
-          } else {
-            const isMyName =
-              p.responsible &&
-              currentUser?.name &&
-              p.responsible.trim().toLowerCase() === currentUser.name.trim().toLowerCase();
-            const isMyId = (p as any).responsibleId && (p as any).responsibleId === currentUser?.id;
-            if (!isMyName && !isMyId) return false;
-          }
+          const isMyName =
+            p.responsible &&
+            currentUser?.name &&
+            p.responsible.trim().toLowerCase() === currentUser.name.trim().toLowerCase();
+          const isMyId = (p as any).responsibleId && (p as any).responsibleId === currentUser?.id;
+          if (!isMyName && !isMyId) return false;
         }
 
         if (quickFilters.includes('my') && currentUser) {
@@ -487,7 +473,7 @@ const DashboardView: React.FC<Props> = ({
         }
         return sortDirection === 'asc' ? res : -res;
       });
-  }, [projects, invoices, quickFilters, currentUser, filterCategory, filterClient, filterResponsible, filterStatus, filterDateFrom, filterDateTo, filterDateField, searchQuery, getServiceLabel, sortOption, sortDirection, isProjectsRestricted, isRealAdmin, roleView, actualRole, users]);
+  }, [projects, invoices, quickFilters, currentUser, filterCategory, filterClient, filterResponsible, filterStatus, filterDateFrom, filterDateTo, filterDateField, searchQuery, getServiceLabel, sortOption, sortDirection, isProjectsRestricted]);
 
   const activeFilterCount =
     (filterCategory !== 'all' ? 1 : 0) +
@@ -597,13 +583,6 @@ const DashboardView: React.FC<Props> = ({
           <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}><CircularProgress /></Box>}>
             <ProjectsStatistics
               projects={isProjectsRestricted && currentUser ? projects.filter((p) => {
-                if (isRealAdmin && roleView !== actualRole) {
-                  const roleUsers = users.filter((u) => u.role === roleView);
-                  return roleUsers.some((u) =>
-                    (p.responsible && u.name && p.responsible.trim().toLowerCase() === u.name.trim().toLowerCase()) ||
-                    ((p as any).responsibleId && (p as any).responsibleId === u.id)
-                  );
-                }
                 const isMyName = p.responsible && currentUser.name && p.responsible.trim().toLowerCase() === currentUser.name.trim().toLowerCase();
                 const isMyId = (p as any).responsibleId && (p as any).responsibleId === currentUser.id;
                 return isMyName || isMyId;

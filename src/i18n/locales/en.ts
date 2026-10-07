@@ -367,8 +367,6 @@ const enTranslations: TranslationKeys = {
   "roleChemicalAdvisor": "Chemical Advisor",
   "roleOperator": "Operator",
   "switchActiveUser": "Switch Active Account",
-  "switchRoleView": "Role View",
-  "lblRoleView": "View as Role",
   "switchWorkOnEntities": "Manager mode",
   "lblEntityWorkModeOn": "Work on Entities (ON)",
   "lblEntityWorkModeOff": "User View",

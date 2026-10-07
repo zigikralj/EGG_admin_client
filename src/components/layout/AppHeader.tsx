@@ -6,8 +6,6 @@ import {
   Box,
   Tooltip,
   Typography,
-  FormControl,
-  Select,
   MenuItem,
   Badge,
   Avatar,
@@ -74,10 +72,6 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   const {
     currentUser,
     role,
-    isRealAdmin,
-    roleView,
-    setRoleView,
-    roles,
     pendingUsersCount,
     hasPermission,
     logout,
@@ -281,30 +275,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
         {/* RIGHT SIDE CONTROLS */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 } }}>
-          {/* ROLE VIEW SWITCHER (DESKTOP ONLY - REAL ADMIN ONLY) */}
-          {isRealAdmin && (
-            <FormControl size="small" sx={{ minWidth: { xs: 110, sm: 155 }, display: { xs: 'none', md: 'flex' } }}>
-              <Select
-                value={roleView}
-                onChange={(e) => setRoleView(e.target.value as any)}
-                sx={{
-                  borderRadius: 2,
-                  fontSize: '0.8125rem',
-                  color: '#ffffff',
-                  '.MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.23)' },
-                  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255, 255, 255, 0.5)' },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: 'primary.main' },
-                  '.MuiSvgIcon-root': { color: '#ffffff' },
-                }}
-              >
-                {roles.map((r) => (
-                  <MenuItem key={r.name} value={r.name} sx={{ fontSize: '0.8125rem' }}>
-                    {getRoleBadgeLabel(r.name)}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          )}
+
 
 
           {/* NOTIFICATIONS BELL BUTTON */}
