@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.7.1] - 2026-10-07
+
+- Roles bugfixing (#64) by @zigikralj
+
 ## [v1.7.0] - 2026-10-07
 
 - feat: add activity logs page and tracking functionality (#62) by @zigikralj
