@@ -390,8 +390,6 @@ export interface TranslationKeys {
 
   // Active User & Permissions
   switchActiveUser: string;
-  switchRoleView: string;
-  lblRoleView: string;
   switchWorkOnEntities: string;
   lblEntityWorkModeOn: string;
   lblEntityWorkModeOff: string;

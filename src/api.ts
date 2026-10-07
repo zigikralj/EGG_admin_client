@@ -32,25 +32,6 @@ export async function apiFetch(input: string | URL | Request, init?: RequestInit
     }
   }
 
-  // Role view simulation for admin preview
-  if (!headers.has('X-Role-View')) {
-    try {
-      const storedUser = localStorage.getItem('auth_user');
-      if (storedUser) {
-        const user = JSON.parse(storedUser);
-        const isAdmin = user?.role === 'Administrator' || Boolean(user?.roleEntity?.isSystemAdmin);
-        if (isAdmin) {
-          const roleView = localStorage.getItem('admin_role_view');
-          if (roleView && roleView !== 'Administrator') {
-            headers.set('X-Role-View', roleView);
-          }
-        }
-      }
-    } catch (e) {
-      // Ignore JSON parse errors
-    }
-  }
-
   customInit.headers = headers;
 
   let url: string | URL | Request;

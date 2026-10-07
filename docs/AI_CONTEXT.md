@@ -160,10 +160,8 @@ App.tsx (root orchestrator)
 
 ### RBAC Pattern & Developer Admin Rule
 Roles are resolved through `AuthContext`:
-1. `actualRole` — the user's real role from the server
-2. `roleView` — admin can simulate any role (stored in `admin_role_view` localStorage)
-3. `effectiveRole` — what's actually used for permission checks
-4. Granular permissions: `hasPermission()`, `canManage*`, `isRestrictedToOwn()`
+1. `actualRole` / `role` — the user's role from the server
+2. Granular permissions: `hasPermission()`, `canManage*`, `isRestrictedToOwn()`
 
 > [!IMPORTANT]
 > **CRITICAL RULE — Developer Administrator Visibility:**
@@ -251,8 +249,7 @@ npm run deploy     # Build + deploy to GitHub Pages (gh-pages)
 
 1. **Router Basename** — Dynamic basename via `getRouterBasename()` automatically supports GitHub Pages subpath (`/EGG_admin_client`) and root domains like `project-tracker.ekosgroup.rs`.
 2. **React Query manages all data fetching** — Queries, caching, and refetching are handled via hooks in `src/queries/index.ts`.
-3. **Admin role simulation** — `admin_role_view` localStorage key lets admins test as any role. Only available for actual Administrator accounts.
-4. **Default language is Serbian Latin** — Not English. This is intentional for the target user base.
+3. **Default language is Serbian Latin** — Not English. This is intentional for the target user base.
 5. **Icons must use barrel file** — Import from `./icons` or `../icons`, never from `@mui/icons-material` directly.
 6. **`App.tsx` is the God component** — Orchestrates routing and state. Future refactoring should extract routing and provider wiring.
 7. **NO BROWSER LOGIN VERIFICATION** — NEVER open the browser or use browser subagents to attempt logging in or verify authenticated flows. The AI assistant does NOT have valid credentials for login. Verification must rely on TypeScript compilation, build checks (`npm run build`), linting, and automated tests. Do not attempt to register or login.

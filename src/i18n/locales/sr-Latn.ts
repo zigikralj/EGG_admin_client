@@ -367,8 +367,6 @@ const srLatnTranslations: TranslationKeys = {
   "roleChemicalAdvisor": "Savetnik za hemikalije",
   "roleOperator": "Operativac",
   "switchActiveUser": "Promeni aktivni nalog",
-  "switchRoleView": "Pregled po ulozi",
-  "lblRoleView": "Prikaz po ulozi",
   "switchWorkOnEntities": "Menadžerski režim",
   "lblEntityWorkModeOn": "Rad sa entitetima (UKLJUČENO)",
   "lblEntityWorkModeOff": "Korisnički prikaz",

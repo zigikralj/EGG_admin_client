@@ -15,8 +15,6 @@ interface AuthContextType {
   role: UserRole;
   actualRole: UserRole;
   isRealAdmin: boolean;
-  roleView: UserRole;
-  setRoleView: (role: UserRole) => void;
   isRestrictedToOwn: (resource: string) => boolean;
   roles: Role[];
   canManageInvoices: boolean;
@@ -46,7 +44,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.removeItem('auth_user');
         localStorage.removeItem('auth_token');
         localStorage.removeItem('auth_session_expires_at');
-        localStorage.removeItem('admin_role_view');
         return null;
       }
       const stored = localStorage.getItem('auth_user');
@@ -108,18 +105,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [refreshRoles]);
 
-  const [roleViewState, setRoleViewState] = useState<UserRole>(() => {
-    try {
-      const stored = localStorage.getItem('admin_role_view');
-      if (stored) {
-        return stored as UserRole;
-      }
-    } catch (e) {}
-    return 'Administrator';
-  });
-
-
-
   const logout = React.useCallback(() => {
     try {
       queryClient.clear();
@@ -127,8 +112,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('auth_user');
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_session_expires_at');
-    localStorage.removeItem('admin_role_view');
-    setRoleViewState('Administrator');
     setCurrentUser(null);
   }, [queryClient]);
 
@@ -286,8 +269,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (data.token) {
           localStorage.setItem('auth_token', data.token);
         }
-        localStorage.removeItem('admin_role_view');
-        setRoleViewState('Administrator');
         const expiresInMs = (data.expiresIn || 9 * 3600) * 1000;
         localStorage.setItem('auth_session_expires_at', (Date.now() + expiresInMs).toString());
         return { success: true };
@@ -347,39 +328,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [currentUser, roles]);
 
   const isRealAdmin = Boolean(currentRoleEntity?.isSystemAdmin || actualRole === 'Administrator');
-
-  const roleView: UserRole = isRealAdmin ? roleViewState : actualRole;
-
-  const setRoleView = React.useCallback((newRole: UserRole) => {
-    setRoleViewState(newRole);
-    try {
-      if (newRole === 'Administrator') {
-        localStorage.removeItem('admin_role_view');
-      } else {
-        localStorage.setItem('admin_role_view', newRole);
-      }
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
-      queryClient.invalidateQueries({ queryKey: ['stats'] });
-      queryClient.invalidateQueries({ queryKey: ['reminders'] });
-      queryClient.invalidateQueries({ queryKey: ['invoices'] });
-    } catch (e) {}
-  }, [queryClient]);
-
-  const effectiveRole: UserRole = isRealAdmin ? roleView : actualRole;
-
-  const effectiveRoleEntity = React.useMemo(() => {
-    if (isRealAdmin && roleView !== actualRole) {
-      return roles.find((r) => r.name === roleView) || null;
-    }
-    return currentRoleEntity;
-  }, [isRealAdmin, roleView, actualRole, roles, currentRoleEntity]);
-
-  const isSystemAdmin = Boolean(effectiveRoleEntity?.isSystemAdmin || effectiveRole === 'Administrator');
-  const activeRoleEntity = roles?.find((r) => r.name === effectiveRole);
+  const isSystemAdmin = isRealAdmin;
   
   const isRestrictedToOwn = React.useCallback((resource: string): boolean => {
     if (isSystemAdmin) return false;
-    const roleEnt = effectiveRoleEntity || activeRoleEntity;
+    const roleEnt = currentRoleEntity;
     if (!roleEnt) return false;
     if (roleEnt.isSystemAdmin) return false;
 
@@ -407,12 +360,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     return false;
-  }, [isSystemAdmin, effectiveRoleEntity, activeRoleEntity]);
+  }, [isSystemAdmin, currentRoleEntity]);
 
   const hasPermission = React.useCallback((resource: string, action: string): boolean => {
     if (isSystemAdmin) return true;
 
-    const roleEnt = effectiveRoleEntity;
+    const roleEnt = currentRoleEntity;
     if (!roleEnt) {
       return false;
     }
@@ -442,7 +395,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     return false;
-  }, [isSystemAdmin, effectiveRoleEntity]);
+  }, [isSystemAdmin, currentRoleEntity]);
 
   const canManageClients = Boolean(hasPermission('clients', 'edit') || hasPermission('clients', 'create'));
   const canManagePermits = Boolean(hasPermission('permits', 'edit') || hasPermission('permits', 'create'));
@@ -527,11 +480,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       register,
       logout,
       setUsersList: setUsers,
-      role: effectiveRole,
+      role: actualRole,
       actualRole,
       isRealAdmin,
-      roleView,
-      setRoleView,
       isRestrictedToOwn,
       roles,
       canManageInvoices,
@@ -556,11 +507,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       login,
       register,
       logout,
-      effectiveRole,
       actualRole,
       isRealAdmin,
-      roleView,
-      setRoleView,
       isRestrictedToOwn,
       roles,
       canManageInvoices,

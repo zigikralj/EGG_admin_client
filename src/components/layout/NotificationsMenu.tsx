@@ -64,7 +64,7 @@ export const NotificationsMenu: React.FC<NotificationsMenuProps> = ({
 }) => {
   const navigate = useNavigate();
   const { t } = useLanguage();
-  const { isRealAdmin, roleView, setRoleView, pendingUsersCount, hasPermission } = useAuth();
+  const { pendingUsersCount, hasPermission } = useAuth();
   const hasPendingUsers = hasPermission('users', 'edit') && pendingUsersCount > 0;
   const {
     notifications,
@@ -89,9 +89,6 @@ export const NotificationsMenu: React.FC<NotificationsMenuProps> = ({
 
   const handlePendingUsersClick = () => {
     onClose();
-    if (isRealAdmin && roleView !== 'Administrator') {
-      setRoleView('Administrator');
-    }
     navigate('/data-management/users');
   };
 
