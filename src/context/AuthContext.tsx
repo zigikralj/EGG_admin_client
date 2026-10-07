@@ -391,13 +391,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return false;
     };
 
-    if (checkOnlyOwn(`${resource}_onlyOwn`)) return true;
+    const directKey = `${resource}_onlyOwn`;
+    if (typeof perms[directKey] === 'boolean') {
+      return perms[directKey];
+    }
+    if (checkOnlyOwn(directKey)) return true;
 
+    // Legacy fallback ONLY if tracker_* is not configured
     if (resource.startsWith('tracker_')) {
       const base = resource.replace('tracker_', '');
+      if (typeof perms[`${base}_onlyOwn`] === 'boolean') {
+        return perms[`${base}_onlyOwn`];
+      }
       if (checkOnlyOwn(`${base}_onlyOwn`)) return true;
-    } else {
-      if (checkOnlyOwn(`tracker_${resource}_onlyOwn`)) return true;
     }
 
     return false;
@@ -418,32 +424,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return Array.isArray(perms.apps) && perms.apps.includes(action);
     }
 
-    // Direct check
-    if (perms[resource] && Array.isArray(perms[resource]) && perms[resource].includes(action)) {
-      return true;
+    // Direct check: if explicitly configured for this resource, obey it.
+    if (Array.isArray(perms[resource])) {
+      return perms[resource].includes(action);
     }
 
-    // Bidirectional fallback between tracker_* and base resource
+    // Legacy fallback ONLY if the key is undefined in perms (e.g. older role schema before separation)
     if (resource.startsWith('tracker_')) {
       const base = resource.replace('tracker_', '');
-      if (perms[base] && Array.isArray(perms[base]) && perms[base].includes(action)) {
-        return true;
+      if (Array.isArray(perms[base])) {
+        return perms[base].includes(action);
       }
-    } else {
-      const trackerKey = `tracker_${resource}`;
-      if (perms[trackerKey] && Array.isArray(perms[trackerKey]) && perms[trackerKey].includes(action)) {
-        return true;
-      }
-    }
-
-    // Waste disposal / provided services fallback
-    if (resource === 'wasteDisposal') {
-      if (perms.providedServices && Array.isArray(perms.providedServices) && perms.providedServices.includes(action)) {
-        return true;
-      }
-    } else if (resource === 'providedServices') {
-      if (perms.wasteDisposal && Array.isArray(perms.wasteDisposal) && perms.wasteDisposal.includes(action)) {
-        return true;
+    } else if (resource === 'wasteDisposal') {
+      if (Array.isArray(perms.providedServices)) {
+        return perms.providedServices.includes(action);
       }
     }
 

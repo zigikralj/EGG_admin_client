@@ -22,6 +22,7 @@ import {
 
 import { useLanguage } from '../../context/LanguageContext';
 import { useThemeContext } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import { LanguageSelector } from '../common/LanguageSelector';
 import { TableOptionsSelector, type ColumnDef } from '../common/ColumnSelector';
 import { CloseIcon, LightModeIcon, DarkModeIcon, SettingsBrightnessIcon } from '../icons';
@@ -43,7 +44,26 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
 }) => {
   const { t } = useLanguage();
   const { themeMode, setThemeMode } = useThemeContext();
+  const { hasPermission } = useAuth();
+
+  const entityOptions = React.useMemo(() => [
+    { value: 'projects' as EntityType, label: t('tabProjects') },
+    { value: 'clients' as EntityType, label: t('tabClients') },
+    { value: 'users' as EntityType, label: t('tabUsers') },
+    { value: 'services' as EntityType, label: t('tabServices') },
+    { value: 'providedServices' as EntityType, label: t('tabProvidedServices') || 'Provided Services' },
+    { value: 'categories' as EntityType, label: t('tabCategories') },
+    { value: 'reminders' as EntityType, label: t('tabReminders') },
+    { value: 'invoices' as EntityType, label: t('tabInvoices') },
+  ].filter((e) => hasPermission(e.value, 'view')), [t, hasPermission]);
+
   const [prefSelectedEntity, setPrefSelectedEntity] = useState<EntityType>('projects');
+
+  React.useEffect(() => {
+    if (entityOptions.length > 0 && !entityOptions.some((e) => e.value === prefSelectedEntity)) {
+      setPrefSelectedEntity(entityOptions[0].value);
+    }
+  }, [entityOptions, prefSelectedEntity]);
 
   const getEntityColumns = (entity: EntityType): ColumnDef[] => {
     switch (entity) {
@@ -245,14 +265,9 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
                   onChange={(e) => setPrefSelectedEntity(e.target.value as EntityType)}
                   sx={{ borderRadius: 2 }}
                 >
-                  <MenuItem value="projects">{t('tabProjects')}</MenuItem>
-                  <MenuItem value="clients">{t('tabClients')}</MenuItem>
-                  <MenuItem value="users">{t('tabUsers')}</MenuItem>
-                  <MenuItem value="services">{t('tabServices')}</MenuItem>
-                  <MenuItem value="providedServices">{t('tabProvidedServices') || 'Provided Services'}</MenuItem>
-                  <MenuItem value="categories">{t('tabCategories')}</MenuItem>
-                  <MenuItem value="reminders">{t('tabReminders')}</MenuItem>
-                  <MenuItem value="invoices">{t('tabInvoices')}</MenuItem>
+                  {entityOptions.map((opt) => (
+                    <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                  ))}
                 </Select>
               </FormControl>
 

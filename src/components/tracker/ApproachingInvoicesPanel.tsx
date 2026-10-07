@@ -1384,7 +1384,7 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
                 </Grid>
 
                 {/* Provided Service Selection */}
-                {providedServices && (
+                {(hasPermission('providedServices', 'view') || hasPermission('wasteDisposal', 'view')) && (
                   <Grid size={{ xs: 12, sm: 6 }}>
                     <Autocomplete
                       options={modalProvidedServices}
