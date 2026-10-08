@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { visualizer } from 'rollup-plugin-visualizer';
@@ -122,6 +123,12 @@ export default defineConfig({
     spaFallbackPlugin(),
     visualizer({ filename: 'bundle-stats.html' }),
   ],
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: './src/tests/setup.ts',
+    css: false,
+  },
   server: {
     port: 3000,
     proxy: {

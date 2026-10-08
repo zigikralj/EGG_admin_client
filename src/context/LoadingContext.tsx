@@ -12,7 +12,7 @@ export interface LoadingContextType {
   withLoading: <T>(action: Promise<T> | (() => Promise<T>), message?: string) => Promise<T>;
 }
 
-const LoadingContext = createContext<LoadingContextType | undefined>(undefined);
+export const LoadingContext = createContext<LoadingContextType | undefined>(undefined);
 
 const WAKE_UP_THRESHOLD_SECONDS = 4;
 // Minimum duration the loading overlay stays visible to prevent sudden jarring flashes on fast responses
