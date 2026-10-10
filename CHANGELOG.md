@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.7.3] - 2026-10-10
+
+- Testing (#68) by @zigikralj
+
 ## [Unreleased]
 
 - feat: comprehensive automated Playwright E2E testing suite and GitHub Actions workflow
