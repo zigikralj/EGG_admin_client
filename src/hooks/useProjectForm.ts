@@ -91,7 +91,7 @@ export function useProjectForm({
       setIsAddingInvoice(false);
       setEditingInvoice(null);
     }
-  }, [projectToEdit, clients, users, services, currentUser, todayStr]);
+  }, [projectToEdit]);
 
   const handleClientSelectChange = (id: string) => {
     setClientId(id);
