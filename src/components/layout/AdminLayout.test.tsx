@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AdminLayout } from './AdminLayout';
@@ -58,6 +57,9 @@ describe('AdminLayout', () => {
   const mockStats = {
     active: 5,
     completed: 2,
+    done: 2,
+    stale: 0,
+    servicesCount: 5,
     usersCount: 10,
     clientsCount: 8,
     categoriesCount: 4,

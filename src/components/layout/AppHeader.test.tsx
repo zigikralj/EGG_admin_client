@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AppHeader } from './AppHeader';
@@ -124,7 +123,7 @@ describe('AppHeader', () => {
   });
 
   it('does not show company info icon if no permission', () => {
-    mockHasPermission.mockImplementation((res, action) => res !== 'companyInfo');
+    mockHasPermission.mockImplementation((res, _action) => res !== 'companyInfo');
     renderComponent();
     
     expect(screen.queryByRole('button', { name: 'companyInfoTitle' })).not.toBeInTheDocument();

@@ -1,4 +1,3 @@
-import React from 'react';
 import { screen, waitFor, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import ProjectsPage from './ProjectsPage';
@@ -26,7 +25,7 @@ describe('ProjectsPage Integration', () => {
         onRowsPerPageOptionsChange={vi.fn()}
         rowsPerPage={25}
         onRowsPerPageChange={vi.fn()}
-        sortState={{ column: 'createdAt', direction: 'desc' }}
+        sortState={{ field: 'createdAt', direction: 'desc' }}
         onSortChange={vi.fn()}
         {...props}
       />

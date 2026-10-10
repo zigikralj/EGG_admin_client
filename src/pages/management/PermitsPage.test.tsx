@@ -1,5 +1,4 @@
-import React from 'react';
-import { screen, waitFor, fireEvent } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import PermitsPage from './PermitsPage';
 import { renderWithProviders } from '../../tests/test-utils';
@@ -18,7 +17,7 @@ describe('PermitsPage Integration', () => {
         onRowsPerPageOptionsChange={vi.fn()}
         rowsPerPage={25}
         onRowsPerPageChange={vi.fn()}
-        sortState={{ column: 'permitNumber', direction: 'asc' }}
+        sortState={{ field: 'permitNumber', direction: 'asc' }}
         onSortChange={vi.fn()}
         {...props}
       />

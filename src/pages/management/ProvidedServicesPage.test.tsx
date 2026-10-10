@@ -1,5 +1,4 @@
-import React from 'react';
-import { screen, waitFor, fireEvent } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import ProvidedServicesPage from './ProvidedServicesPage';
 import { renderWithProviders } from '../../tests/test-utils';
@@ -18,7 +17,7 @@ describe('ProvidedServicesPage Integration', () => {
         onRowsPerPageOptionsChange={vi.fn()}
         rowsPerPage={25}
         onRowsPerPageChange={vi.fn()}
-        sortState={{ column: 'date', direction: 'desc' }}
+        sortState={{ field: 'date', direction: 'desc' }}
         onSortChange={vi.fn()}
         {...props}
       />

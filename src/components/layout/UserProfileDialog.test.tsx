@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { UserProfileDialog } from './UserProfileDialog';
@@ -19,7 +18,7 @@ vi.mock('../../api', () => ({
 }));
 
 // Mock URL.createObjectURL since it's used by FileReader sometimes, or file rendering
-global.URL.createObjectURL = vi.fn();
+window.URL.createObjectURL = vi.fn();
 
 describe('UserProfileDialog', () => {
   const mockOnClose = vi.fn();

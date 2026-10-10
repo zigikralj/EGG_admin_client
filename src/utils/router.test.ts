@@ -20,7 +20,11 @@ describe('router utils', () => {
     });
 
     afterEach(() => {
-      window.location = originalWindowLocation;
+      Object.defineProperty(window, 'location', {
+        value: originalWindowLocation,
+        writable: true,
+        configurable: true,
+      });
       vi.unstubAllEnvs();
     });
 
