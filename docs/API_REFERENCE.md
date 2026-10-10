@@ -278,7 +278,50 @@ Reject a pending user registration.
 
 Force-logout a user (invalidates their session server-side).
 
-**Used by:** [`useUsers.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/hooks/useUsers.ts)
+---
+
+## Roles
+
+Endpoints for managing dynamic system roles and granular permissions.
+
+### `GET /api/roles`
+
+List all configured roles with user counts.
+
+**Response:** `Role[]` (includes `name`, `description`, `isSystemAdmin`, `permissions`, and `_count.users`)
+
+**Used by:** [`AuthContext.tsx`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/context/AuthContext.tsx), `RolesPage.tsx`
+
+---
+
+### `POST /api/roles`
+
+Create a new dynamic role. Requires role create permission or System Administrator.
+
+**Request Body:**
+```json
+{
+  "name": "string",
+  "description": "string (optional)",
+  "isSystemAdmin": false,
+  "permissions": {
+    "projects": ["view", "create", "edit", "delete"],
+    "projects_onlyOwn": true
+  }
+}
+```
+
+---
+
+### `PUT /api/roles/:name`
+
+Update a role's description, system admin status, or permissions matrix.
+
+---
+
+### `DELETE /api/roles/:name`
+
+Delete a role. Default `Administrator` cannot be deleted, and roles currently assigned to users cannot be deleted.
 
 ---
 
@@ -469,12 +512,13 @@ List all permits.
 
 ### `POST /api/permits`
 
-Create a permit with waste catalog associations.
+Create a permit with waste catalog associations and permit type classifications.
 
 **Request Body:**
 ```json
 {
   "permitNumber": "string",
+  "permitTypes": ["Sakupljanje", "Transport", "Skladistenje", "Tretman", "Odlaganje"],
   "startDate": "YYYY-MM-DD",
   "endDate": "YYYY-MM-DD",
   "clientId": "uuid | null",
@@ -487,9 +531,9 @@ Create a permit with waste catalog associations.
 
 ### `PUT /api/permits/:id` / `DELETE /api/permits/:id`
 
-Standard CRUD. PUT updates waste catalog associations.
+Standard CRUD. PUT updates waste catalog associations and permit types.
 
-**Used by:** [`usePermits.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/hooks/usePermits.ts)
+**Used by:** `usePermitsQuery`, `usePermitMutations` ([`src/queries/index.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/queries/index.ts))
 
 ---
 

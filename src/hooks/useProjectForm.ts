@@ -6,8 +6,8 @@ import { useInvoiceFormState } from './useInvoiceFormState';
 export function useProjectForm({
   projectToEdit,
   clients,
-  users,
-  services,
+  users: _users,
+  services: _services,
   reminders = [],
   invoices = [],
   currentUser,
@@ -91,7 +91,7 @@ export function useProjectForm({
       setIsAddingInvoice(false);
       setEditingInvoice(null);
     }
-  }, [projectToEdit, clients, users, services, currentUser, todayStr]);
+  }, [projectToEdit]);
 
   const handleClientSelectChange = (id: string) => {
     setClientId(id);

@@ -25,8 +25,11 @@ A professional project management and invoicing application for **EkosGreenGroup
 ## 🛠️ Built With
 
 - **Frontend Core**: [React](https://react.dev/) 19 + [TypeScript](https://www.typescriptlang.org/) + [Vite](https://vitejs.dev/)
-- **UI Components & Icons**: [Material UI (MUI)](https://mui.com/) + [@mui/icons-material](https://mui.com/material-ui/material-icons/) + [Emotion](https://emotion.sh/)
+- **UI Components & Icons**: [Material UI (MUI v9)](https://mui.com/) + [@mui/icons-material](https://mui.com/material-ui/material-icons/) + [Emotion](https://emotion.sh/)
 - **Data Visualization & Charts**: [@mui/x-charts](https://mui.com/x/react-charts/)
+- **State & Data Fetching**: [TanStack React Query v5](https://tanstack.com/query)
+- **Routing**: [React Router v7](https://reactrouter.com/)
+- **Testing**: [Playwright](https://playwright.dev/) (End-to-End E2E) + [Vitest](https://vitest.dev/) (Unit / Integration) + [Testing Library](https://testing-library.com/)
 - **Linting**: [Oxlint](https://oxc.rs/)
 
 ---
@@ -77,7 +80,7 @@ Start the Vite development server with Hot Module Replacement (HMR):
 npm run dev
 ```
 
-The application will be accessible at `http://localhost:5173`.
+The application will be accessible at `http://localhost:3000`.
 
 ### 4. Production Build
 
@@ -95,25 +98,81 @@ npm run preview
 
 ---
 
+## 🧪 Testing
+
+### 1. End-to-End (E2E) Testing with Playwright
+
+Playwright is used for full automated end-to-end browser testing against a local running client/server stack.
+
+```bash
+# Run all E2E tests headless
+npm run test:e2e
+
+# Run with interactive Playwright UI mode
+npm run test:e2e:ui
+
+# Debug tests step-by-step
+npm run test:e2e:debug
+```
+
+#### E2E Test Suites (`client/e2e/`):
+- **Authentication (`e2e/auth/login.spec.ts`)**: Tests valid login, invalid credentials with error alerts, and logout.
+- **Global Auth Setup (`e2e/auth.setup.ts`)**: Automatically seeds authenticated session state into `playwright/.auth/user.json` so downstream suites bypass repeated UI logins.
+- **Tracker Dashboard (`e2e/tracker/tracker.spec.ts`)**: Verifies dashboard KPI stats, project listing, and quick interactions.
+- **Management Modules (`e2e/management/`)**:
+  - `projects.spec.ts`: Full project lifecycle (list, create, edit, filter, archive/delete).
+  - `clients.spec.ts`: Client CRUD operations and permit relations.
+  - `invoices.spec.ts`: Invoice creation, status updates, and currency support.
+  - `services.spec.ts`: Service types and custom data models.
+  - `permits.spec.ts`: Environmental permit management and waste catalog associations.
+  - `users.spec.ts`: User management, approvals, and role listings.
+  - `categories.spec.ts`: Category management.
+  - `reminders.spec.ts`: Reminder creation, completion, and overdue alerts.
+  - `activity-logs.spec.ts`: Audit log generation and filtering.
+
+### 2. Unit & Component Testing with Vitest
+
+```bash
+# Run unit tests
+npm run test
+
+# Run tests in Vitest UI
+npm run test:ui
+
+# Run test coverage report
+npm run test:coverage
+```
+
+---
+
 ## 📂 Project Structure
 
 ```
 client/
+├── docs/                    # Architecture and AI reference documentation
+│   ├── ARCHITECTURE.md      # Detailed system architecture
+│   ├── AI_CONTEXT.md        # Fast AI context guide
+│   └── API_REFERENCE.md     # API specifications
+├── e2e/                     # Playwright End-to-End test suites
+│   ├── auth.setup.ts        # Global auth session setup
+│   ├── auth/                # Login & auth flow tests
+│   ├── tracker/             # Dashboard & tracker flow tests
+│   └── management/          # Management CRUD tests (projects, clients, invoices, etc.)
 ├── public/                  # Static assets & public files
 ├── src/
 │   ├── assets/              # Logos and SVGs
 │   ├── components/          # Reusable UI components & modals
-│   │   ├── views/           # Primary page views (Dashboard, Projects, Invoices, etc.)
-│   │   ├── AdminLayout.tsx  # Responsive shell, top app bar, and navigation drawer
-│   │   ├── ProjectCard.tsx  # Project summary card with sampling & status controls
-│   │   ├── ApproachingInvoicesPanel.tsx # Invoices due soon dashboard widget
-│   │   ├── ReminderPanel.tsx            # Reminders dashboard widget
-│   │   └── ...
-│   ├── context/             # React contexts (AuthContext, LanguageContext, ThemeContext)
-│   ├── i18n/                # Localization dictionaries (translations.ts)
+│   ├── context/             # React contexts (AuthContext, LanguageContext, ThemeContext, NotificationContext)
+│   ├── hooks/               # Custom hooks (useTableView, useProjectForm, etc.)
+│   ├── i18n/                # Localization dictionaries (en, sr-Latn, sr-Cyrl)
+│   ├── pages/               # Full page views (TrackerPage, ProjectsPage, InvoicesPage, etc.)
+│   ├── queries/             # React Query hooks and mutations
+│   ├── theme/               # Material UI theme definition
 │   ├── types.ts             # TypeScript definitions & data models
+│   ├── utils/               # Helper utilities
 │   ├── App.tsx              # Root component & view router
 │   └── main.tsx             # Application entry point
+├── playwright.config.ts     # Playwright configuration
 ├── package.json             # Scripts & dependencies
 ├── tsconfig.json            # TypeScript configuration
 └── vite.config.ts           # Vite bundler configuration
@@ -125,10 +184,16 @@ client/
 
 | Command | Description |
 | :--- | :--- |
-| `npm run dev` | Starts the development server at `http://localhost:5173` |
+| `npm run dev` | Starts the development server at `http://localhost:3000` |
 | `npm run build` | Type-checks with `tsc` and creates optimized build in `dist/` |
 | `npm run preview` | Serves the production build locally for verification |
-| `npm run lint` | Runs `oxlint` fast linter on the codebase |
+| `npm run lint` | Runs `tsc -b` and `oxlint` fast linter on the codebase |
+| `npm run test` | Runs unit & component tests with Vitest |
+| `npm run test:ui` | Opens the interactive Vitest UI runner |
+| `npm run test:coverage` | Generates unit test coverage report |
+| `npm run test:e2e` | Runs all Playwright E2E tests in headless mode |
+| `npm run test:e2e:ui` | Opens the interactive Playwright UI runner |
+| `npm run test:e2e:debug` | Runs Playwright tests with step-by-step inspector |
 
 ---
 

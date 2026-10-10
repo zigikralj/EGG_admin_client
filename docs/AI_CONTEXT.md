@@ -22,6 +22,8 @@ The client talks to a separate Express 5 REST API server (see `../server/`).
 | `src/main.tsx` | ReactDOM entry. Wraps `<App />` in StrictMode, QueryClientProvider, and `<BrowserRouter>` with dynamic basename (`getRouterBasename()`). |
 | `src/App.tsx` | **Root orchestrator** (~390 lines). Provider wiring, React Query hooks, view routing (`<Routes>`, `<Route>`), and modal management. |
 | `vite.config.ts` | Vite + React plugin, dev proxy `/api` → `:5000`, manual chunk splitting, version.json generation, SPA 404 fallback, and dynamic base path resolution. |
+| `playwright.config.ts` | Playwright E2E configuration — base URL `http://localhost:3000`, webServer auto-start (`npm run dev`), auth state fixture (`playwright/.auth/user.json`). |
+| `e2e/` | Playwright E2E test suites (`auth/`, `tracker/`, `management/`, `auth.setup.ts`). |
 
 ### Type Definitions
 | File | Purpose |
@@ -36,7 +38,7 @@ The client talks to a separate Express 5 REST API server (see `../server/`).
 ### Context Providers (`src/context/`)
 | File | Provider | Hook | Key Responsibilities |
 |---|---|---|---|
-| `AuthContext.tsx` | `AuthProvider` | `useAuth()` | Login/register/logout, JWT token & session expiry, role resolution (effective role via admin `roleView` switch), granular permissions (`hasPermission()`, `canManage*`), `canEditUser()`, `canEditProject()`, periodic auth polling with Page Visibility API. |
+| `AuthContext.tsx` | `AuthProvider` | `useAuth()` | Login/register/logout, JWT token & session expiry, dynamic role resolution, granular permissions (`hasPermission()`, `canManage*`), resource-level scoping (`isRestrictedToOwn()`), `canEditUser()`, `canEditProject()`, periodic auth polling with Page Visibility API. |
 | `LanguageContext.tsx` | `LanguageProvider` | `useLanguage()` | `t(key, params)` translation, `getServiceLabel()`, `getResponsibleLabel()` (gender-aware), `getErrorMessage()` — lazy-loads locale dictionaries. Default language: `sr-Latn`. |
 | `ThemeContext.tsx` | `CustomThemeProvider` | `useThemeContext()` | Light/dark/system theme mode, system preference listener via `matchMedia`, syncs `data-theme` attribute on `<html>`. |
 | `NotificationContext.tsx` | `NotificationProvider` | `useNotifications()` | Fetches, polls (25s intervals with Page Visibility pausing), and manages @mention notifications. Optimistic UI for mark-read/delete/clear-all. |
@@ -63,7 +65,7 @@ The client talks to a separate Express 5 REST API server (see `../server/`).
 #### Layout Shell (`src/components/layout/`)
 | File | Purpose |
 |---|---|
-| `AppHeader.tsx` | Top app bar — branding, user avatar menu, notification bell, pending users badge, user switch (admin), mobile hamburger. |
+| `AppHeader.tsx` | Top app bar — branding, user avatar menu, notification bell, pending users badge, mobile hamburger. |
 | `Sidebar.tsx` | Permanent sidebar (desktop) / temporary drawer (mobile). Nav items, dashboard sub-tabs, version chip. |
 | `SettingsDialog.tsx` | User preferences — theme, language, entity work mode, rows-per-page customization. |
 | `UserProfileDialog.tsx` | Profile view/edit — name, email, phone, gender, avatar, password change. |
@@ -221,11 +223,14 @@ Server-persisted per-user KV store:
 ## Build & Dev
 
 ```bash
-npm run dev        # Dev server at :3000, proxies /api → :5000
-npm run build      # TypeScript check + Vite production build
-npm run preview    # Serve production build locally
-npm run lint       # TypeScript check + oxlint
-npm run deploy     # Build + deploy to GitHub Pages (gh-pages)
+npm run dev          # Dev server at :3000, proxies /api → :5000
+npm run build        # TypeScript check + Vite production build
+npm run preview      # Serve production build locally
+npm run lint         # TypeScript check + oxlint
+npm run test         # Unit & component tests with Vitest
+npm run test:e2e     # Run all Playwright E2E tests headless
+npm run test:e2e:ui  # Playwright interactive UI test runner
+npm run deploy       # Build + deploy to GitHub Pages (gh-pages)
 ```
 
 ### Build-Time Injected Globals
@@ -252,5 +257,6 @@ npm run deploy     # Build + deploy to GitHub Pages (gh-pages)
 3. **Default language is Serbian Latin** — Not English. This is intentional for the target user base.
 5. **Icons must use barrel file** — Import from `./icons` or `../icons`, never from `@mui/icons-material` directly.
 6. **`App.tsx` is the God component** — Orchestrates routing and state. Future refactoring should extract routing and provider wiring.
-7. **NO BROWSER LOGIN VERIFICATION** — NEVER open the browser or use browser subagents to attempt logging in or verify authenticated flows. The AI assistant does NOT have valid credentials for login. Verification must rely on TypeScript compilation, build checks (`npm run build`), linting, and automated tests. Do not attempt to register or login.
-8. **Backend Updates** — You are allowed to update backend in `../server` dir, but when you do, you must read its `../server/docs/AI_CONTEXT.md` too.
+7. **NO BROWSER LOGIN VERIFICATION (MANUAL)** — NEVER open the browser or use browser subagents to attempt logging in or verify authenticated flows manually. The AI assistant does NOT have valid credentials for interactive manual login. Verification must rely on TypeScript compilation, build checks (`npm run build`), linting, and automated tests (`npm run test`, `npm run test:e2e`).
+8. **Automated E2E Testing with Playwright** — End-to-end testing is automated via `npm run test:e2e`. Playwright uses `e2e/auth.setup.ts` to capture authenticated session state in `playwright/.auth/user.json`, allowing tests across all management and tracker modules to execute reliably.
+9. **Backend Updates** — You are allowed to update backend in `../server` dir, but when you do, you must read its `../server/docs/AI_CONTEXT.md` too.
