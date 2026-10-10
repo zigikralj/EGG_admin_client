@@ -19,6 +19,9 @@
 
 | **Routing** | React Router DOM | 7.18.x |
 | **Data Fetching** | TanStack React Query | 5.102.x |
+| **E2E Testing** | Playwright | 1.64.x |
+| **Unit Testing** | Vitest + Testing Library | 5.0.x / 16.3.x |
+| **API Mocking** | MSW (Mock Service Worker) | 2.15.x |
 
 Navigation is managed via **React Router DOM** with dynamic basename support (`getRouterBasename()`) for GitHub Pages and custom domain deployments.
 
@@ -135,21 +138,23 @@ sequenceDiagram
 
 ```mermaid
 graph LR
-    A["actualRole<br/>(from server)"] --> B{"isRealAdmin?"}
-    B -->|Yes| C["roleView<br/>(admin-selected simulation)"]
-    B -->|No| D["actualRole<br/>(used as-is)"]
-    C --> E["effectiveRole"]
-    D --> E
-    E --> F["Permissions<br/>hasPermission()<br/>canManage*"]
+    A["User.role<br/>(assigned role)"] --> B["Role Entity<br/>(from /api/roles)"]
+    B --> C{"isSystemAdmin?"}
+    C -->|Yes| D["Full Access Bypass<br/>(all permissions granted)"]
+    C -->|No| E["Permission Matrix Evaluation<br/>hasPermission(resource, action)<br/>isRestrictedToOwn(resource)"]
+    D --> F["UI / Action Controls"]
+    E --> F
 ```
 
-| Role | Dashboard | Projects | Clients | Permits | Users | Services | ProvidedServices | Categories | Reminders | Invoices |
-|---|---|---|---|---|---|---|---|---|---|---|
-| **Administrator** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Manager** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Manager (User View)** | ✅ | — | — | — | — | — | — | — | — | — |
-| **Accountant** | ✅ (invoice-focused) | — | — | — | — | — | — | — | — | — |
-| **User** | ✅ (personal) | — | — | — | — | — | — | — | — | — |
+The system uses dynamic roles configured in the backend database. Default roles include:
+
+| Role | Dashboard | Projects | Clients | Permits | Users | Services | ProvidedServices | Categories | Reminders | Invoices | Activity Logs |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| **Administrator** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Manager** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | — |
+| **Manager (User View)** | ✅ | — | — | — | — | — | — | — | — | — | — |
+| **Accountant** | ✅ (invoice-focused) | — | — | — | — | — | — | — | — | — | — |
+| **User** | ✅ (personal) | — | — | — | — | — | — | — | — | — | — |
 
 **Manager "Work on Entities" toggle:** Managers can switch between full Manager mode (manage all entities) and a User-like view (only personal dashboard). Controlled via `workOnEntities` flag, persisted in localStorage and server preferences.
 
@@ -451,22 +456,70 @@ Runtime `version.json` emitted to `dist/` — polled by `useVersionCheck` hook t
 
 ### 9.4 CI/CD
 
-Automated via GitHub Actions on PR merge to `main`:
-1. Determine version bump from PR labels/title (conventional commits)
-2. Bump `package.json` version
-3. Update `CHANGELOG.md`
-4. Create git tag + GitHub Release
-5. Trigger deploy to GitHub Pages
+Automated via GitHub Actions:
+- **E2E Testing (`.github/workflows/playwright.yml`)**: Runs Playwright test suite against headless Chromium on push/PR to `main`/`master`, with automatic artifact upload of trace recordings and reports on failure.
+- **Release & Deployment Workflow**: On PR merge to `main`:
+  1. Determine version bump from PR labels/title (conventional commits)
+  2. Bump `package.json` version
+  3. Update `CHANGELOG.md`
+  4. Create git tag + GitHub Release
+  5. Trigger deploy to GitHub Pages
 
 ---
 
-## 10. Directory Structure
+## 10. Testing Architecture
+
+### 10.1 Unit & Component Testing (Vitest)
+- **Runner**: Vitest with `@testing-library/react` and `jsdom`.
+- **API Mocking**: Mock Service Worker (MSW) in `src/mocks` simulates backend endpoints for component-level isolation.
+- **Coverage**: Evaluated via `npm run test:coverage`.
+
+### 10.2 End-to-End Testing (Playwright)
+The application includes an automated E2E testing framework powered by `@playwright/test` located in `client/e2e/`:
+
+```mermaid
+graph TD
+    A["playwright test"] --> B["Setup Project: e2e/auth.setup.ts"]
+    B -->|"Captures Auth Token & Session"| C["playwright/.auth/user.json"]
+    C --> D["Chromium Project"]
+    D --> E["Auth Suite: e2e/auth/login.spec.ts"]
+    D --> F["Tracker Suite: e2e/tracker/tracker.spec.ts"]
+    D --> G["Management Suites: e2e/management/*.spec.ts"]
+```
+
+- **Global Setup (`e2e/auth.setup.ts`)**: Authenticates against the backend once and persists JWT session state to `playwright/.auth/user.json`.
+- **Suites**:
+  - `auth/login.spec.ts`: Valid/invalid logins, error display, logout flows.
+  - `tracker/tracker.spec.ts`: KPI cards, active projects overview, quick filters.
+  - `management/projects.spec.ts`: Project creation, edit, quick filter tabs, delete.
+  - `management/clients.spec.ts`: Client CRUD, permit association.
+  - `management/invoices.spec.ts`: Invoice creation, status changes, items.
+  - `management/services.spec.ts`: Service types and custom schema definitions.
+  - `management/permits.spec.ts`: Permit validity dates and waste catalog links.
+  - `management/users.spec.ts`: User listing, approval workflows, role filters.
+  - `management/categories.spec.ts`: Category CRUD.
+  - `management/reminders.spec.ts`: Reminder status transitions and alerts.
+  - `management/activity-logs.spec.ts`: Audit trail event tracking and search.
+- **Configuration (`playwright.config.ts`)**:
+  - Automatically spins up the dev server (`npm run dev`) on `http://localhost:3000`.
+  - Captures traces on failure (`trace: 'on-first-retry'`).
+  - Reports in console (`list`) and generates HTML reports (`html`).
+
+---
+
+## 11. Directory Structure
 
 ```
 client/
 ├── docs/                          # Documentation (you are here)
 │   ├── AI_CONTEXT.md              # AI quick reference
 │   └── ARCHITECTURE.md            # This file
+├── e2e/                           # Playwright End-to-End test suites
+│   ├── auth.setup.ts              # Global authentication fixture
+│   ├── auth/                      # Login & authentication specs
+│   ├── tracker/                   # Dashboard & tracker specs
+│   └── management/                # Management module CRUD specs
+├── playwright.config.ts           # Playwright test runner configuration
 ├── public/                        # Static assets
 ├── src/
 │   ├── api.ts                     # API client (apiFetch)

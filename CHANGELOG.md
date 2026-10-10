@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+- feat: comprehensive automated Playwright E2E testing suite and GitHub Actions workflow
+- docs: update architectural, AI orientation, and root documentation for testing and CI/CD
+
 ## [v1.7.2] - 2026-10-07
 
 - refactor: update permits filtering layout and add table header filter… (#66) by @zigikralj
