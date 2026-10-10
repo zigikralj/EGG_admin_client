@@ -9,6 +9,10 @@ permissions:
 
 jobs:
   test:
+    if: |
+      !startsWith(github.head_ref, 'release/') &&
+      !startsWith(github.event.pull_request.title, 'chore(release)') &&
+      !contains(github.event.pull_request.labels.*.name, 'release')
     timeout-minutes: 60
     runs-on: ubuntu-latest
 
