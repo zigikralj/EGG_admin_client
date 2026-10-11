@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.8.3] - 2026-10-11
+
+- refactor: redesign permits and reminders modals with improved layout … (#76) by @zigikralj
+
 ## [v1.8.2] - 2026-10-11
 
 - ci: skip security and playwright workflows for release branches and p… (#74) by @zigikralj
