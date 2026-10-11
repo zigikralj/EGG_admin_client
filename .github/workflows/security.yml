@@ -1,8 +1,6 @@
 name: Security & Audit Check
 
 on:
-  push:
-    branches: ["main"]
   pull_request:
     branches: ["main"]
 
@@ -11,6 +9,10 @@ permissions:
 
 jobs:
   audit:
+    if: |
+      !startsWith(github.head_ref, 'release/') &&
+      !startsWith(github.event.pull_request.title, 'chore(release)') &&
+      !contains(github.event.pull_request.labels.*.name, 'release')
     name: Dependency & Code Security Audit
     runs-on: ubuntu-latest
     steps:
