@@ -1463,18 +1463,85 @@ const PermitsPage: React.FC<Props> = ({
       <Dialog
         open={isOpen}
         onClose={() => setIsOpen(false)}
-        maxWidth="sm"
+        maxWidth="md"
         fullWidth
-        slotProps={{ paper: { sx: { borderRadius: 3 } } }}
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: 3,
+              maxHeight: 'calc(100vh - 64px)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            },
+          },
+        }}
       >
-        <form onSubmit={handleSubmit}>
-          <DialogTitle sx={{ fontWeight: 700, pb: 1 }}>
-            {editingPermit ? t('modalEditPermit') : t('modalNewPermit')}
+        <Box
+          component="form"
+          onSubmit={handleSubmit}
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100%',
+            maxHeight: 'inherit',
+            minHeight: 0,
+            overflow: 'hidden',
+          }}
+        >
+          <DialogTitle
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              fontWeight: 700,
+              p: 2,
+              flexShrink: 0,
+            }}
+          >
+            <Typography variant="h6" component="span" sx={{ fontWeight: 700 }}>
+              {editingPermit ? t('modalEditPermit') : t('modalNewPermit')}
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {editingPermit && canDelete && (
+                <Button
+                  color="error"
+                  size="small"
+                  variant="outlined"
+                  startIcon={<DeleteIcon />}
+                  onClick={() => {
+                    onDeletePermit(editingPermit.id);
+                    setIsOpen(false);
+                  }}
+                  sx={{ textTransform: 'none' }}
+                >
+                  {t('btnDelete')}
+                </Button>
+              )}
+              <IconButton
+                aria-label="close"
+                onClick={() => setIsOpen(false)}
+                size="small"
+                sx={{ color: 'text.secondary' }}
+              >
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Box>
           </DialogTitle>
-          <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pt: 2 }}>
+          <DialogContent
+            dividers
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2.5,
+              p: { xs: 2, sm: 2.5 },
+              overflowY: 'auto',
+              flex: '1 1 auto',
+            }}
+          >
             <Grid container spacing={2}>
               {/* Permit Number */}
-              <Grid size={{ xs: 12 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   required
@@ -1486,20 +1553,8 @@ const PermitsPage: React.FC<Props> = ({
                 />
               </Grid>
 
-              {/* Index Number (Waste Catalog) */}
-              <Grid size={{ xs: 12 }}>
-                <WasteCatalogAutocomplete
-                  value={selectedCatalogItems}
-                  onChange={(validValues: WasteCatalog[]) => {
-                    setSelectedCatalogItems(validValues);
-                    setSelectedWasteCatalogIds(validValues.map((v) => v.id));
-                  }}
-                  required={selectedWasteCatalogIds.length === 0}
-                />
-              </Grid>
-
               {/* Client (Required) */}
-              <Grid size={{ xs: 12 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <Autocomplete
                   size="small"
                   options={clients}
@@ -1521,7 +1576,7 @@ const PermitsPage: React.FC<Props> = ({
               </Grid>
 
               {/* Permit Type (Multiple Select) */}
-              <Grid size={{ xs: 12 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <Autocomplete
                   multiple
                   size="small"
@@ -1543,7 +1598,7 @@ const PermitsPage: React.FC<Props> = ({
               </Grid>
 
               {/* Start Date (Required) */}
-              <Grid size={{ xs: 12, sm: 6 }}>
+              <Grid size={{ xs: 12, sm: 3 }}>
                 <TextField
                   fullWidth
                   required
@@ -1557,7 +1612,7 @@ const PermitsPage: React.FC<Props> = ({
               </Grid>
 
               {/* End Date (Required) */}
-              <Grid size={{ xs: 12, sm: 6 }}>
+              <Grid size={{ xs: 12, sm: 3 }}>
                 <TextField
                   fullWidth
                   required
@@ -1567,6 +1622,18 @@ const PermitsPage: React.FC<Props> = ({
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                   slotProps={{ inputLabel: { shrink: true } }}
+                />
+              </Grid>
+
+              {/* Index Number (Waste Catalog) */}
+              <Grid size={{ xs: 12 }}>
+                <WasteCatalogAutocomplete
+                  value={selectedCatalogItems}
+                  onChange={(validValues: WasteCatalog[]) => {
+                    setSelectedCatalogItems(validValues);
+                    setSelectedWasteCatalogIds(validValues.map((v) => v.id));
+                  }}
+                  required={selectedWasteCatalogIds.length === 0}
                 />
               </Grid>
 
@@ -1901,7 +1968,7 @@ const PermitsPage: React.FC<Props> = ({
               </Box>
             )}
           </DialogContent>
-          <DialogActions sx={{ p: 2 }}>
+          <DialogActions sx={{ p: 2, flexShrink: 0, bgcolor: 'background.paper', justifyContent: 'flex-end', gap: 1 }}>
             <Button onClick={() => setIsOpen(false)} color="inherit" sx={{ textTransform: 'none' }}>
               {t('btnCancel')}
             </Button>
@@ -1915,22 +1982,72 @@ const PermitsPage: React.FC<Props> = ({
               {t('btnSave')}
             </Button>
           </DialogActions>
-        </form>
+        </Box>
       </Dialog>
 
       {/* QUICK ADD REMINDER FOR PERMIT DIALOG */}
       <Dialog
         open={isReminderModalOpen}
         onClose={() => setIsReminderModalOpen(false)}
-        maxWidth="xs"
+        maxWidth="sm"
         fullWidth
-        slotProps={{ paper: { sx: { borderRadius: 3 } } }}
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: 3,
+              maxHeight: 'calc(100vh - 64px)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            },
+          },
+        }}
       >
-        <form onSubmit={handleSaveReminderSubmit}>
-          <DialogTitle sx={{ fontWeight: 700, pb: 1 }}>
-            {t('btnAddReminderForPermit')}
+        <Box
+          component="form"
+          onSubmit={handleSaveReminderSubmit}
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100%',
+            maxHeight: 'inherit',
+            minHeight: 0,
+            overflow: 'hidden',
+          }}
+        >
+          <DialogTitle
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              fontWeight: 700,
+              p: 2,
+              flexShrink: 0,
+            }}
+          >
+            <Typography variant="h6" component="span" sx={{ fontWeight: 700 }}>
+              {t('btnAddReminderForPermit')}
+            </Typography>
+            <IconButton
+              aria-label="close"
+              onClick={() => setIsReminderModalOpen(false)}
+              size="small"
+              sx={{ color: 'text.secondary' }}
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
           </DialogTitle>
-          <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+          <DialogContent
+            dividers
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2,
+              p: { xs: 2, sm: 2.5 },
+              overflowY: 'auto',
+              flex: '1 1 auto',
+            }}
+          >
             <TextField
               fullWidth
               required
@@ -1958,7 +2075,7 @@ const PermitsPage: React.FC<Props> = ({
               onChange={(e) => setNewReminderNotes(e.target.value)}
             />
           </DialogContent>
-          <DialogActions sx={{ p: 2 }}>
+          <DialogActions sx={{ p: 2, flexShrink: 0, justifyContent: 'flex-end', gap: 1 }}>
             <Button onClick={() => setIsReminderModalOpen(false)} color="inherit" sx={{ textTransform: 'none' }}>
               {t('btnCancel')}
             </Button>
@@ -1966,23 +2083,73 @@ const PermitsPage: React.FC<Props> = ({
               {t('btnSave')}
             </Button>
           </DialogActions>
-        </form>
+        </Box>
       </Dialog>
 
       {/* EDIT REMINDER MODAL */}
       <Dialog
         open={Boolean(editingReminderModalItem)}
         onClose={() => setEditingReminderModalItem(null)}
-        maxWidth="xs"
+        maxWidth="sm"
         fullWidth
-        slotProps={{ paper: { sx: { borderRadius: 3 } } }}
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: 3,
+              maxHeight: 'calc(100vh - 64px)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            },
+          },
+        }}
       >
         {editingReminderModalItem && (
-          <form onSubmit={handleSaveEditedReminder}>
-            <DialogTitle sx={{ fontWeight: 700, pb: 1 }}>
-              {t('modalEditReminder')}
+          <Box
+            component="form"
+            onSubmit={handleSaveEditedReminder}
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              height: '100%',
+              maxHeight: 'inherit',
+              minHeight: 0,
+              overflow: 'hidden',
+            }}
+          >
+            <DialogTitle
+              sx={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                fontWeight: 700,
+                p: 2,
+                flexShrink: 0,
+              }}
+            >
+              <Typography variant="h6" component="span" sx={{ fontWeight: 700 }}>
+                {t('modalEditReminder')}
+              </Typography>
+              <IconButton
+                aria-label="close"
+                onClick={() => setEditingReminderModalItem(null)}
+                size="small"
+                sx={{ color: 'text.secondary' }}
+              >
+                <CloseIcon fontSize="small" />
+              </IconButton>
             </DialogTitle>
-            <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+            <DialogContent
+              dividers
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2,
+                p: { xs: 2, sm: 2.5 },
+                overflowY: 'auto',
+                flex: '1 1 auto',
+              }}
+            >
               <TextField
                 fullWidth
                 required
@@ -2023,7 +2190,7 @@ const PermitsPage: React.FC<Props> = ({
                 onChange={(e) => setEditReminderModalNotes(e.target.value)}
               />
             </DialogContent>
-            <DialogActions sx={{ p: 2 }}>
+            <DialogActions sx={{ p: 2, flexShrink: 0, justifyContent: 'flex-end', gap: 1 }}>
               <Button onClick={() => setEditingReminderModalItem(null)} color="inherit" sx={{ textTransform: 'none' }}>
                 {t('btnCancel')}
               </Button>
@@ -2031,7 +2198,7 @@ const PermitsPage: React.FC<Props> = ({
                 {t('btnSave')}
               </Button>
             </DialogActions>
-          </form>
+          </Box>
         )}
       </Dialog>
 

@@ -59,6 +59,9 @@ export interface TranslationKeys {
   colEndDate: string;
   lblIndexNumber: string;
   phIndexNumber: string;
+  btnLoadMore: string;
+  allLoadedSelected: string;
+  emptyWasteCatalog: string;
   lblPermitNumber: string;
   phPermitNumber: string;
   lblPermitType: string;
