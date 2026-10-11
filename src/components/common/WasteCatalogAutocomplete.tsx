@@ -8,6 +8,7 @@ import {
   Chip,
   Tooltip,
   IconButton,
+  Button,
 } from '@mui/material';
 import { StarIcon, StarBorderIcon } from '../icons';
 import { apiFetch } from '../../api';
@@ -52,6 +53,7 @@ export const WasteCatalogAutocomplete: React.FC<WasteCatalogAutocompleteProps> =
   const [catalogHasMore, setCatalogHasMore] = useState(true);
   const [catalogSearchTerm, setCatalogSearchTerm] = useState('');
   const [catalogInputValue, setCatalogInputValue] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
 
   const fetchCatalogPage = useCallback(
     async (pageToFetch: number, search: string, isAppend = false) => {
@@ -63,7 +65,7 @@ export const WasteCatalogAutocomplete: React.FC<WasteCatalogAutocompleteProps> =
         }
         const params = new URLSearchParams({
           page: String(pageToFetch),
-          limit: '20',
+          limit: '30',
         });
         if (search.trim()) {
           params.set('search', search.trim());
@@ -149,6 +151,46 @@ export const WasteCatalogAutocomplete: React.FC<WasteCatalogAutocompleteProps> =
     }
   }, [value, multiple, catalogOptions]);
 
+  // Count unselected options to determine if visible batch is exhausted
+  const unselectedOptionsCount = useMemo(() => {
+    if (!multiple) {
+      if (!normalizedValue) return catalogOptions.length;
+      const single = normalizedValue as WasteCatalog;
+      return catalogOptions.filter((opt) => opt.id !== single.id && opt.code !== single.code).length;
+    }
+    const selectedIds = new Set<string>();
+    const selectedCodes = new Set<string>();
+    if (Array.isArray(normalizedValue)) {
+      normalizedValue.forEach((item) => {
+        if (item.id) selectedIds.add(item.id);
+        if (item.code) selectedCodes.add(item.code);
+      });
+    }
+    return catalogOptions.filter(
+      (opt) => !selectedIds.has(opt.id) && !selectedCodes.has(opt.code)
+    ).length;
+  }, [catalogOptions, normalizedValue, multiple]);
+
+  // Auto-fetch next page when dropdown is open and all loaded options have been selected
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!catalogHasMore || catalogLoading || catalogLoadingMore) return;
+
+    if (unselectedOptionsCount === 0 && catalogOptions.length > 0) {
+      fetchCatalogPage(catalogPage + 1, catalogSearchTerm, true);
+    }
+  }, [
+    isOpen,
+    catalogHasMore,
+    catalogLoading,
+    catalogLoadingMore,
+    unselectedOptionsCount,
+    catalogOptions.length,
+    catalogPage,
+    catalogSearchTerm,
+    fetchCatalogPage,
+  ]);
+
   const combinedCatalogOptions = useMemo(() => {
     const newOptions = [...catalogOptions];
     if (multiple && Array.isArray(normalizedValue)) {
@@ -163,8 +205,16 @@ export const WasteCatalogAutocomplete: React.FC<WasteCatalogAutocompleteProps> =
         newOptions.unshift(singleItem);
       }
     }
+    if (catalogHasMore) {
+      newOptions.push({
+        id: '__LOAD_MORE__',
+        code: '__LOAD_MORE__',
+        description: '',
+        isHazardous: false,
+      });
+    }
     return newOptions;
-  }, [normalizedValue, catalogOptions, multiple]);
+  }, [normalizedValue, catalogOptions, multiple, catalogHasMore]);
 
   // Sync initial input value in single selection mode
   useEffect(() => {
@@ -209,6 +259,8 @@ export const WasteCatalogAutocomplete: React.FC<WasteCatalogAutocompleteProps> =
 
   return (
     <Autocomplete
+      open={isOpen}
+      onOpen={() => setIsOpen(true)}
       multiple={multiple as any}
       disabled={disabled}
       fullWidth={fullWidth}
@@ -222,10 +274,15 @@ export const WasteCatalogAutocomplete: React.FC<WasteCatalogAutocompleteProps> =
         if (multiple) {
           setCatalogInputValue('');
           setCatalogSearchTerm('');
-          const validValues = ((newValue as WasteCatalog[]) || []).filter(Boolean);
+          const validValues = ((newValue as WasteCatalog[]) || []).filter(
+            (v) => v && v.id !== '__LOAD_MORE__'
+          );
           onChange(validValues, validValues.map((v) => v.code));
         } else {
           const singleVal = (newValue as WasteCatalog) || null;
+          if (singleVal && singleVal.id === '__LOAD_MORE__') {
+            return;
+          }
           setCatalogInputValue(singleVal ? singleVal.code : '');
           setCatalogSearchTerm('');
           onChange(singleVal, singleVal?.code || '');
@@ -244,6 +301,7 @@ export const WasteCatalogAutocomplete: React.FC<WasteCatalogAutocompleteProps> =
         // internally dispatches 'reset' with empty string whenever async options arrive or options change.
       }}
       onClose={() => {
+        setIsOpen(false);
         if (multiple) {
           setCatalogInputValue('');
           setCatalogSearchTerm('');
@@ -255,7 +313,11 @@ export const WasteCatalogAutocomplete: React.FC<WasteCatalogAutocompleteProps> =
           setCatalogSearchTerm('');
         }
       }}
-      getOptionLabel={(option) => (typeof option === 'string' ? option : option.code)}
+      getOptionLabel={(option) => {
+        if (typeof option === 'string') return option;
+        if (option.id === '__LOAD_MORE__') return '';
+        return option.code || '';
+      }}
       isOptionEqualToValue={(option, val) => option.id === val?.id || option.code === val?.code}
       slotProps={{
         listbox: {
@@ -263,7 +325,7 @@ export const WasteCatalogAutocomplete: React.FC<WasteCatalogAutocompleteProps> =
             const listboxNode = event.currentTarget;
             if (
               listboxNode.scrollTop + listboxNode.clientHeight >=
-              listboxNode.scrollHeight - 25
+              listboxNode.scrollHeight - 40
             ) {
               if (!catalogLoading && !catalogLoadingMore && catalogHasMore) {
                 fetchCatalogPage(catalogPage + 1, catalogSearchTerm, true);
@@ -273,10 +335,101 @@ export const WasteCatalogAutocomplete: React.FC<WasteCatalogAutocompleteProps> =
           sx: { maxHeight: 320 },
         } as any,
       }}
-      noOptionsText={catalogLoading ? 'Učitavanje...' : 'Nema rezultata'}
-      loadingText="Učitavanje..."
+      noOptionsText={
+        catalogLoading || catalogLoadingMore ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, py: 1.5 }}>
+            <CircularProgress size={18} />
+            <Typography variant="body2" color="text.secondary">
+              {t('loadingData') || 'Učitavanje...'}
+            </Typography>
+          </Box>
+        ) : catalogHasMore ? (
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 1,
+              py: 1.5,
+              px: 1,
+            }}
+            onMouseDown={(e) => e.preventDefault()}
+          >
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
+              {t('allLoadedSelected') || 'Svi učitani indeksi su izabrani.'}
+            </Typography>
+            <Button
+              size="small"
+              variant="contained"
+              color="primary"
+              onClick={(e: React.MouseEvent) => {
+                e.preventDefault();
+                e.stopPropagation();
+                fetchCatalogPage(catalogPage + 1, catalogSearchTerm, true);
+              }}
+              sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.8rem', borderRadius: 1.5 }}
+            >
+              {t('btnLoadMore') || 'Učitaj još indeksa...'}
+            </Button>
+          </Box>
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            {t('emptyWasteCatalog') || 'Nema rezultata'}
+          </Typography>
+        )
+      }
+      loadingText={t('loadingData') || 'Učitavanje...'}
       renderOption={(props, option) => {
         const { key, ...otherProps } = props as any;
+
+        if (option.id === '__LOAD_MORE__') {
+          return (
+            <Box
+              key={key || '__LOAD_MORE__'}
+              component="li"
+              {...otherProps}
+              onMouseDown={(e: React.MouseEvent) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onClick={(e: React.MouseEvent) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!catalogLoading && !catalogLoadingMore && catalogHasMore) {
+                  fetchCatalogPage(catalogPage + 1, catalogSearchTerm, true);
+                }
+              }}
+              sx={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                py: 1.5,
+                px: 2,
+                borderTop: '1px solid',
+                borderColor: 'divider',
+                bgcolor: 'action.hover',
+                cursor: catalogLoadingMore ? 'default' : 'pointer',
+                '&:hover': {
+                  bgcolor: catalogLoadingMore ? 'action.hover' : 'action.selected',
+                },
+              }}
+            >
+              {catalogLoadingMore ? (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CircularProgress size={16} />
+                  <Typography variant="caption" color="text.secondary">
+                    {t('loadingData') || 'Učitavanje...'}
+                  </Typography>
+                </Box>
+              ) : (
+                <Typography variant="body2" color="primary" sx={{ fontWeight: 600 }}>
+                  + {t('btnLoadMore') || 'Učitaj još indeksa...'}
+                </Typography>
+              )}
+            </Box>
+          );
+        }
+
         const isStarred = option.frequent !== null && option.frequent !== undefined;
         return (
           <Box

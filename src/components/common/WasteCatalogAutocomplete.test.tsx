@@ -69,4 +69,51 @@ describe('WasteCatalogAutocomplete', () => {
     const input = screen.getByRole('combobox');
     expect(input).toHaveValue('02 01 03');
   });
+
+  it('triggers lazy loading when all options in the batch are selected', async () => {
+    (api.apiFetch as any).mockImplementation((url: string) => {
+      if (url.includes('page=2')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            items: [
+              { id: '3', code: '15 01 03', description: 'Wood', isHazardous: false },
+            ],
+            page: 2,
+            hasMore: false,
+          }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          items: [
+            { id: '1', code: '15 01 01', description: 'Paper', isHazardous: false },
+            { id: '2', code: '15 01 10*', description: 'Packaging', isHazardous: true },
+          ],
+          page: 1,
+          hasMore: true,
+        }),
+      });
+    });
+
+    render(
+      <WasteCatalogAutocomplete
+        multiple={true}
+        value={[
+          { id: '1', code: '15 01 01', description: 'Paper', isHazardous: false },
+          { id: '2', code: '15 01 10*', description: 'Packaging', isHazardous: true },
+        ]}
+        onChange={vi.fn()}
+      />
+    );
+
+    const input = screen.getByRole('combobox');
+    fireEvent.focus(input);
+    fireEvent.mouseDown(input);
+
+    await waitFor(() => {
+      expect(api.apiFetch).toHaveBeenCalledWith(expect.stringContaining('page=2'));
+    }, { timeout: 2000 });
+  });
 });
