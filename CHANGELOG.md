@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.8.2] - 2026-10-11
+
+- ci: skip security and playwright workflows for release branches and p… (#74) by @zigikralj
+
 ## [v1.8.1] - 2026-10-10
 
 - ci: remove push trigger and restrict pull request branches to main in… (#72) by @zigikralj
