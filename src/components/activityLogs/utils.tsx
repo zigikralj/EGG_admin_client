@@ -1,0 +1,225 @@
+import React from 'react';
+import { Chip, alpha } from '@mui/material';
+import {
+  AccessTimeIcon,
+  CheckCircleIcon,
+  DashboardIcon,
+  AssignmentIcon,
+  BusinessIcon,
+  AssignmentTurnedInIcon,
+  PeopleIcon,
+  BuildIcon,
+  HandymanIcon,
+  CategoryIcon,
+  NotificationsActiveIcon,
+  ReceiptLongIcon,
+  SecurityIcon,
+  WebIcon,
+  LoginIcon,
+  LogoutIcon,
+  CloudOffIcon,
+} from '../icons';
+import type { ActivityLog } from '../../types';
+
+export const LIFECYCLE_TYPES = new Set(['LOGIN', 'LOGOUT', 'ONLINE', 'OFFLINE']);
+
+export const MODULE_COLORS = [
+  '#2e7d32', // green
+  '#0284c7', // sky
+  '#7c3aed', // purple
+  '#d97706', // amber
+  '#059669', // emerald
+  '#e11d48', // rose
+  '#475569', // slate
+];
+
+export const isEmptyUpdateLog = (log: ActivityLog): boolean => {
+  if (log.type !== 'UPDATE') return false;
+  if (!log.details) return true;
+  try {
+    const detailsObj = typeof log.details === 'string' ? JSON.parse(log.details) : log.details;
+    const diff = detailsObj?.diff;
+    if (!diff || typeof diff !== 'object') return true;
+    const entries = Object.entries(diff).filter(([_, val]: [string, any]) => {
+      if (val && typeof val === 'object' && ('old' in val || 'new' in val)) {
+        return JSON.stringify(val.old) !== JSON.stringify(val.new);
+      }
+      return true;
+    });
+    return entries.length === 0;
+  } catch {
+    return false;
+  }
+};
+
+export const getActionChip = (action?: string, type?: string) => {
+  const act = (action || type || '').toLowerCase();
+  if (act === 'update') {
+    return (
+      <Chip
+        label="UPDATE"
+        size="small"
+        sx={{
+          height: 18,
+          fontSize: '0.62rem',
+          fontWeight: 700,
+          bgcolor: alpha('#f59e0b', 0.15),
+          color: '#d97706'
+        }}
+      />
+    );
+  }
+  if (act === 'create') {
+    return (
+      <Chip
+        label="CREATE"
+        size="small"
+        sx={{
+          height: 18,
+          fontSize: '0.62rem',
+          fontWeight: 700,
+          bgcolor: alpha('#10b981', 0.15),
+          color: '#059669'
+        }}
+      />
+    );
+  }
+  if (act === 'delete') {
+    return (
+      <Chip
+        label="DELETE"
+        size="small"
+        sx={{
+          height: 18,
+          fontSize: '0.62rem',
+          fontWeight: 700,
+          bgcolor: alpha('#ef4444', 0.15),
+          color: '#dc2626'
+        }}
+      />
+    );
+  }
+  return null;
+};
+
+export const formatDiffValue = (v: any) => {
+  if (v === null) return 'null';
+  if (v === undefined) return 'undefined';
+  if (typeof v === 'boolean') return v ? 'true' : 'false';
+  if (typeof v === 'object') return JSON.stringify(v);
+  return String(v);
+};
+
+export const formatDuration = (seconds?: number) => {
+  if (!seconds && seconds !== 0) return '-';
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  if (m < 60) return `${m}m ${s > 0 ? `${s}s` : ''}`.trim();
+  const h = Math.floor(m / 60);
+  const remainingM = m % 60;
+  return `${h}h ${remainingM > 0 ? `${remainingM}m` : ''}`.trim();
+};
+
+export const formatDateTime = (date: Date, language: string = 'en') => {
+  return date.toLocaleString(language === 'en' ? 'en-US' : 'sr-RS', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+};
+
+export const formatDateOnly = (date: Date, language: string = 'en') => {
+  return date.toLocaleDateString(language === 'en' ? 'en-US' : 'sr-RS', {
+    month: 'short',
+    day: 'numeric'
+  });
+};
+
+export const formatTimeOnly = (date: Date, language: string = 'en') => {
+  return date.toLocaleTimeString(language === 'en' ? 'en-US' : 'sr-RS', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+};
+
+export const getCanonicalPagePath = (rawPath?: string): string => {
+  if (!rawPath) return '';
+  if (rawPath.startsWith('/api/')) {
+    const resource = rawPath.replace('/api/', '').split('?')[0].split('/')[0];
+    if (resource === 'providedservices' || resource === 'provided-services') {
+      return '/data-management/provided-services';
+    }
+    return `/data-management/${resource}`;
+  }
+  return rawPath;
+};
+
+export const getPathLabelAndIcon = (
+  path?: string,
+  type?: string,
+  t: (key: any) => string = (k) => k,
+  language: string = 'en'
+): { label: string; icon: React.ReactElement } => {
+  if (!path && type === 'LOGIN') {
+    return { label: language === 'en' ? 'Login' : 'Prijava', icon: <LoginIcon fontSize="small" sx={{ color: '#16a34a' }} /> };
+  }
+  if (!path && type === 'LOGOUT') {
+    return { label: language === 'en' ? 'Logout' : 'Odjava', icon: <LogoutIcon fontSize="small" sx={{ color: '#dc2626' }} /> };
+  }
+  if (!path && type === 'OFFLINE') {
+    return { label: language === 'en' ? 'Offline' : 'Neaktivan', icon: <CloudOffIcon fontSize="small" sx={{ color: '#94a3b8' }} /> };
+  }
+  if (!path && type === 'ONLINE') {
+    return { label: language === 'en' ? 'Online' : 'Aktivan', icon: <CheckCircleIcon fontSize="small" sx={{ color: '#16a34a' }} /> };
+  }
+
+  if (!path) {
+    return { label: type || 'General', icon: <WebIcon fontSize="small" /> };
+  }
+
+  if (path.startsWith('/project-tracker')) {
+    return { label: t('tabDashboard'), icon: <DashboardIcon fontSize="small" sx={{ color: '#059669' }} /> };
+  }
+  if (path.includes('/projects')) {
+    return { label: t('tabProjects'), icon: <AssignmentIcon fontSize="small" sx={{ color: '#2563eb' }} /> };
+  }
+  if (path.includes('/clients')) {
+    return { label: t('tabClients'), icon: <BusinessIcon fontSize="small" sx={{ color: '#7c3aed' }} /> };
+  }
+  if (path.includes('/permits')) {
+    return { label: t('tabPermits'), icon: <AssignmentTurnedInIcon fontSize="small" sx={{ color: '#0891b2' }} /> };
+  }
+  if (path.includes('/users')) {
+    return { label: t('tabUsers'), icon: <PeopleIcon fontSize="small" sx={{ color: '#ea580c' }} /> };
+  }
+  if (path.includes('/services')) {
+    return { label: t('tabServices'), icon: <BuildIcon fontSize="small" sx={{ color: '#4f46e5' }} /> };
+  }
+  if (path.includes('/provided-services')) {
+    return { label: t('tabProvidedServices'), icon: <HandymanIcon fontSize="small" sx={{ color: '#0d9488' }} /> };
+  }
+  if (path.includes('/categories')) {
+    return { label: t('tabCategories'), icon: <CategoryIcon fontSize="small" sx={{ color: '#ca8a04' }} /> };
+  }
+  if (path.includes('/reminders')) {
+    return { label: t('tabReminders'), icon: <NotificationsActiveIcon fontSize="small" sx={{ color: '#e11d48' }} /> };
+  }
+  if (path.includes('/invoices')) {
+    return { label: t('tabInvoices'), icon: <ReceiptLongIcon fontSize="small" sx={{ color: '#16a34a' }} /> };
+  }
+  if (path.includes('/roles')) {
+    return { label: 'Roles', icon: <SecurityIcon fontSize="small" sx={{ color: '#9333ea' }} /> };
+  }
+  if (path.includes('/activity-logs')) {
+    return { label: t('tabActivityLogs'), icon: <AccessTimeIcon fontSize="small" sx={{ color: '#475569' }} /> };
+  }
+  if (path.includes('/login')) {
+    return { label: language === 'en' ? 'Login' : 'Prijava', icon: <LoginIcon fontSize="small" /> };
+  }
+
+  return { label: path, icon: <WebIcon fontSize="small" /> };
+};

@@ -133,7 +133,7 @@ export function useActivityTracker() {
     if (!nextId) {
       // Logged out: record the last segment and send everything immediately.
       closeSegment();
-      enqueue('LOGOUT', currentPathRef.current, 0);
+      enqueue('LOGOUT', '', 0);
       flush(true);
       sessionStorage.removeItem('activity_login_logged');
       sessionStorage.removeItem('activity_session_id');
@@ -151,7 +151,7 @@ export function useActivityTracker() {
     pausedRef.current = document.visibilityState === 'hidden';
 
     if (!sessionStorage.getItem('activity_login_logged')) {
-      enqueue('LOGIN', location.pathname, 0);
+      enqueue('LOGIN', '', 0);
       sessionStorage.setItem('activity_login_logged', 'true');
       flush(); // make the login visible quickly (idle-scheduled)
     }
