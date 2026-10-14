@@ -28,7 +28,7 @@ export const ActionLogItemRow: React.FC<ActionLogItemRowProps> = ({
   if (detailsStr) {
     try {
       subDetails = JSON.parse(detailsStr);
-    } catch (e) {}
+    } catch {}
   }
 
   const actionChip = getActionChip(subDetails?.action, actItem.type);

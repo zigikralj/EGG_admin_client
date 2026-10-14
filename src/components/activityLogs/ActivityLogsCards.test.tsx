@@ -63,9 +63,7 @@ describe('Activity Logs Cards and Tables', () => {
       name: 'Alice Johnson',
       email: 'alice@example.com',
       role: 'ADMIN',
-      isActive: true,
-      createdAt: '2026-01-01T00:00:00Z',
-      updatedAt: '2026-01-01T00:00:00Z'
+      createdAt: '2026-01-01T00:00:00Z'
     },
     totalDurationSeconds: 240,
     totalSessionsCount: 1,

@@ -50,7 +50,6 @@ export interface SessionAccordionProps {
 
 export const SessionAccordion: React.FC<SessionAccordionProps> = ({
   session,
-  userName,
   isExpanded,
   onToggle,
   expandedRows,

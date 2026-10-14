@@ -1,3 +1,4 @@
+/* eslint-disable react/only-export-components */
 import React from 'react';
 import { Chip, alpha } from '@mui/material';
 import {

@@ -10,18 +10,14 @@ describe('useActivityLogsData hook', () => {
       name: 'Alice Johnson',
       email: 'alice@example.com',
       role: 'ADMIN',
-      isActive: true,
       createdAt: '2026-01-01T00:00:00Z',
-      updatedAt: '2026-01-01T00:00:00Z',
     },
     {
       id: 'u2',
       name: 'Bob Smith',
       email: 'bob@example.com',
       role: 'USER',
-      isActive: true,
       createdAt: '2026-01-01T00:00:00Z',
-      updatedAt: '2026-01-01T00:00:00Z',
     }
   ];
 

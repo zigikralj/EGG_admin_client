@@ -13,7 +13,7 @@ export const LogDiffView: React.FC<LogDiffViewProps> = ({ detailsStr, isDark, la
   let detailsObj: any = null;
   try {
     detailsObj = JSON.parse(detailsStr);
-  } catch (e) {
+  } catch {
     return (
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, p: 0.8, bgcolor: 'divider', borderRadius: 1, fontFamily: 'monospace', fontSize: '0.73rem' }}>
         {detailsStr}
