@@ -21,6 +21,7 @@ import {
   useActivityLogToggleMutation,
   useActivityLogUpdateSettingsMutation,
 } from '../../queries';
+import { flushActivityTracker } from '../../hooks/useActivityTracker';
 import {
   useActivityLogsData,
   ActivityLogsHeader,
@@ -116,6 +117,18 @@ export const ActivityLogsPage: React.FC = () => {
       updateSettingsMutation.mutate({ retentionDays: parsed });
       setCustomRetentionOpen(false);
     }
+  };
+
+  React.useEffect(() => {
+    // Flush any pending activity logs immediately so latest visits appear right away
+    void flushActivityTracker(true).then(() => {
+      void refetch();
+    });
+  }, [refetch]);
+
+  const handleRefreshClick = async () => {
+    await flushActivityTracker(true);
+    refetch();
   };
 
   const handleDeleteConfirm = async () => {
@@ -236,7 +249,7 @@ export const ActivityLogsPage: React.FC = () => {
         onToggleClick={handleToggleClick}
         onRetentionSelect={handleRetentionSelect}
         onClearAllClick={() => setDeleteDialog({ isOpen: true, type: 'all' })}
-        onRefreshClick={() => refetch()}
+        onRefreshClick={handleRefreshClick}
         language={language}
         t={t}
         isDark={isDark}

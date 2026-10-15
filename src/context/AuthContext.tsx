@@ -49,7 +49,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const stored = localStorage.getItem('auth_user');
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (parsed && parsed.id) return parsed;
+        if (parsed && parsed.id) {
+          if (!expiresAt) {
+            localStorage.setItem('auth_session_expires_at', (Date.now() + 9 * 3600 * 1000).toString());
+          }
+          return parsed;
+        }
       }
       return null;
     } catch (e) {
@@ -112,6 +117,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('auth_user');
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_session_expires_at');
+    localStorage.removeItem('activity_session_id');
+    localStorage.removeItem('activity_session_last_active');
+    localStorage.removeItem('activity_login_logged');
+    sessionStorage.removeItem('activity_session_id');
+    sessionStorage.removeItem('activity_session_last_active');
+    sessionStorage.removeItem('activity_login_logged');
     setCurrentUser(null);
   }, [queryClient]);
 
@@ -234,11 +245,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       logout();
     };
 
+    const handleVisibility = () => {
+      if (!document.hidden) {
+        checkSession();
+      }
+    };
+
     window.addEventListener('auth:expired', onAuthExpired);
+    window.addEventListener('focus', checkSession);
+    document.addEventListener('visibilitychange', handleVisibility);
     const interval = setInterval(checkSession, 15000); // Check every 15 seconds
 
     return () => {
       window.removeEventListener('auth:expired', onAuthExpired);
+      window.removeEventListener('focus', checkSession);
+      document.removeEventListener('visibilitychange', handleVisibility);
       clearInterval(interval);
     };
   }, [logout]);

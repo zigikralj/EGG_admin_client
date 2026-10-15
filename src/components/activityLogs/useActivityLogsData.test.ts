@@ -177,4 +177,129 @@ describe('useActivityLogsData hook', () => {
     expect(activityMatch.current.filteredUsers.length).toBe(1);
     expect(activityMatch.current.filteredUsers[0].userId).toBe('u2');
   });
+
+  it('merges consecutive activities across different session IDs when there was no logout and gap is small', () => {
+    const t0 = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const t1 = new Date(Date.now() - 4 * 60 * 1000).toISOString();
+    const t2 = new Date(Date.now() - 3 * 60 * 1000).toISOString();
+
+    const multiSessionLogs: ActivityLog[] = [
+      {
+        id: 's1-1',
+        userId: 'u1',
+        userName: 'Alice Johnson',
+        sessionId: 'sess_tab1',
+        type: 'PAGE_VIEW',
+        path: '/projects',
+        durationSeconds: 30,
+        timestamp: t0
+      },
+      {
+        id: 's1-2',
+        userId: 'u1',
+        userName: 'Alice Johnson',
+        sessionId: 'sess_tab1',
+        type: 'PAGE_VIEW',
+        path: '/clients',
+        durationSeconds: 20,
+        timestamp: t1
+      },
+      // Second tab or page reload generates sess_tab2 1 min later without LOGOUT
+      {
+        id: 's2-1',
+        userId: 'u1',
+        userName: 'Alice Johnson',
+        sessionId: 'sess_tab2',
+        type: 'PAGE_VIEW',
+        path: '/permits',
+        durationSeconds: 15,
+        timestamp: t2
+      }
+    ];
+
+    const { result } = renderHook(() =>
+      useActivityLogsData({
+        logs: multiSessionLogs,
+        users: mockUsers,
+        timeRangeFilter: 'ALL',
+        selectedUserFilter: 'u1',
+        searchQuery: '',
+        t: (k: string) => k,
+        language: 'en'
+      })
+    );
+
+    const user = result.current.processedData.find(u => u.userId === 'u1');
+    expect(user).toBeDefined();
+    // Should be clustered into 1 continuous session instead of 2 separate sections
+    expect(user?.sessions.length).toBe(1);
+    expect(user?.sessions[0].accumulatedActivities.length).toBe(3);
+    expect(user?.sessions[0].isActive).toBe(true);
+  });
+
+  it('ensures only the latest session can be marked active even if older session was within 10 minutes', () => {
+    const tPastSession = new Date(Date.now() - 6 * 60 * 1000).toISOString();
+    const tLogout = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const tNewSession = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+
+    const twoSessionsWithLogout: ActivityLog[] = [
+      {
+        id: 'old-1',
+        userId: 'u1',
+        userName: 'Alice Johnson',
+        sessionId: 'sess_old',
+        type: 'PAGE_VIEW',
+        path: '/projects',
+        durationSeconds: 60,
+        timestamp: tPastSession
+      },
+      {
+        id: 'old-logout',
+        userId: 'u1',
+        userName: 'Alice Johnson',
+        sessionId: 'sess_old',
+        type: 'LOGOUT',
+        timestamp: tLogout
+      },
+      {
+        id: 'new-login',
+        userId: 'u1',
+        userName: 'Alice Johnson',
+        sessionId: 'sess_new',
+        type: 'LOGIN',
+        timestamp: tNewSession
+      },
+      {
+        id: 'new-1',
+        userId: 'u1',
+        userName: 'Alice Johnson',
+        sessionId: 'sess_new',
+        type: 'PAGE_VIEW',
+        path: '/clients',
+        durationSeconds: 30,
+        timestamp: tNewSession
+      }
+    ];
+
+    const { result } = renderHook(() =>
+      useActivityLogsData({
+        logs: twoSessionsWithLogout,
+        users: mockUsers,
+        timeRangeFilter: 'ALL',
+        selectedUserFilter: 'u1',
+        searchQuery: '',
+        t: (k: string) => k,
+        language: 'en'
+      })
+    );
+
+    const user = result.current.processedData.find(u => u.userId === 'u1');
+    expect(user).toBeDefined();
+    expect(user?.sessions.length).toBe(2);
+    // Newest session is active
+    expect(user?.sessions[0].isActive).toBe(true);
+    // Older session cannot be active
+    expect(user?.sessions[1].isActive).toBe(false);
+  });
 });
+

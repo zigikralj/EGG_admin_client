@@ -71,8 +71,13 @@ export function useActivityLogsData({
       const userName = matchedUser?.name || userLogs[0]?.userName || userId;
 
       // Group logs into sessions:
-      // A) logs with explicit sessionId
-      // B) legacy logs clustered by 30min gap or LOGIN
+      // Clustered chronologically by:
+      // - Explicit LOGOUT event
+      // - Inactivity gap > 30 minutes
+      // - Explicit different sessionId with substantial gap (> 5 min)
+      // - LOGIN event preceded by LOGOUT or substantial gap (> 5 min)
+      // Consecutive logs with minor gap (<= 5 min) without LOGOUT belong to the same logical session,
+      // preventing accidental session splits caused by tab reloads or multi-tab usage.
       const sessionMap = new Map<string, ActivityLog[]>();
 
       // Sort user logs chronologically ascending for clustering
@@ -80,31 +85,41 @@ export function useActivityLogsData({
         (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
       );
 
-      let currentSyntheticSessionId = '';
+      let currentSessionId = '';
       let lastTimestamp = 0;
+      let lastType = '';
 
       for (const log of sortedAsc) {
         const logTime = new Date(log.timestamp).getTime();
+        const isGap = lastTimestamp > 0 && (logTime - lastTimestamp > 30 * 60 * 1000);
+        const wasLogout = lastType === 'LOGOUT';
+        const hasSubstantialGap = lastTimestamp > 0 && (logTime - lastTimestamp > 5 * 60 * 1000);
+        const isDifferentSessionId = Boolean(log.sessionId && currentSessionId && log.sessionId !== currentSessionId);
+        const isLogin = log.type === 'LOGIN';
 
-        if (log.sessionId) {
-          if (!sessionMap.has(log.sessionId)) {
-            sessionMap.set(log.sessionId, []);
-          }
-          sessionMap.get(log.sessionId)!.push(log);
-        } else {
-          // Check if should start a new session (gap > 30 mins or LOGIN event)
-          const isGap = logTime - lastTimestamp > 30 * 60 * 1000;
-          const isLogin = log.type === 'LOGIN';
-          if (!currentSyntheticSessionId || isGap || isLogin) {
-            currentSyntheticSessionId = `synth_${userId}_${logTime}`;
-          }
-
-          if (!sessionMap.has(currentSyntheticSessionId)) {
-            sessionMap.set(currentSyntheticSessionId, []);
-          }
-          sessionMap.get(currentSyntheticSessionId)!.push(log);
-          lastTimestamp = logTime;
+        let shouldStartNewSession = false;
+        if (!currentSessionId) {
+          shouldStartNewSession = true;
+        } else if (wasLogout) {
+          shouldStartNewSession = true;
+        } else if (isGap) {
+          shouldStartNewSession = true;
+        } else if (isDifferentSessionId && hasSubstantialGap) {
+          shouldStartNewSession = true;
+        } else if (isLogin && (hasSubstantialGap || wasLogout)) {
+          shouldStartNewSession = true;
         }
+
+        if (shouldStartNewSession) {
+          currentSessionId = log.sessionId || `synth_${userId}_${logTime}`;
+          if (!sessionMap.has(currentSessionId)) {
+            sessionMap.set(currentSessionId, []);
+          }
+        }
+
+        sessionMap.get(currentSessionId)!.push(log);
+        lastTimestamp = logTime;
+        lastType = log.type;
       }
 
       // Convert sessions to Session objects
@@ -202,6 +217,13 @@ export function useActivityLogsData({
 
       // Sort sessions newest first
       sessionList.sort((a, b) => b.endTime.getTime() - a.endTime.getTime());
+
+      // Only the newest session for a user can ever be active; older sessions are strictly past
+      sessionList.forEach((sess, idx) => {
+        if (idx > 0) {
+          sess.isActive = false;
+        }
+      });
 
       // Overall user stats
       const totalUserDuration = sessionList.reduce((sum, s) => sum + s.totalDurationSeconds, 0);

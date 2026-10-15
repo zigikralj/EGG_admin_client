@@ -26,7 +26,9 @@ export function useAuthHeaders() {
     const headers: Record<string, string> = {};
     if (currentUser?.id) headers['X-User-Id'] = currentUser.id;
     
-    const sid = sessionStorage.getItem('activity_session_id');
+    const sid =
+      (typeof localStorage !== 'undefined' ? localStorage.getItem('activity_session_id') : null) ||
+      (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('activity_session_id') : null);
     if (sid) {
       headers['X-Session-Id'] = sid;
     }
