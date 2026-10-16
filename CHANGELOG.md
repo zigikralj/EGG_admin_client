@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.8.4] - 2026-10-16
+
+- Activity log improvement (#78) by @zigikralj
+
 ## [v1.8.3] - 2026-10-11
 
 - refactor: redesign permits and reminders modals with improved layout … (#76) by @zigikralj
