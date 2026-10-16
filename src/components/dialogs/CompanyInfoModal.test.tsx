@@ -4,6 +4,7 @@ import { CompanyInfoModal } from './CompanyInfoModal';
 import * as LanguageContext from '../../context/LanguageContext';
 import * as AuthContext from '../../context/AuthContext';
 import { apiFetch } from '../../api';
+import { API_ROUTES } from '../../constants';
 
 vi.mock('../../context/LanguageContext', () => ({
   useLanguage: vi.fn(),
@@ -96,7 +97,7 @@ describe('CompanyInfoModal', () => {
     fireEvent.click(saveButton);
     
     await waitFor(() => {
-      expect(apiFetch).toHaveBeenCalledWith('/api/company-info', expect.objectContaining({
+      expect(apiFetch).toHaveBeenCalledWith(API_ROUTES.COMPANY_INFO.BASE, expect.objectContaining({
         method: 'PUT',
       }));
     });

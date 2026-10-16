@@ -20,6 +20,7 @@ import { LoginPage } from './pages/auth/LoginPage';
 import { useProjectsQuery, useRemindersQuery, useStatsQuery, usePreferencesQuery, usePreferencesMutations } from './queries';
 import { useActivityTracker } from './hooks/useActivityTracker';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { API_ROUTES, PAGE_ROUTES } from './constants';
 import './index.css';
 
 const TrackerPage = React.lazy(() => import('./pages/tracker/TrackerPage'));
@@ -133,7 +134,7 @@ function MainApp() {
     let target = projects.find((p) => p.id === projectId);
     if (!target) {
       try {
-        const res = await apiFetch('/api/projects');
+        const res = await apiFetch(API_ROUTES.PROJECTS.BASE);
         if (res.ok) {
           const allProjects: Project[] = await res.json();
           target = allProjects.find((p) => p.id === projectId);
@@ -190,12 +191,12 @@ function MainApp() {
                 onViewProject={handleViewProject}
                 onEditProject={handleEditProject}
                 onOpenNewProject={() => handleEditProject(null)}
-                onNavigateToProjects={() => navigate('/project-tracker/projects')}
+                onNavigateToProjects={() => navigate(PAGE_ROUTES.PROJECT_TRACKER_PROJECTS)}
                 onNavigateToInvoices={() => {
                   if (hasPermission('apps', 'data-management') && hasPermission('invoices', 'view')) {
-                    navigate('/data-management/invoices');
+                    navigate(PAGE_ROUTES.INVOICES);
                   } else {
-                    navigate('/project-tracker/invoices');
+                    navigate(PAGE_ROUTES.PROJECT_TRACKER_INVOICES);
                   }
                 }}
                 quickFilters={userPreferences.quick_filter_dashboard_projects}
@@ -216,7 +217,7 @@ function MainApp() {
                 onWasteManagementRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_dashboard_waste_management', rpp)}
               />
             } />
-            <Route path="/data-management/projects" element={
+            <Route path={PAGE_ROUTES.PROJECTS} element={
               <ProjectsPage
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
@@ -235,7 +236,7 @@ function MainApp() {
                 onQuickFiltersChange={(val) => updatePreference('quick_filter_projects', val)}
               />
             } />
-            <Route path="/data-management/clients" element={
+            <Route path={PAGE_ROUTES.CLIENTS} element={
               <ClientsPage
                 visibleColumns={userPreferences.cols_clients}
                 onVisibleColumnsChange={(cols) => updatePreference('cols_clients', cols)}
@@ -247,7 +248,7 @@ function MainApp() {
                 onSortChange={(sort) => updatePreference('sort_clients', sort)}
               />
             } />
-            <Route path="/data-management/permits" element={
+            <Route path={PAGE_ROUTES.PERMITS} element={
               <PermitsPage
                 visibleColumns={userPreferences.cols_permits}
                 onVisibleColumnsChange={(cols) => updatePreference('cols_permits', cols)}
@@ -261,7 +262,7 @@ function MainApp() {
                 onQuickFiltersChange={(val) => updatePreference('quick_filter_permits', val)}
               />
             } />
-            <Route path="/data-management/users" element={
+            <Route path={PAGE_ROUTES.USERS} element={
               <UsersPage
                 visibleColumns={userPreferences.cols_users}
                 onVisibleColumnsChange={(cols) => updatePreference('cols_users', cols)}
@@ -275,7 +276,7 @@ function MainApp() {
                 onQuickFiltersChange={(val) => updatePreference('quick_filter_users', val)}
               />
             } />
-            <Route path="/data-management/services" element={
+            <Route path={PAGE_ROUTES.SERVICES} element={
               <ServicesPage
                 visibleColumns={userPreferences.cols_services}
                 onVisibleColumnsChange={(cols) => updatePreference('cols_services', cols)}
@@ -287,7 +288,7 @@ function MainApp() {
                 onSortChange={(sort) => updatePreference('sort_services', sort)}
               />
             } />
-            <Route path="/data-management/provided-services" element={
+            <Route path={PAGE_ROUTES.PROVIDED_SERVICES} element={
               <ProvidedServicesPage
                 subTab={providedServicesSubTab}
                 visibleColumns={userPreferences.cols_providedServices}
@@ -302,7 +303,7 @@ function MainApp() {
                 onQuickFilterChange={(val) => updatePreference('quick_filter_providedServices', val)}
               />
             } />
-            <Route path="/data-management/categories" element={
+            <Route path={PAGE_ROUTES.CATEGORIES} element={
               <CategoriesPage
                 visibleColumns={userPreferences.cols_categories}
                 onVisibleColumnsChange={(cols) => updatePreference('cols_categories', cols)}
@@ -314,7 +315,7 @@ function MainApp() {
                 onSortChange={(sort) => updatePreference('sort_categories', sort)}
               />
             } />
-            <Route path="/data-management/invoices" element={
+            <Route path={PAGE_ROUTES.INVOICES} element={
               <InvoicesPage
                 visibleColumns={userPreferences.cols_invoices}
                 onVisibleColumnsChange={(cols) => updatePreference('cols_invoices', cols)}
@@ -326,7 +327,7 @@ function MainApp() {
                 onSortChange={(sort) => updatePreference('sort_invoices', sort)}
               />
             } />
-            <Route path="/data-management/reminders" element={
+            <Route path={PAGE_ROUTES.REMINDERS} element={
               <RemindersPage
                 visibleColumns={userPreferences.cols_reminders}
                 onVisibleColumnsChange={(cols) => updatePreference('cols_reminders', cols)}
@@ -340,10 +341,10 @@ function MainApp() {
                 onQuickFiltersChange={(val) => updatePreference('quick_filter_reminders', val)}
               />
             } />
-            <Route path="/data-management/roles" element={<RolesPage />} />
-            <Route path="/data-management/activity-logs" element={<ActivityLogsPage />} />
-            <Route path="/" element={<Navigate to="/project-tracker/projects" replace />} />
-            <Route path="*" element={<Navigate to="/project-tracker/projects" replace />} />
+            <Route path={PAGE_ROUTES.ROLES} element={<RolesPage />} />
+            <Route path={PAGE_ROUTES.ACTIVITY_LOGS} element={<ActivityLogsPage />} />
+            <Route path="/" element={<Navigate to={PAGE_ROUTES.PROJECT_TRACKER_PROJECTS} replace />} />
+            <Route path="*" element={<Navigate to={PAGE_ROUTES.PROJECT_TRACKER_PROJECTS} replace />} />
           </Routes>
         </Suspense>
 

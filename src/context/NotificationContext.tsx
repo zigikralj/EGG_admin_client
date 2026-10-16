@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import type { AppNotification } from '../types';
 import { apiFetch } from '../api';
+import { API_ROUTES } from '../constants';
 import { useAuth } from './AuthContext';
 
 interface NotificationContextType {
@@ -27,7 +28,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     if (!currentUser || isFetchingRef.current) return;
     isFetchingRef.current = true;
     try {
-      const res = await apiFetch('/api/notifications', {
+      const res = await apiFetch(API_ROUTES.NOTIFICATIONS.BASE, {
         headers: {
           'X-User-Id': currentUser.id,
         },
@@ -115,7 +116,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setUnreadCount((prev) => Math.max(0, prev - 1));
 
     try {
-      await apiFetch(`/api/notifications/${id}/read`, {
+      await apiFetch(API_ROUTES.NOTIFICATIONS.READ(id), {
         method: 'PATCH',
         headers: { 'X-User-Id': currentUser.id },
       });
@@ -132,7 +133,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setUnreadCount(0);
 
     try {
-      await apiFetch('/api/notifications/mark-all-read', {
+      await apiFetch(API_ROUTES.NOTIFICATIONS.MARK_ALL_READ, {
         method: 'PATCH',
         headers: { 'X-User-Id': currentUser.id },
       });
@@ -153,7 +154,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
 
     try {
-      await apiFetch(`/api/notifications/${id}`, {
+      await apiFetch(API_ROUTES.NOTIFICATIONS.BY_ID(id), {
         method: 'DELETE',
         headers: { 'X-User-Id': currentUser.id },
       });
@@ -169,7 +170,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setUnreadCount(0);
 
     try {
-      await apiFetch('/api/notifications/clear-all', {
+      await apiFetch(API_ROUTES.NOTIFICATIONS.CLEAR_ALL, {
         method: 'DELETE',
         headers: { 'X-User-Id': currentUser.id },
       });

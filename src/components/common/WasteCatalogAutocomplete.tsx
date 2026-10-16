@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import { StarIcon, StarBorderIcon } from '../icons';
 import { apiFetch } from '../../api';
+import { API_ROUTES } from '../../constants';
 import type { WasteCatalog, WasteCatalogResponse } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 
@@ -70,7 +71,7 @@ export const WasteCatalogAutocomplete: React.FC<WasteCatalogAutocompleteProps> =
         if (search.trim()) {
           params.set('search', search.trim());
         }
-        const res = await apiFetch(`/api/waste-catalog?${params.toString()}`);
+        const res = await apiFetch(`${API_ROUTES.WASTE_CATALOG.BASE}?${params.toString()}`);
         if (res.ok) {
           const data: WasteCatalogResponse = await res.json();
           const items = data.items || [];
@@ -231,7 +232,7 @@ export const WasteCatalogAutocomplete: React.FC<WasteCatalogAutocompleteProps> =
     e.stopPropagation();
     e.preventDefault();
     try {
-      const res = await apiFetch(`/api/waste-catalog/${item.id}/frequent`, {
+      const res = await apiFetch(API_ROUTES.WASTE_CATALOG.FREQUENT(item.id), {
         method: 'PATCH',
       });
       if (res.ok) {

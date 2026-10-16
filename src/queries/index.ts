@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { API_ROUTES } from '../constants';
 import type { TranslationKeys } from '../i18n/translations';
 import type {
   Project,
@@ -26,7 +27,9 @@ export function useAuthHeaders() {
     const headers: Record<string, string> = {};
     if (currentUser?.id) headers['X-User-Id'] = currentUser.id;
     
-    const sid = sessionStorage.getItem('activity_session_id');
+    const sid =
+      (typeof localStorage !== 'undefined' ? localStorage.getItem('activity_session_id') : null) ||
+      (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('activity_session_id') : null);
     if (sid) {
       headers['X-Session-Id'] = sid;
     }
@@ -44,7 +47,7 @@ export function useProjectsQuery(searchQuery: string = '') {
     queryKey: ['projects', currentUser?.id, searchQuery],
     queryFn: async () => {
       const q = searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : '';
-      const res = await apiFetch(`/api/projects${q}`, { headers: getAuthHeaders() });
+      const res = await apiFetch(`${API_ROUTES.PROJECTS.BASE}${q}`, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch projects');
       return res.json();
     }
@@ -56,7 +59,7 @@ export function useClientsQuery() {
   return useQuery<Client[]>({
     queryKey: ['clients'],
     queryFn: async () => {
-      const res = await apiFetch('/api/clients', { headers: getAuthHeaders() });
+      const res = await apiFetch(API_ROUTES.CLIENTS.BASE, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch clients');
       return res.json();
     }
@@ -68,7 +71,7 @@ export function useUsersQuery() {
   return useQuery<User[]>({
     queryKey: ['users'],
     queryFn: async () => {
-      const res = await apiFetch('/api/users', { headers: getAuthHeaders() });
+      const res = await apiFetch(API_ROUTES.USERS.BASE, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch users');
       return res.json();
     }
@@ -80,7 +83,7 @@ export function useServicesQuery() {
   return useQuery<Service[]>({
     queryKey: ['services'],
     queryFn: async () => {
-      const res = await apiFetch('/api/services', { headers: getAuthHeaders() });
+      const res = await apiFetch(API_ROUTES.SERVICES.BASE, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch services');
       return res.json();
     }
@@ -92,7 +95,7 @@ export function useProvidedServicesQuery() {
   return useQuery<ProvidedService[]>({
     queryKey: ['provided-services'],
     queryFn: async () => {
-      const res = await apiFetch('/api/provided-services', { headers: getAuthHeaders() });
+      const res = await apiFetch(API_ROUTES.PROVIDED_SERVICES.BASE, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch provided services');
       return res.json();
     }
@@ -104,7 +107,7 @@ export function useCategoriesQuery() {
   return useQuery<Category[]>({
     queryKey: ['categories'],
     queryFn: async () => {
-      const res = await apiFetch('/api/categories', { headers: getAuthHeaders() });
+      const res = await apiFetch(API_ROUTES.CATEGORIES.BASE, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch categories');
       return res.json();
     }
@@ -120,7 +123,7 @@ export function usePreferencesMutations() {
     mutationKey: ['preferences'],
     meta: { silent: true },
     mutationFn: async ({ key, value }: { key: string; value: any }) => {
-      const res = await apiFetch(`/api/preferences/${key}`, {
+      const res = await apiFetch(API_ROUTES.PREFERENCES.BY_KEY(key), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -161,7 +164,7 @@ export function useRemindersQuery() {
   return useQuery<Reminder[]>({
     queryKey: ['reminders', currentUser?.id],
     queryFn: async () => {
-      const res = await apiFetch('/api/reminders', { headers: getAuthHeaders() });
+      const res = await apiFetch(API_ROUTES.REMINDERS.BASE, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch reminders');
       return res.json();
     }
@@ -173,7 +176,7 @@ export function useInvoicesQuery() {
   return useQuery<Invoice[]>({
     queryKey: ['invoices'],
     queryFn: async () => {
-      const res = await apiFetch('/api/invoices', { headers: getAuthHeaders() });
+      const res = await apiFetch(API_ROUTES.INVOICES.BASE, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch invoices');
       return res.json();
     }
@@ -185,7 +188,7 @@ export function usePermitsQuery() {
   return useQuery<Permit[]>({
     queryKey: ['permits'],
     queryFn: async () => {
-      const res = await apiFetch('/api/permits', { headers: getAuthHeaders() });
+      const res = await apiFetch(API_ROUTES.PERMITS.BASE, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch permits');
       return res.json();
     }
@@ -197,7 +200,7 @@ export function useWasteCatalogQuery() {
   return useQuery<WasteCatalog[]>({
     queryKey: ['waste-catalog'],
     queryFn: async () => {
-      const res = await apiFetch('/api/waste-catalog', { headers: getAuthHeaders() });
+      const res = await apiFetch(API_ROUTES.WASTE_CATALOG.BASE, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch waste catalog');
       return res.json();
     }
@@ -210,7 +213,7 @@ export function useStatsQuery() {
   return useQuery<ProjectStats>({
     queryKey: ['stats', currentUser?.id],
     queryFn: async () => {
-      const res = await apiFetch('/api/projects/stats', { headers: getAuthHeaders() });
+      const res = await apiFetch(API_ROUTES.PROJECTS.STATS, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch stats');
       return res.json();
     }
@@ -228,7 +231,7 @@ export function useActivityLogsQuery(from?: string) {
     queryFn: async () => {
       const params = new URLSearchParams({ includeDetails: 'false' });
       if (from) params.set('from', from);
-      const res = await apiFetch(`/api/activity-logs?${params.toString()}`, { headers: getAuthHeaders() });
+      const res = await apiFetch(`${API_ROUTES.ACTIVITY_LOGS.BASE}?${params.toString()}`, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch activity logs');
       return res.json();
     },
@@ -248,7 +251,7 @@ export function useActivityLogDetailsQuery(id: string | undefined, enabled: bool
   return useQuery<ActivityLog>({
     queryKey: ['activity-log-details', id],
     queryFn: async () => {
-      const res = await apiFetch(`/api/activity-logs/${encodeURIComponent(id!)}`, { headers: getAuthHeaders() });
+      const res = await apiFetch(API_ROUTES.ACTIVITY_LOGS.BY_ID(id!), { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch activity log details');
       return res.json();
     },
@@ -264,7 +267,7 @@ export function useActivityLogsMutations() {
 
   const clearAllMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiFetch('/api/activity-logs/clear-all', {
+      const res = await apiFetch(API_ROUTES.ACTIVITY_LOGS.CLEAR_ALL, {
         method: 'DELETE',
         headers: getAuthHeaders(),
       });
@@ -279,7 +282,7 @@ export function useActivityLogsMutations() {
   const deleteSessionMutation = useMutation({
     mutationFn: async (payload: { sessionId?: string, ids?: string[] }) => {
       if (payload.ids && payload.ids.length > 0) {
-        const res = await apiFetch('/api/activity-logs/bulk-delete', {
+        const res = await apiFetch(API_ROUTES.ACTIVITY_LOGS.BULK_DELETE, {
           method: 'POST',
           headers: {
             ...getAuthHeaders(),
@@ -290,7 +293,7 @@ export function useActivityLogsMutations() {
         if (!res.ok) throw new Error('Failed to bulk delete activity logs');
         return res.json();
       } else if (payload.sessionId) {
-        const res = await apiFetch(`/api/activity-logs/session/${encodeURIComponent(payload.sessionId)}`, {
+        const res = await apiFetch(API_ROUTES.ACTIVITY_LOGS.SESSION(payload.sessionId), {
           method: 'DELETE',
           headers: getAuthHeaders(),
         });
@@ -306,7 +309,7 @@ export function useActivityLogsMutations() {
 
   const deleteIndividualMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await apiFetch(`/api/activity-logs/${encodeURIComponent(id)}`, {
+      const res = await apiFetch(API_ROUTES.ACTIVITY_LOGS.BY_ID(id), {
         method: 'DELETE',
         headers: getAuthHeaders(),
       });
@@ -332,7 +335,7 @@ export function useActivityLogStatusQuery() {
   return useQuery<ActivityLogStatus>({
     queryKey: ['activity-logs-status'],
     queryFn: async () => {
-      const res = await apiFetch('/api/activity-logs/status', { headers: getAuthHeaders() });
+      const res = await apiFetch(API_ROUTES.ACTIVITY_LOGS.STATUS, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch activity log status');
       return res.json();
     },
@@ -349,7 +352,7 @@ export function useActivityLogUpdateSettingsMutation() {
 
   return useMutation({
     mutationFn: async (settings: { enabled?: boolean; retentionDays?: number }) => {
-      const res = await apiFetch('/api/activity-logs/status', {
+      const res = await apiFetch(API_ROUTES.ACTIVITY_LOGS.STATUS, {
         method: 'PATCH',
         headers: {
           ...getAuthHeaders(),
@@ -387,7 +390,7 @@ export function usePreferencesQuery() {
   return useQuery<Record<string, any>>({
     queryKey: ['preferences', currentUser?.id],
     queryFn: async () => {
-      const res = await apiFetch('/api/preferences', { headers: getAuthHeaders() });
+      const res = await apiFetch(API_ROUTES.PREFERENCES.BASE, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch preferences');
       return res.json();
     },
@@ -499,7 +502,7 @@ export function usePreferencesMutation() {
     mutationKey: ['preferences'],
     meta: { silent: true },
     mutationFn: async ({ key, value }: { key: string; value: any }) => {
-      const res = await apiFetch(`/api/preferences/${key}`, {
+      const res = await apiFetch(API_ROUTES.PREFERENCES.BY_KEY(key), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify({ value }),
@@ -551,7 +554,7 @@ export function useGenericActionMutation() {
 
 export function useProjectsMutations() {
   const generic = useGenericMutations<Project>({
-    basePath: '/api/projects',
+    basePath: API_ROUTES.PROJECTS.BASE,
     queryKeyToInvalidate: ['projects'],
     additionalInvalidates: [['stats']],
     errorSaveMessageKey: 'errorSavingProject',
@@ -565,7 +568,7 @@ export function useProjectsMutations() {
 
   const toggleDoneMutation = useMutation({
     mutationFn: async ({ id, isCompleting: _ }: { id: string, isCompleting: boolean }) => {
-      const res = await apiFetch(`/api/projects/${id}/toggle-done`, {
+      const res = await apiFetch(API_ROUTES.PROJECTS.TOGGLE_DONE(id), {
         method: 'PATCH',
         headers: getAuthHeaders(),
       });
@@ -582,7 +585,7 @@ export function useProjectsMutations() {
 
   const markSampledMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await apiFetch(`/api/projects/${id}/sample`, {
+      const res = await apiFetch(API_ROUTES.PROJECTS.SAMPLE(id), {
         method: 'PATCH',
         headers: getAuthHeaders(),
       });
@@ -606,7 +609,7 @@ export function useProjectsMutations() {
 
 export function useClientsMutations() {
   return useGenericMutations<Client>({
-    basePath: '/api/clients',
+    basePath: API_ROUTES.CLIENTS.BASE,
     queryKeyToInvalidate: ['clients'],
     additionalInvalidates: [['stats'], ['permits']],
     errorSaveMessageKey: 'errorSavingClient',
@@ -617,7 +620,7 @@ export function useClientsMutations() {
 
 export function useUsersMutations() {
   const generic = useGenericMutations<User>({
-    basePath: '/api/users',
+    basePath: API_ROUTES.USERS.BASE,
     queryKeyToInvalidate: ['users'],
     additionalInvalidates: [['stats']],
     errorSaveMessageKey: 'errorSavingUser',
@@ -629,7 +632,7 @@ export function useUsersMutations() {
   
   const handleApproveUser = (userId: string, role: string) => {
     return actionMutation.mutateAsync({
-      path: `/api/users/${userId}/approve`,
+      path: API_ROUTES.USERS.APPROVE(userId),
       body: { role },
       queryKeysToInvalidate: [['users'], ['stats']],
     });
@@ -637,14 +640,14 @@ export function useUsersMutations() {
   
   const handleRejectUser = (userId: string) => {
     return actionMutation.mutateAsync({
-      path: `/api/users/${userId}/reject`,
+      path: API_ROUTES.USERS.REJECT(userId),
       queryKeysToInvalidate: [['users'], ['stats']],
     });
   };
   
   const handleForceLogoutUser = (userId: string) => {
     return actionMutation.mutateAsync({
-      path: `/api/users/${userId}/force-logout`,
+      path: API_ROUTES.USERS.FORCE_LOGOUT(userId),
       queryKeysToInvalidate: [['users'], ['stats']],
     });
   };
@@ -659,7 +662,7 @@ export function useUsersMutations() {
 
 export function useServicesMutations() {
   return useGenericMutations<Service>({
-    basePath: '/api/services',
+    basePath: API_ROUTES.SERVICES.BASE,
     queryKeyToInvalidate: ['services'],
     additionalInvalidates: [['stats']],
     errorSaveMessageKey: 'errorSavingService',
@@ -669,7 +672,7 @@ export function useServicesMutations() {
 
 export function useProvidedServicesMutations() {
   return useGenericMutations<ProvidedService>({
-    basePath: '/api/provided-services',
+    basePath: API_ROUTES.PROVIDED_SERVICES.BASE,
     queryKeyToInvalidate: ['provided-services'],
     errorSaveMessageKey: 'errorSavingService',
     deleteConfirmMessageKey: 'confirmDeleteProvidedService' as any,
@@ -678,7 +681,7 @@ export function useProvidedServicesMutations() {
 
 export function useCategoriesMutations() {
   return useGenericMutations<Category>({
-    basePath: '/api/categories',
+    basePath: API_ROUTES.CATEGORIES.BASE,
     queryKeyToInvalidate: ['categories'],
     errorSaveMessageKey: 'errorSavingService',
     deleteConfirmMessageKey: 'confirmDeleteCategory' as any,
@@ -687,7 +690,7 @@ export function useCategoriesMutations() {
 
 export function useRemindersMutations() {
   const generic = useGenericMutations<Reminder>({
-    basePath: '/api/reminders',
+    basePath: API_ROUTES.REMINDERS.BASE,
     queryKeyToInvalidate: ['reminders'],
     errorSaveMessageKey: 'errorSavingService',
     deleteConfirmMessageKey: 'confirmDeleteReminder' as any,
@@ -697,7 +700,7 @@ export function useRemindersMutations() {
   
   const handleStatusChangeReminder = (id: string, newStatus: string) => {
      return actionMutation.mutateAsync({
-        path: `/api/reminders/${id}/status`,
+        path: API_ROUTES.REMINDERS.STATUS(id),
         method: 'PATCH',
         body: { status: newStatus },
         queryKeysToInvalidate: [['reminders']],
@@ -712,7 +715,7 @@ export function useRemindersMutations() {
 
 export function useInvoicesMutations() {
   const generic = useGenericMutations<Invoice>({
-    basePath: '/api/invoices',
+    basePath: API_ROUTES.INVOICES.BASE,
     queryKeyToInvalidate: ['invoices'],
     errorSaveMessageKey: 'errorSavingService',
     deleteConfirmMessageKey: 'confirmDeleteInvoice' as any,
@@ -722,7 +725,7 @@ export function useInvoicesMutations() {
   
   const handleUpdateInvoiceStatus = (id: string, status: string, paymentDate?: string | null) => {
      return actionMutation.mutateAsync({
-        path: `/api/invoices/${id}/status`,
+        path: API_ROUTES.INVOICES.STATUS(id),
         method: 'PATCH',
         body: { status, paymentDate },
         queryKeysToInvalidate: [['invoices']],
@@ -737,7 +740,7 @@ export function useInvoicesMutations() {
 
 export function usePermitsMutations() {
   return useGenericMutations<Permit>({
-    basePath: '/api/permits',
+    basePath: API_ROUTES.PERMITS.BASE,
     queryKeyToInvalidate: ['permits'],
     additionalInvalidates: [['clients'], ['stats']],
     errorSaveMessageKey: 'errorSavingService',
@@ -754,7 +757,7 @@ export function useRolesQuery() {
   return useQuery<Role[]>({
     queryKey: ['roles'],
     queryFn: async () => {
-      const res = await apiFetch('/api/roles', { headers: getAuthHeaders() });
+      const res = await apiFetch(API_ROUTES.ROLES.BASE, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch roles');
       return res.json();
     },
@@ -767,7 +770,7 @@ export function useRoleMutations() {
 
   const createMutation = useMutation({
     mutationFn: async (data: Partial<Role>) => {
-      const res = await apiFetch('/api/roles', {
+      const res = await apiFetch(API_ROUTES.ROLES.BASE, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify(data),
@@ -786,7 +789,7 @@ export function useRoleMutations() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ name, data }: { name: string; data: Partial<Role> }) => {
-      const res = await apiFetch(`/api/roles/${encodeURIComponent(name)}`, {
+      const res = await apiFetch(API_ROUTES.ROLES.BY_NAME(name), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify(data),
@@ -805,7 +808,7 @@ export function useRoleMutations() {
 
   const deleteMutation = useMutation({
     mutationFn: async (name: string) => {
-      const res = await apiFetch(`/api/roles/${encodeURIComponent(name)}`, {
+      const res = await apiFetch(API_ROUTES.ROLES.BY_NAME(name), {
         method: 'DELETE',
         headers: getAuthHeaders(),
       });

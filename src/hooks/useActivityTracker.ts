@@ -1,17 +1,17 @@
 import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../api';
+import { API_ROUTES, PAGE_ROUTES } from '../constants';
 import { useActivityLogStatusQuery } from '../queries';
 
 /**
  * Lightweight, batched page-activity tracker.
  *
  * - Events are queued in memory and sent as ONE request every FLUSH_INTERVAL_MS,
- *   or immediately (with `keepalive`) when the tab is hidden / closed or the user logs out.
- * - Time is only counted while the tab is visible; each visible segment is recorded exactly once
- *   (fixes double counting between `visibilitychange` and page unload).
- * - Non-urgent flushes run in `requestIdleCallback` so logging never competes with UI work.
+ *   or immediately on page navigation, unload, visibility change, or logout.
+ * - Sessions are shared across tabs via localStorage and expire after 30 minutes of inactivity.
  * - Identity (user id / name) is resolved server-side from the JWT.
  */
 
@@ -28,16 +28,80 @@ interface TrackerEvent {
 const FLUSH_INTERVAL_MS = 30_000;
 const MIN_PAGE_VIEW_SECONDS = 1;
 const MAX_QUEUE_SIZE = 100;
+export const MAX_IDLE_SECONDS = 120; // 2 minutes without user interaction considered idle
+const HEARTBEAT_INTERVAL_MS = 5_000; // 5-second tick for idle & sleep detection
 
-function getSessionId(): string {
-  let sid = sessionStorage.getItem('activity_session_id');
-  if (!sid) {
+export const SESSION_STORAGE_KEY = 'activity_session_id';
+export const SESSION_ACTIVITY_KEY = 'activity_session_last_active';
+export const SESSION_LOGIN_KEY = 'activity_login_logged';
+export const SESSION_INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+
+export function getSessionId(): string {
+  const now = Date.now();
+  const lastActiveStr =
+    (typeof localStorage !== 'undefined' ? localStorage.getItem(SESSION_ACTIVITY_KEY) : null) ||
+    (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(SESSION_ACTIVITY_KEY) : null);
+  const lastActive = lastActiveStr ? parseInt(lastActiveStr, 10) : 0;
+  let sid =
+    (typeof localStorage !== 'undefined' ? localStorage.getItem(SESSION_STORAGE_KEY) : null) ||
+    (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(SESSION_STORAGE_KEY) : null);
+
+  // If no session exists or session expired due to inactivity (> 30 mins)
+  if (!sid || !lastActive || now - lastActive > SESSION_INACTIVITY_TIMEOUT_MS) {
     const randomBytes = window.crypto.getRandomValues(new Uint8Array(8));
     const randomPart = Array.from(randomBytes, (b) => b.toString(16).padStart(2, '0')).join('');
-    sid = 'sess_' + Date.now() + '_' + randomPart;
-    sessionStorage.setItem('activity_session_id', sid);
+    sid = 'sess_' + now + '_' + randomPart;
+    try {
+      localStorage.setItem(SESSION_STORAGE_KEY, sid);
+      sessionStorage.setItem(SESSION_STORAGE_KEY, sid);
+      localStorage.removeItem(SESSION_LOGIN_KEY);
+      sessionStorage.removeItem(SESSION_LOGIN_KEY);
+    } catch (e) {}
+  } else {
+    // Keep storages synced across tabs
+    try {
+      if (!sessionStorage.getItem(SESSION_STORAGE_KEY)) {
+        sessionStorage.setItem(SESSION_STORAGE_KEY, sid);
+      }
+      if (!localStorage.getItem(SESSION_STORAGE_KEY)) {
+        localStorage.setItem(SESSION_STORAGE_KEY, sid);
+      }
+    } catch (e) {}
   }
+
+  try {
+    localStorage.setItem(SESSION_ACTIVITY_KEY, String(now));
+    sessionStorage.setItem(SESSION_ACTIVITY_KEY, String(now));
+  } catch (e) {}
   return sid;
+}
+
+export function updateSessionActivity(): void {
+  const now = Date.now();
+  try {
+    localStorage.setItem(SESSION_ACTIVITY_KEY, String(now));
+    sessionStorage.setItem(SESSION_ACTIVITY_KEY, String(now));
+  } catch (e) {}
+}
+
+export function clearSessionData(): void {
+  try {
+    sessionStorage.removeItem(SESSION_LOGIN_KEY);
+    localStorage.removeItem(SESSION_LOGIN_KEY);
+    sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    localStorage.removeItem(SESSION_STORAGE_KEY);
+    sessionStorage.removeItem(SESSION_ACTIVITY_KEY);
+    localStorage.removeItem(SESSION_ACTIVITY_KEY);
+  } catch (e) {}
+}
+
+let activeFlushFn: ((urgent?: boolean) => Promise<void>) | null = null;
+let activeCloseSegmentFn: (() => void) | null = null;
+
+/** Trigger an immediate flush of the activity tracker from outside the hook (e.g. on manual refresh). */
+export async function flushActivityTracker(urgent = true): Promise<void> {
+  if (activeCloseSegmentFn) activeCloseSegmentFn();
+  if (activeFlushFn) return activeFlushFn(urgent);
 }
 
 const runWhenIdle = (cb: () => void) => {
@@ -52,13 +116,21 @@ const runWhenIdle = (cb: () => void) => {
 export function useActivityTracker() {
   const { currentUser } = useAuth();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const { data: statusData } = useActivityLogStatusQuery();
   const isEnabled = statusData?.enabled ?? true;
 
   const queueRef = useRef<TrackerEvent[]>([]);
+  const sessionStartTimeRef = useRef<number>(Date.now());
   const segmentStartRef = useRef<number>(Date.now());
-  const currentPathRef = useRef<string>(location.pathname);
+  const normalizeTrackedPath = (p: string): string => {
+    return p === '/' || p === PAGE_ROUTES.HOME ? PAGE_ROUTES.PROJECT_TRACKER_PROJECTS : p;
+  };
+  const currentPathRef = useRef<string>(normalizeTrackedPath(location.pathname));
   const pausedRef = useRef<boolean>(typeof document !== 'undefined' && document.visibilityState === 'hidden');
+  const lastInteractionRef = useRef<number>(Date.now());
+  const lastHeartbeatRef = useRef<number>(Date.now());
+  const isIdleRef = useRef<boolean>(false);
   /** Cached token so the final batch can still be sent right after logout clears localStorage. */
   const tokenRef = useRef<string | null>(null);
   const sessionIdRef = useRef<string | null>(null);
@@ -71,8 +143,32 @@ export function useActivityTracker() {
     }
   }, [isEnabled]);
 
+  const rotateSessionIfExpired = () => {
+    const lastActiveStr =
+      (typeof localStorage !== 'undefined' ? localStorage.getItem(SESSION_ACTIVITY_KEY) : null) ||
+      (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(SESSION_ACTIVITY_KEY) : null);
+    const lastActive = lastActiveStr ? parseInt(lastActiveStr, 10) : 0;
+    const now = Date.now();
+
+    if (!sessionIdRef.current || !lastActive || now - lastActive > SESSION_INACTIVITY_TIMEOUT_MS) {
+      if (queueRef.current.length > 0) {
+        void flush(true);
+      }
+      sessionIdRef.current = getSessionId();
+      sessionStartTimeRef.current = now;
+      segmentStartRef.current = now;
+      lastInteractionRef.current = now;
+      isIdleRef.current = false;
+    }
+  };
+
   const enqueue = (type: TrackerEventType, path: string, durationSeconds = 0) => {
-    if (!isEnabled || !sessionIdRef.current) return;
+    if (!isEnabled) return;
+    if (type !== 'LOGOUT') {
+      rotateSessionIfExpired();
+    }
+    if (!sessionIdRef.current) return;
+    updateSessionActivity();
     if (queueRef.current.length >= MAX_QUEUE_SIZE) queueRef.current.shift();
     queueRef.current.push({
       type,
@@ -84,20 +180,43 @@ export function useActivityTracker() {
   };
 
   /** Close the current visible segment (if any) as a PAGE_VIEW and start a new one. */
-  const closeSegment = () => {
+  const closeSegment = (isSleepOrIdleCutoff = false) => {
     if (!isEnabled) return;
     const now = Date.now();
-    if (!pausedRef.current) {
-      const duration = Math.floor((now - segmentStartRef.current) / 1000);
+    if (!pausedRef.current && !isIdleRef.current) {
+      // Effective end time cannot exceed last interaction + MAX_IDLE_SECONDS
+      const maxAllowedEnd = lastInteractionRef.current + MAX_IDLE_SECONDS * 1000;
+      const effectiveEnd = Math.min(now, maxAllowedEnd);
+      const duration = Math.floor((effectiveEnd - segmentStartRef.current) / 1000);
       if (duration >= MIN_PAGE_VIEW_SECONDS) {
         enqueue('PAGE_VIEW', currentPathRef.current, duration);
       }
     }
     segmentStartRef.current = now;
+    if (isSleepOrIdleCutoff) {
+      isIdleRef.current = true;
+    }
   };
 
-  const flush = (urgent = false) => {
-    if (!isEnabled || queueRef.current.length === 0) return;
+  const flush = (urgent = false): Promise<void> => {
+    if (!isEnabled || queueRef.current.length === 0) return Promise.resolve();
+
+    const isOnlyLifecycle = queueRef.current.every(
+      (e) => e.type === 'LOGIN' || e.type === 'LOGOUT'
+    );
+    const sessionAgeSeconds = (Date.now() - sessionStartTimeRef.current) / 1000;
+
+    // Do not register/persist sessions that only contain login/logout and last less than 5 seconds
+    if (isOnlyLifecycle && sessionAgeSeconds < 5) {
+      if (urgent) {
+        // Session ending or window closing under 5s with only lifecycle events: drop it
+        queueRef.current = [];
+        return Promise.resolve();
+      }
+      // Hold in memory queue until real activity occurs or >= 5 seconds elapse
+      return Promise.resolve();
+    }
+
     const batch = queueRef.current;
     queueRef.current = [];
 
@@ -107,20 +226,42 @@ export function useActivityTracker() {
       headers['Authorization'] = `Bearer ${tokenRef.current}`;
     }
 
-    const send = () => {
-      apiFetch('/api/activity-logs', {
+    const send = () =>
+      apiFetch(API_ROUTES.ACTIVITY_LOGS.BASE, {
         method: 'POST',
         headers,
         body: JSON.stringify(batch),
         keepalive: urgent
-      }).catch(() => {
-        /* best-effort: drop on network failure */
-      });
-    };
+      })
+        .then(() => {
+          // If viewing activity logs, trigger query invalidation so newly flushed records appear immediately
+          if (typeof window !== 'undefined' && window.location.pathname.includes(PAGE_ROUTES.ACTIVITY_LOGS)) {
+            queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
+          }
+        })
+        .catch(() => {
+          /* best-effort: drop on network failure */
+        });
 
-    if (urgent) send();
-    else runWhenIdle(send);
+    if (urgent) {
+      return send();
+    } else {
+      return new Promise<void>((resolve) => {
+        runWhenIdle(() => {
+          send().finally(resolve);
+        });
+      });
+    }
   };
+
+  useEffect(() => {
+    activeFlushFn = flush;
+    activeCloseSegmentFn = closeSegment;
+    return () => {
+      activeFlushFn = null;
+      activeCloseSegmentFn = null;
+    };
+  });
 
   // Session lifecycle: login / logout.
   // Driven by user-id transitions (not effect cleanup) so StrictMode double-invocation is harmless.
@@ -133,10 +274,17 @@ export function useActivityTracker() {
     if (!nextId) {
       // Logged out: record the last segment and send everything immediately.
       closeSegment();
-      enqueue('LOGOUT', currentPathRef.current, 0);
-      flush(true);
-      sessionStorage.removeItem('activity_login_logged');
-      sessionStorage.removeItem('activity_session_id');
+      const sessionAgeSeconds = (Date.now() - sessionStartTimeRef.current) / 1000;
+      const isOnlyLifecycle = queueRef.current.every(
+        (e) => e.type === 'LOGIN' || e.type === 'LOGOUT'
+      );
+      if (isOnlyLifecycle && sessionAgeSeconds < 5) {
+        queueRef.current = [];
+      } else {
+        enqueue('LOGOUT', '', 0);
+        void flush(true);
+      }
+      clearSessionData();
       sessionIdRef.current = null;
       tokenRef.current = null;
       return;
@@ -146,14 +294,24 @@ export function useActivityTracker() {
     if (prevId) return; // user switch while logged in — keep the running session
 
     sessionIdRef.current = getSessionId();
+    sessionStartTimeRef.current = Date.now();
     segmentStartRef.current = Date.now();
-    currentPathRef.current = location.pathname;
+    lastInteractionRef.current = Date.now();
+    lastHeartbeatRef.current = Date.now();
+    isIdleRef.current = false;
+    currentPathRef.current = normalizeTrackedPath(location.pathname);
     pausedRef.current = document.visibilityState === 'hidden';
 
-    if (!sessionStorage.getItem('activity_login_logged')) {
-      enqueue('LOGIN', location.pathname, 0);
-      sessionStorage.setItem('activity_login_logged', 'true');
-      flush(); // make the login visible quickly (idle-scheduled)
+    const hasLoggedLogin =
+      (typeof localStorage !== 'undefined' ? localStorage.getItem(SESSION_LOGIN_KEY) : null) ||
+      (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(SESSION_LOGIN_KEY) : null);
+
+    if (!hasLoggedLogin) {
+      enqueue('LOGIN', '', 0);
+      try {
+        localStorage.setItem(SESSION_LOGIN_KEY, 'true');
+        sessionStorage.setItem(SESSION_LOGIN_KEY, 'true');
+      } catch (e) {}
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id]);
@@ -161,15 +319,58 @@ export function useActivityTracker() {
   // Page navigation
   useEffect(() => {
     if (!currentUser) return;
-    if (currentPathRef.current === location.pathname) return;
+    const targetPath = normalizeTrackedPath(location.pathname);
+    if (currentPathRef.current === targetPath) return;
     closeSegment();
-    currentPathRef.current = location.pathname;
+    currentPathRef.current = targetPath;
+    const now = Date.now();
+    segmentStartRef.current = now;
+    lastInteractionRef.current = now;
+    isIdleRef.current = false;
+    void flush(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname, currentUser?.id]);
 
-  // Visibility, unload and periodic flush
+  // User activity listeners, sleep/freeze heartbeat, visibility, unload and periodic flush
   useEffect(() => {
     if (!currentUser) return;
+
+    const handleUserActivity = () => {
+      const now = Date.now();
+      // Throttle activity updates to at most once per second
+      if (now - lastInteractionRef.current < 1000) return;
+      lastInteractionRef.current = now;
+      updateSessionActivity();
+
+      // If waking from idle or suspended sleep, start fresh segment
+      if (isIdleRef.current) {
+        isIdleRef.current = false;
+        rotateSessionIfExpired();
+        segmentStartRef.current = now;
+      }
+    };
+
+    const checkSleepOrIdle = () => {
+      const now = Date.now();
+      const elapsedSinceLastTick = now - lastHeartbeatRef.current;
+      lastHeartbeatRef.current = now;
+
+      // 1. Sleep / Freeze detection:
+      // Heartbeat is scheduled every 5s. If elapsed > 15s, system was suspended/asleep!
+      if (elapsedSinceLastTick > 15_000) {
+        if (!isIdleRef.current) {
+          closeSegment(true);
+        }
+        rotateSessionIfExpired();
+        return;
+      }
+
+      // 2. Inactivity idle detection: user has not interacted for > MAX_IDLE_SECONDS
+      if (!isIdleRef.current && now - lastInteractionRef.current > MAX_IDLE_SECONDS * 1000) {
+        closeSegment(true);
+        void flush();
+      }
+    };
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
@@ -178,27 +379,45 @@ export function useActivityTracker() {
         flush(true);
       } else {
         pausedRef.current = false;
-        segmentStartRef.current = Date.now();
+        checkSleepOrIdle();
+        const now = Date.now();
+        segmentStartRef.current = now;
+        lastInteractionRef.current = now;
+        lastHeartbeatRef.current = now;
       }
     };
 
-    // `pagehide` covers tab close / reload / bfcache; time is only counted if not already paused.
     const handlePageHide = () => {
       closeSegment();
       pausedRef.current = true;
       flush(true);
     };
 
-    // Only sends what is already queued — does not create extra rows.
-    const interval = window.setInterval(() => flush(), FLUSH_INTERVAL_MS);
+    const handleFocus = () => {
+      checkSleepOrIdle();
+    };
+
+    const activityEvents = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'];
+    activityEvents.forEach((ev) => {
+      window.addEventListener(ev, handleUserActivity, { passive: true });
+    });
+
+    const heartbeatInterval = window.setInterval(checkSleepOrIdle, HEARTBEAT_INTERVAL_MS);
+    const flushInterval = window.setInterval(() => flush(), FLUSH_INTERVAL_MS);
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('pagehide', handlePageHide);
+    window.addEventListener('focus', handleFocus);
 
     return () => {
-      window.clearInterval(interval);
+      activityEvents.forEach((ev) => {
+        window.removeEventListener(ev, handleUserActivity);
+      });
+      window.clearInterval(heartbeatInterval);
+      window.clearInterval(flushInterval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('pagehide', handlePageHide);
+      window.removeEventListener('focus', handleFocus);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id]);

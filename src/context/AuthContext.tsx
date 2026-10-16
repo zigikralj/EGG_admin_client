@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { User, UserRole, Project, Role } from '../types';
 import { apiFetch } from '../api';
+import { API_ROUTES } from '../constants';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -49,7 +50,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const stored = localStorage.getItem('auth_user');
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (parsed && parsed.id) return parsed;
+        if (parsed && parsed.id) {
+          if (!expiresAt) {
+            localStorage.setItem('auth_session_expires_at', (Date.now() + 9 * 3600 * 1000).toString());
+          }
+          return parsed;
+        }
       }
       return null;
     } catch (e) {
@@ -69,7 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     try {
       setIsRolesLoading(true);
-      const res = await apiFetch('/api/roles', { headers: { 'X-User-Id': currentUser.id } });
+      const res = await apiFetch(API_ROUTES.ROLES.BASE, { headers: { 'X-User-Id': currentUser.id } });
       if (res.ok) {
         const data: Role[] = await res.json();
         setRolesState(data);
@@ -112,6 +118,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('auth_user');
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_session_expires_at');
+    localStorage.removeItem('activity_session_id');
+    localStorage.removeItem('activity_session_last_active');
+    localStorage.removeItem('activity_login_logged');
+    sessionStorage.removeItem('activity_session_id');
+    sessionStorage.removeItem('activity_session_last_active');
+    sessionStorage.removeItem('activity_login_logged');
     setCurrentUser(null);
   }, [queryClient]);
 
@@ -154,7 +166,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const checkAuth = async () => {
       try {
-        const res = await apiFetch('/api/auth/me', {
+        const res = await apiFetch(API_ROUTES.AUTH.ME, {
           headers: { 'X-User-Id': currentUser.id },
         });
         if (res.status === 403) {
@@ -234,18 +246,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       logout();
     };
 
+    const handleVisibility = () => {
+      if (!document.hidden) {
+        checkSession();
+      }
+    };
+
     window.addEventListener('auth:expired', onAuthExpired);
+    window.addEventListener('focus', checkSession);
+    document.addEventListener('visibilitychange', handleVisibility);
     const interval = setInterval(checkSession, 15000); // Check every 15 seconds
 
     return () => {
       window.removeEventListener('auth:expired', onAuthExpired);
+      window.removeEventListener('focus', checkSession);
+      document.removeEventListener('visibilitychange', handleVisibility);
       clearInterval(interval);
     };
   }, [logout]);
 
   const login = React.useCallback(async (emailOrName: string, password: string) => {
     try {
-      const res = await apiFetch('/api/auth/login', {
+      const res = await apiFetch(API_ROUTES.AUTH.LOGIN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ emailOrName, password }),
@@ -282,7 +304,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = React.useCallback(async (userData: { name: string; email: string; phone?: string; password: string }) => {
     try {
-      const res = await apiFetch('/api/auth/register', {
+      const res = await apiFetch(API_ROUTES.AUTH.REGISTER, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData),

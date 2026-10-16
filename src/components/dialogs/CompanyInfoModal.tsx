@@ -33,6 +33,7 @@ import {
 
 
 import { apiFetch } from '../../api';
+import { API_ROUTES } from '../../constants';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import type { CompanyInfo } from '../../types';
@@ -86,7 +87,7 @@ export const CompanyInfoModal: React.FC<CompanyInfoModalProps> = ({ open, onClos
   const fetchCompanyInfo = async () => {
     setIsLoading(true);
     try {
-      const res = await apiFetch('/api/company-info');
+      const res = await apiFetch(API_ROUTES.COMPANY_INFO.BASE);
       if (res.ok) {
         const data = await res.json();
         if (data) {
@@ -198,7 +199,7 @@ export const CompanyInfoModal: React.FC<CompanyInfoModalProps> = ({ open, onClos
         bankAccounts: formData.bankAccounts.map((a) => a.trim()).filter(Boolean),
       };
 
-      const res = await apiFetch('/api/company-info', {
+      const res = await apiFetch(API_ROUTES.COMPANY_INFO.BASE, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
