@@ -4,6 +4,7 @@ import { UserProfileDialog } from './UserProfileDialog';
 import * as AuthContext from '../../context/AuthContext';
 import * as LanguageContext from '../../context/LanguageContext';
 import { apiFetch } from '../../api';
+import { API_ROUTES } from '../../constants';
 
 vi.mock('../../context/AuthContext', () => ({
   useAuth: vi.fn(),
@@ -78,7 +79,7 @@ describe('UserProfileDialog', () => {
     fireEvent.click(saveButton);
     
     await waitFor(() => {
-      expect(apiFetch).toHaveBeenCalledWith(`/api/users/1`, expect.objectContaining({
+      expect(apiFetch).toHaveBeenCalledWith(API_ROUTES.USERS.BY_ID('1'), expect.objectContaining({
         method: 'PUT',
         body: expect.stringContaining('Updated Name'),
       }));

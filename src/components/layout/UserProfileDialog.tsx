@@ -37,6 +37,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useRoleLabels } from '../../hooks/useRoleLabels';
 import { apiFetch } from '../../api';
+import { API_ROUTES } from '../../constants';
 import { CloseIcon, PhotoCameraIcon, PersonIcon, EmailIcon, PhoneIcon, WcIcon, BadgeIcon, VpnKeyIcon, ExpandMoreIcon, ExpandLessIcon, LockIcon, Visibility, VisibilityOff } from '../icons';
 
 interface UserProfileDialogProps {
@@ -133,7 +134,7 @@ export const UserProfileDialog: React.FC<UserProfileDialogProps> = ({ isOpen, on
 
     setIsSavingProfile(true);
     try {
-      const res = await apiFetch(`/api/users/${currentUser.id}`, {
+      const res = await apiFetch(API_ROUTES.USERS.BY_ID(currentUser.id), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

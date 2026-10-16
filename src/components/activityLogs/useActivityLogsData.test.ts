@@ -301,5 +301,44 @@ describe('useActivityLogsData hook', () => {
     // Older session cannot be active
     expect(user?.sessions[1].isActive).toBe(false);
   });
+
+  it('does not register or display sessions containing only login / logout that last less than 5 seconds', () => {
+    const shortSessionLogs: ActivityLog[] = [
+      {
+        id: 'short-1',
+        userId: 'u1',
+        userName: 'Alice Johnson',
+        sessionId: 'sess_short_lifecycle',
+        type: 'LOGIN',
+        durationSeconds: 0,
+        timestamp: '2026-10-15T10:00:00.000Z'
+      },
+      {
+        id: 'short-2',
+        userId: 'u1',
+        userName: 'Alice Johnson',
+        sessionId: 'sess_short_lifecycle',
+        type: 'LOGOUT',
+        durationSeconds: 0,
+        timestamp: '2026-10-15T10:00:02.000Z'
+      }
+    ];
+
+    const { result } = renderHook(() =>
+      useActivityLogsData({
+        logs: shortSessionLogs,
+        users: mockUsers,
+        timeRangeFilter: 'ALL',
+        selectedUserFilter: 'ALL',
+        searchQuery: '',
+        t: (k: string) => k,
+        language: 'en'
+      })
+    );
+
+    const user = result.current.processedData.find(u => u.userId === 'u1');
+    expect(user?.sessions.length).toBe(0);
+    expect(user?.totalSessionsCount).toBe(0);
+  });
 });
 

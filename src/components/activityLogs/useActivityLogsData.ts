@@ -140,6 +140,16 @@ export function useActivityLogsData({
           totalDuration = Math.max(0, Math.floor((endTime.getTime() - startTime.getTime()) / 1000));
         }
 
+        // If a session contains only login / logout events and lasts less than 5 seconds, do not register/include it
+        const isOnlyLifecycle = sLogs.every(l => l.type === 'LOGIN' || l.type === 'LOGOUT');
+        const sessionSpanSeconds = Math.max(
+          totalDuration,
+          Math.floor((endTime.getTime() - startTime.getTime()) / 1000)
+        );
+        if (isOnlyLifecycle && sessionSpanSeconds < 5) {
+          return;
+        }
+
         // Active check: latest activity within 10 minutes and not OFFLINE or LOGOUT
         const latestLog = sortedDesc[0];
         const isActive =

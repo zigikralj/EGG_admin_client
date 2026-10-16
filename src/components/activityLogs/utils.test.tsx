@@ -11,6 +11,7 @@ import {
   formatDateTime
 } from './utils';
 import type { ActivityLog } from '../../types';
+import { API_ROUTES, PAGE_ROUTES } from '../../constants';
 
 describe('Activity Logs Utils', () => {
   describe('isEmptyUpdateLog', () => {
@@ -19,9 +20,9 @@ describe('Activity Logs Utils', () => {
       expect(isEmptyUpdateLog(log)).toBe(false);
     });
 
-    it('returns true for UPDATE log without details', () => {
+    it('returns false for UPDATE log without details (details lazy-loaded in list query)', () => {
       const log = { type: 'UPDATE' } as ActivityLog;
-      expect(isEmptyUpdateLog(log)).toBe(true);
+      expect(isEmptyUpdateLog(log)).toBe(false);
     });
 
     it('returns false when diff has actual modified fields', () => {
@@ -94,18 +95,32 @@ describe('Activity Logs Utils', () => {
     });
 
     it('canonicalizes provided-services API paths', () => {
-      expect(getCanonicalPagePath('/api/providedservices?page=1')).toBe('/data-management/provided-services');
-      expect(getCanonicalPagePath('/api/provided-services/123')).toBe('/data-management/provided-services');
+      expect(getCanonicalPagePath(`${API_ROUTES.PROVIDED_SERVICES.BASE}?page=1`)).toBe(PAGE_ROUTES.PROVIDED_SERVICES);
+      expect(getCanonicalPagePath(API_ROUTES.PROVIDED_SERVICES.BY_ID('123'))).toBe(PAGE_ROUTES.PROVIDED_SERVICES);
+    });
+
+    it('canonicalizes categories API paths', () => {
+      expect(getCanonicalPagePath(API_ROUTES.CATEGORIES.BASE)).toBe(PAGE_ROUTES.CATEGORIES);
+      expect(getCanonicalPagePath(API_ROUTES.CATEGORIES.BY_ID('123'))).toBe(PAGE_ROUTES.CATEGORIES);
+    });
+
+    it('canonicalizes invoices API paths', () => {
+      expect(getCanonicalPagePath(API_ROUTES.INVOICES.BASE)).toBe(PAGE_ROUTES.INVOICES);
+      expect(getCanonicalPagePath(API_ROUTES.INVOICES.BY_ID('123'))).toBe(PAGE_ROUTES.INVOICES);
     });
 
     it('canonicalizes other API resource paths', () => {
-      expect(getCanonicalPagePath('/api/projects/123')).toBe('/data-management/projects');
-      expect(getCanonicalPagePath('/api/clients')).toBe('/data-management/clients');
+      expect(getCanonicalPagePath(API_ROUTES.PROJECTS.BY_ID('123'))).toBe(PAGE_ROUTES.PROJECTS);
+      expect(getCanonicalPagePath(API_ROUTES.CLIENTS.BASE)).toBe(PAGE_ROUTES.CLIENTS);
     });
 
     it('preserves client-side paths', () => {
-      expect(getCanonicalPagePath('/project-tracker')).toBe('/project-tracker');
+      expect(getCanonicalPagePath(PAGE_ROUTES.PROJECT_TRACKER)).toBe(PAGE_ROUTES.PROJECT_TRACKER);
       expect(getCanonicalPagePath('/dashboard')).toBe('/dashboard');
+    });
+
+    it('canonicalizes root path "/" to Dashboard', () => {
+      expect(getCanonicalPagePath('/')).toBe(PAGE_ROUTES.PROJECT_TRACKER_PROJECTS);
     });
   });
 

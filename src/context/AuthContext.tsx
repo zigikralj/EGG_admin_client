@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { User, UserRole, Project, Role } from '../types';
 import { apiFetch } from '../api';
+import { API_ROUTES } from '../constants';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -74,7 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     try {
       setIsRolesLoading(true);
-      const res = await apiFetch('/api/roles', { headers: { 'X-User-Id': currentUser.id } });
+      const res = await apiFetch(API_ROUTES.ROLES.BASE, { headers: { 'X-User-Id': currentUser.id } });
       if (res.ok) {
         const data: Role[] = await res.json();
         setRolesState(data);
@@ -165,7 +166,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const checkAuth = async () => {
       try {
-        const res = await apiFetch('/api/auth/me', {
+        const res = await apiFetch(API_ROUTES.AUTH.ME, {
           headers: { 'X-User-Id': currentUser.id },
         });
         if (res.status === 403) {
@@ -266,7 +267,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = React.useCallback(async (emailOrName: string, password: string) => {
     try {
-      const res = await apiFetch('/api/auth/login', {
+      const res = await apiFetch(API_ROUTES.AUTH.LOGIN, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ emailOrName, password }),
@@ -303,7 +304,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = React.useCallback(async (userData: { name: string; email: string; phone?: string; password: string }) => {
     try {
-      const res = await apiFetch('/api/auth/register', {
+      const res = await apiFetch(API_ROUTES.AUTH.REGISTER, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData),

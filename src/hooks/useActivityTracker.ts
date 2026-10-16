@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../api';
+import { API_ROUTES, PAGE_ROUTES } from '../constants';
 import { useActivityLogStatusQuery } from '../queries';
 
 /**
@@ -120,8 +121,12 @@ export function useActivityTracker() {
   const isEnabled = statusData?.enabled ?? true;
 
   const queueRef = useRef<TrackerEvent[]>([]);
+  const sessionStartTimeRef = useRef<number>(Date.now());
   const segmentStartRef = useRef<number>(Date.now());
-  const currentPathRef = useRef<string>(location.pathname);
+  const normalizeTrackedPath = (p: string): string => {
+    return p === '/' || p === PAGE_ROUTES.HOME ? PAGE_ROUTES.PROJECT_TRACKER_PROJECTS : p;
+  };
+  const currentPathRef = useRef<string>(normalizeTrackedPath(location.pathname));
   const pausedRef = useRef<boolean>(typeof document !== 'undefined' && document.visibilityState === 'hidden');
   const lastInteractionRef = useRef<number>(Date.now());
   const lastHeartbeatRef = useRef<number>(Date.now());
@@ -150,6 +155,7 @@ export function useActivityTracker() {
         void flush(true);
       }
       sessionIdRef.current = getSessionId();
+      sessionStartTimeRef.current = now;
       segmentStartRef.current = now;
       lastInteractionRef.current = now;
       isIdleRef.current = false;
@@ -194,6 +200,23 @@ export function useActivityTracker() {
 
   const flush = (urgent = false): Promise<void> => {
     if (!isEnabled || queueRef.current.length === 0) return Promise.resolve();
+
+    const isOnlyLifecycle = queueRef.current.every(
+      (e) => e.type === 'LOGIN' || e.type === 'LOGOUT'
+    );
+    const sessionAgeSeconds = (Date.now() - sessionStartTimeRef.current) / 1000;
+
+    // Do not register/persist sessions that only contain login/logout and last less than 5 seconds
+    if (isOnlyLifecycle && sessionAgeSeconds < 5) {
+      if (urgent) {
+        // Session ending or window closing under 5s with only lifecycle events: drop it
+        queueRef.current = [];
+        return Promise.resolve();
+      }
+      // Hold in memory queue until real activity occurs or >= 5 seconds elapse
+      return Promise.resolve();
+    }
+
     const batch = queueRef.current;
     queueRef.current = [];
 
@@ -204,7 +227,7 @@ export function useActivityTracker() {
     }
 
     const send = () =>
-      apiFetch('/api/activity-logs', {
+      apiFetch(API_ROUTES.ACTIVITY_LOGS.BASE, {
         method: 'POST',
         headers,
         body: JSON.stringify(batch),
@@ -212,7 +235,7 @@ export function useActivityTracker() {
       })
         .then(() => {
           // If viewing activity logs, trigger query invalidation so newly flushed records appear immediately
-          if (typeof window !== 'undefined' && window.location.pathname.includes('/activity-logs')) {
+          if (typeof window !== 'undefined' && window.location.pathname.includes(PAGE_ROUTES.ACTIVITY_LOGS)) {
             queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
           }
         })
@@ -251,8 +274,16 @@ export function useActivityTracker() {
     if (!nextId) {
       // Logged out: record the last segment and send everything immediately.
       closeSegment();
-      enqueue('LOGOUT', '', 0);
-      void flush(true);
+      const sessionAgeSeconds = (Date.now() - sessionStartTimeRef.current) / 1000;
+      const isOnlyLifecycle = queueRef.current.every(
+        (e) => e.type === 'LOGIN' || e.type === 'LOGOUT'
+      );
+      if (isOnlyLifecycle && sessionAgeSeconds < 5) {
+        queueRef.current = [];
+      } else {
+        enqueue('LOGOUT', '', 0);
+        void flush(true);
+      }
       clearSessionData();
       sessionIdRef.current = null;
       tokenRef.current = null;
@@ -263,11 +294,12 @@ export function useActivityTracker() {
     if (prevId) return; // user switch while logged in — keep the running session
 
     sessionIdRef.current = getSessionId();
+    sessionStartTimeRef.current = Date.now();
     segmentStartRef.current = Date.now();
     lastInteractionRef.current = Date.now();
     lastHeartbeatRef.current = Date.now();
     isIdleRef.current = false;
-    currentPathRef.current = location.pathname;
+    currentPathRef.current = normalizeTrackedPath(location.pathname);
     pausedRef.current = document.visibilityState === 'hidden';
 
     const hasLoggedLogin =
@@ -280,7 +312,6 @@ export function useActivityTracker() {
         localStorage.setItem(SESSION_LOGIN_KEY, 'true');
         sessionStorage.setItem(SESSION_LOGIN_KEY, 'true');
       } catch (e) {}
-      void flush(true); // make the login visible immediately
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser?.id]);
@@ -288,9 +319,10 @@ export function useActivityTracker() {
   // Page navigation
   useEffect(() => {
     if (!currentUser) return;
-    if (currentPathRef.current === location.pathname) return;
+    const targetPath = normalizeTrackedPath(location.pathname);
+    if (currentPathRef.current === targetPath) return;
     closeSegment();
-    currentPathRef.current = location.pathname;
+    currentPathRef.current = targetPath;
     const now = Date.now();
     segmentStartRef.current = now;
     lastInteractionRef.current = now;

@@ -21,6 +21,7 @@ import {
   CloudOffIcon,
 } from '../icons';
 import type { ActivityLog } from '../../types';
+import { API_BASE_PREFIX, API_ROUTES, PAGE_ROUTES } from '../../constants';
 
 export const LIFECYCLE_TYPES = new Set(['LOGIN', 'LOGOUT', 'ONLINE', 'OFFLINE']);
 
@@ -36,11 +37,12 @@ export const MODULE_COLORS = [
 
 export const isEmptyUpdateLog = (log: ActivityLog): boolean => {
   if (log.type !== 'UPDATE') return false;
-  if (!log.details) return true;
+  // If details is not loaded / omitted by the list endpoint (lazy-loaded), do not drop the log
+  if (log.details === null || log.details === undefined || log.details === '') return false;
   try {
     const detailsObj = typeof log.details === 'string' ? JSON.parse(log.details) : log.details;
     const diff = detailsObj?.diff;
-    if (!diff || typeof diff !== 'object') return true;
+    if (!diff || typeof diff !== 'object') return false;
     const entries = Object.entries(diff).filter(([_, val]: [string, any]) => {
       if (val && typeof val === 'object' && ('old' in val || 'new' in val)) {
         return JSON.stringify(val.old) !== JSON.stringify(val.new);
@@ -147,14 +149,35 @@ export const formatTimeOnly = (date: Date, language: string = 'en') => {
   });
 };
 
+const API_PREFIX_TO_PAGE_ROUTE: Array<{ prefix: string; page: string }> = [
+  { prefix: API_ROUTES.PROVIDED_SERVICES.BASE, page: PAGE_ROUTES.PROVIDED_SERVICES },
+  { prefix: API_ROUTES.CATEGORIES.BASE, page: PAGE_ROUTES.CATEGORIES },
+  { prefix: API_ROUTES.INVOICES.BASE, page: PAGE_ROUTES.INVOICES },
+  { prefix: API_ROUTES.PROJECTS.BASE, page: PAGE_ROUTES.PROJECTS },
+  { prefix: API_ROUTES.CLIENTS.BASE, page: PAGE_ROUTES.CLIENTS },
+  { prefix: API_ROUTES.SERVICES.BASE, page: PAGE_ROUTES.SERVICES },
+  { prefix: API_ROUTES.PERMITS.BASE, page: PAGE_ROUTES.PERMITS },
+  { prefix: API_ROUTES.USERS.BASE, page: PAGE_ROUTES.USERS },
+  { prefix: API_ROUTES.ROLES.BASE, page: PAGE_ROUTES.ROLES },
+  { prefix: API_ROUTES.REMINDERS.BASE, page: PAGE_ROUTES.REMINDERS },
+  { prefix: API_ROUTES.ACTIVITY_LOGS.BASE, page: PAGE_ROUTES.ACTIVITY_LOGS },
+];
+
 export const getCanonicalPagePath = (rawPath?: string): string => {
   if (!rawPath) return '';
-  if (rawPath.startsWith('/api/')) {
-    const resource = rawPath.replace('/api/', '').split('?')[0].split('/')[0];
-    if (resource === 'providedservices' || resource === 'provided-services') {
-      return '/data-management/provided-services';
+  if (rawPath === '/' || rawPath === PAGE_ROUTES.HOME) {
+    return PAGE_ROUTES.PROJECT_TRACKER_PROJECTS;
+  }
+  const apiRootPrefix = `${API_BASE_PREFIX}/`;
+  if (rawPath.startsWith(apiRootPrefix)) {
+    const clean = rawPath.split('?')[0].toLowerCase();
+    for (const mapping of API_PREFIX_TO_PAGE_ROUTE) {
+      if (clean === mapping.prefix || clean.startsWith(mapping.prefix + '/')) {
+        return mapping.page;
+      }
     }
-    return `/data-management/${resource}`;
+    const resource = rawPath.replace(apiRootPrefix, '').split('?')[0].split('/')[0].toLowerCase();
+    return `${PAGE_ROUTES.DATA_MANAGEMENT_PREFIX}/${resource}`;
   }
   return rawPath;
 };
@@ -182,43 +205,55 @@ export const getPathLabelAndIcon = (
     return { label: type || 'General', icon: <WebIcon fontSize="small" /> };
   }
 
-  if (path.startsWith('/project-tracker')) {
+  if (path === '/' || path.startsWith(PAGE_ROUTES.PROJECT_TRACKER)) {
     return { label: t('tabDashboard'), icon: <DashboardIcon fontSize="small" sx={{ color: '#059669' }} /> };
   }
-  if (path.includes('/projects')) {
+  if (path.includes(PAGE_ROUTES.PROJECTS) || path.includes(API_ROUTES.PROJECTS.BASE) || path.includes('/projects')) {
     return { label: t('tabProjects'), icon: <AssignmentIcon fontSize="small" sx={{ color: '#2563eb' }} /> };
   }
-  if (path.includes('/clients')) {
+  if (path.includes(PAGE_ROUTES.CLIENTS) || path.includes(API_ROUTES.CLIENTS.BASE) || path.includes('/clients')) {
     return { label: t('tabClients'), icon: <BusinessIcon fontSize="small" sx={{ color: '#7c3aed' }} /> };
   }
-  if (path.includes('/permits')) {
+  if (path.includes(PAGE_ROUTES.PERMITS) || path.includes(API_ROUTES.PERMITS.BASE) || path.includes('/permits')) {
     return { label: t('tabPermits'), icon: <AssignmentTurnedInIcon fontSize="small" sx={{ color: '#0891b2' }} /> };
   }
-  if (path.includes('/users')) {
+  if (path.includes(PAGE_ROUTES.USERS) || path.includes(API_ROUTES.USERS.BASE) || path.includes('/users')) {
     return { label: t('tabUsers'), icon: <PeopleIcon fontSize="small" sx={{ color: '#ea580c' }} /> };
   }
-  if (path.includes('/services')) {
+  if (path.includes(PAGE_ROUTES.SERVICES) || path.includes(API_ROUTES.SERVICES.BASE) || path.includes('/services')) {
     return { label: t('tabServices'), icon: <BuildIcon fontSize="small" sx={{ color: '#4f46e5' }} /> };
   }
-  if (path.includes('/provided-services')) {
+  if (
+    path.includes(PAGE_ROUTES.PROVIDED_SERVICES) ||
+    path.includes(API_ROUTES.PROVIDED_SERVICES.BASE) ||
+    path.includes('/provided-services')
+  ) {
     return { label: t('tabProvidedServices'), icon: <HandymanIcon fontSize="small" sx={{ color: '#0d9488' }} /> };
   }
-  if (path.includes('/categories')) {
+  if (
+    path.includes(PAGE_ROUTES.CATEGORIES) ||
+    path.includes(API_ROUTES.CATEGORIES.BASE) ||
+    path.includes('/categories')
+  ) {
     return { label: t('tabCategories'), icon: <CategoryIcon fontSize="small" sx={{ color: '#ca8a04' }} /> };
   }
-  if (path.includes('/reminders')) {
+  if (path.includes(PAGE_ROUTES.REMINDERS) || path.includes(API_ROUTES.REMINDERS.BASE) || path.includes('/reminders')) {
     return { label: t('tabReminders'), icon: <NotificationsActiveIcon fontSize="small" sx={{ color: '#e11d48' }} /> };
   }
-  if (path.includes('/invoices')) {
+  if (
+    path.includes(PAGE_ROUTES.INVOICES) ||
+    path.includes(API_ROUTES.INVOICES.BASE) ||
+    path.includes('/invoices')
+  ) {
     return { label: t('tabInvoices'), icon: <ReceiptLongIcon fontSize="small" sx={{ color: '#16a34a' }} /> };
   }
-  if (path.includes('/roles')) {
+  if (path.includes(PAGE_ROUTES.ROLES) || path.includes(API_ROUTES.ROLES.BASE) || path.includes('/roles')) {
     return { label: 'Roles', icon: <SecurityIcon fontSize="small" sx={{ color: '#9333ea' }} /> };
   }
-  if (path.includes('/activity-logs')) {
+  if (path.includes(PAGE_ROUTES.ACTIVITY_LOGS) || path.includes(API_ROUTES.ACTIVITY_LOGS.BASE) || path.includes('/activity-logs')) {
     return { label: t('tabActivityLogs'), icon: <AccessTimeIcon fontSize="small" sx={{ color: '#475569' }} /> };
   }
-  if (path.includes('/login')) {
+  if (path.includes(PAGE_ROUTES.LOGIN) || path.includes(API_ROUTES.AUTH.LOGIN) || path.includes('/login')) {
     return { label: language === 'en' ? 'Login' : 'Prijava', icon: <LoginIcon fontSize="small" /> };
   }
 
