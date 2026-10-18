@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.9.0] - 2026-10-18
+
+- feat: add comprehensive activity analytics page with charts, insights… (#80) by @zigikralj
+
 ## [v1.8.4] - 2026-10-16
 
 - Activity log improvement (#78) by @zigikralj
