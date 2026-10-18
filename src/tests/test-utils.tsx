@@ -15,6 +15,8 @@ export const createTestQueryClient = () => new QueryClient({
   },
 });
 
+import { MemoryRouter } from 'react-router-dom';
+
 export const renderWithProviders = (
   ui: React.ReactElement,
   {
@@ -63,15 +65,17 @@ export const renderWithProviders = (
 ) => {
   const Wrapper = ({ children }: { children: React.ReactNode }) => (
     <QueryClientProvider client={queryClient}>
-      <LanguageContext.Provider value={languageValue as any}>
-        <AuthContext.Provider value={authValue as any}>
-          <LoadingContext.Provider value={loadingValue as any}>
-            <NotificationContext.Provider value={notificationValue as any}>
-              {children}
-            </NotificationContext.Provider>
-          </LoadingContext.Provider>
-        </AuthContext.Provider>
-      </LanguageContext.Provider>
+      <MemoryRouter>
+        <LanguageContext.Provider value={languageValue as any}>
+          <AuthContext.Provider value={authValue as any}>
+            <LoadingContext.Provider value={loadingValue as any}>
+              <NotificationContext.Provider value={notificationValue as any}>
+                {children}
+              </NotificationContext.Provider>
+            </LoadingContext.Provider>
+          </AuthContext.Provider>
+        </LanguageContext.Provider>
+      </MemoryRouter>
     </QueryClientProvider>
   );
 

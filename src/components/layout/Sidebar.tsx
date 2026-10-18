@@ -321,7 +321,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {navItems
                 .filter((item) => item.show && item.path !== '/project-tracker')
                 .map((item) => {
-                  const isSelected = location.pathname === item.path;
+                  const isSelected = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
                   return (
                     <ListItemButton
                       key={item.path}

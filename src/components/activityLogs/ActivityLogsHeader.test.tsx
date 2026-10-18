@@ -71,4 +71,31 @@ describe('ActivityLogsHeader component', () => {
 
     expect(screen.getByText('activityLogsStatusPaused')).toBeInTheDocument();
   });
+
+  it('renders analytics button and triggers onAnalyticsClick', () => {
+    const handleAnalyticsClick = vi.fn();
+    render(
+      <ActivityLogsHeader
+        isLoggingEnabled={true}
+        retentionDays={90}
+        isStatusLoading={false}
+        isFetching={false}
+        isPendingToggle={false}
+        isPendingSettings={false}
+        onAnalyticsClick={handleAnalyticsClick}
+        onToggleClick={vi.fn()}
+        onRetentionSelect={vi.fn()}
+        onClearAllClick={vi.fn()}
+        onRefreshClick={vi.fn()}
+        language="en"
+        t={mockT}
+        isDark={false}
+      />
+    );
+
+    const btn = screen.getByRole('button', { name: /activityAnalytics/i });
+    expect(btn).toBeInTheDocument();
+    fireEvent.click(btn);
+    expect(handleAnalyticsClick).toHaveBeenCalled();
+  });
 });

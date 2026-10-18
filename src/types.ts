@@ -29,6 +29,71 @@ export interface ActivityLog {
   timestamp: string;
 }
 
+export interface AnalyticsTotals {
+  activeUsers: number;
+  sessions: number;
+  pageViews: number;
+  actions: number;
+  trackedSeconds: number;
+  avgSessionSeconds: number;
+  avgPagesPerSession: number;
+}
+
+export interface ActivityAnalytics {
+  range: { from: string; to: string; granularity: 'day' | 'week' | 'month'; tz: string };
+  totals: AnalyticsTotals;
+  previousTotals: AnalyticsTotals | null;
+  timeline: Array<{
+    bucket: string;
+    activeUsers: number;
+    sessions: number;
+    trackedSeconds: number;
+    pageViews: number;
+    actions: number;
+  }>;
+  pages: Array<{
+    path: string;
+    views: number;
+    totalSeconds: number;
+    avgSeconds: number;
+    uniqueUsers: number;
+    sessions: number;
+  }>;
+  actions: Array<{
+    model: string;
+    action: 'create' | 'update' | 'delete';
+    count: number;
+    uniqueUsers: number;
+  }>;
+  users: Array<{
+    userId: string;
+    userName: string;
+    role: string | null;
+    sessions: number;
+    activeDays: number;
+    trackedSeconds: number;
+    pageViews: number;
+    actions: number;
+    avgSessionSeconds: number;
+    lastActive: string;
+    topPath: string | null;
+    pageSeconds: Array<{ path: string; seconds: number }>;
+    pageActions?: Array<{ path: string; actions: number }>;
+  }>;
+  heatmap: Array<{ dow: number; hour: number; trackedSeconds: number; actions: number }>;
+  sessionLengthBuckets: Array<{
+    bucket: '<1m' | '1-5m' | '5-15m' | '15-30m' | '30-60m' | '60m+';
+    count: number;
+  }>;
+  transitions: Array<{ from: string; to: string; count: number }>;
+  entryPages: Array<{ path: string; count: number }>;
+  exitPages: Array<{ path: string; count: number }>;
+  editedFields: Array<{ model: string; field: string; count: number; uniqueUsers: number }>;
+  quickDeletes: Array<{ model: string; count: number }>;
+  stickiness: { dau: number; wau: number; mau: number };
+  totalRegisteredActiveUsers: number;
+}
+
 export interface ClientExtraData {
   id: string;
   clientId: string;

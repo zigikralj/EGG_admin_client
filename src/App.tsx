@@ -37,6 +37,7 @@ const PermitsPage = React.lazy(() => import('./pages/management/PermitsPage'));
 const ProjectModal = React.lazy(() => import('./components/project/ProjectModal'));
 const ProjectViewModal = React.lazy(() => import('./components/project/ProjectViewModal'));
 const ActivityLogsPage = React.lazy(() => import('./pages/management/ActivityLogsPage'));
+const ActivityAnalyticsPage = React.lazy(() => import('./pages/management/ActivityAnalyticsPage'));
 
 function MainApp() {
   useActivityTracker();
@@ -343,6 +344,7 @@ function MainApp() {
             } />
             <Route path={PAGE_ROUTES.ROLES} element={<RolesPage />} />
             <Route path={PAGE_ROUTES.ACTIVITY_LOGS} element={<ActivityLogsPage />} />
+            <Route path={PAGE_ROUTES.ACTIVITY_ANALYTICS} element={<ActivityAnalyticsPage />} />
             <Route path="/" element={<Navigate to={PAGE_ROUTES.PROJECT_TRACKER_PROJECTS} replace />} />
             <Route path="*" element={<Navigate to={PAGE_ROUTES.PROJECT_TRACKER_PROJECTS} replace />} />
           </Routes>

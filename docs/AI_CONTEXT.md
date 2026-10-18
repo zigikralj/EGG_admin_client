@@ -77,8 +77,8 @@ The client talks to a separate Express 5 REST API server (see `../server/`).
 | `tracker/TrackerPage.tsx` | Dashboard | KPI header stats, sub-tabs (Projects, Reminders, Invoices, Waste Disposal, Statistics [Projects, Waste Disposal]). Role-tailored: accountants see invoice-focused default. |
 | `management/ProjectsPage.tsx` | Projects | Table + card list, quick filters (Active, Missing Invoice, Stale, Late), column selector. |
 | `management/ClientsPage.tsx` | Clients | Table with permit linking, inline project/invoice counts. |
-| `management/PermitsPage.tsx` | Permits | Permit CRUD with waste catalog multi-select picker. |
 | `management/ActivityLogsPage.tsx` | Activity Logs | Administrator-only view for audit logs, tracking user actions and navigation. |
+| `management/ActivityAnalyticsPage.tsx` | Activity Analytics | Administrator-only activity analytics dashboard: KPI strip, usage timeline, top pages, actions by entity, user breakdowns, activity heatmap, session length histogram, feature adoption, engagement/friction scatter plot, navigation flows, edited fields, and rule-based insights. |
 | `management/UsersPage.tsx` | Users | Status filters (All/Active/Pending/Blocked), approve/reject, force logout. |
 | `management/ServicesPage.tsx` | Services | Service type definitions with custom data model editor. |
 | `management/ProvidedServicesPage.tsx` | Provided Services | Service delivery records with sub-tabs (Summary, Statistics). |
@@ -118,6 +118,7 @@ The client talks to a separate Express 5 REST API server (see `../server/`).
 | `components/dialogs/` | `ConfirmDialog.tsx`, `ErrorDialog.tsx`, `CompanyInfoModal.tsx`, `CustomDataModelModal.tsx` | Reusable popups, modals, and the custom data model editor. |
 | `components/common/` | `ColumnSelector.tsx`, `DateRangeFilter.tsx`, `TableSearchInput.tsx`, `WasteCatalogAutocomplete.tsx` | Shared table utilities and controls. |
 | `components/tracker/` | `ReminderPanel.tsx`, `WasteDisposalPanel.tsx`, `statistics/` | Dashboard tracker panels. |
+| `components/activityAnalytics/` | `AnalyticsHeader.tsx`, `AnalyticsKpiStrip.tsx`, `UsageTimelineChart.tsx`, `PageUsageChart.tsx`, `ActionsByEntityChart.tsx`, `UserUsageTable.tsx`, `UserPageBreakdownChart.tsx`, `UsageHeatmap.tsx`, `SessionLengthHistogram.tsx`, `FeatureAdoptionChart.tsx`, `EngagementScatter.tsx`, `NavigationFlows.tsx`, `EditedFieldsChart.tsx`, `InsightsPanel.tsx`, `insights.ts`, `utils.ts` | Activity Analytics visualizations, KPI strip, charts, and rule-based insights. |
 
 ### Internationalization (`src/i18n/`)
 | File | Purpose |

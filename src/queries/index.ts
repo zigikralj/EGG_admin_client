@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { apiFetch } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -19,6 +19,7 @@ import type {
   SaveResult,
   Role,
   ActivityLog,
+  ActivityAnalytics,
 } from '../types';
 
 export function useAuthHeaders() {
@@ -258,6 +259,49 @@ export function useActivityLogDetailsQuery(id: string | undefined, enabled: bool
     enabled: enabled && !!id,
     staleTime: Infinity, // logs are immutable
     gcTime: 10 * 60_000,
+  });
+}
+
+export interface ActivityAnalyticsParams {
+  from: string;
+  to: string;
+  granularity?: 'day' | 'week' | 'month';
+  tz?: string;
+  userIds?: string[];
+  roles?: string[];
+  excludeAdminPages?: boolean;
+  compare?: boolean;
+}
+
+export function useActivityAnalyticsQuery(params: ActivityAnalyticsParams) {
+  const browserTz = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC';
+  const effectiveParams = { tz: browserTz, ...params };
+  const getAuthHeaders = useAuthHeaders();
+
+  return useQuery<ActivityAnalytics>({
+    queryKey: ['activity-logs', 'analytics', effectiveParams],
+    queryFn: async () => {
+      const searchParams = new URLSearchParams();
+      searchParams.set('from', effectiveParams.from);
+      searchParams.set('to', effectiveParams.to);
+      if (effectiveParams.granularity) searchParams.set('granularity', effectiveParams.granularity);
+      if (effectiveParams.tz) searchParams.set('tz', effectiveParams.tz);
+      if (effectiveParams.userIds?.length) searchParams.set('userIds', effectiveParams.userIds.join(','));
+      if (effectiveParams.roles?.length) searchParams.set('roles', effectiveParams.roles.join(','));
+      if (effectiveParams.excludeAdminPages !== undefined) {
+        searchParams.set('excludeAdminPages', String(effectiveParams.excludeAdminPages));
+      }
+      if (effectiveParams.compare !== undefined) {
+        searchParams.set('compare', String(effectiveParams.compare));
+      }
+      const res = await apiFetch(`${API_ROUTES.ACTIVITY_LOGS.ANALYTICS}?${searchParams.toString()}`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error('Failed to fetch activity analytics');
+      return res.json();
+    },
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
   });
 }
 
