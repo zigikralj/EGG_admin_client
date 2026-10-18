@@ -23,6 +23,7 @@ export const PAGE_ROUTES = {
   REMINDERS: '/data-management/reminders',
   ROLES: '/data-management/roles',
   ACTIVITY_LOGS: '/data-management/activity-logs',
+  ACTIVITY_ANALYTICS: '/data-management/activity-logs/analytics',
 } as const;
 
 export type PageRoute = typeof PAGE_ROUTES[keyof typeof PAGE_ROUTES];

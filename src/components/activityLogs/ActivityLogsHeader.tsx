@@ -14,7 +14,8 @@ import {
 import {
   AccessTimeIcon,
   RefreshIcon,
-  DeleteIcon
+  DeleteIcon,
+  InsightsIcon,
 } from '../icons';
 
 export interface ActivityLogsHeaderProps {
@@ -24,6 +25,7 @@ export interface ActivityLogsHeaderProps {
   isFetching: boolean;
   isPendingToggle: boolean;
   isPendingSettings: boolean;
+  onAnalyticsClick?: () => void;
   onToggleClick: (nextChecked: boolean) => void;
   onRetentionSelect: (value: number | 'custom') => void;
   onClearAllClick: () => void;
@@ -40,6 +42,7 @@ export const ActivityLogsHeader: React.FC<ActivityLogsHeaderProps> = ({
   isFetching,
   isPendingToggle,
   isPendingSettings,
+  onAnalyticsClick,
   onToggleClick,
   onRetentionSelect,
   onClearAllClick,
@@ -63,6 +66,18 @@ export const ActivityLogsHeader: React.FC<ActivityLogsHeaderProps> = ({
       </Box>
 
       <Box sx={{ display: 'flex', flexDirection: 'row', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
+        {onAnalyticsClick && (
+          <Button
+            variant="contained"
+            size="small"
+            color="primary"
+            onClick={onAnalyticsClick}
+            startIcon={<InsightsIcon />}
+            sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 600 }}
+          >
+            {t('activityAnalytics')}
+          </Button>
+        )}
         {/* Active / Paused Switch */}
         <Box
           sx={{

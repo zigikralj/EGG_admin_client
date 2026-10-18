@@ -189,16 +189,28 @@ export const getPathLabelAndIcon = (
   language: string = 'en'
 ): { label: string; icon: React.ReactElement } => {
   if (!path && type === 'LOGIN') {
-    return { label: language === 'en' ? 'Login' : 'Prijava', icon: <LoginIcon fontSize="small" sx={{ color: '#16a34a' }} /> };
+    return {
+      label: language === 'en' ? 'Login' : language === 'sr-Cyrl' ? 'Пријава' : 'Prijava',
+      icon: <LoginIcon fontSize="small" sx={{ color: '#16a34a' }} />,
+    };
   }
   if (!path && type === 'LOGOUT') {
-    return { label: language === 'en' ? 'Logout' : 'Odjava', icon: <LogoutIcon fontSize="small" sx={{ color: '#dc2626' }} /> };
+    return {
+      label: language === 'en' ? 'Logout' : language === 'sr-Cyrl' ? 'Одјава' : 'Odjava',
+      icon: <LogoutIcon fontSize="small" sx={{ color: '#dc2626' }} />,
+    };
   }
   if (!path && type === 'OFFLINE') {
-    return { label: language === 'en' ? 'Offline' : 'Neaktivan', icon: <CloudOffIcon fontSize="small" sx={{ color: '#94a3b8' }} /> };
+    return {
+      label: language === 'en' ? 'Offline' : language === 'sr-Cyrl' ? 'Неактиван' : 'Neaktivan',
+      icon: <CloudOffIcon fontSize="small" sx={{ color: '#94a3b8' }} />,
+    };
   }
   if (!path && type === 'ONLINE') {
-    return { label: language === 'en' ? 'Online' : 'Aktivan', icon: <CheckCircleIcon fontSize="small" sx={{ color: '#16a34a' }} /> };
+    return {
+      label: language === 'en' ? 'Online' : language === 'sr-Cyrl' ? 'Активан' : 'Aktivan',
+      icon: <CheckCircleIcon fontSize="small" sx={{ color: '#16a34a' }} />,
+    };
   }
 
   if (!path) {
@@ -248,13 +260,16 @@ export const getPathLabelAndIcon = (
     return { label: t('tabInvoices'), icon: <ReceiptLongIcon fontSize="small" sx={{ color: '#16a34a' }} /> };
   }
   if (path.includes(PAGE_ROUTES.ROLES) || path.includes(API_ROUTES.ROLES.BASE) || path.includes('/roles')) {
-    return { label: 'Roles', icon: <SecurityIcon fontSize="small" sx={{ color: '#9333ea' }} /> };
+    return { label: t('roles'), icon: <SecurityIcon fontSize="small" sx={{ color: '#9333ea' }} /> };
   }
   if (path.includes(PAGE_ROUTES.ACTIVITY_LOGS) || path.includes(API_ROUTES.ACTIVITY_LOGS.BASE) || path.includes('/activity-logs')) {
     return { label: t('tabActivityLogs'), icon: <AccessTimeIcon fontSize="small" sx={{ color: '#475569' }} /> };
   }
   if (path.includes(PAGE_ROUTES.LOGIN) || path.includes(API_ROUTES.AUTH.LOGIN) || path.includes('/login')) {
-    return { label: language === 'en' ? 'Login' : 'Prijava', icon: <LoginIcon fontSize="small" /> };
+    return {
+      label: language === 'en' ? 'Login' : language === 'sr-Cyrl' ? 'Пријава' : 'Prijava',
+      icon: <LoginIcon fontSize="small" />,
+    };
   }
 
   return { label: path, icon: <WebIcon fontSize="small" /> };

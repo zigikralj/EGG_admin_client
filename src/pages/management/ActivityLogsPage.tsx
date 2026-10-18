@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Card,
@@ -22,6 +23,7 @@ import {
   useActivityLogUpdateSettingsMutation,
 } from '../../queries';
 import { flushActivityTracker } from '../../hooks/useActivityTracker';
+import { PAGE_ROUTES } from '../../constants';
 import {
   useActivityLogsData,
   ActivityLogsHeader,
@@ -47,6 +49,7 @@ export const ActivityLogsPage: React.FC = () => {
   const { t, language } = useLanguage();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
+  const navigate = useNavigate();
 
   // Filters & Controls state
   const [searchQuery, setSearchQuery] = useState('');
@@ -246,6 +249,7 @@ export const ActivityLogsPage: React.FC = () => {
         isFetching={isFetching}
         isPendingToggle={toggleMutation.isPending}
         isPendingSettings={updateSettingsMutation.isPending}
+        onAnalyticsClick={() => navigate(PAGE_ROUTES.ACTIVITY_ANALYTICS)}
         onToggleClick={handleToggleClick}
         onRetentionSelect={handleRetentionSelect}
         onClearAllClick={() => setDeleteDialog({ isOpen: true, type: 'all' })}

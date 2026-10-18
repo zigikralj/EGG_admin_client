@@ -67,6 +67,7 @@ export const API_ROUTES = {
   },
   ACTIVITY_LOGS: {
     BASE: '/api/activity-logs',
+    ANALYTICS: '/api/activity-logs/analytics',
     STATUS: '/api/activity-logs/status',
     CLEAR_ALL: '/api/activity-logs/clear-all',
     BULK_DELETE: '/api/activity-logs/bulk-delete',
