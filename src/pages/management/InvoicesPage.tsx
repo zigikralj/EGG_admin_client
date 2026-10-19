@@ -55,7 +55,9 @@ import {
   ReceiptLongIcon,
   LinkIcon,
   RefreshIcon,
+  HistoryIcon,
 } from '../../components/icons';
+import { HistoryTimelineModal } from '../../components/history';
 import { useTableView } from '../../hooks/useTableView';
 
 interface Props extends TableViewProps {}
@@ -87,9 +89,11 @@ const InvoicesPage: React.FC<Props> = ({
   const canCreate = hasPermission('invoices', 'create');
   const canEdit = hasPermission('invoices', 'edit');
   const canDelete = hasPermission('invoices', 'delete');
-  const hasAnyRowAction = canEdit || canDelete;
+  const canViewHistory = hasPermission('history', 'view');
+  const hasAnyRowAction = canEdit || canDelete || canViewHistory;
   const [isOpen, setIsOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+  const [historyModalState, setHistoryModalState] = useState<{ open: boolean; invoice: Invoice | null }>({ open: false, invoice: null });
   const {
     activeCols,
     setCols,
@@ -1220,6 +1224,18 @@ const InvoicesPage: React.FC<Props> = ({
                                   </Tooltip>
                                 )}
 
+                                {canViewHistory && (
+                                  <Tooltip title={t('historyModalTitle')}>
+                                    <IconButton
+                                      size="small"
+                                      color="secondary"
+                                      onClick={() => setHistoryModalState({ open: true, invoice: inv })}
+                                    >
+                                      <HistoryIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                )}
+
                                 {canEdit && (
                                   <Tooltip title={t('btnEdit')}>
                                     <IconButton size="small" color="primary" onClick={() => handleOpenEdit(inv)}>
@@ -1801,6 +1817,19 @@ const InvoicesPage: React.FC<Props> = ({
         onClose={() => setDeleteConfirmState((prev) => ({ ...prev, open: false }))}
         confirmColor="warning"
       />
+
+      {historyModalState.invoice && (
+        <HistoryTimelineModal
+          open={historyModalState.open}
+          onClose={() => setHistoryModalState({ open: false, invoice: null })}
+          entityType="Invoice"
+          entityId={historyModalState.invoice.id}
+          entityTitle={historyModalState.invoice.invoiceNumber || 'Invoice'}
+          onRestored={() => {
+            handleRefresh();
+          }}
+        />
+      )}
     </Box>
   );
 };

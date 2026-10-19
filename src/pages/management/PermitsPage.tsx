@@ -67,7 +67,9 @@ import {
   WarningAmberIcon,
   ErrorIcon,
   FilterListIcon,
+  HistoryIcon,
 } from '../../components/icons';
+import { HistoryTimelineModal } from '../../components/history';
 
 interface Props extends TableViewProps {
   quickFilters?: string[];
@@ -182,7 +184,8 @@ const PermitsPage: React.FC<Props> = ({
   const canCreate = hasPermission('permits', 'create');
   const canEdit = hasPermission('permits', 'edit');
   const canDelete = hasPermission('permits', 'delete');
-  const hasAnyRowAction = canEdit || canDelete;
+  const canViewHistory = hasPermission('history', 'view');
+  const hasAnyRowAction = canEdit || canDelete || canViewHistory;
 
   const canCreateReminder = hasPermission('reminders', 'create');
   const canEditReminder = hasPermission('reminders', 'edit');
@@ -190,6 +193,7 @@ const PermitsPage: React.FC<Props> = ({
 
   const [isOpen, setIsOpen] = useState(false);
   const [editingPermit, setEditingPermit] = useState<Permit | null>(null);
+  const [historyModalState, setHistoryModalState] = useState<{ open: boolean; permit: Permit | null }>({ open: false, permit: null });
 
   const { data: permits = [], refetch: refetchPermits } = usePermitsQuery();
   const { data: clients = [] } = useClientsQuery();
@@ -1414,6 +1418,17 @@ const PermitsPage: React.FC<Props> = ({
                       {hasAnyRowAction && (
                         <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+                            {canViewHistory && (
+                              <Tooltip title={t('historyModalTitle')}>
+                                <IconButton
+                                  size="small"
+                                  color="secondary"
+                                  onClick={() => setHistoryModalState({ open: true, permit })}
+                                >
+                                  <HistoryIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
                             {canEdit && (
                               <Tooltip title={t('btnEdit')}>
                                 <IconButton
@@ -2250,6 +2265,19 @@ const PermitsPage: React.FC<Props> = ({
         onClose={() => setDeleteConfirmState((prev) => ({ ...prev, open: false }))}
         confirmColor="warning"
       />
+
+      {historyModalState.permit && (
+        <HistoryTimelineModal
+          open={historyModalState.open}
+          onClose={() => setHistoryModalState({ open: false, permit: null })}
+          entityType="Permit"
+          entityId={historyModalState.permit.id}
+          entityTitle={historyModalState.permit.permitNumber || 'Permit'}
+          onRestored={() => {
+            refetchPermits();
+          }}
+        />
+      )}
     </Box>
   );
 };

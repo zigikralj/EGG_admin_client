@@ -280,15 +280,8 @@ export interface TranslationKeys {
   progress: string;
   btnMarkDone: string;
   btnReturnToProgress: string;
-  btnSampled: string;
   btnEdit: string;
   btnDelete: string;
-  samplingOverdue: string;
-  samplingToday: string;
-  samplingInDays: string;
-  samplingShortOverdue: string;
-  samplingShortToday: string;
-  samplingShortInDays: string;
   lblRemindersChip: string;
   lblInvoicesChip: string;
   lblNoRemindersOnProject: string;
@@ -305,7 +298,6 @@ export interface TranslationKeys {
     colProject: string;
     colClient: string;
     colResponsible: string;
-    colNextSample: string;
     colDeadlineStatus: string;
     colAction: string;
     btnNewReminder: string;
@@ -864,6 +856,21 @@ export interface TranslationKeys {
   analyticsMinutesShort: string;
   analyticsActionsPerVisitShort: string;
   analyticsActions: string;
+  historyModalTitle: string;
+  historyVersion: string;
+  historyChangedFields: string;
+  historyDiff: string;
+  historyCompareWithPrevious: string;
+  historyRestore: string;
+  historyRestoreConfirmTitle: string;
+  historyRestoreConfirmMessage: string;
+  historyRestoredSuccess: string;
+  historyEmpty: string;
+  historyOpInsert: string;
+  historyOpUpdate: string;
+  historyOpDelete: string;
+  historyOpBaseline: string;
+  historyLoading: string;
 }
 
 export const serviceTypeTranslations: Record<Language, Record<string, string>> = {

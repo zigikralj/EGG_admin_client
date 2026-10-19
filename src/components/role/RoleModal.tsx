@@ -78,6 +78,7 @@ const APPS: AppDefinition[] = [
       { id: 'invoices', label: 'Invoices' },
       { id: 'roles', label: 'Roles' },
       { id: 'companyInfo', label: 'Company Information' },
+      { id: 'history', label: 'Version History' },
     ],
   },
 ];

@@ -32,7 +32,8 @@ import { TableOptionsSelector, type ColumnDef } from '../../components/common/Co
 import { TableFilterSelector } from '../../components/common/TableFilterSelector';
 import { TableSearchInput } from '../../components/common/TableSearchInput';
 import { ErrorDialog } from '../../components/dialogs/ErrorDialog';
-import { AddIcon, EditIcon, DeleteIcon, ArrowUpwardIcon, ArrowDownwardIcon, RefreshIcon } from '../../components/icons';
+import { AddIcon, EditIcon, DeleteIcon, ArrowUpwardIcon, ArrowDownwardIcon, RefreshIcon, HistoryIcon } from '../../components/icons';
+import { HistoryTimelineModal } from '../../components/history';
 
 interface Props extends TableViewProps {}
 
@@ -56,9 +57,11 @@ const ClientsPage: React.FC<Props> = ({
   const canCreate = hasPermission('clients', 'create');
   const canEdit = hasPermission('clients', 'edit');
   const canDelete = hasPermission('clients', 'delete');
-  const hasAnyRowAction = canEdit || canDelete;
+  const canViewHistory = hasPermission('history', 'view');
+  const hasAnyRowAction = canEdit || canDelete || canViewHistory;
   const [isOpen, setIsOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [historyModalState, setHistoryModalState] = useState<{ open: boolean; client: Client | null }>({ open: false, client: null });
 
   const { data: clients = [], refetch: refetchClients, isRefetching } = useClientsQuery();
   const { data: permits = [] } = usePermitsQuery();
@@ -602,6 +605,17 @@ const ClientsPage: React.FC<Props> = ({
                     {hasAnyRowAction && (
                       <TableCell align="right">
                         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+                          {canViewHistory && (
+                            <Tooltip title={t('historyModalTitle')}>
+                              <IconButton
+                                size="small"
+                                color="secondary"
+                                onClick={() => setHistoryModalState({ open: true, client: c })}
+                              >
+                                <HistoryIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
                           {canEdit && (
                             <IconButton size="small" color="info" onClick={() => openEdit(c)}>
                               <EditIcon fontSize="small" />
@@ -768,6 +782,19 @@ const ClientsPage: React.FC<Props> = ({
         }}
         onClose={() => setDeleteConfirmState(prev => ({ ...prev, open: false }))}
       />
+
+      {historyModalState.client && (
+        <HistoryTimelineModal
+          open={historyModalState.open}
+          onClose={() => setHistoryModalState({ open: false, client: null })}
+          entityType="Client"
+          entityId={historyModalState.client.id}
+          entityTitle={historyModalState.client.name}
+          onRestored={() => {
+            refetchClients();
+          }}
+        />
+      )}
     </Box>
   );
 };

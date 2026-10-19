@@ -444,7 +444,7 @@ const ProjectModal: React.FC<Props> = ({
               </Grid>
 
               {/* DATES */}
-              <Grid size={{ xs: 12, sm: 4 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   type="date"
@@ -455,7 +455,7 @@ const ProjectModal: React.FC<Props> = ({
                   size="small"
                 />
               </Grid>
-              <Grid size={{ xs: 12, sm: 4 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   type="date"

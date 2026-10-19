@@ -44,7 +44,9 @@ import {
   ArrowDownwardIcon,
   RefreshIcon,
   NotesIcon,
+  HistoryIcon,
 } from '../../components/icons';
+import { HistoryTimelineModal } from '../../components/history';
 
 interface Props extends TableViewProps {
   searchQuery: string;
@@ -107,6 +109,7 @@ const ProjectsPage: React.FC<Props> = ({
   const { canEditProject, canDeleteProject, hasPermission, currentUser, isRestrictedToOwn } = useAuth();
   const isProjectsRestricted = isRestrictedToOwn('projects') || isRestrictedToOwn('tracker_projects');
   const canCreateProject = hasPermission('projects', 'create') || hasPermission('tracker_projects', 'create');
+  const canViewHistory = hasPermission('history', 'view');
 
   const { data: projects = [], refetch: refetchProjects, isRefetching } = useProjectsQuery();
   const { data: services = [] } = useServicesQuery();
@@ -115,6 +118,7 @@ const ProjectsPage: React.FC<Props> = ({
   const { handleDelete } = useProjectsMutations();
   const [completeConfirmState, setCompleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
   const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
+  const [historyModalState, setHistoryModalState] = useState<{ open: boolean; project: Project | null }>({ open: false, project: null });
 
   const onDelete = (id: string) => handleDelete(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
 
@@ -879,6 +883,17 @@ const ProjectsPage: React.FC<Props> = ({
                       )}
                       <TableCell align="right">
                         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+                          {canViewHistory && (
+                            <Tooltip title={t('historyModalTitle')}>
+                              <IconButton
+                                size="small"
+                                color="secondary"
+                                onClick={() => setHistoryModalState({ open: true, project: p })}
+                              >
+                                <HistoryIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
                           <Tooltip title={t('btnView')}>
                             <IconButton size="small" color="primary" onClick={() => (onView ? onView(p) : onEdit(p))}>
                               <VisibilityIcon fontSize="small" />
@@ -946,6 +961,19 @@ const ProjectsPage: React.FC<Props> = ({
         }}
         onClose={() => setDeleteConfirmState(prev => ({ ...prev, open: false }))}
       />
+
+      {historyModalState.project && (
+        <HistoryTimelineModal
+          open={historyModalState.open}
+          onClose={() => setHistoryModalState({ open: false, project: null })}
+          entityType="Project"
+          entityId={historyModalState.project.id}
+          entityTitle={historyModalState.project.name}
+          onRestored={() => {
+            refetchProjects();
+          }}
+        />
+      )}
     </Box>
   );
 };

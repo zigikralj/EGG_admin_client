@@ -165,16 +165,6 @@ Toggle project completion status.
 
 ---
 
-### `PATCH /api/projects/:id/sample`
-
-Advance the project's next sampling date.
-
-**Response (200):** Updated `Project`
-
-**Used by:** [`useProjects.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/hooks/useProjects.ts) — `handleMarkSampled`
-
----
-
 ### `GET /api/projects/stats`
 
 Dashboard aggregate statistics.

@@ -36,7 +36,6 @@ interface Props {
   reminders?: Reminder[];
   invoices?: Invoice[];
   onToggleDone: (id: string) => void;
-  onMarkSampled?: (id: string) => void;
   onView?: (project: Project) => void;
   onEdit: (project: Project) => void;
   onDelete?: (id: string) => void;
@@ -510,21 +509,8 @@ export const ProjectCard: React.FC<Props> = ({
       list.push(...p.reminders);
     }
 
-    // Fallback: if no reminders in list but project has nextSample and is not done
-    if (list.length === 0 && p.nextSample && !p.done) {
-      list.push({
-        id: `sample-${p.id}`,
-        title: t('btnSampled'),
-        projectName: p.name,
-        dueDate: p.nextSample,
-        status: 'Pending',
-        notes: null,
-        responsible: p.responsible,
-      });
-    }
-
     return list;
-  }, [reminders, p, t]);
+  }, [reminders, p]);
 
   // Match invoices for this project
   const projectInvoices = useMemo(() => {

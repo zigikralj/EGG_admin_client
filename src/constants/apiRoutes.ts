@@ -29,7 +29,6 @@ export const API_ROUTES = {
     STATS: '/api/projects/stats',
     BY_ID: (id: string) => `/api/projects/${encodeURIComponent(id)}`,
     TOGGLE_DONE: (id: string) => `/api/projects/${encodeURIComponent(id)}/toggle-done`,
-    SAMPLE: (id: string) => `/api/projects/${encodeURIComponent(id)}/sample`,
   },
   CLIENTS: {
     BASE: '/api/clients',
@@ -87,6 +86,14 @@ export const API_ROUTES = {
   },
   COMPANY_INFO: {
     BASE: '/api/company-info',
+  },
+  HISTORY: {
+    BASE: '/api/history',
+    TIMELINE: (entityType: string, id: string) => `/api/history/${encodeURIComponent(entityType)}/${encodeURIComponent(id)}`,
+    DIFF: (entityType: string, id: string, from: number, to: number) => `/api/history/${encodeURIComponent(entityType)}/${encodeURIComponent(id)}/diff?from=${from}&to=${to}`,
+    VERSION: (entityType: string, id: string, version: number) => `/api/history/${encodeURIComponent(entityType)}/${encodeURIComponent(id)}/versions/${version}`,
+    RESTORE: (entityType: string, id: string, version: number) => `/api/history/${encodeURIComponent(entityType)}/${encodeURIComponent(id)}/restore/${version}`,
+    CHANGESET: (id: string) => `/api/history/changesets/${encodeURIComponent(id)}`,
   },
   IMPORT: {
     BASE: '/api/import',

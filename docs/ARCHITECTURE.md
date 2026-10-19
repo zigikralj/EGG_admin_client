@@ -220,7 +220,6 @@ The app uses a custom MUI theme defined in [`theme.ts`](file:///Users/nemanja.st
 | `active` | `#2e7d32` | `#4caf50` | Active projects |
 | `done` | `#16a34a` | `#34d399` | Completed projects |
 | `stale` | `#ed6c02` | `#fb923c` | Stale projects |
-| `sampled` | `#9c27b0` | `#c084fc` | Recently sampled |
 
 **Theme modes:** `light`, `dark`, `system` (auto-detects via `prefers-color-scheme`).
 
@@ -368,7 +367,6 @@ apiFetch(path, init?)
 | `/api/projects` | GET, POST | useAppData, useProjects |
 | `/api/projects/:id` | PUT, DELETE | useProjects (via useCrudOperations) |
 | `/api/projects/:id/toggle-done` | PATCH | useProjects |
-| `/api/projects/:id/sample` | PATCH | useProjects |
 | `/api/projects/stats` | GET | useAppData |
 | `/api/clients` | GET, POST | useAppData, useClients |
 | `/api/clients/:id` | PUT, DELETE | useClients |

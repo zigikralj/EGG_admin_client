@@ -7,7 +7,7 @@
 
 ## What Is This Project?
 
-A **React 19 + TypeScript + MUI v9 SPA** for managing environmental services projects (waste management, permits, sampling schedules, invoicing) for Ekos Green Group, a Serbian environmental company. Built with **Vite 8** and deployed to GitHub Pages.
+A **React 19 + TypeScript + MUI v9 SPA** for managing environmental services projects (waste management, permits, reminders, invoicing) for Ekos Green Group, a Serbian environmental company. Built with **Vite 8** and deployed to GitHub Pages.
 
 The client talks to a separate Express 5 REST API server (see `../server/`).
 
@@ -99,7 +99,7 @@ The client talks to a separate Express 5 REST API server (see `../server/`).
 | File | Purpose |
 |---|---|
 | `layout/AdminLayout.tsx` | Page shell — wraps AppHeader + Sidebar + main content + profile/settings/company modals. Handles nav item visibility based on RBAC. |
-| `project/ProjectCard.tsx` | Rich project card — progress bar, sampling controls, status chips, deadline alerts, quick sampling actions, rich notes previews. |
+| `project/ProjectCard.tsx` | Rich project card — progress bar, reminders, status chips, deadline alerts, rich notes previews. |
 | `project/ProjectModal.tsx` | Project create/edit dialog — uses `useProjectForm`, nested reminder/invoice sections. |
 | `project/ProjectViewModal.tsx` | Read-only project detail view with all related data, reminders, invoices, and rich notes renderer. |
 | `tracker/statistics/ProjectsStatistics.tsx` | Dashboard analytics — project status distribution, service category breakdown (MUI X Charts). |
@@ -140,7 +140,7 @@ The client talks to a separate Express 5 REST API server (see `../server/`).
 ### Theming (`src/theme/`)
 | File | Purpose |
 |---|---|
-| `theme.ts` | MUI `createTheme` — green-focused palette (light + dark), custom `status` palette extension (`active`, `done`, `stale`, `sampled`), Inter font, component overrides (Card, Paper, Table, Button, Chip, Pagination, scroll-lock disabled on all modals/menus). |
+| `theme.ts` | MUI `createTheme` — green-focused palette (light + dark), custom `status` palette extension (`active`, `done`, `stale`), Inter font, component overrides (Card, Paper, Table, Button, Chip, Pagination, scroll-lock disabled on all modals/menus). |
 
 ### Utilities (`src/utils/`)
 | File | Purpose |

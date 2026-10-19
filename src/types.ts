@@ -9,7 +9,6 @@ export interface Project {
   deadline: string | null;
   progress: number;
   done: boolean;
-  nextSample: string | null;
   notes?: string | null;
   reminders?: Reminder[];
   invoices?: Invoice[];
@@ -463,3 +462,64 @@ export interface Role {
   updatedAt?: string;
   _count?: { users: number };
 }
+
+export interface EntityVersionSummary {
+  id: string;
+  changeSetId: string;
+  entityType: string;
+  entityId: string;
+  version: number;
+  op: 'I' | 'U' | 'D' | 'B' | string;
+  kind: 'S' | 'D' | string;
+  changedFields: string[];
+  parentType?: string | null;
+  parentId?: string | null;
+  createdAt: string;
+  changeSet: {
+    id: string;
+    userId: string | null;
+    userName: string | null;
+    source: string;
+    reason: string | null;
+    route: string | null;
+    method: string | null;
+    createdAt: string;
+  };
+}
+
+export interface EntityTimelineResponse {
+  total: number;
+  limit: number;
+  offset: number;
+  versions: EntityVersionSummary[];
+}
+
+export interface VersionDiffResponse {
+  entityType: string;
+  entityId: string;
+  vFrom: number;
+  vTo: number;
+  fromCreatedAt: string;
+  toCreatedAt: string;
+  changedFields: string[];
+  diff: Record<string, { old: any; new: any }>;
+}
+
+export interface RebuiltVersionResponse {
+  entityType: string;
+  entityId: string;
+  version: number;
+  op: string;
+  kind: string;
+  createdAt: string;
+  state: Record<string, any>;
+}
+
+export interface RestoreVersionResponse {
+  restored: boolean;
+  entityType: string;
+  entityId: string;
+  restoredToVersion: number;
+  record: any;
+}
+

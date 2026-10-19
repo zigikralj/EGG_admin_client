@@ -55,13 +55,11 @@ export const getTheme = (mode: 'light' | 'dark' = 'light') => {
             active: '#4caf50',
             done: '#34d399',
             stale: '#fb923c',
-            sampled: '#c084fc',
           }
         : {
             active: '#2e7d32',
             done: '#16a34a',
             stale: '#ed6c02',
-            sampled: '#9c27b0',
           },
     },
     typography: {
@@ -253,7 +251,6 @@ declare module '@mui/material/styles' {
       active: string;
       done: string;
       stale: string;
-      sampled: string;
     };
   }
   interface PaletteOptions {
@@ -261,7 +258,6 @@ declare module '@mui/material/styles' {
       active: string;
       done: string;
       stale: string;
-      sampled: string;
     };
   }
 }

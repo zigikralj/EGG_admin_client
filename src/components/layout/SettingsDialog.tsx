@@ -149,7 +149,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
     }
     switch (entity) {
       case 'projects':
-        return ['name', 'client', 'category', 'responsible', 'progress', 'nextSample', 'status'];
+        return ['name', 'client', 'category', 'responsible', 'progress', 'status'];
       case 'clients':
         return ['name', 'city', 'contactPerson', 'email', 'phone', 'projectCount'];
       case 'users':

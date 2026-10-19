@@ -131,8 +131,7 @@ const DashboardView: React.FC<Props> = ({
     });
   }, [reminders, isRemindersRestricted, currentUser]);
 
-  const { markSampledMutation, toggleDoneMutation } = useProjectsMutations();
-  const handleMarkSampled = async (id: string) => await markSampledMutation.mutateAsync(id);
+  const { toggleDoneMutation } = useProjectsMutations();
 
   const { handleSave: onSaveReminder, handleDelete: _onDeleteReminder, handleStatusChangeReminder: onStatusChangeReminder } = useRemindersMutations();
   const { handleSave: onSaveProvidedService, handleDelete: _onDeleteProvidedService } = useProvidedServicesMutations();
@@ -493,7 +492,6 @@ const DashboardView: React.FC<Props> = ({
       reminders={displayReminders}
       clients={clients}
       users={users}
-      onMarkSampled={handleMarkSampled}
       onSaveReminder={onSaveReminder}
       onDeleteReminder={onDeleteReminder}
       onStatusChangeReminder={onStatusChangeReminder}
@@ -881,7 +879,6 @@ const DashboardView: React.FC<Props> = ({
                     services={services}
                     reminders={reminders}
                     invoices={invoices}
-                    onMarkSampled={handleMarkSampled}
                     onView={() => onViewProject?.(p)}
                     onEdit={() => onEditProject?.(p)}
                     onDelete={() => wrappedOnDelete(p.id)}
