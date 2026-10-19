@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { RichTextEditor, formatHtml } from './RichTextEditor';
+import { RichTextEditor, formatHtml, escapeHtml, sanitizeHtml, plainTextToHtml } from './RichTextEditor';
 import * as LanguageContext from '../../context/LanguageContext';
 import * as AuthContext from '../../context/AuthContext';
 
@@ -238,6 +238,44 @@ describe('RichTextEditor', () => {
     // The second save should automatically chain and save the latest edits
     await waitFor(() => {
       expect(mockOnSave).toHaveBeenCalledWith('<p>First edit with second edit</p>');
+    });
+  });
+
+  describe('Security & Sanitization', () => {
+    it('escapeHtml escapes meta-characters correctly', () => {
+      expect(escapeHtml('<script>alert("xss") & \'test\'</script>')).toBe(
+        '&lt;script&gt;alert(&quot;xss&quot;) &amp; &#039;test&#039;&lt;/script&gt;'
+      );
+    });
+
+    it('sanitizeHtml strips dangerous scripts and handlers while preserving formatting and mentions', () => {
+      const dirty = '<p>Safe text</p><script>alert("hack")</script><img src="x" onerror="alert(1)"><span class="mention-tag" data-user-id="123" data-user-name="Alice" contenteditable="false">@Alice</span>';
+      const clean = sanitizeHtml(dirty);
+      expect(clean).not.toContain('<script>');
+      expect(clean).not.toContain('onerror');
+      expect(clean).toContain('Safe text');
+      expect(clean).toContain('class="mention-tag"');
+      expect(clean).toContain('data-user-id="123"');
+      expect(clean).toContain('data-user-name="Alice"');
+      expect(clean).toContain('contenteditable="false"');
+    });
+
+    it('plainTextToHtml escapes meta-characters and safely embeds user mentions', () => {
+      const users = [
+        { id: '1', name: 'John Doe' } as any,
+      ];
+      const result = plainTextToHtml('Hello @John Doe & <script>alert(1)</script>', users);
+      expect(result).not.toContain('<script>');
+      expect(result).toContain('&amp;');
+      expect(result).toContain('&lt;script&gt;');
+      expect(result).toContain('data-user-name="John Doe"');
+    });
+
+    it('formatHtml escapes text nodes and attribute values to prevent DOM text reinterpretation as HTML', () => {
+      const input = '<p title="Quote &quot;test&quot;">Unescaped &lt;text&gt; &amp; entity</p>';
+      const formatted = formatHtml(input);
+      expect(formatted).toContain('title="Quote &quot;test&quot;"');
+      expect(formatted).toContain('Unescaped &lt;text&gt; &amp; entity');
     });
   });
 });

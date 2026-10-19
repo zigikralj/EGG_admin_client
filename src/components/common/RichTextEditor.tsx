@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
+import DOMPurify from 'dompurify';
 import {
   Box,
   Paper,
@@ -70,6 +71,27 @@ function escapeRegex(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+export function escapeHtml(str: string): string {
+  if (!str) return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+export const DOMPURIFY_CONFIG = {
+  ADD_TAGS: ['span'],
+  ADD_ATTR: ['contenteditable', 'data-user-id', 'data-user-name', 'target', 'style', 'color'],
+  ALLOW_DATA_ATTR: true,
+};
+
+export function sanitizeHtml(html: string): string {
+  if (!html) return '';
+  return DOMPurify.sanitize(html, DOMPURIFY_CONFIG) as string;
+}
+
 export function htmlToPlainText(html: string): string {
   if (!html) return '';
   try {
@@ -117,18 +139,16 @@ export function plainTextToHtml(plain: string, users: User[] = []): string {
     if (!rawLine.trim()) {
       flushParagraph();
     } else {
-      let escaped = rawLine
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
+      let escaped = escapeHtml(rawLine);
 
       if (users && users.length > 0) {
         for (const u of users) {
           if (u.name) {
-            const pattern = new RegExp(`@${escapeRegex(u.name)}\\b`, 'gi');
+            const escapedUserName = escapeHtml(u.name);
+            const pattern = new RegExp(`@${escapeRegex(escapedUserName)}\\b`, 'gi');
             escaped = escaped.replace(
               pattern,
-              `<span class="mention-tag" data-user-id="${u.id}" data-user-name="${u.name}" contenteditable="false">@${u.name}</span>`
+              `<span class="mention-tag" data-user-id="${escapeHtml(String(u.id))}" data-user-name="${escapedUserName}" contenteditable="false">@${escapedUserName}</span>`
             );
           }
         }
@@ -139,7 +159,7 @@ export function plainTextToHtml(plain: string, users: User[] = []): string {
   }
   flushParagraph();
 
-  return paragraphs.join('');
+  return sanitizeHtml(paragraphs.join(''));
 }
 
 export function formatHtml(html: string): string {
@@ -158,7 +178,7 @@ export function formatHtml(html: string): string {
 
     function serializeNode(node: Node, indentLevel: number): string {
       if (node.nodeType === Node.TEXT_NODE) {
-        return node.textContent || '';
+        return escapeHtml(node.textContent || '');
       }
 
       if (node.nodeType === Node.ELEMENT_NODE) {
@@ -169,7 +189,7 @@ export function formatHtml(html: string): string {
         let openTag = `<${tagName}`;
         for (let i = 0; i < el.attributes.length; i++) {
           const attr = el.attributes[i];
-          openTag += ` ${attr.name}="${attr.value}"`;
+          openTag += ` ${attr.name}="${escapeHtml(attr.value)}"`;
         }
 
         if (['br', 'hr', 'img', 'input'].includes(tagName)) {
@@ -196,7 +216,10 @@ export function formatHtml(html: string): string {
             .join('');
           return `${openTag}${childrenStr}\n${indent}${closeTag}`;
         } else {
-          return `${openTag}${el.innerHTML}${closeTag}`;
+          const inlineChildren = Array.from(el.childNodes)
+            .map((child) => serializeNode(child, indentLevel))
+            .join('');
+          return `${openTag}${inlineChildren}${closeTag}`;
         }
       }
 
@@ -520,7 +543,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     if (!isMountedRef.current) {
       isMountedRef.current = true;
       if (editorRef.current) {
-        editorRef.current.innerHTML = value || '';
+        editorRef.current.innerHTML = sanitizeHtml(value || '');
         const textContent = editorRef.current.textContent || '';
         setIsEmpty(!textContent.trim() && !editorRef.current.querySelector('img, hr, iframe'));
       }
@@ -555,7 +578,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       }
       const currentHtml = editorRef.current.innerHTML;
       if (currentHtml !== value) {
-        editorRef.current.innerHTML = value || '';
+        editorRef.current.innerHTML = sanitizeHtml(value || '');
         const textContent = editorRef.current.textContent || '';
         setIsEmpty(!textContent.trim() && !editorRef.current.querySelector('img, hr, iframe'));
       }
@@ -598,13 +621,13 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
           valueRef.current = convertedHtml;
           notifyChange(convertedHtml);
           if (editorRef.current) {
-            editorRef.current.innerHTML = convertedHtml;
+            editorRef.current.innerHTML = sanitizeHtml(convertedHtml);
           }
           setIsEmpty(!convertedHtml.trim());
         } else {
           valueRef.current = originalHtmlRef.current;
           if (editorRef.current) {
-            editorRef.current.innerHTML = originalHtmlRef.current;
+            editorRef.current.innerHTML = sanitizeHtml(originalHtmlRef.current);
           }
           setIsEmpty(!originalHtmlRef.current.trim());
         }
@@ -621,17 +644,18 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         setIsEmpty(!formatted.trim());
       }
     } else if (editorMode === 'html') {
-      valueRef.current = htmlSource;
-      notifyChange(htmlSource);
+      const sanitizedSource = sanitizeHtml(htmlSource);
+      valueRef.current = sanitizedSource;
+      notifyChange(sanitizedSource);
       if (newMode === 'rich') {
         if (editorRef.current) {
-          editorRef.current.innerHTML = htmlSource;
+          editorRef.current.innerHTML = sanitizedSource;
         }
-        setIsEmpty(!htmlSource.trim());
+        setIsEmpty(!sanitizedSource.trim());
       } else if (newMode === 'plain') {
-        originalHtmlRef.current = htmlSource;
+        originalHtmlRef.current = sanitizedSource;
         setIsPlainModified(false);
-        const converted = htmlToPlainText(htmlSource);
+        const converted = htmlToPlainText(sanitizedSource);
         setPlainText(converted);
         setIsEmpty(!converted.trim());
       }
@@ -903,7 +927,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
       if (modified) {
         e.preventDefault();
-        const sanitized = doc.body.innerHTML;
+        const sanitized = sanitizeHtml(doc.body.innerHTML);
         document.execCommand('insertHTML', false, sanitized);
         handleInput();
       }
