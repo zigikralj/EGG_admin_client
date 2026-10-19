@@ -2,13 +2,9 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [v1.10.0] - 2026-10-19
 
-- feat: enhance RichTextEditor with autosave indicator, multi-mode view (Rich Text WYSIWYG, Markdown Preview, and raw HTML Source).
-- feat: integrate DOMPurify for comprehensive HTML sanitization and escaping in rich text processing and previewing.
-- feat: expand RichTextEditor formatting toolbar with headings, code blocks, quote blocks, tables, text alignment, and word/character counters.
-- feat: improve ProjectCard and ProjectViewModal with quick sampling action advances and rich notes previews.
-- i18n: add localized translation keys across English, Serbian Latin, and Serbian Cyrillic for all editor actions and modes.
+- feat: enhance RichTextEditor with autosave, multi-mode view, and form… (#82) by @zigikralj
 
 ## [v1.9.0] - 2026-10-18
 
