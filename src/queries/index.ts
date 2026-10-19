@@ -466,24 +466,34 @@ export function useGenericMutations<T extends { id?: string }>(config: MutationC
     }
   };
 
+  const saveMutationFn = async (data: Partial<T>) => {
+    const headers = { 'Content-Type': 'application/json', ...getAuthHeaders() };
+    let res;
+    if (data.id) {
+      res = await apiFetch(`${config.basePath}/${data.id}`, { method: 'PUT', headers, body: JSON.stringify(data) });
+    } else {
+      res = await apiFetch(config.basePath, { method: 'POST', headers, body: JSON.stringify(data) });
+    }
+    
+    if (res.ok) {
+      const savedItem = await res.json().catch(() => ({}));
+      return { success: true, id: savedItem?.id, data: savedItem };
+    } else {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || err.message || t(config.errorSaveMessageKey));
+    }
+  };
+
   const saveMutation = useMutation<SaveResult, Error, Partial<T>>({
-    mutationFn: async (data) => {
-      const headers = { 'Content-Type': 'application/json', ...getAuthHeaders() };
-      let res;
-      if (data.id) {
-        res = await apiFetch(`${config.basePath}/${data.id}`, { method: 'PUT', headers, body: JSON.stringify(data) });
-      } else {
-        res = await apiFetch(config.basePath, { method: 'POST', headers, body: JSON.stringify(data) });
-      }
-      
-      if (res.ok) {
-        const savedItem = await res.json().catch(() => ({}));
-        return { success: true, id: savedItem?.id, data: savedItem };
-      } else {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || err.message || t(config.errorSaveMessageKey));
-      }
+    mutationFn: saveMutationFn,
+    onSuccess: () => {
+      invalidate();
     },
+  });
+
+  const silentSaveMutation = useMutation<SaveResult, Error, Partial<T>>({
+    mutationFn: saveMutationFn,
+    meta: { silent: true },
     onSuccess: () => {
       invalidate();
     },
@@ -507,10 +517,22 @@ export function useGenericMutations<T extends { id?: string }>(config: MutationC
 
   return {
     saveMutation,
+    silentSaveMutation,
     deleteMutation,
-    handleSave: async (data: Partial<T>): Promise<SaveResult> => {
+    handleSave: async (data: Partial<T>, options?: { silent?: boolean }): Promise<SaveResult> => {
       try {
+        if (options?.silent) {
+          return await silentSaveMutation.mutateAsync(data);
+        }
         return await saveMutation.mutateAsync(data);
+      } catch (e: any) {
+        console.error(e);
+        return { success: false, error: e.message };
+      }
+    },
+    handleSilentSave: async (data: Partial<T>): Promise<SaveResult> => {
+      try {
+        return await silentSaveMutation.mutateAsync(data);
       } catch (e: any) {
         console.error(e);
         return { success: false, error: e.message };
