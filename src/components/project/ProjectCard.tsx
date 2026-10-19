@@ -16,6 +16,7 @@ import {
 import type { Project, Service, Reminder, Invoice } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import { stripHtmlToText } from '../common/RichTextEditor';
 import {
   EditIcon,
   VisibilityIcon,
@@ -99,7 +100,7 @@ export const ProjectNotesPreview: React.FC<ProjectNotesPreviewProps> = ({
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const cleanText = useMemo(() => {
-    return notes.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim();
+    return stripHtmlToText(notes);
   }, [notes]);
 
   const isExpanded = isLocked || isHovered;
@@ -492,7 +493,7 @@ export const ProjectCard: React.FC<Props> = ({
   const late = isLate(p);
   const nearDeadline = !late && isNearDeadline(p);
   const stale = isStale(p);
-  const hasNotes = Boolean(p.notes && p.notes.replace(/<[^>]*>?/gm, ' ').trim().length > 0);
+  const hasNotes = Boolean(p.notes && stripHtmlToText(p.notes).length > 0);
 
   // Match reminders for this project
   const projectReminders = useMemo(() => {

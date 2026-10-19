@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { RichTextEditor, formatHtml, escapeHtml, sanitizeHtml, plainTextToHtml } from './RichTextEditor';
+import { RichTextEditor, formatHtml, escapeHtml, sanitizeHtml, plainTextToHtml, stripHtmlToText } from './RichTextEditor';
 import * as LanguageContext from '../../context/LanguageContext';
 import * as AuthContext from '../../context/AuthContext';
 
@@ -276,6 +276,26 @@ describe('RichTextEditor', () => {
       const formatted = formatHtml(input);
       expect(formatted).toContain('title="Quote &quot;test&quot;"');
       expect(formatted).toContain('Unescaped &lt;text&gt; &amp; entity');
+    });
+
+    it('stripHtmlToText removes invisible characters like &nbsp; and decodes HTML entities cleanly', () => {
+      // Mention with trailing &nbsp; as seen in user report
+      const noteWithTrailingNbsp = '<p>how are you man? everything good? <span class="mention-tag" data-user-id="3">@Katarina Popović</span>&nbsp;</p>';
+      expect(stripHtmlToText(noteWithTrailingNbsp)).toBe('how are you man? everything good? @Katarina Popović');
+
+      // Notes with internal &nbsp;, non-breaking unicode spaces, and HTML entities
+      const noteWithEntities = '<p>Energo-Term&nbsp;Kraljevo &amp; &lt;Heating&gt; &#39;Special&#39; &quot;Notes&quot;&nbsp;</p>';
+      expect(stripHtmlToText(noteWithEntities)).toBe('Energo-Term Kraljevo & <Heating> \'Special\' "Notes"');
+
+      // Notes across multiple blocks should maintain separation without merging words
+      const multiBlock = '<p>First line</p><p>Second line</p>';
+      expect(stripHtmlToText(multiBlock)).toBe('First line Second line');
+
+      // Empty or whitespace/nbsp-only notes should collapse to empty string
+      expect(stripHtmlToText('<p>&nbsp;</p>')).toBe('');
+      expect(stripHtmlToText('<p><br></p>')).toBe('');
+      expect(stripHtmlToText('&nbsp;&nbsp;&nbsp;')).toBe('');
+      expect(stripHtmlToText('')).toBe('');
     });
   });
 });

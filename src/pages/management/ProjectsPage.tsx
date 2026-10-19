@@ -29,6 +29,7 @@ import {
 import type { Project, TableViewProps } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import { stripHtmlToText } from '../../components/common/RichTextEditor';
 import { TableOptionsSelector, type ColumnDef } from '../../components/common/ColumnSelector';
 import { TableFilterSelector } from '../../components/common/TableFilterSelector';
 import { DateRangeFilter } from '../../components/common/DateRangeFilter';
@@ -829,7 +830,7 @@ const ProjectsPage: React.FC<Props> = ({
                       )}
                       {activeCols.includes('notes') && (
                         <TableCell sx={{ maxWidth: 220 }}>
-                          {p.notes ? (
+                          {p.notes && stripHtmlToText(p.notes).length > 0 ? (
                             <Tooltip
                               title={
                                 <Box
@@ -870,7 +871,7 @@ const ProjectsPage: React.FC<Props> = ({
                                     color: 'text.primary',
                                   }}
                                 >
-                                  {p.notes.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim() || t('viewProjectNotes')}
+                                  {stripHtmlToText(p.notes) || t('viewProjectNotes')}
                                 </Typography>
                               </Box>
                             </Tooltip>
