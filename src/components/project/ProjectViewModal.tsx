@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -22,7 +22,7 @@ import { ProjectProgressSlider } from './ProjectProgressSlider';
 import { ProjectReminderSection } from './ProjectReminderSection';
 import { ProjectInvoiceSection } from './ProjectInvoiceSection';
 import { useProjectForm } from '../../hooks/useProjectForm';
-import { SaveIcon, EditIcon, CloseIcon, NotesIcon } from '../icons';
+import { EditIcon, CloseIcon, NotesIcon } from '../icons';
 import { ConfirmDialog } from '../dialogs/ConfirmDialog';
 import { useClientsQuery, useUsersQuery, useServicesQuery, useRemindersQuery, useInvoicesQuery, useProjectsMutations, useRemindersMutations, useInvoicesMutations } from '../../queries';
 
@@ -75,13 +75,24 @@ const ProjectViewModal: React.FC<Props> = ({
 
   // Local state for editable notes
   const [notes, setNotes] = useState(project?.notes || '');
-  const [isSavingNotes, setIsSavingNotes] = useState(false);
-  const [notesModified, setNotesModified] = useState(false);
+  const prevProjectIdRef = useRef(project?.id);
+  const lastSavedNotesRef = useRef(project?.notes || '');
+  const isAutoSavingRef = useRef(false);
 
   useEffect(() => {
-    if (project) {
+    if (!project) return;
+    if (prevProjectIdRef.current !== project.id) {
+      prevProjectIdRef.current = project.id;
       setNotes(project.notes || '');
-      setNotesModified(false);
+      lastSavedNotesRef.current = project.notes || '';
+    } else if (project.notes !== lastSavedNotesRef.current && !isAutoSavingRef.current) {
+      setNotes((curr) => {
+        if (curr === lastSavedNotesRef.current) {
+          lastSavedNotesRef.current = project.notes || '';
+          return project.notes || '';
+        }
+        return curr;
+      });
     }
   }, [project?.id, project?.notes]);
 
@@ -95,6 +106,21 @@ const ProjectViewModal: React.FC<Props> = ({
     currentUser,
   });
 
+  const handleAutoSaveNotes = async (val: string) => {
+    if (!project || !onSave) return;
+    isAutoSavingRef.current = true;
+    lastSavedNotesRef.current = val;
+    try {
+      const res = await onSave({ ...project, notes: val || null }, { silent: true });
+      if (res && !res.success) {
+        setErrorDialogState({ open: true, message: res.error || t('errorSavingProject') });
+        throw new Error(res.error || t('errorSavingProject'));
+      }
+      window.dispatchEvent(new CustomEvent('notifications:refresh'));
+    } finally {
+      isAutoSavingRef.current = false;
+    }
+  };
 
   if (!isOpen || !project) return null;
 
@@ -107,30 +133,12 @@ const ProjectViewModal: React.FC<Props> = ({
     if (!project || !onSave) return;
     const newDone = val >= 100;
     try {
-      const res = await onSave({ ...project, progress: val, done: newDone });
+      const res = await onSave({ ...project, progress: val, done: newDone }, { silent: true });
       if (res && !res.success) {
         setErrorDialogState({ open: true, message: res.error || t('errorSavingProject') });
       }
     } catch (err: any) {
       setErrorDialogState({ open: true, message: err?.message || t('errorSavingProject') });
-    }
-  };
-
-  const handleSaveNotes = async () => {
-    if (!project || !onSave) return;
-    setIsSavingNotes(true);
-    try {
-      const res = await onSave({ ...project, notes: notes || null });
-      if (res && !res.success) {
-        setErrorDialogState({ open: true, message: res.error || t('errorSavingProject') });
-      } else {
-        setNotesModified(false);
-        window.dispatchEvent(new CustomEvent('notifications:refresh'));
-      }
-    } catch (err: any) {
-      setErrorDialogState({ open: true, message: err?.message || t('errorSavingProject') });
-    } finally {
-      setIsSavingNotes(false);
     }
   };
 
@@ -325,36 +333,23 @@ const ProjectViewModal: React.FC<Props> = ({
               />
             </Grid>
 
-            {/* PROJECT NOTES - RICH TEXT WITH DIRECT EDIT/SAVE */}
+            {/* PROJECT NOTES - RICH TEXT WITH DIRECT AUTO-SAVE */}
             <Grid size={{ xs: 12 }}>
               <Paper variant="outlined" sx={{ p: 2, bgcolor: 'background.default', borderRadius: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <NotesIcon color="primary" fontSize="small" />
                     <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                       {t('lblProjectNotes')}
                     </Typography>
                   </Box>
-                  {isEditable && notesModified && (
-                    <Button
-                      size="small"
-                      variant="contained"
-                      color="primary"
-                      startIcon={<SaveIcon />}
-                      onClick={handleSaveNotes}
-                      disabled={isSavingNotes}
-                      sx={{ textTransform: 'none', fontWeight: 600, py: 0.25, px: 1.5 }}
-                    >
-                      {isSavingNotes ? '...' : t('btnSave')}
-                    </Button>
-                  )}
                 </Box>
                 {isEditable ? (
                   <RichTextEditor
                     value={notes}
-                    onChange={(val) => {
-                      setNotes(val);
-                      setNotesModified(true);
+                    onChange={setNotes}
+                    autoSave={{
+                      onSave: handleAutoSaveNotes,
                     }}
                     users={users}
                     placeholder={t('phProjectNotes')}

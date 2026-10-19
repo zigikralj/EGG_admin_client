@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -10,19 +10,25 @@ import {
   Checkbox,
   IconButton,
   Tooltip,
+  Paper,
 } from '@mui/material';
-
-
-
-
-
-
-
 
 import type { Project, Service, Reminder, Invoice } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import { EditIcon, VisibilityIcon, WarningAmberIcon, ErrorIcon, NotesIcon, NotificationsActiveIcon, ReceiptLongIcon } from '../icons';
+import {
+  EditIcon,
+  VisibilityIcon,
+  WarningAmberIcon,
+  ErrorIcon,
+  NotesIcon,
+  NotificationsActiveIcon,
+  ReceiptLongIcon,
+  PushPinIcon,
+  PushPinOutlinedIcon,
+  OpenInNewIcon,
+  CloseIcon,
+} from '../icons';
 
 interface Props {
   project: Project;
@@ -76,6 +82,400 @@ function isStale(p: Project): boolean {
   return start < cutoff;
 }
 
+interface ProjectNotesPreviewProps {
+  notes: string;
+  onOpenModal: () => void;
+  onExpandedChange?: (expanded: boolean) => void;
+}
+
+export const ProjectNotesPreview: React.FC<ProjectNotesPreviewProps> = ({
+  notes,
+  onOpenModal,
+  onExpandedChange,
+}) => {
+  const { t } = useLanguage();
+  const [isHovered, setIsHovered] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cleanText = useMemo(() => {
+    return notes.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim();
+  }, [notes]);
+
+  const isExpanded = isLocked || isHovered;
+
+  useEffect(() => {
+    onExpandedChange?.(isExpanded);
+  }, [isExpanded, onExpandedChange]);
+
+  const handleMouseEnter = () => {
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    hoverTimeoutRef.current = setTimeout(() => {
+      setIsHovered(true);
+    }, 120);
+  };
+
+  const handleMouseLeave = () => {
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    hoverTimeoutRef.current = setTimeout(() => {
+      setIsHovered(false);
+    }, 200);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    };
+  }, []);
+
+  // Click-outside listener when locked
+  useEffect(() => {
+    if (!isLocked) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsLocked(false);
+        setIsHovered(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isLocked]);
+
+  return (
+    <Box
+      ref={containerRef}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      sx={{
+        position: 'relative',
+        mb: 1.5,
+      }}
+    >
+      {/* Resting preview card */}
+      <Paper
+        variant="outlined"
+        onClick={() => setIsLocked((prev) => !prev)}
+        sx={{
+          p: 1.25,
+          borderRadius: 2,
+          bgcolor: (theme) =>
+            theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.02)',
+          cursor: 'pointer',
+          transition: 'background-color 0.15s ease',
+          '&:hover': {
+            bgcolor: 'action.hover',
+          },
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 28, mb: 0.75 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            <NotesIcon color="primary" sx={{ fontSize: '1rem' }} />
+            <Typography
+              variant="subtitle2"
+              sx={{
+                fontWeight: 700,
+                fontSize: '0.825rem',
+                color: 'text.primary',
+                lineHeight: 1.2,
+              }}
+            >
+              {t('lblProjectNotes')}
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Tooltip title={isLocked ? t('unpinNotesPreview') : t('pinNotesPreview')}>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsLocked(!isLocked);
+                }}
+                color={isLocked ? 'primary' : 'default'}
+                sx={{
+                  p: 0.5,
+                  bgcolor: isLocked ? 'action.selected' : 'transparent',
+                }}
+              >
+                {isLocked ? (
+                  <PushPinIcon sx={{ fontSize: '0.95rem' }} />
+                ) : (
+                  <PushPinOutlinedIcon sx={{ fontSize: '0.95rem', transform: 'rotate(45deg)' }} />
+                )}
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={t('btnView')}>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenModal();
+                }}
+                sx={{ p: 0.5 }}
+              >
+                <OpenInNewIcon sx={{ fontSize: '0.95rem' }} />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </Box>
+        <Typography
+          variant="body2"
+          sx={{
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            fontSize: '0.8125rem',
+            lineHeight: 1.5,
+            color: 'text.primary',
+            m: 0,
+          }}
+        >
+          {cleanText || t('viewProjectNotes')}
+        </Typography>
+      </Paper>
+
+      {/* Floating Expanded Overlay with Click-to-Lock */}
+      <Paper
+        elevation={isExpanded ? 8 : 0}
+        sx={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 30,
+          p: 1.25,
+          borderRadius: 2,
+          bgcolor: (theme) => (theme.palette.mode === 'dark' ? '#132018' : '#ffffff'),
+          border: '1px solid',
+          borderColor: isLocked ? 'primary.main' : 'divider',
+          boxShadow: (theme) =>
+            theme.palette.mode === 'dark'
+              ? isExpanded
+                ? '0 12px 32px rgba(0,0,0,0.75), 0 2px 6px rgba(0,0,0,0.5)'
+                : 'none'
+              : isExpanded
+              ? '0 12px 32px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.06)'
+              : 'none',
+          opacity: isExpanded ? 1 : 0,
+          visibility: isExpanded ? 'visible' : 'hidden',
+          pointerEvents: isExpanded ? 'auto' : 'none',
+          transition: isExpanded
+            ? 'opacity 0.12s ease-out, visibility 0.12s ease-out, box-shadow 0.4s cubic-bezier(0.25, 1, 0.5, 1)'
+            : 'opacity 0.18s cubic-bezier(0.25, 1, 0.5, 1), visibility 0.18s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.2s cubic-bezier(0.25, 1, 0.5, 1)',
+        }}
+      >
+        {/* Hidden Chip to ensure MUI Emotion injects Chip styles on initial render */}
+        <Chip size="small" color="error" sx={{ display: 'none' }} />
+
+        {/* Header */}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 28, mb: 0.75 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            <NotesIcon color="primary" sx={{ fontSize: '1rem' }} />
+            <Typography
+              variant="subtitle2"
+              sx={{
+                fontWeight: 700,
+                fontSize: '0.825rem',
+                color: 'text.primary',
+                lineHeight: 1.2,
+              }}
+            >
+              {t('lblProjectNotes')}
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Tooltip title={isLocked ? t('unpinNotesPreview') : t('pinNotesPreview')}>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsLocked(!isLocked);
+                }}
+                color={isLocked ? 'primary' : 'default'}
+                sx={{
+                  p: 0.5,
+                  bgcolor: isLocked ? 'action.selected' : 'transparent',
+                }}
+              >
+                {isLocked ? (
+                  <PushPinIcon sx={{ fontSize: '0.95rem' }} />
+                ) : (
+                  <PushPinOutlinedIcon sx={{ fontSize: '0.95rem', transform: 'rotate(45deg)' }} />
+                )}
+              </IconButton>
+            </Tooltip>
+            <Tooltip title={t('btnView')}>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenModal();
+                }}
+                sx={{ p: 0.5 }}
+              >
+                <OpenInNewIcon sx={{ fontSize: '0.95rem' }} />
+              </IconButton>
+            </Tooltip>
+            {isLocked && (
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsLocked(false);
+                  setIsHovered(false);
+                }}
+                sx={{ p: 0.5 }}
+              >
+                <CloseIcon sx={{ fontSize: '0.95rem' }} />
+              </IconButton>
+            )}
+          </Box>
+        </Box>
+
+        {/* Scrollable Rich Content Body with True-Height Grid Transition */}
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateRows: isExpanded ? '1fr' : '0fr',
+            opacity: isExpanded ? 1 : 0,
+            transition: isExpanded
+              ? 'grid-template-rows 0.6s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.25s ease-out'
+              : 'grid-template-rows 0.25s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.18s ease-in',
+          }}
+        >
+          <Box sx={{ minHeight: 0, overflow: 'hidden' }}>
+            <Box
+              sx={{
+                maxHeight: 280,
+                overflowY: isExpanded ? 'auto' : 'hidden',
+                pr: 0.75,
+                fontSize: '0.8125rem',
+                lineHeight: 1.5,
+                color: 'text.primary',
+                scrollbarWidth: 'thin',
+                scrollbarColor: (theme) =>
+                  theme.palette.mode === 'dark'
+                    ? 'rgba(255, 255, 255, 0.28) transparent'
+                    : 'rgba(0, 0, 0, 0.28) transparent',
+                '&::-webkit-scrollbar': {
+                  width: '6px',
+                  display: 'block',
+                },
+                '&::-webkit-scrollbar-track': {
+                  bgcolor: 'transparent',
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  bgcolor: (theme) =>
+                    theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.28)' : 'rgba(0, 0, 0, 0.28)',
+                  borderRadius: '3px',
+                  '&:hover': {
+                    bgcolor: (theme) =>
+                      theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.45)' : 'rgba(0, 0, 0, 0.45)',
+                  },
+                },
+                '& p': { m: 0, mb: 0.75 },
+                '& p:last-child': { mb: 0 },
+                '& ul, & ol': { m: 0, pl: 2.2, mb: 0.75 },
+                '& li': { mb: 0.25 },
+                '& blockquote': {
+                  m: 0,
+                  pl: 1.25,
+                  borderLeft: '3px solid',
+                  borderColor: 'primary.main',
+                  color: 'text.secondary',
+                  fontStyle: 'italic',
+                  mb: 0.75,
+                },
+                '& a': { color: 'primary.main', textDecoration: 'underline' },
+                '& .mention-tag': {
+                  bgcolor: (theme) =>
+                    theme.palette.mode === 'dark' ? 'rgba(144, 202, 249, 0.18)' : 'rgba(25, 118, 210, 0.12)',
+                  color: (theme) => (theme.palette.mode === 'dark' ? '#90caf9' : 'primary.main'),
+                  border: '1px solid',
+                  borderColor: (theme) =>
+                    theme.palette.mode === 'dark' ? 'rgba(144, 202, 249, 0.35)' : 'rgba(25, 118, 210, 0.25)',
+                  borderRadius: '4px',
+                  px: 0.6,
+                  py: 0.1,
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  margin: '0 2px',
+                  fontSize: '0.75rem',
+                },
+                // Direct styling support for pasted MUI Chips and badges (e.g. reminders)
+                '& .MuiChip-root': {
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '16px',
+                  whiteSpace: 'nowrap',
+                  verticalAlign: 'middle',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  height: '20px',
+                  px: 0.5,
+                  maxWidth: '100%',
+                  boxSizing: 'border-box',
+                },
+                '& .MuiChip-sizeSmall': {
+                  height: '18px',
+                  fontSize: '0.65rem',
+                },
+                '& .MuiChip-colorError': {
+                  bgcolor: 'error.main',
+                  color: '#ffffff',
+                },
+                '& .MuiChip-colorWarning': {
+                  bgcolor: 'warning.main',
+                  color: '#ffffff',
+                },
+                '& .MuiChip-colorSuccess': {
+                  bgcolor: 'success.main',
+                  color: '#ffffff',
+                },
+                '& .MuiChip-colorInfo': {
+                  bgcolor: 'info.main',
+                  color: '#ffffff',
+                },
+                '& .MuiChip-colorDefault': {
+                  bgcolor: (theme) =>
+                    theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
+                  color: 'inherit',
+                },
+                '& .MuiChip-label': {
+                  paddingLeft: '6px',
+                  paddingRight: '6px',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                },
+                '& .MuiBox-root:has(> .MuiChip-root)': {
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 1,
+                  my: 0.5,
+                },
+                '& .MuiTypography-root': {
+                  margin: 0,
+                },
+              }}
+              dangerouslySetInnerHTML={{ __html: notes }}
+            />
+          </Box>
+        </Box>
+      </Paper>
+    </Box>
+  );
+};
+
 export const ProjectCard: React.FC<Props> = ({
   project: p,
   services = [],
@@ -88,10 +488,12 @@ export const ProjectCard: React.FC<Props> = ({
   const { t, getServiceLabel, getResponsibleLabel } = useLanguage();
   const { canEditProject, users } = useAuth();
 
+  const [notesExpanded, setNotesExpanded] = useState(false);
   const canEdit = canEditProject(p);
   const late = isLate(p);
   const nearDeadline = !late && isNearDeadline(p);
   const stale = isStale(p);
+  const hasNotes = Boolean(p.notes && p.notes.replace(/<[^>]*>?/gm, ' ').trim().length > 0);
 
   // Match reminders for this project
   const projectReminders = useMemo(() => {
@@ -447,6 +849,8 @@ export const ProjectCard: React.FC<Props> = ({
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
+        overflow: 'visible',
+        zIndex: notesExpanded ? 20 : 1,
         borderColor: late
           ? 'error.main'
           : nearDeadline
@@ -626,47 +1030,16 @@ export const ProjectCard: React.FC<Props> = ({
             </Tooltip>
           )}
 
-          {p.notes && (
-            <Tooltip
-              slotProps={tooltipSlotProps}
-              title={
-                <Box
-                  sx={{
-                    p: 0.5,
-                    maxHeight: 250,
-                    maxWidth: 300,
-                    overflowY: 'auto',
-                    fontSize: '0.8rem',
-                    color: '#f8fafc',
-                    '& p': { m: 0, mb: 0.5 },
-                    '& ul, & ol': { m: 0, pl: 2 },
-                    '& blockquote': { m: 0, pl: 1, borderLeft: '2px solid #64748b' },
-                  }}
-                  dangerouslySetInnerHTML={{ __html: p.notes }}
-                />
-              }
-              arrow
-            >
-              <Chip
-                icon={<NotesIcon sx={{ fontSize: '0.9rem !important' }} />}
-                label={t('lblProjectNotes')}
-                size="small"
-                variant="outlined"
-                onClick={() => (onView ? onView(p) : onEdit(p))}
-                sx={{
-                  height: 24,
-                  fontSize: '0.75rem',
-                  cursor: 'pointer',
-                  borderColor: 'primary.light',
-                  color: 'primary.main',
-                  '&:hover': {
-                    bgcolor: 'action.hover',
-                  },
-                }}
-              />
-            </Tooltip>
-          )}
         </Stack>
+
+        {/* INLINE NOTES PREVIEW WITH CLICK-TO-LOCK HOVER OVERLAY */}
+        {hasNotes && (
+          <ProjectNotesPreview
+            notes={p.notes!}
+            onOpenModal={() => (onView ? onView(p) : onEdit(p))}
+            onExpandedChange={setNotesExpanded}
+          />
+        )}
 
         {/* BOTTOM SECTION: Responsible person, progress and dates aligned to bottom */}
         <Box sx={{ mt: 'auto', pt: 1 }}>

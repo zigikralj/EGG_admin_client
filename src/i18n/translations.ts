@@ -475,6 +475,10 @@ export interface TranslationKeys {
   lblDeadlineDate: string;
   lblProgressPct: string;
   lblProjectNotes: string;
+  pinNotesPreview: string;
+  unpinNotesPreview: string;
+  hintClickToLockNotes: string;
+  hintNotesLocked: string;
   phProjectNotes: string;
   projectNotesTitle: string;
   noProjectNotes: string;
@@ -489,10 +493,21 @@ export interface TranslationKeys {
   editorParagraph: string;
   editorQuote: string;
   editorClearFormat: string;
+  editorTextColor: string;
+  editorDefaultColor: string;
+  editorCustomColor: string;
   editorUndo: string;
   editorRedo: string;
   editorMentionUser: string;
   editorMentionSearchPlaceholder: string;
+  editorModeRich: string;
+  editorModePlain: string;
+  editorModeHtml: string;
+  editorPlainPlaceholder: string;
+  editorHtmlPlaceholder: string;
+  editorModePlainHint: string;
+  editorModeHtmlHint: string;
+  editorFormatHtml: string;
   menuNotifications: string;
   notificationsTitle: string;
   notificationsMarkAllRead: string;
@@ -701,6 +716,12 @@ export interface TranslationKeys {
   loadingRefreshing: string;
   loadingElapsedTime: string;
   loadingPleaseWait: string;
+
+  // Notes Auto-save
+  notesSaving: string;
+  notesSaved: string;
+  notesSaveFailed: string;
+  btnRetry: string;
 
   lblLinkedList: string;
   valNone: string;
