@@ -94,9 +94,10 @@ export function sanitizeHtml(html: string): string {
 
 export function htmlToPlainText(html: string): string {
   if (!html) return '';
+  const sanitizedHtml = DOMPurify.sanitize(html, DOMPURIFY_CONFIG) as string;
   try {
     const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
+    const doc = parser.parseFromString(sanitizedHtml, 'text/html');
 
     // Replace <br> with newlines
     doc.querySelectorAll('br').forEach((br) => {
@@ -118,7 +119,7 @@ export function htmlToPlainText(html: string): string {
     const text = doc.body.textContent || '';
     return text.replace(/\n{3,}/g, '\n\n').trim();
   } catch {
-    return html.replace(/<[^>]*>/g, ' ').trim();
+    return sanitizedHtml.replace(/<[^>]*>/g, ' ').trim();
   }
 }
 
@@ -165,9 +166,11 @@ export function plainTextToHtml(plain: string, users: User[] = []): string {
 export function formatHtml(html: string): string {
   if (!html || !html.trim()) return '';
 
+  const sanitizedHtml = DOMPurify.sanitize(html, DOMPURIFY_CONFIG) as string;
+
   try {
     const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
+    const doc = parser.parseFromString(sanitizedHtml, 'text/html');
     const root = doc.body;
 
     const blockTags = new Set([
@@ -236,9 +239,9 @@ export function formatHtml(html: string): string {
       .filter(Boolean)
       .join('\n');
 
-    return formattedBlocks || html;
+    return formattedBlocks || sanitizedHtml;
   } catch {
-    return html;
+    return sanitizedHtml;
   }
 }
 
