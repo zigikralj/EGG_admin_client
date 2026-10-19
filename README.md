@@ -9,11 +9,14 @@ A professional project management and invoicing application for **EkosGreenGroup
 **EkosGreenGroup Project Tracker** is a comprehensive platform designed for project lifecycle management, environmental sampling schedules, invoicing, client relations, and team collaboration.
 
 ### Key Highlights:
-- **Role-Based Access Control (RBAC)**: Fine-grained permissions for **Administrator**, **Manager**, **Accountant**, and **User** (Team Member).
-- **Interactive Dashboard**:
+- **Role-Based Access Control (RBAC)**: Dynamic roles and granular permissions management (View, Create, Edit, Delete, Only Own) for **Administrator**, **Manager**, **Accountant**, and custom roles.
+- **Interactive Dashboard & Activity Analytics**:
   - Combined overview with KPI statistics and analytical charts.
   - Role-tailored views: Standard dashboard for managers/team members and specialized invoice-centric dashboard for accountants.
   - Dedicated subtabs for Statistics, Reminders, Invoices, and Projects.
+  - Administrative **Activity Analytics Dashboard**: interactive timeline, heatmap, usage charts, transition analysis, feature adoption, and rule-based insights.
+- **Environmental Permits & Waste Catalog**: Environmental permits management with validity ranges, client associations, permit type filters, and official Serbian national waste index codes with hazard indicators.
+- **Enhanced Project Notes & RichTextEditor**: Multi-mode editor (WYSIWYG, Markdown, raw HTML source), autosave with status indicator, extended formatting toolset, word/character counters, @mentions, and DOMPurify HTML sanitization.
 - **Invoicing & Billing**: Full invoice lifecycle (Draft, Sent, Paid, Overdue, Cancelled), multi-currency support (`RSD` and `EUR €`), line item calculations, due date monitoring, and project linking.
 - **Sampling & Reminders**: Real-time tracking of approaching sampling dates and custom reminders with overdue alerts.
 - **Projects & Services**: Categorized project tracking with progress meters, responsible person assignment, deadline alerts, and quick filters (e.g., Active, Missing Invoice, Stale, Late).
@@ -28,6 +31,7 @@ A professional project management and invoicing application for **EkosGreenGroup
 - **UI Components & Icons**: [Material UI (MUI v9)](https://mui.com/) + [@mui/icons-material](https://mui.com/material-ui/material-icons/) + [Emotion](https://emotion.sh/)
 - **Data Visualization & Charts**: [@mui/x-charts](https://mui.com/x/react-charts/)
 - **State & Data Fetching**: [TanStack React Query v5](https://tanstack.com/query)
+- **HTML Sanitization**: [DOMPurify](https://github.com/cure53/DOMPurify)
 - **Routing**: [React Router v7](https://reactrouter.com/)
 - **Testing**: [Playwright](https://playwright.dev/) (End-to-End E2E) + [Vitest](https://vitest.dev/) (Unit / Integration) + [Testing Library](https://testing-library.com/)
 - **Linting**: [Oxlint](https://oxc.rs/)
@@ -38,8 +42,8 @@ A professional project management and invoicing application for **EkosGreenGroup
 
 | Role | Permissions & Features |
 | :--- | :--- |
-| **Administrator** | • Full system access and configuration.<br>• User management, role assignment, and pending registration approvals.<br>• Client, service, and category management.<br>• Full project and invoice management.<br>• Header **User Switch** switcher for quick identity testing.<br>• Toggle between **Manager mode** and **User view mode**. |
-| **Manager** | • Project creation, assignment, and management.<br>• Access to clients, services, categories, and reminders.<br>• Invoice creation, management, and project linking.<br>• Toggle between **Manager mode** and **User view mode**. |
+| **Administrator** | • Full system access, configuration, and security settings.<br>• Dynamic roles configuration and granular permission matrices.<br>• Activity logs audit trail and organization-wide Activity Analytics.<br>• User management, role assignment, and pending registration approvals.<br>• Complete client, permit, service, category, project, and invoice management. |
+| **Manager** | • Project creation, assignment, progress updates, and sampling schedules.<br>• Access to clients, environmental permits, services, categories, and reminders.<br>• Invoice creation, management, and project linking.<br>• Resource-level ownership scoping ("Only Own") if configured by Administrator. |
 | **Accountant** | • Complete invoice management across all projects regardless of project responsible user.<br>• Custom default dashboard displaying the latest 15 projects and **Approaching Invoices** panel.<br>• Dedicated **Dashboard -> Invoices** subtab and Invoices page.<br>• Tailored quickfilters (**Active**, **Missing Invoice**). |
 | **User (Team Member)** | • Personal project tracking and sampling updates.<br>• Personal reminders monitoring.<br>• Clean, distraction-free interface focused on assigned work. |
 

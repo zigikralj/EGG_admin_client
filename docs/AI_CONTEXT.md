@@ -43,6 +43,12 @@ The client talks to a separate Express 5 REST API server (see `../server/`).
 | `ThemeContext.tsx` | `CustomThemeProvider` | `useThemeContext()` | Light/dark/system theme mode, system preference listener via `matchMedia`, syncs `data-theme` attribute on `<html>`. |
 | `NotificationContext.tsx` | `NotificationProvider` | `useNotifications()` | Fetches, polls (25s intervals with Page Visibility pausing), and manages @mention notifications. Optimistic UI for mark-read/delete/clear-all. |
 
+### Constants (`src/constants/`)
+| File | Purpose |
+|---|---|
+| `apiRoutes.ts` | Centralized API endpoint routes and parameterized URL generators (`API_ROUTES`). |
+| `pageRoutes.ts` | Centralized client navigation paths (`PAGE_ROUTES`). |
+
 ### Custom Hooks (`src/hooks/`)
 | Hook | Purpose |
 |---|---|
@@ -53,7 +59,7 @@ The client talks to a separate Express 5 REST API server (see `../server/`).
 | `useRoleLabels.ts` | Maps `UserRole` strings to translated labels. |
 | `useStatusUpdate.ts` | Generic status-change helper (PATCH to arbitrary endpoint). Used by reminders, invoices, user management. |
 | `useLinkedListOptions.ts` | Handles dynamic hierarchical options fetching and dependency resolution for custom fields (e.g., linked list cascaded selects). |
-| `useActivityTracker.ts` | Non-intrusive batched page activity tracker. Sends batched events on 30s idle intervals and flush on unload/visibility change. Automatically pauses when activity logging is globally deactivated. |
+| `useActivityTracker.ts` | Non-intrusive batched page activity tracker with advanced idle detection, session timeouts, multi-tab synchronization, and short-session purge. Sends batched events on 30s idle intervals and flush on unload/visibility change. Automatically pauses when activity logging is globally deactivated. |
 
 ### React Query Hooks (`src/queries/`)
 | File | Purpose |
@@ -77,9 +83,11 @@ The client talks to a separate Express 5 REST API server (see `../server/`).
 | `tracker/TrackerPage.tsx` | Dashboard | KPI header stats, sub-tabs (Projects, Reminders, Invoices, Waste Disposal, Statistics [Projects, Waste Disposal]). Role-tailored: accountants see invoice-focused default. |
 | `management/ProjectsPage.tsx` | Projects | Table + card list, quick filters (Active, Missing Invoice, Stale, Late), column selector. |
 | `management/ClientsPage.tsx` | Clients | Table with permit linking, inline project/invoice counts. |
+| `management/PermitsPage.tsx` | Permits | Environmental permits table, permit types filter, validity dates, waste catalog multi-picker, inline reminder creation. |
 | `management/ActivityLogsPage.tsx` | Activity Logs | Administrator-only view for audit logs, tracking user actions and navigation. |
 | `management/ActivityAnalyticsPage.tsx` | Activity Analytics | Administrator-only activity analytics dashboard: KPI strip, usage timeline, top pages, actions by entity, user breakdowns, activity heatmap, session length histogram, feature adoption, engagement/friction scatter plot, navigation flows, edited fields, and rule-based insights. |
 | `management/UsersPage.tsx` | Users | Status filters (All/Active/Pending/Blocked), approve/reject, force logout. |
+| `management/RolesPage.tsx` | Roles | Dynamic role and granular permissions matrix management (View, Create, Edit, Delete, Only Own), system admin toggles. |
 | `management/ServicesPage.tsx` | Services | Service type definitions with custom data model editor. |
 | `management/ProvidedServicesPage.tsx` | Provided Services | Service delivery records with sub-tabs (Summary, Statistics). |
 | `management/CategoriesPage.tsx` | Categories | Simple CRUD table. |
@@ -91,15 +99,15 @@ The client talks to a separate Express 5 REST API server (see `../server/`).
 | File | Purpose |
 |---|---|
 | `layout/AdminLayout.tsx` | Page shell — wraps AppHeader + Sidebar + main content + profile/settings/company modals. Handles nav item visibility based on RBAC. |
-| `project/ProjectCard.tsx` | Rich project card — progress bar, sampling controls, status chips, deadline alerts. |
+| `project/ProjectCard.tsx` | Rich project card — progress bar, sampling controls, status chips, deadline alerts, quick sampling actions, rich notes previews. |
 | `project/ProjectModal.tsx` | Project create/edit dialog — uses `useProjectForm`, nested reminder/invoice sections. |
-| `project/ProjectViewModal.tsx` | Read-only project detail view with all related data. |
+| `project/ProjectViewModal.tsx` | Read-only project detail view with all related data, reminders, invoices, and rich notes renderer. |
 | `tracker/statistics/ProjectsStatistics.tsx` | Dashboard analytics — project status distribution, service category breakdown (MUI X Charts). |
 | `tracker/ReminderPanel.tsx` | Dashboard reminder panel — approaching/overdue reminders table. |
 | `tracker/ApproachingInvoicesPanel.tsx` | Dashboard invoice panel — invoices due soon with status management. |
 | `tracker/WasteDisposalPanel.tsx` | Dashboard waste disposal panel — waste service tracking. |
 | `tracker/statistics/WasteDisposalStatistics.tsx` | Analytics charts for provided services (by status, category, monthly trend) and waste amounts. |
-| `common/RichTextEditor.tsx` | Custom rich text editor with @mention support, formatting toolbar, HTML output. |
+| `common/RichTextEditor.tsx` | Advanced WYSIWYG editor with multi-mode view (Rich Text, Markdown, HTML Source), autosave indicator, formatting toolbar (headings, code blocks, tables, alignment), character/word counters, fullscreen mode, DOMPurify HTML sanitization, and @mention support. |
 | `dialogs/CompanyInfoModal.tsx` | Company legal details editor (name, tax ID, bank accounts). |
 | `common/ColumnSelector.tsx` | Column visibility picker for table views. |
 | `common/DateRangeFilter.tsx` | Date range filter component. |

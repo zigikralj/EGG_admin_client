@@ -681,64 +681,80 @@ Update a single preference.
 { "value": "any" }
 ```
 
-**Used by:** [`useAppData.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/hooks/useAppData.ts) — `updatePreference(key, value)` with optimistic updates
+**Used by:** [`usePreferencesMutations`](file:///Users/nemanja.stanojevic/Documents/zigicode/002_EkosGreenGroup/project_tracker/client/src/queries/index.ts) — with optimistic UI updates
 
 ---
 
-## Activity Logs
+## Activity Logs & Analytics
 
-> **Base Path:** `/api/activity-logs`
+> **Base Path:** `/api/activity-logs` (centralized in `src/constants/apiRoutes.ts`)
 
 ### `GET /api/activity-logs/status`
 Check if activity logging is enabled globally.
 - **Roles:** Any authenticated user.
-- **Returns:** `{ enabled: boolean }`
+- **Returns:** `{ enabled: boolean, retentionDays: number }`
 
 ### `PATCH /api/activity-logs/status`
-Toggle activity logging globally.
+Toggle activity logging globally or adjust retention.
 - **Roles:** Administrator
-- **Body:** `{ enabled: boolean }`
-- **Returns:** `{ enabled: boolean }`
+- **Body:** `{ enabled?: boolean, retentionDays?: number }`
+- **Returns:** `{ enabled: boolean, retentionDays: number }`
 
 ### `GET /api/activity-logs`
 Fetch paginated list of activity logs.
 - **Roles:** Administrator
 - **Query Params:**
-  - `userId` (optional): Filter by user
-  - `sessionId` (optional): Filter by session
+  - `userId` (optional): Filter by user UUID
+  - `sessionId` (optional): Filter by session ID
   - `from` (optional): ISO date string to fetch logs after
-  - `limit` (optional): Max number of logs (default: 1000)
+  - `limit` (optional): Max number of logs (default: 1000, max: 5000)
   - `includeDetails` (optional): Set to 'true' to load the full diff payload
 - **Returns:** Array of `ActivityLog` objects.
 
+### `GET /api/activity-logs/analytics`
+Compute comprehensive activity metrics, usage trends, and KPI statistics across the organization.
+- **Roles:** Administrator
+- **Query Params:**
+  - `from` (optional): ISO date string start range
+  - `to` (optional): ISO date string end range
+  - `tz` (optional): User IANA timezone (e.g. `'Europe/Belgrade'`, default `'UTC'`)
+  - `granularity` (optional): `'day' | 'week' | 'month'` (auto-calculated if omitted)
+  - `userIds` (optional): Comma-separated user UUIDs
+  - `roles` (optional): Comma-separated role names
+  - `excludeAdminPages` (optional): `'false'` to include administrative routes (default: `'true'`)
+  - `compare` (optional): `'false'` to skip previous period delta calculations (default: `'true'`)
+- **Returns:** `{ kpis, timeline, topPages, actionsByEntity, userUsage, userPageBreakdown, heatmap, sessionDurationDistribution, transitions, featureAdoption, editedFields }`
+- **Used by:** [`ActivityAnalyticsPage.tsx`](file:///Users/nemanja.stanojevic/Documents/zigicode/002_EkosGreenGroup/project_tracker/client/src/pages/management/ActivityAnalyticsPage.tsx)
+
 ### `GET /api/activity-logs/:id`
-Fetch a single activity log with its full details payload.
+Fetch a single activity log with its full details payload (lazy loaded for diff viewing).
 - **Roles:** Administrator
 - **Returns:** `ActivityLog` object.
 
 ### `POST /api/activity-logs`
-Ingest client activity events (e.g. navigation, user interaction). Buffered on the server.
+Ingest client activity events (page navigation, session duration, user actions). Buffered in memory on the server.
 - **Roles:** Any authenticated user
 - **Body:** `ActivityLog | ActivityLog[]`
 - **Returns:** HTTP 202 Accepted.
+- **Used by:** [`useActivityTracker.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/002_EkosGreenGroup/project_tracker/client/src/hooks/useActivityTracker.ts)
 
 ### `DELETE /api/activity-logs/clear-all`
-Clear all activity logs from the database.
+Clear all activity logs from the database. Invalidates analytics cache.
 - **Roles:** Administrator
 - **Returns:** `{ count: number }`
 
 ### `POST /api/activity-logs/bulk-delete`
-Delete selected activity logs by ID.
+Delete selected activity logs by ID array. Invalidates analytics cache.
 - **Roles:** Administrator
 - **Body:** `{ ids: string[] }`
 - **Returns:** `{ count: number }`
 
 ### `DELETE /api/activity-logs/session/:sessionId`
-Delete all logs matching a specific session ID.
+Delete all logs matching a specific session ID. Invalidates analytics cache.
 - **Roles:** Administrator
 - **Returns:** `{ count: number }`
 
 ### `DELETE /api/activity-logs/:id`
-Delete a specific activity log.
+Delete a specific activity log. Invalidates analytics cache.
 - **Roles:** Administrator
 - **Returns:** `{ success: boolean }`
