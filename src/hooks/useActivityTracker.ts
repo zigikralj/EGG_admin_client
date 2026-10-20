@@ -25,7 +25,7 @@ interface TrackerEvent {
   timestamp: string;
 }
 
-const FLUSH_INTERVAL_MS = 30_000;
+const FLUSH_INTERVAL_MS = 60_000; // 60 seconds (optimized for network bandwidth; still flushes immediately on navigation/unload)
 const MIN_PAGE_VIEW_SECONDS = 1;
 const MAX_QUEUE_SIZE = 100;
 export const MAX_IDLE_SECONDS = 120; // 2 minutes without user interaction considered idle
