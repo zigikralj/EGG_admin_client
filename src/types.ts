@@ -10,6 +10,7 @@ export interface Project {
   progress: number;
   done: boolean;
   notes?: string | null;
+  notesPreview?: string | null;
   reminders?: Reminder[];
   invoices?: Invoice[];
   createdAt?: string;
@@ -26,6 +27,19 @@ export interface ActivityLog {
   durationSeconds?: number;
   sessionId?: string | null;
   timestamp: string;
+}
+
+export interface ActivityLogMonthlyStats {
+  id: string;
+  userId: string;
+  userName?: string;
+  yearMonth: string;
+  totalDurationSeconds: number;
+  sessionCount: number;
+  actionCount: number;
+  moduleBreakdown?: Record<string, number> | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface AnalyticsTotals {

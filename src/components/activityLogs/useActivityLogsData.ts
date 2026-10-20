@@ -24,6 +24,167 @@ export interface UseActivityLogsDataParams {
   language: string;
 }
 
+export function clusterUserLogsIntoSessions(
+  userLogs: ActivityLog[],
+  userId: string,
+  userName: string,
+  t: (key: any) => string,
+  language: string
+): Session[] {
+  if (!userLogs || userLogs.length === 0) return [];
+  const now = Date.now();
+
+  const sessionMap = new Map<string, ActivityLog[]>();
+
+  const sortedAsc = [...userLogs].sort(
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  );
+
+  let currentSessionId = '';
+  let lastTimestamp = 0;
+  let lastType = '';
+
+  for (const log of sortedAsc) {
+    const logTime = new Date(log.timestamp).getTime();
+    const isGap = lastTimestamp > 0 && (logTime - lastTimestamp > 30 * 60 * 1000);
+    const wasLogout = lastType === 'LOGOUT';
+    const hasSubstantialGap = lastTimestamp > 0 && (logTime - lastTimestamp > 5 * 60 * 1000);
+    const isDifferentSessionId = Boolean(log.sessionId && currentSessionId && log.sessionId !== currentSessionId);
+    const isLogin = log.type === 'LOGIN';
+
+    let shouldStartNewSession = false;
+    if (!currentSessionId) {
+      shouldStartNewSession = true;
+    } else if (wasLogout) {
+      shouldStartNewSession = true;
+    } else if (isGap) {
+      shouldStartNewSession = true;
+    } else if (isDifferentSessionId && hasSubstantialGap) {
+      shouldStartNewSession = true;
+    } else if (isLogin && (hasSubstantialGap || wasLogout)) {
+      shouldStartNewSession = true;
+    }
+
+    if (shouldStartNewSession) {
+      currentSessionId = log.sessionId || `synth_${userId}_${logTime}`;
+      if (!sessionMap.has(currentSessionId)) {
+        sessionMap.set(currentSessionId, []);
+      }
+    }
+
+    sessionMap.get(currentSessionId)!.push(log);
+    lastTimestamp = logTime;
+    lastType = log.type;
+  }
+
+  const sessionList: Session[] = [];
+
+  sessionMap.forEach((sLogs, sId) => {
+    const sortedDesc = [...sLogs].sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+
+    const startTime = new Date(sortedDesc[sortedDesc.length - 1].timestamp);
+    const endTime = new Date(sortedDesc[0].timestamp);
+
+    let totalDuration = sortedDesc.reduce((sum, item) => sum + (item.durationSeconds || 0), 0);
+    if (totalDuration === 0 && sortedDesc.length > 1) {
+      totalDuration = Math.max(0, Math.floor((endTime.getTime() - startTime.getTime()) / 1000));
+    }
+
+    const isOnlyLifecycle = sLogs.every(l => l.type === 'LOGIN' || l.type === 'LOGOUT');
+    const sessionSpanSeconds = Math.max(
+      totalDuration,
+      Math.floor((endTime.getTime() - startTime.getTime()) / 1000)
+    );
+    if (isOnlyLifecycle && sessionSpanSeconds < 5) {
+      return;
+    }
+
+    const latestLog = sortedDesc[0];
+    const isActive =
+      now - endTime.getTime() < 10 * 60 * 1000 &&
+      latestLog.type !== 'OFFLINE' &&
+      latestLog.type !== 'LOGOUT';
+
+    const activityMap = new Map<string, {
+      key: string;
+      label: string;
+      path?: string;
+      type: string;
+      totalDurationSeconds: number;
+      count: number;
+      firstTimestamp: string;
+      lastTimestamp: string;
+      items: ActivityLog[];
+    }>();
+
+    for (const log of sortedDesc) {
+      if (LIFECYCLE_TYPES.has(log.type) || isEmptyUpdateLog(log)) {
+        continue;
+      }
+
+      const canonicalPath = getCanonicalPagePath(log.path);
+      const key = canonicalPath ? `path:${canonicalPath}` : `type:${log.type}`;
+      const { label } = getPathLabelAndIcon(canonicalPath, log.type, t, language);
+
+      if (!activityMap.has(key)) {
+        activityMap.set(key, {
+          key,
+          label,
+          path: canonicalPath || log.path,
+          type: log.type,
+          totalDurationSeconds: log.durationSeconds || 0,
+          count: 1,
+          firstTimestamp: log.timestamp,
+          lastTimestamp: log.timestamp,
+          items: [log]
+        });
+      } else {
+        const entry = activityMap.get(key)!;
+        entry.totalDurationSeconds += log.durationSeconds || 0;
+        entry.count += 1;
+        entry.items.push(log);
+        if (new Date(log.timestamp).getTime() < new Date(entry.firstTimestamp).getTime()) {
+          entry.firstTimestamp = log.timestamp;
+        }
+        if (new Date(log.timestamp).getTime() > new Date(entry.lastTimestamp).getTime()) {
+          entry.lastTimestamp = log.timestamp;
+        }
+      }
+    }
+
+    const accumulatedActivities: AccumulatedActivity[] = Array.from(activityMap.values())
+      .map(item => ({
+        ...item,
+        percentage: totalDuration > 0 ? Math.min(100, Math.round((item.totalDurationSeconds / totalDuration) * 100)) : 0
+      }))
+      .sort((a, b) => b.totalDurationSeconds - a.totalDurationSeconds || b.count - a.count);
+
+    sessionList.push({
+      sessionId: sId,
+      userId,
+      userName,
+      startTime,
+      endTime,
+      totalDurationSeconds: totalDuration,
+      isActive,
+      logs: sortedDesc,
+      accumulatedActivities
+    });
+  });
+
+  sessionList.sort((a, b) => b.endTime.getTime() - a.endTime.getTime());
+
+  sessionList.forEach((sess, idx) => {
+    if (idx > 0) {
+      sess.isActive = false;
+    }
+  });
+
+  return sessionList;
+}
+
 export function useActivityLogsData({
   logs,
   users,
@@ -37,21 +198,17 @@ export function useActivityLogsData({
   const processedData = useMemo(() => {
     if (!logs || logs.length === 0) return [];
 
-    const now = Date.now();
-
     // 1. Filter by time range if set
     let filteredLogs = logs;
-    if (timeRangeFilter !== 'ALL') {
-      const cutoff = new Date();
-      if (timeRangeFilter === 'TODAY') {
-        cutoff.setHours(0, 0, 0, 0);
-      } else if (timeRangeFilter === 'WEEK') {
-        cutoff.setDate(cutoff.getDate() - 7);
-      } else if (timeRangeFilter === 'MONTH') {
-        cutoff.setDate(cutoff.getDate() - 30);
-      }
-      filteredLogs = logs.filter(l => new Date(l.timestamp).getTime() >= cutoff.getTime());
+    const cutoff = new Date();
+    if (timeRangeFilter === 'TODAY') {
+      cutoff.setHours(0, 0, 0, 0);
+    } else if (timeRangeFilter === 'WEEK') {
+      cutoff.setDate(cutoff.getDate() - 7);
+    } else if (timeRangeFilter === 'MONTH') {
+      cutoff.setDate(cutoff.getDate() - 30);
     }
+    filteredLogs = logs.filter(l => new Date(l.timestamp).getTime() >= cutoff.getTime());
 
     // 2. Group by user
     const userGroupsMap = new Map<string, ActivityLog[]>();
@@ -70,170 +227,7 @@ export function useActivityLogsData({
       const matchedUser = users?.find(u => u.id === userId);
       const userName = matchedUser?.name || userLogs[0]?.userName || userId;
 
-      // Group logs into sessions:
-      // Clustered chronologically by:
-      // - Explicit LOGOUT event
-      // - Inactivity gap > 30 minutes
-      // - Explicit different sessionId with substantial gap (> 5 min)
-      // - LOGIN event preceded by LOGOUT or substantial gap (> 5 min)
-      // Consecutive logs with minor gap (<= 5 min) without LOGOUT belong to the same logical session,
-      // preventing accidental session splits caused by tab reloads or multi-tab usage.
-      const sessionMap = new Map<string, ActivityLog[]>();
-
-      // Sort user logs chronologically ascending for clustering
-      const sortedAsc = [...userLogs].sort(
-        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-      );
-
-      let currentSessionId = '';
-      let lastTimestamp = 0;
-      let lastType = '';
-
-      for (const log of sortedAsc) {
-        const logTime = new Date(log.timestamp).getTime();
-        const isGap = lastTimestamp > 0 && (logTime - lastTimestamp > 30 * 60 * 1000);
-        const wasLogout = lastType === 'LOGOUT';
-        const hasSubstantialGap = lastTimestamp > 0 && (logTime - lastTimestamp > 5 * 60 * 1000);
-        const isDifferentSessionId = Boolean(log.sessionId && currentSessionId && log.sessionId !== currentSessionId);
-        const isLogin = log.type === 'LOGIN';
-
-        let shouldStartNewSession = false;
-        if (!currentSessionId) {
-          shouldStartNewSession = true;
-        } else if (wasLogout) {
-          shouldStartNewSession = true;
-        } else if (isGap) {
-          shouldStartNewSession = true;
-        } else if (isDifferentSessionId && hasSubstantialGap) {
-          shouldStartNewSession = true;
-        } else if (isLogin && (hasSubstantialGap || wasLogout)) {
-          shouldStartNewSession = true;
-        }
-
-        if (shouldStartNewSession) {
-          currentSessionId = log.sessionId || `synth_${userId}_${logTime}`;
-          if (!sessionMap.has(currentSessionId)) {
-            sessionMap.set(currentSessionId, []);
-          }
-        }
-
-        sessionMap.get(currentSessionId)!.push(log);
-        lastTimestamp = logTime;
-        lastType = log.type;
-      }
-
-      // Convert sessions to Session objects
-      const sessionList: Session[] = [];
-
-      sessionMap.forEach((sLogs, sId) => {
-        // Sort descending (newest first)
-        const sortedDesc = [...sLogs].sort(
-          (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-        );
-
-        const startTime = new Date(sortedDesc[sortedDesc.length - 1].timestamp);
-        const endTime = new Date(sortedDesc[0].timestamp);
-
-        // Sum duration
-        let totalDuration = sortedDesc.reduce((sum, item) => sum + (item.durationSeconds || 0), 0);
-        if (totalDuration === 0 && sortedDesc.length > 1) {
-          totalDuration = Math.max(0, Math.floor((endTime.getTime() - startTime.getTime()) / 1000));
-        }
-
-        // If a session contains only login / logout events and lasts less than 5 seconds, do not register/include it
-        const isOnlyLifecycle = sLogs.every(l => l.type === 'LOGIN' || l.type === 'LOGOUT');
-        const sessionSpanSeconds = Math.max(
-          totalDuration,
-          Math.floor((endTime.getTime() - startTime.getTime()) / 1000)
-        );
-        if (isOnlyLifecycle && sessionSpanSeconds < 5) {
-          return;
-        }
-
-        // Active check: latest activity within 10 minutes and not OFFLINE or LOGOUT
-        const latestLog = sortedDesc[0];
-        const isActive =
-          now - endTime.getTime() < 10 * 60 * 1000 &&
-          latestLog.type !== 'OFFLINE' &&
-          latestLog.type !== 'LOGOUT';
-
-        // Accumulate activities within the session
-        const activityMap = new Map<string, {
-          key: string;
-          label: string;
-          path?: string;
-          type: string;
-          totalDurationSeconds: number;
-          count: number;
-          firstTimestamp: string;
-          lastTimestamp: string;
-          items: ActivityLog[];
-        }>();
-
-        for (const log of sortedDesc) {
-          if (LIFECYCLE_TYPES.has(log.type) || isEmptyUpdateLog(log)) {
-            continue; // Skip LOGIN, LOGOUT, ONLINE, OFFLINE and empty updates from page activities
-          }
-
-          const canonicalPath = getCanonicalPagePath(log.path);
-          const key = canonicalPath ? `path:${canonicalPath}` : `type:${log.type}`;
-          const { label } = getPathLabelAndIcon(canonicalPath, log.type, t, language);
-
-          if (!activityMap.has(key)) {
-            activityMap.set(key, {
-              key,
-              label,
-              path: canonicalPath || log.path,
-              type: log.type,
-              totalDurationSeconds: log.durationSeconds || 0,
-              count: 1,
-              firstTimestamp: log.timestamp,
-              lastTimestamp: log.timestamp,
-              items: [log]
-            });
-          } else {
-            const entry = activityMap.get(key)!;
-            entry.totalDurationSeconds += log.durationSeconds || 0;
-            entry.count += 1;
-            entry.items.push(log);
-            if (new Date(log.timestamp).getTime() < new Date(entry.firstTimestamp).getTime()) {
-              entry.firstTimestamp = log.timestamp;
-            }
-            if (new Date(log.timestamp).getTime() > new Date(entry.lastTimestamp).getTime()) {
-              entry.lastTimestamp = log.timestamp;
-            }
-          }
-        }
-
-        const accumulatedActivities: AccumulatedActivity[] = Array.from(activityMap.values())
-          .map(item => ({
-            ...item,
-            percentage: totalDuration > 0 ? Math.min(100, Math.round((item.totalDurationSeconds / totalDuration) * 100)) : 0
-          }))
-          .sort((a, b) => b.totalDurationSeconds - a.totalDurationSeconds || b.count - a.count);
-
-        sessionList.push({
-          sessionId: sId,
-          userId,
-          userName,
-          startTime,
-          endTime,
-          totalDurationSeconds: totalDuration,
-          isActive,
-          logs: sortedDesc,
-          accumulatedActivities
-        });
-      });
-
-      // Sort sessions newest first
-      sessionList.sort((a, b) => b.endTime.getTime() - a.endTime.getTime());
-
-      // Only the newest session for a user can ever be active; older sessions are strictly past
-      sessionList.forEach((sess, idx) => {
-        if (idx > 0) {
-          sess.isActive = false;
-        }
-      });
+      const sessionList = clusterUserLogsIntoSessions(userLogs, userId, userName, t, language);
 
       // Overall user stats
       const totalUserDuration = sessionList.reduce((sum, s) => sum + s.totalDurationSeconds, 0);

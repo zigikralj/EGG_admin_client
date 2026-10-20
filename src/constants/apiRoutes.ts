@@ -66,6 +66,8 @@ export const API_ROUTES = {
   },
   ACTIVITY_LOGS: {
     BASE: '/api/activity-logs',
+    SUMMARY: '/api/activity-logs/summary',
+    MONTHLY_STATS: '/api/activity-logs/monthly-stats',
     ANALYTICS: '/api/activity-logs/analytics',
     STATUS: '/api/activity-logs/status',
     CLEAR_ALL: '/api/activity-logs/clear-all',

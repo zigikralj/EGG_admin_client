@@ -26,7 +26,7 @@ import { ProjectInvoiceSection } from './ProjectInvoiceSection';
 import { useProjectForm } from '../../hooks/useProjectForm';
 import { DeleteIcon, SaveIcon, CloseIcon, NotesIcon } from '../icons';
 import { ConfirmDialog } from '../dialogs/ConfirmDialog';
-import { useClientsQuery, useUsersQuery, useServicesQuery, useRemindersQuery, useInvoicesQuery, useProjectsMutations, useRemindersMutations, useInvoicesMutations } from '../../queries';
+import { useClientsQuery, useUsersQuery, useServicesQuery, useRemindersQuery, useInvoicesQuery, useProjectsMutations, useRemindersMutations, useInvoicesMutations, useProjectDetailsQuery } from '../../queries';
 
 interface Props {
   isOpen: boolean;
@@ -47,6 +47,16 @@ const ProjectModal: React.FC<Props> = ({
   const { handleSave: onSave, handleDelete: onDelete } = useProjectsMutations();
   const { handleSave: onSaveReminder, handleDelete: onDeleteReminder, handleStatusChangeReminder: onStatusChangeReminder } = useRemindersMutations();
   const { handleSave: onSaveInvoice, handleDelete: onDeleteInvoice, handleUpdateInvoiceStatus: _onStatusChangeInvoice } = useInvoicesMutations();
+
+  const { data: projectDetails } = useProjectDetailsQuery(
+    projectToEdit?.id,
+    isOpen && Boolean(projectToEdit?.id)
+  );
+
+  const effectiveProjectToEdit = React.useMemo(() => {
+    if (!projectToEdit) return null;
+    return projectDetails ? { ...projectToEdit, ...projectDetails } : projectToEdit;
+  }, [projectToEdit, projectDetails]);
 
   const onStatusChangeInvoice = async (id: string, status: string, paymentDate?: string) => {
     await _onStatusChangeInvoice(id, status, paymentDate);
@@ -71,7 +81,7 @@ const ProjectModal: React.FC<Props> = ({
   const wrappedOnDeleteInvoice = wrapDelete(onDeleteInvoice);
 
   const { formState, reminderState, invoiceState, handleClientSelectChange } = useProjectForm({
-    projectToEdit,
+    projectToEdit: effectiveProjectToEdit,
     clients,
     users,
     services,

@@ -39,7 +39,7 @@ interface Props extends TableViewProps {}
 
 const DEFAULT_COLUMNS = ['name', 'city', 'contactPerson', 'email', 'phone', 'permit', 'projectCount'];
 
-import { useClientsQuery, usePermitsQuery, useClientsMutations } from '../../queries';
+import { useClientsQuery, usePermitsSummaryQuery, useClientsMutations } from '../../queries';
 import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
 
 const ClientsPage: React.FC<Props> = ({
@@ -64,7 +64,7 @@ const ClientsPage: React.FC<Props> = ({
   const [historyModalState, setHistoryModalState] = useState<{ open: boolean; client: Client | null }>({ open: false, client: null });
 
   const { data: clients = [], refetch: refetchClients, isRefetching } = useClientsQuery();
-  const { data: permits = [] } = usePermitsQuery();
+  const { data: permits = [] } = usePermitsSummaryQuery();
   const { handleSave, handleDelete } = useClientsMutations();
 
   const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });

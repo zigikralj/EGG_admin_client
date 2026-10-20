@@ -19,7 +19,7 @@ describe('ActivityLogsFilters component', () => {
         onSearchChange={handleSearchChange}
         selectedUserFilter="ALL"
         onUserFilterChange={vi.fn()}
-        timeRangeFilter="ALL"
+        timeRangeFilter="TODAY"
         onTimeRangeChange={vi.fn()}
         userOptions={userOptions}
         t={mockT}
@@ -42,16 +42,16 @@ describe('ActivityLogsFilters component', () => {
         onSearchChange={vi.fn()}
         selectedUserFilter="ALL"
         onUserFilterChange={vi.fn()}
-        timeRangeFilter="ALL"
+        timeRangeFilter="TODAY"
         onTimeRangeChange={handleTimeRangeChange}
         userOptions={userOptions}
         t={mockT}
       />
     );
 
-    const todayButton = screen.getByRole('button', { name: 'filterToday' });
-    fireEvent.click(todayButton);
+    const weekButton = screen.getByRole('button', { name: 'filterLast7Days' });
+    fireEvent.click(weekButton);
 
-    expect(handleTimeRangeChange).toHaveBeenCalledWith('TODAY');
+    expect(handleTimeRangeChange).toHaveBeenCalledWith('WEEK');
   });
 });

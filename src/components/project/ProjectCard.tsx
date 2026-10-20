@@ -11,12 +11,14 @@ import {
   IconButton,
   Tooltip,
   Paper,
+  CircularProgress,
 } from '@mui/material';
 
 import type { Project, Service, Reminder, Invoice } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { stripHtmlToText } from '../common/RichTextEditor';
+import { useProjectDetailsQuery } from '../../queries';
 import {
   EditIcon,
   VisibilityIcon,
@@ -83,13 +85,17 @@ function isStale(p: Project): boolean {
 }
 
 interface ProjectNotesPreviewProps {
-  notes: string;
+  projectId: string;
+  notes?: string | null;
+  notesPreview?: string | null;
   onOpenModal: () => void;
   onExpandedChange?: (expanded: boolean) => void;
 }
 
 export const ProjectNotesPreview: React.FC<ProjectNotesPreviewProps> = ({
-  notes,
+  projectId,
+  notes: initialNotes,
+  notesPreview,
   onOpenModal,
   onExpandedChange,
 }) => {
@@ -99,11 +105,20 @@ export const ProjectNotesPreview: React.FC<ProjectNotesPreviewProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const cleanText = useMemo(() => {
-    return stripHtmlToText(notes);
-  }, [notes]);
-
   const isExpanded = isLocked || isHovered;
+
+  const { data: projectDetails, isLoading: isLoadingDetails } = useProjectDetailsQuery(
+    projectId,
+    isExpanded && !initialNotes
+  );
+
+  const fullNotes = initialNotes || projectDetails?.notes || null;
+
+  const cleanText = useMemo(() => {
+    if (notesPreview && notesPreview.trim()) return notesPreview.trim();
+    if (fullNotes) return stripHtmlToText(fullNotes);
+    return '';
+  }, [notesPreview, fullNotes]);
 
   useEffect(() => {
     onExpandedChange?.(isExpanded);
@@ -336,9 +351,7 @@ export const ProjectNotesPreview: React.FC<ProjectNotesPreviewProps> = ({
               </IconButton>
             )}
           </Box>
-        </Box>
-
-        {/* Scrollable Rich Content Body with True-Height Grid Transition */}
+        </Box>        {/* Scrollable Rich Content Body with True-Height Grid Transition */}
         <Box
           sx={{
             display: 'grid',
@@ -350,125 +363,131 @@ export const ProjectNotesPreview: React.FC<ProjectNotesPreviewProps> = ({
           }}
         >
           <Box sx={{ minHeight: 0, overflow: 'hidden' }}>
-            <Box
-              sx={{
-                maxHeight: 280,
-                overflowY: isExpanded ? 'auto' : 'hidden',
-                pr: 0.75,
-                fontSize: '0.8125rem',
-                lineHeight: 1.5,
-                color: 'text.primary',
-                scrollbarWidth: 'thin',
-                scrollbarColor: (theme) =>
-                  theme.palette.mode === 'dark'
-                    ? 'rgba(255, 255, 255, 0.28) transparent'
-                    : 'rgba(0, 0, 0, 0.28) transparent',
-                '&::-webkit-scrollbar': {
-                  width: '6px',
-                  display: 'block',
-                },
-                '&::-webkit-scrollbar-track': {
-                  bgcolor: 'transparent',
-                },
-                '&::-webkit-scrollbar-thumb': {
-                  bgcolor: (theme) =>
-                    theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.28)' : 'rgba(0, 0, 0, 0.28)',
-                  borderRadius: '3px',
-                  '&:hover': {
-                    bgcolor: (theme) =>
-                      theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.45)' : 'rgba(0, 0, 0, 0.45)',
+            {isLoadingDetails && !fullNotes ? (
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 2 }}>
+                <CircularProgress size={20} />
+              </Box>
+            ) : (
+              <Box
+                sx={{
+                  maxHeight: 280,
+                  overflowY: isExpanded ? 'auto' : 'hidden',
+                  pr: 0.75,
+                  fontSize: '0.8125rem',
+                  lineHeight: 1.5,
+                  color: 'text.primary',
+                  scrollbarWidth: 'thin',
+                  scrollbarColor: (theme) =>
+                    theme.palette.mode === 'dark'
+                      ? 'rgba(255, 255, 255, 0.28) transparent'
+                      : 'rgba(0, 0, 0, 0.28) transparent',
+                  '&::-webkit-scrollbar': {
+                    width: '6px',
+                    display: 'block',
                   },
-                },
-                '& p': { m: 0, mb: 0.75 },
-                '& p:last-child': { mb: 0 },
-                '& ul, & ol': { m: 0, pl: 2.2, mb: 0.75 },
-                '& li': { mb: 0.25 },
-                '& blockquote': {
-                  m: 0,
-                  pl: 1.25,
-                  borderLeft: '3px solid',
-                  borderColor: 'primary.main',
-                  color: 'text.secondary',
-                  fontStyle: 'italic',
-                  mb: 0.75,
-                },
-                '& a': { color: 'primary.main', textDecoration: 'underline' },
-                '& .mention-tag': {
-                  bgcolor: (theme) =>
-                    theme.palette.mode === 'dark' ? 'rgba(144, 202, 249, 0.18)' : 'rgba(25, 118, 210, 0.12)',
-                  color: (theme) => (theme.palette.mode === 'dark' ? '#90caf9' : 'primary.main'),
-                  border: '1px solid',
-                  borderColor: (theme) =>
-                    theme.palette.mode === 'dark' ? 'rgba(144, 202, 249, 0.35)' : 'rgba(25, 118, 210, 0.25)',
-                  borderRadius: '4px',
-                  px: 0.6,
-                  py: 0.1,
-                  fontWeight: 600,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  margin: '0 2px',
-                  fontSize: '0.75rem',
-                },
-                // Direct styling support for pasted MUI Chips and badges (e.g. reminders)
-                '& .MuiChip-root': {
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderRadius: '16px',
-                  whiteSpace: 'nowrap',
-                  verticalAlign: 'middle',
-                  fontSize: '0.72rem',
-                  fontWeight: 700,
-                  height: '20px',
-                  px: 0.5,
-                  maxWidth: '100%',
-                  boxSizing: 'border-box',
-                },
-                '& .MuiChip-sizeSmall': {
-                  height: '18px',
-                  fontSize: '0.65rem',
-                },
-                '& .MuiChip-colorError': {
-                  bgcolor: 'error.main',
-                  color: '#ffffff',
-                },
-                '& .MuiChip-colorWarning': {
-                  bgcolor: 'warning.main',
-                  color: '#ffffff',
-                },
-                '& .MuiChip-colorSuccess': {
-                  bgcolor: 'success.main',
-                  color: '#ffffff',
-                },
-                '& .MuiChip-colorInfo': {
-                  bgcolor: 'info.main',
-                  color: '#ffffff',
-                },
-                '& .MuiChip-colorDefault': {
-                  bgcolor: (theme) =>
-                    theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
-                  color: 'inherit',
-                },
-                '& .MuiChip-label': {
-                  paddingLeft: '6px',
-                  paddingRight: '6px',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                },
-                '& .MuiBox-root:has(> .MuiChip-root)': {
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 1,
-                  my: 0.5,
-                },
-                '& .MuiTypography-root': {
-                  margin: 0,
-                },
-              }}
-              dangerouslySetInnerHTML={{ __html: notes }}
-            />
+                  '&::-webkit-scrollbar-track': {
+                    bgcolor: 'transparent',
+                  },
+                  '&::-webkit-scrollbar-thumb': {
+                    bgcolor: (theme) =>
+                      theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.28)' : 'rgba(0, 0, 0, 0.28)',
+                    borderRadius: '3px',
+                    '&:hover': {
+                      bgcolor: (theme) =>
+                        theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.45)' : 'rgba(0, 0, 0, 0.45)',
+                    },
+                  },
+                  '& p': { m: 0, mb: 0.75 },
+                  '& p:last-child': { mb: 0 },
+                  '& ul, & ol': { m: 0, pl: 2.2, mb: 0.75 },
+                  '& li': { mb: 0.25 },
+                  '& blockquote': {
+                    m: 0,
+                    pl: 1.25,
+                    borderLeft: '3px solid',
+                    borderColor: 'primary.main',
+                    color: 'text.secondary',
+                    fontStyle: 'italic',
+                    mb: 0.75,
+                  },
+                  '& a': { color: 'primary.main', textDecoration: 'underline' },
+                  '& .mention-tag': {
+                    bgcolor: (theme) =>
+                      theme.palette.mode === 'dark' ? 'rgba(144, 202, 249, 0.18)' : 'rgba(25, 118, 210, 0.12)',
+                    color: (theme) => (theme.palette.mode === 'dark' ? '#90caf9' : 'primary.main'),
+                    border: '1px solid',
+                    borderColor: (theme) =>
+                      theme.palette.mode === 'dark' ? 'rgba(144, 202, 249, 0.35)' : 'rgba(25, 118, 210, 0.25)',
+                    borderRadius: '4px',
+                    px: 0.6,
+                    py: 0.1,
+                    fontWeight: 600,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    margin: '0 2px',
+                    fontSize: '0.75rem',
+                  },
+                  // Direct styling support for pasted MUI Chips and badges (e.g. reminders)
+                  '& .MuiChip-root': {
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: '16px',
+                    whiteSpace: 'nowrap',
+                    verticalAlign: 'middle',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    height: '20px',
+                    px: 0.5,
+                    maxWidth: '100%',
+                    boxSizing: 'border-box',
+                  },
+                  '& .MuiChip-sizeSmall': {
+                    height: '18px',
+                    fontSize: '0.65rem',
+                  },
+                  '& .MuiChip-colorError': {
+                    bgcolor: 'error.main',
+                    color: '#ffffff',
+                  },
+                  '& .MuiChip-colorWarning': {
+                    bgcolor: 'warning.main',
+                    color: '#ffffff',
+                  },
+                  '& .MuiChip-colorSuccess': {
+                    bgcolor: 'success.main',
+                    color: '#ffffff',
+                  },
+                  '& .MuiChip-colorInfo': {
+                    bgcolor: 'info.main',
+                    color: '#ffffff',
+                  },
+                  '& .MuiChip-colorDefault': {
+                    bgcolor: (theme) =>
+                      theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
+                    color: 'inherit',
+                  },
+                  '& .MuiChip-label': {
+                    paddingLeft: '6px',
+                    paddingRight: '6px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  },
+                  '& .MuiBox-root:has(> .MuiChip-root)': {
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 1,
+                    my: 0.5,
+                  },
+                  '& .MuiTypography-root': {
+                    margin: 0,
+                  },
+                }}
+                dangerouslySetInnerHTML={{ __html: fullNotes || '' }}
+              />
+            )}
           </Box>
         </Box>
       </Paper>
@@ -493,7 +512,7 @@ export const ProjectCard: React.FC<Props> = ({
   const late = isLate(p);
   const nearDeadline = !late && isNearDeadline(p);
   const stale = isStale(p);
-  const hasNotes = Boolean(p.notes && stripHtmlToText(p.notes).length > 0);
+  const hasNotes = Boolean((p.notesPreview && p.notesPreview.trim().length > 0) || (p.notes && stripHtmlToText(p.notes).length > 0));
 
   // Match reminders for this project
   const projectReminders = useMemo(() => {
@@ -1022,7 +1041,9 @@ export const ProjectCard: React.FC<Props> = ({
         {/* INLINE NOTES PREVIEW WITH CLICK-TO-LOCK HOVER OVERLAY */}
         {hasNotes && (
           <ProjectNotesPreview
-            notes={p.notes!}
+            projectId={p.id}
+            notes={p.notes}
+            notesPreview={p.notesPreview}
             onOpenModal={() => (onView ? onView(p) : onEdit(p))}
             onExpandedChange={setNotesExpanded}
           />

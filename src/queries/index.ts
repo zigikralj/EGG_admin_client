@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
 import { apiFetch } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -19,12 +19,14 @@ import type {
   SaveResult,
   Role,
   ActivityLog,
+  ActivityLogMonthlyStats,
   ActivityAnalytics,
   EntityTimelineResponse,
   VersionDiffResponse,
   RebuiltVersionResponse,
   RestoreVersionResponse,
 } from '../types';
+import type { ActivityLogsSummaryResponse } from '../components/activityLogs/types';
 
 export function useAuthHeaders() {
   const { currentUser } = useAuth();
@@ -45,17 +47,38 @@ export function useAuthHeaders() {
 
 // --- Queries ---
 
-export function useProjectsQuery(searchQuery: string = '') {
+export function useProjectsQuery(searchQuery: string = '', options?: { done?: boolean }) {
   const { currentUser } = useAuth();
   const getAuthHeaders = useAuthHeaders();
   return useQuery<Project[]>({
-    queryKey: ['projects', currentUser?.id, searchQuery],
+    queryKey: ['projects', currentUser?.id, searchQuery, options?.done],
     queryFn: async () => {
-      const q = searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : '';
+      const params = new URLSearchParams();
+      if (searchQuery) params.set('search', searchQuery);
+      if (options?.done !== undefined) params.set('done', String(options.done));
+      const q = params.toString() ? `?${params.toString()}` : '';
       const res = await apiFetch(`${API_ROUTES.PROJECTS.BASE}${q}`, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch projects');
       return res.json();
     }
+  });
+}
+
+/**
+ * Fetches full project details by ID, including complete rich-text HTML notes.
+ * Used on-demand for modals, popovers, and expanded project cards.
+ */
+export function useProjectDetailsQuery(id: string | undefined, enabled: boolean = true) {
+  const getAuthHeaders = useAuthHeaders();
+  return useQuery<Project>({
+    queryKey: ['projects', 'details', id],
+    queryFn: async () => {
+      const res = await apiFetch(`${API_ROUTES.PROJECTS.BASE}/${id}`, { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error('Failed to fetch project details');
+      return res.json();
+    },
+    enabled: Boolean(id) && enabled,
+    staleTime: 60_000,
   });
 }
 
@@ -200,6 +223,19 @@ export function usePermitsQuery() {
   });
 }
 
+/** Lightweight permits query without nested relations (waste catalogs, reminders, etc.) for linking and dropdowns. */
+export function usePermitsSummaryQuery() {
+  const getAuthHeaders = useAuthHeaders();
+  return useQuery<Permit[]>({
+    queryKey: ['permits', 'summary'],
+    queryFn: async () => {
+      const res = await apiFetch(`${API_ROUTES.PERMITS.BASE}?fields=summary`, { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error('Failed to fetch permits summary');
+      return res.json();
+    }
+  });
+}
+
 export function useWasteCatalogQuery() {
   const getAuthHeaders = useAuthHeaders();
   return useQuery<WasteCatalog[]>({
@@ -240,13 +276,88 @@ export function useActivityLogsQuery(from?: string) {
       if (!res.ok) throw new Error('Failed to fetch activity logs');
       return res.json();
     },
-    staleTime: 10_000,
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: 'always',
-    // Background refresh only while the tab is visible (React Query pauses in background by default).
-    refetchInterval: 60_000,
-    refetchIntervalInBackground: false,
+    staleTime: 600_000,
+    refetchOnWindowFocus: false,
     placeholderData: (prev) => prev,
+  });
+}
+
+/**
+ * Postgres-aggregated summary query for KPI stats and per-user summaries.
+ * Zero raw logs transferred.
+ */
+export function useActivityLogsSummaryQuery(from?: string) {
+  const getAuthHeaders = useAuthHeaders();
+  return useQuery<ActivityLogsSummaryResponse>({
+    queryKey: ['activity-logs', 'summary', from ?? 'all'],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (from) params.set('from', from);
+      const q = params.toString() ? `?${params.toString()}` : '';
+      const res = await apiFetch(`${API_ROUTES.ACTIVITY_LOGS.SUMMARY}${q}`, { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error('Failed to fetch activity logs summary');
+      return res.json();
+    },
+    staleTime: 600_000,
+    refetchOnWindowFocus: false,
+    placeholderData: (prev) => prev,
+  });
+}
+
+/**
+ * Infinite query for fetching an individual user's activity logs on demand.
+ * Uses cursor pagination (before, beforeId) with 50 logs per page.
+ */
+export function useUserActivityLogsQuery(userId: string | undefined, from?: string, enabled: boolean = true) {
+  const getAuthHeaders = useAuthHeaders();
+  return useInfiniteQuery<ActivityLog[], Error, { pages: ActivityLog[][]; pageParams: Array<{ before?: string; beforeId?: string } | undefined> }, [string, string, string | undefined, string | undefined], { before?: string; beforeId?: string } | undefined>({
+    queryKey: ['activity-logs', 'user', userId, from],
+    queryFn: async ({ pageParam }) => {
+      const params = new URLSearchParams({
+        userId: userId!,
+        limit: '50',
+        includeDetails: 'false',
+      });
+      if (from) params.set('from', from);
+      if (pageParam?.before) params.set('before', pageParam.before);
+      if (pageParam?.beforeId) params.set('beforeId', pageParam.beforeId);
+
+      const res = await apiFetch(`${API_ROUTES.ACTIVITY_LOGS.BASE}?${params.toString()}`, { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error('Failed to fetch user activity logs');
+      return res.json();
+    },
+    initialPageParam: undefined,
+    getNextPageParam: (lastPage) => {
+      if (!lastPage || lastPage.length < 50) return undefined;
+      const last = lastPage[lastPage.length - 1];
+      return { before: last.timestamp, beforeId: last.id };
+    },
+    enabled: Boolean(userId) && enabled,
+    staleTime: 600_000,
+    refetchOnWindowFocus: false,
+    maxPages: 10,
+  });
+}
+
+/**
+ * Historical pre-aggregated monthly stats query.
+ */
+export function useActivityMonthlyStatsQuery(filters?: { userId?: string; fromYearMonth?: string; toYearMonth?: string }) {
+  const getAuthHeaders = useAuthHeaders();
+  return useQuery<ActivityLogMonthlyStats[]>({
+    queryKey: ['activity-logs', 'monthly-stats', filters?.userId, filters?.fromYearMonth, filters?.toYearMonth],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (filters?.userId) params.set('userId', filters.userId);
+      if (filters?.fromYearMonth) params.set('fromYearMonth', filters.fromYearMonth);
+      if (filters?.toYearMonth) params.set('toYearMonth', filters.toYearMonth);
+      const q = params.toString() ? `?${params.toString()}` : '';
+      const res = await apiFetch(`${API_ROUTES.ACTIVITY_LOGS.MONTHLY_STATS}${q}`, { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error('Failed to fetch activity monthly stats');
+      return res.json();
+    },
+    staleTime: 600_000,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -471,7 +582,6 @@ export function useGenericMutations<T extends { id?: string }>(config: MutationC
     queryClient.invalidateQueries({ queryKey: ['history'] });
     queryClient.invalidateQueries({ queryKey: ['history-diff'] });
     queryClient.invalidateQueries({ queryKey: ['history-version'] });
-    queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
   };
 
   const saveMutationFn = async (data: Partial<T>) => {
@@ -625,7 +735,6 @@ export function useGenericActionMutation() {
       queryClient.invalidateQueries({ queryKey: ['history'] });
       queryClient.invalidateQueries({ queryKey: ['history-diff'] });
       queryClient.invalidateQueries({ queryKey: ['history-version'] });
-      queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
     }
   });
 }
@@ -661,7 +770,6 @@ export function useProjectsMutations() {
       queryClient.invalidateQueries({ queryKey: ['history'] });
       queryClient.invalidateQueries({ queryKey: ['history-diff'] });
       queryClient.invalidateQueries({ queryKey: ['history-version'] });
-      queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
     }
   });
 

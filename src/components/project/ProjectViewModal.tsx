@@ -24,7 +24,7 @@ import { ProjectInvoiceSection } from './ProjectInvoiceSection';
 import { useProjectForm } from '../../hooks/useProjectForm';
 import { EditIcon, CloseIcon, NotesIcon } from '../icons';
 import { ConfirmDialog } from '../dialogs/ConfirmDialog';
-import { useClientsQuery, useUsersQuery, useServicesQuery, useRemindersQuery, useInvoicesQuery, useProjectsMutations, useRemindersMutations, useInvoicesMutations } from '../../queries';
+import { useClientsQuery, useUsersQuery, useServicesQuery, useRemindersQuery, useInvoicesQuery, useProjectsMutations, useRemindersMutations, useInvoicesMutations, useProjectDetailsQuery } from '../../queries';
 
 interface Props {
   isOpen: boolean;
@@ -48,8 +48,18 @@ const ProjectViewModal: React.FC<Props> = ({
   const { handleSave: onSaveReminder, handleDelete: onDeleteReminder, handleStatusChangeReminder: onStatusChangeReminder } = useRemindersMutations();
   const { handleSave: onSaveInvoice, handleDelete: onDeleteInvoice, handleUpdateInvoiceStatus: _onStatusChangeInvoice } = useInvoicesMutations();
 
+  const { data: projectDetails } = useProjectDetailsQuery(
+    project?.id,
+    isOpen && Boolean(project?.id)
+  );
+
+  const effectiveProject = React.useMemo(() => {
+    if (!project) return null;
+    return projectDetails ? { ...project, ...projectDetails } : project;
+  }, [project, projectDetails]);
+
   const onToggleDone = async (id: string) => {
-    await toggleDoneMutation.mutateAsync({ id, isCompleting: !project?.done });
+    await toggleDoneMutation.mutateAsync({ id, isCompleting: !effectiveProject?.done });
   };
 
   const onStatusChangeInvoice = async (id: string, status: string, paymentDate?: string) => {
@@ -74,30 +84,33 @@ const ProjectViewModal: React.FC<Props> = ({
 
 
   // Local state for editable notes
-  const [notes, setNotes] = useState(project?.notes || '');
-  const prevProjectIdRef = useRef(project?.id);
-  const lastSavedNotesRef = useRef(project?.notes || '');
+  const [notes, setNotes] = useState(effectiveProject?.notes || '');
+  const prevProjectIdRef = useRef(effectiveProject?.id);
+  const lastSavedNotesRef = useRef(effectiveProject?.notes || '');
   const isAutoSavingRef = useRef(false);
 
+  const effectiveProjectId = effectiveProject?.id;
+  const effectiveProjectNotes = effectiveProject?.notes;
+
   useEffect(() => {
-    if (!project) return;
-    if (prevProjectIdRef.current !== project.id) {
-      prevProjectIdRef.current = project.id;
-      setNotes(project.notes || '');
-      lastSavedNotesRef.current = project.notes || '';
-    } else if (project.notes !== lastSavedNotesRef.current && !isAutoSavingRef.current) {
+    if (!effectiveProjectId) return;
+    if (prevProjectIdRef.current !== effectiveProjectId) {
+      prevProjectIdRef.current = effectiveProjectId;
+      setNotes(effectiveProjectNotes || '');
+      lastSavedNotesRef.current = effectiveProjectNotes || '';
+    } else if (effectiveProjectNotes !== undefined && effectiveProjectNotes !== lastSavedNotesRef.current && !isAutoSavingRef.current) {
       setNotes((curr) => {
         if (curr === lastSavedNotesRef.current) {
-          lastSavedNotesRef.current = project.notes || '';
-          return project.notes || '';
+          lastSavedNotesRef.current = effectiveProjectNotes || '';
+          return effectiveProjectNotes || '';
         }
         return curr;
       });
     }
-  }, [project?.id, project?.notes]);
+  }, [effectiveProjectId, effectiveProjectNotes]);
 
   const { reminderState, invoiceState } = useProjectForm({
-    projectToEdit: project,
+    projectToEdit: effectiveProject,
     clients,
     users,
     services,
@@ -107,11 +120,11 @@ const ProjectViewModal: React.FC<Props> = ({
   });
 
   const handleAutoSaveNotes = async (val: string) => {
-    if (!project || !onSave) return;
+    if (!effectiveProject || !onSave) return;
     isAutoSavingRef.current = true;
     lastSavedNotesRef.current = val;
     try {
-      const res = await onSave({ ...project, notes: val || null }, { silent: true });
+      const res = await onSave({ ...effectiveProject, notes: val || null }, { silent: true });
       if (res && !res.success) {
         setErrorDialogState({ open: true, message: res.error || t('errorSavingProject') });
         throw new Error(res.error || t('errorSavingProject'));

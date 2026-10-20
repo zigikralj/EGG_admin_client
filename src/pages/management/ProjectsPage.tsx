@@ -17,6 +17,7 @@ import {
   Typography,
   Autocomplete,
   Tooltip,
+  CircularProgress,
 } from '@mui/material';
 
 
@@ -84,8 +85,97 @@ function fmtDate(d: string | null): string {
   return `${day}.${m}.${y}.`;
 }
 
-import { useProjectsQuery, useServicesQuery, useInvoicesQuery, useProjectsMutations } from '../../queries';
+import { useProjectsQuery, useServicesQuery, useInvoicesQuery, useProjectsMutations, useProjectDetailsQuery } from '../../queries';
 import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
+
+interface ProjectNotesTableCellProps {
+  project: Project;
+  onView?: (p: Project) => void;
+  onEdit: (p: Project) => void;
+}
+
+const ProjectNotesTableCell: React.FC<ProjectNotesTableCellProps> = ({ project: p, onView, onEdit }) => {
+  const { t } = useLanguage();
+  const [isTooltipOpen, setIsTooltipOpen] = useState(false);
+
+  const hasNotes = Boolean(
+    (p.notesPreview && p.notesPreview.trim().length > 0) ||
+    (p.notes && stripHtmlToText(p.notes).length > 0)
+  );
+
+  const { data: details, isLoading } = useProjectDetailsQuery(
+    p.id,
+    isTooltipOpen && !p.notes
+  );
+
+  if (!hasNotes) {
+    return (
+      <Typography variant="caption" color="text.secondary">
+        —
+      </Typography>
+    );
+  }
+
+  const displayText = p.notesPreview || (p.notes ? stripHtmlToText(p.notes) : '') || t('viewProjectNotes');
+  const fullHtml = p.notes || details?.notes || null;
+
+  return (
+    <Tooltip
+      open={isTooltipOpen}
+      onOpen={() => setIsTooltipOpen(true)}
+      onClose={() => setIsTooltipOpen(false)}
+      title={
+        <Box
+          sx={{
+            p: 0.5,
+            maxHeight: 250,
+            maxWidth: 320,
+            overflowY: 'auto',
+            fontSize: '0.8rem',
+            '& p': { m: 0, mb: 0.5 },
+            '& ul, & ol': { m: 0, pl: 2 },
+            '& blockquote': { m: 0, pl: 1, borderLeft: '2px solid white' },
+          }}
+        >
+          {isLoading && !fullHtml ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 1 }}>
+              <CircularProgress size={16} color="inherit" />
+            </Box>
+          ) : (
+            <Box dangerouslySetInnerHTML={{ __html: fullHtml || p.notesPreview || '' }} />
+          )}
+        </Box>
+      }
+      arrow
+    >
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 0.75,
+          cursor: 'pointer',
+          color: 'primary.main',
+          fontWeight: 500,
+        }}
+        onClick={() => (onView ? onView(p) : onEdit(p))}
+      >
+        <NotesIcon fontSize="small" sx={{ flexShrink: 0 }} />
+        <Typography
+          variant="caption"
+          sx={{
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            maxWidth: 160,
+            color: 'text.primary',
+          }}
+        >
+          {displayText}
+        </Typography>
+      </Box>
+    </Tooltip>
+  );
+};
 
 const ProjectsPage: React.FC<Props> = ({
   searchQuery,
@@ -112,7 +202,6 @@ const ProjectsPage: React.FC<Props> = ({
   const canCreateProject = hasPermission('projects', 'create') || hasPermission('tracker_projects', 'create');
   const canViewHistory = hasPermission('history', 'view');
 
-  const { data: projects = [], refetch: refetchProjects, isRefetching } = useProjectsQuery();
   const { data: services = [] } = useServicesQuery();
   const { data: invoices = [] } = useInvoicesQuery();
   const hasInvoices = (project: Project) => invoices.some((inv) => inv.projectId === project.id);
@@ -171,6 +260,17 @@ const ProjectsPage: React.FC<Props> = ({
   const [filterDateFrom, setFilterDateFrom] = useState<string>('');
   const [filterDateTo, setFilterDateTo] = useState<string>('');
   const [filterDateField, setFilterDateField] = useState<string>('deadline');
+
+  const doneOption = useMemo(() => {
+    if (filterStatus === 'done') return true;
+    if (quickFilters.includes('active') || filterStatus === 'creation' || filterStatus === 'overdue' || filterStatus === 'stale') return false;
+    return undefined;
+  }, [filterStatus, quickFilters]);
+
+  const { data: projects = [], refetch: refetchProjects, isRefetching } = useProjectsQuery(
+    '',
+    doneOption !== undefined ? { done: doneOption } : undefined
+  );
 
   useEffect(() => {
     if (Array.isArray(quickFiltersProp)) {
@@ -830,56 +930,7 @@ const ProjectsPage: React.FC<Props> = ({
                       )}
                       {activeCols.includes('notes') && (
                         <TableCell sx={{ maxWidth: 220 }}>
-                          {p.notes && stripHtmlToText(p.notes).length > 0 ? (
-                            <Tooltip
-                              title={
-                                <Box
-                                  sx={{
-                                    p: 0.5,
-                                    maxHeight: 250,
-                                    maxWidth: 320,
-                                    overflowY: 'auto',
-                                    fontSize: '0.8rem',
-                                    '& p': { m: 0, mb: 0.5 },
-                                    '& ul, & ol': { m: 0, pl: 2 },
-                                    '& blockquote': { m: 0, pl: 1, borderLeft: '2px solid white' },
-                                  }}
-                                  dangerouslySetInnerHTML={{ __html: p.notes }}
-                                />
-                              }
-                              arrow
-                            >
-                              <Box
-                                sx={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: 0.75,
-                                  cursor: 'pointer',
-                                  color: 'primary.main',
-                                  fontWeight: 500,
-                                }}
-                                onClick={() => (onView ? onView(p) : onEdit(p))}
-                              >
-                                <NotesIcon fontSize="small" sx={{ flexShrink: 0 }} />
-                                <Typography
-                                  variant="caption"
-                                  sx={{
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                    maxWidth: 160,
-                                    color: 'text.primary',
-                                  }}
-                                >
-                                  {stripHtmlToText(p.notes) || t('viewProjectNotes')}
-                                </Typography>
-                              </Box>
-                            </Tooltip>
-                          ) : (
-                            <Typography variant="caption" color="text.secondary">
-                              —
-                            </Typography>
-                          )}
+                          <ProjectNotesTableCell project={p} onView={onView} onEdit={onEdit} />
                         </TableCell>
                       )}
                       <TableCell align="right">

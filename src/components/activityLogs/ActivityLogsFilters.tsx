@@ -102,7 +102,6 @@ export const ActivityLogsFilters: React.FC<ActivityLogsFiltersProps> = ({
               }
             }}
           >
-            <ToggleButton value="ALL">{t('filterAllTime')}</ToggleButton>
             <ToggleButton value="TODAY">{t('filterToday')}</ToggleButton>
             <ToggleButton value="WEEK">{t('filterLast7Days')}</ToggleButton>
             <ToggleButton value="MONTH">{t('filterLast30Days')}</ToggleButton>
