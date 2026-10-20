@@ -87,17 +87,38 @@ export const DOMPURIFY_CONFIG = {
   ALLOW_DATA_ATTR: true,
 };
 
+/**
+ * Strips Microsoft Word and Office specific metadata, XML blocks, conditional comments,
+ * and style tags to prevent raw XML and style definitions from polluting notes.
+ */
+export function cleanWordHtml(html: string): string {
+  if (!html) return '';
+  return html
+    .replace(/<!--\[if[\s\S]*?<!\[endif\]-->/gi, '')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<xml[\s\S]*?<\/xml>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<(meta|link|title)[\s\S]*?\/?>/gi, '');
+}
+
 export function sanitizeHtml(html: string): string {
   if (!html) return '';
-  return DOMPurify.sanitize(html, DOMPURIFY_CONFIG) as string;
+  const preCleaned = cleanWordHtml(html);
+  return DOMPurify.sanitize(preCleaned, DOMPURIFY_CONFIG) as string;
 }
 
 export function htmlToPlainText(html: string): string {
   if (!html) return '';
-  const sanitizedHtml = DOMPurify.sanitize(html, DOMPURIFY_CONFIG) as string;
+  const preCleaned = cleanWordHtml(html);
+  const sanitizedHtml = DOMPurify.sanitize(preCleaned, DOMPURIFY_CONFIG) as string;
   try {
     const parser = new DOMParser();
     const doc = parser.parseFromString(sanitizedHtml, 'text/html');
+
+    doc.querySelectorAll('style, script, xml, noscript, meta, link').forEach((el) => {
+      el.remove();
+    });
 
     // Replace <br> with newlines
     doc.querySelectorAll('br').forEach((br) => {
@@ -136,10 +157,15 @@ export function htmlToPlainText(html: string): string {
  */
 export function stripHtmlToText(html: string): string {
   if (!html) return '';
+  const preCleaned = cleanWordHtml(html);
   let text = '';
   try {
     const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
+    const doc = parser.parseFromString(preCleaned, 'text/html');
+
+    doc.querySelectorAll('style, script, xml, noscript, meta, link').forEach((el) => {
+      el.remove();
+    });
 
     // Add spaces for breaks and block elements so words don't stick together
     doc.querySelectorAll('br').forEach((br) => {
@@ -151,7 +177,7 @@ export function stripHtmlToText(html: string): string {
 
     text = doc.body.textContent || '';
   } catch {
-    text = html.replace(/<[^>]*>?/gm, ' ');
+    text = preCleaned.replace(/<[^>]*>?/gm, ' ');
   }
 
   return text
@@ -927,9 +953,17 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     if (!html) return;
 
     try {
+      const isWordHtml =
+        /<!--\[if/i.test(html) ||
+        /<xml/i.test(html) ||
+        /mso-/i.test(html) ||
+        /MsoNormal/i.test(html) ||
+        /urn:schemas-microsoft-com/i.test(html);
+
+      const cleanedHtml = cleanWordHtml(html);
       const parser = new DOMParser();
-      const doc = parser.parseFromString(html, 'text/html');
-      let modified = false;
+      const doc = parser.parseFromString(cleanedHtml, 'text/html');
+      let modified = isWordHtml;
 
       doc.body.querySelectorAll('*').forEach((el) => {
         const htmlEl = el as HTMLElement;

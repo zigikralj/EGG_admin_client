@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { RichTextEditor, formatHtml, escapeHtml, sanitizeHtml, plainTextToHtml, stripHtmlToText } from './RichTextEditor';
+import { RichTextEditor, formatHtml, escapeHtml, sanitizeHtml, plainTextToHtml, stripHtmlToText, cleanWordHtml } from './RichTextEditor';
 import * as LanguageContext from '../../context/LanguageContext';
 import * as AuthContext from '../../context/AuthContext';
 
@@ -296,6 +296,58 @@ describe('RichTextEditor', () => {
       expect(stripHtmlToText('<p><br></p>')).toBe('');
       expect(stripHtmlToText('&nbsp;&nbsp;&nbsp;')).toBe('');
       expect(stripHtmlToText('')).toBe('');
+
+      // Notes pasted from Microsoft Word containing Office XML metadata, conditional comments, and CSS style definitions
+      const wordHtml = `<!--[if gte mso 9]><xml>
+ <o:OfficeDocumentSettings>
+  <o:AllowPNG/>
+ </o:OfficeDocumentSettings>
+</xml><![endif]--><!--[if gte mso 9]><xml>
+ <w:WordDocument>
+  <w:View>Normal</w:View>
+  <w:Zoom>0</w:Zoom>
+  <w:TrackMoves>false</w:TrackMoves>
+  <w:TrackFormatting/>
+  <w:HyphenationZone>21</w:HyphenationZone>
+  <w:PunctuationKerning/>
+  <w:ValidateAgainstSchemas/>
+  <w:SaveIfXMLInvalid>false</w:SaveIfXMLInvalid>
+  <w:IgnoreMixedContent>false</w:IgnoreMixedContent>
+  <w:AlwaysShowPlaceholderText>false</w:AlwaysShowPlaceholderText>
+  <w:DoNotPromoteQF/>
+  <w:LidThemeOther>SR-LATN-RS</w:LidThemeOther>
+  <w:LidThemeAsian>X-NONE</w:LidThemeAsian>
+  <w:LidThemeComplexScript>X-NONE</w:LidThemeComplexScript>
+ </w:WordDocument>
+</xml><![endif]--><style>
+<!--
+ /* Style Definitions */
+ p.MsoNormal, li.MsoNormal, div.MsoNormal
+	{mso-style-name:Normal;}
+-->
+</style><p class="MsoNormal">Izvršen je godišnji izveštaj za eIRH portal za hemikalije iz uvoza.</p><p class="MsoNormal"><span class="mention-tag" data-user-id="2594a072-8fc8-4a91-b252-3f30b2b0f578" data-user-name="Nina Marinković" contenteditable="false">@Nina Marinković</span>&nbsp;</p>`;
+
+      const stripped = stripHtmlToText(wordHtml);
+      expect(stripped).not.toContain('Normal 0');
+      expect(stripped).not.toContain('Style Definitions');
+      expect(stripped).not.toContain('SR-LATN-RS');
+      expect(stripped).toBe('Izvršen je godišnji izveštaj za eIRH portal za hemikalije iz uvoza. @Nina Marinković');
+    });
+
+    it('cleanWordHtml and sanitizeHtml strip Office XML, comments, and style tags while preserving content', () => {
+      const dirtyWordHtml = '<xml><w:WordDocument>metadata</w:WordDocument></xml><style>body { color: red; }</style><!--[if gte mso 9]>comment<![endif]--><p class="MsoNormal">Actual content</p>';
+      const cleaned = cleanWordHtml(dirtyWordHtml);
+      expect(cleaned).not.toContain('<xml>');
+      expect(cleaned).not.toContain('metadata');
+      expect(cleaned).not.toContain('<style>');
+      expect(cleaned).not.toContain('color: red');
+      expect(cleaned).toContain('Actual content');
+
+      const sanitized = sanitizeHtml(dirtyWordHtml);
+      expect(sanitized).not.toContain('<xml>');
+      expect(sanitized).not.toContain('metadata');
+      expect(sanitized).not.toContain('<style>');
+      expect(sanitized).toContain('Actual content');
     });
   });
 });
