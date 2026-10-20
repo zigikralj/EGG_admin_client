@@ -70,7 +70,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         if (!document.hidden) {
           fetchNotifications();
         }
-      }, 25000); // 25 seconds
+      }, 60000); // 60 seconds (optimized from 25s for egress bandwidth)
     };
 
     const stopPolling = () => {
