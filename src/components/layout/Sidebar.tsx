@@ -34,6 +34,7 @@ import {
   ReceiptLongIcon,
   FolderIcon,
   DeleteSweepIcon,
+  UpdateIcon,
 } from '../icons';
 
 export const DRAWER_WIDTH = 250;
@@ -114,6 +115,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 
                 if (hasPermission('tracker_projects', 'view')) {
                   dashboardItems.push({ id: 'projects', label: t('subTabProjects'), icon: <FolderIcon fontSize="small" />, show: true });
+                  dashboardItems.push({ id: 'updates', label: t('subTabUpdates'), icon: <UpdateIcon fontSize="small" />, show: true });
                 }
                 if (hasPermission('tracker_reminders', 'view')) {
                   dashboardItems.push({ id: 'reminders', label: t('subTabReminders'), icon: <NotificationsActiveIcon fontSize="small" />, show: true });

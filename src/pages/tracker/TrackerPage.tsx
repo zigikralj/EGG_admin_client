@@ -37,11 +37,12 @@ import { ArrowUpwardIcon, ArrowDownwardIcon, AddIcon, RefreshIcon } from '../../
 
 const ProjectsStatistics = React.lazy(() => import('../../components/tracker/statistics/ProjectsStatistics'));
 const WasteDisposalStatistics = React.lazy(() => import('../../components/tracker/statistics/WasteDisposalStatistics'));
-
+const ProjectUpdatesPanel = React.lazy(() => import('../../components/tracker/ProjectUpdatesPanel'));
 
 interface Props {
   dashboardSubTab?: DashboardSubTab;
-  onViewProject?: (project: Project) => void;
+  onViewProject?: (project: Project, diffRange?: { dateFrom: string; dateTo: string } | null) => void;
+  onOpenProjectDiff?: (project: Project, diffRange: { dateFrom: string; dateTo: string }) => void;
   onEditProject?: (project: Project) => void;
   onNavigateToProjects?: () => void;
   onNavigateToInvoices?: () => void;
@@ -82,6 +83,7 @@ import {
 const DashboardView: React.FC<Props> = ({
   dashboardSubTab = 'projects',
   onViewProject,
+  onOpenProjectDiff,
   onEditProject,
   onNavigateToProjects: _onNavigateToProjects,
   onNavigateToInvoices,
@@ -691,6 +693,23 @@ const DashboardView: React.FC<Props> = ({
           </Box>
           {renderWasteDisposalPanel(true, true)}
         </Box>
+      )}
+
+      {/* PROJECT UPDATES SUBTAB VIEW */}
+      {dashboardSubTab === 'updates' && (
+        <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+          <ProjectUpdatesPanel
+            onOpenProjectDiff={(proj, r) => {
+              if (onOpenProjectDiff) {
+                onOpenProjectDiff(proj, r);
+              } else if (onViewProject) {
+                onViewProject(proj, r);
+              }
+            }}
+            onEditProject={onEditProject}
+            onViewProject={onViewProject}
+          />
+        </Suspense>
       )}
 
       {/* PROJECTS SUBTAB VIEW */}

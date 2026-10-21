@@ -190,7 +190,7 @@ const VersionItem: React.FC<VersionItemProps> = ({
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
             <AccessTimeIcon sx={{ fontSize: '1rem' }} />
             <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              {new Date(version.createdAt).toLocaleString(language === 'en' ? 'en-US' : 'sr-RS')}
+              {new Date(version.createdAt).toLocaleString(language === 'en' ? 'en-US' : 'sr-RS', { hour12: false })}
             </Typography>
           </Box>
         </Box>

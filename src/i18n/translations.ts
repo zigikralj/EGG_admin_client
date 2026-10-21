@@ -906,6 +906,36 @@ export interface TranslationKeys {
   removeLink: string;
   insertTable: string;
   clearFormatting: string;
+  // Project Updates & Diff Mode
+  subTabUpdates: string;
+  presetYesterdayNow: string;
+  presetToday: string;
+  presetLast3Days: string;
+  presetThisWeek: string;
+  presetCustom: string;
+  diffModeActive: string;
+  showDiffs: string;
+  showFinalData: string;
+  previousValue: string;
+  currentValue: string;
+  accumulatedNotesDiff: string;
+  noNotesChangesInPeriod: string;
+  updatedRemindersInPeriod: string;
+  updatedInvoicesInPeriod: string;
+  emptyProjectUpdates: string;
+  reviewChanges: string;
+  projectUpdatesSubtitle: string;
+  lblTimeSpan: string;
+  searchProjectOrClient: string;
+  lblTotalUpdatedProjects: string;
+  lblTotalRevisions: string;
+  lblNotesDelta: string;
+  noProjectUpdatesDesc: string;
+  lblLastEdit: string;
+  pillProgressChanged: string;
+  pillDeadlineChanged: string;
+  pillStatusChanged: string;
+  btnApply: string;
 }
 
 export const serviceTypeTranslations: Record<Language, Record<string, string>> = {

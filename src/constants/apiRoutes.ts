@@ -27,6 +27,8 @@ export const API_ROUTES = {
   PROJECTS: {
     BASE: '/api/projects',
     STATS: '/api/projects/stats',
+    UPDATES: '/api/projects/updates',
+    UPDATES_DIFF: (id: string) => `/api/projects/${encodeURIComponent(id)}/updates-diff`,
     BY_ID: (id: string) => `/api/projects/${encodeURIComponent(id)}`,
     TOGGLE_DONE: (id: string) => `/api/projects/${encodeURIComponent(id)}/toggle-done`,
     UPDATE_NOTES: (id: string) => `/api/projects/${encodeURIComponent(id)}/notes`,

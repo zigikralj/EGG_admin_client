@@ -25,6 +25,8 @@ import type {
   VersionDiffResponse,
   RebuiltVersionResponse,
   RestoreVersionResponse,
+  ProjectUpdateSummary,
+  ProjectUpdatesDiffResult,
 } from '../types';
 import type { ActivityLogsSummaryResponse } from '../components/activityLogs/types';
 
@@ -78,7 +80,9 @@ export function useProjectDetailsQuery(id: string | undefined, enabled: boolean 
       return res.json();
     },
     enabled: Boolean(id) && enabled,
-    staleTime: 60_000,
+    meta: { silent: true },
+    staleTime: 5 * 60_000,
+    gcTime: 15 * 60_000,
   });
 }
 
@@ -100,7 +104,76 @@ export function useProjectNoteQuery(projectId: string | undefined, enabled: bool
       return res.json();
     },
     enabled: Boolean(projectId) && enabled,
-    staleTime: 60_000,
+    meta: { silent: true },
+    staleTime: 5 * 60_000,
+    gcTime: 15 * 60_000,
+  });
+}
+
+export interface ProjectUpdatesResponse {
+  total: number;
+  dateFrom: string;
+  dateTo: string;
+  limit: number;
+  offset: number;
+  updates: ProjectUpdateSummary[];
+}
+
+export function useProjectUpdatesQuery(params: {
+  dateFrom?: string;
+  dateTo?: string;
+  responsibleId?: string;
+  search?: string;
+  limit?: number;
+  offset?: number;
+}, enabled: boolean = true) {
+  const getAuthHeaders = useAuthHeaders();
+  return useQuery<ProjectUpdatesResponse>({
+    queryKey: ['projects', 'updates', params],
+    queryFn: async () => {
+      const q = new URLSearchParams();
+      if (params.dateFrom) q.set('dateFrom', params.dateFrom);
+      if (params.dateTo) q.set('dateTo', params.dateTo);
+      if (params.responsibleId) q.set('responsibleId', params.responsibleId);
+      if (params.search) q.set('search', params.search);
+      if (params.limit !== undefined) q.set('limit', String(params.limit));
+      if (params.offset !== undefined) q.set('offset', String(params.offset));
+
+      const queryStr = q.toString() ? `?${q.toString()}` : '';
+      const res = await apiFetch(`${API_ROUTES.PROJECTS.UPDATES}${queryStr}`, { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error('Failed to fetch project updates');
+      return res.json();
+    },
+    enabled,
+    meta: { silent: true },
+    staleTime: 2 * 60_000,
+    gcTime: 10 * 60_000,
+  });
+}
+
+export function useProjectUpdatesDiffQuery(
+  projectId: string | undefined,
+  dateFrom: string | undefined,
+  dateTo: string | undefined,
+  enabled: boolean = true
+) {
+  const getAuthHeaders = useAuthHeaders();
+  return useQuery<ProjectUpdatesDiffResult>({
+    queryKey: ['projects', 'updates-diff', projectId, dateFrom, dateTo],
+    queryFn: async () => {
+      const q = new URLSearchParams();
+      if (dateFrom) q.set('dateFrom', dateFrom);
+      if (dateTo) q.set('dateTo', dateTo);
+
+      const queryStr = q.toString() ? `?${q.toString()}` : '';
+      const res = await apiFetch(`${API_ROUTES.PROJECTS.UPDATES_DIFF(projectId!)}${queryStr}`, { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error('Failed to fetch project updates diff');
+      return res.json();
+    },
+    enabled: Boolean(projectId && dateFrom) && enabled,
+    meta: { silent: true },
+    staleTime: 5 * 60_000,
+    gcTime: 15 * 60_000,
   });
 }
 
@@ -776,6 +849,7 @@ export function useProjectsMutations() {
   const { t } = useLanguage();
 
   const toggleDoneMutation = useMutation({
+    meta: { silent: true },
     mutationFn: async ({ id, isCompleting: _ }: { id: string, isCompleting: boolean }) => {
       const res = await apiFetch(API_ROUTES.PROJECTS.TOGGLE_DONE(id), {
         method: 'PATCH',

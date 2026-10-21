@@ -58,6 +58,7 @@ function MainApp() {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isProjectViewModalOpen, setIsProjectViewModalOpen] = useState(false);
   const [viewingProject, setViewingProject] = useState<Project | null>(null);
+  const [projectDiffRange, setProjectDiffRange] = useState<{ dateFrom: string; dateTo: string } | null>(null);
 
   const [deleteConfirmState, setDeleteConfirmState] = useState<{
     open: boolean;
@@ -126,8 +127,9 @@ function MainApp() {
   }, [projects, viewingProject]);
 
   // ── Project Modal Helpers ─────────────────────────────────────────────────────
-  const handleViewProject = (p: Project) => {
+  const handleViewProject = (p: Project, diffRange?: { dateFrom: string; dateTo: string } | null) => {
     setViewingProject(p);
+    setProjectDiffRange(diffRange || null);
     setIsProjectViewModalOpen(true);
   };
 
@@ -355,9 +357,11 @@ function MainApp() {
             <ProjectViewModal
               isOpen={isProjectViewModalOpen}
               project={currentViewingProject}
+              diffRange={projectDiffRange}
               onClose={() => {
                 setIsProjectViewModalOpen(false);
                 setViewingProject(null);
+                setProjectDiffRange(null);
               }}
               onEdit={handleEditProject}
             />

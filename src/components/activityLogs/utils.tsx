@@ -45,7 +45,10 @@ export const isEmptyUpdateLog = (log: ActivityLog): boolean => {
     if (!diff || typeof diff !== 'object') return false;
     const entries = Object.entries(diff).filter(([_, val]: [string, any]) => {
       if (val && typeof val === 'object' && ('old' in val || 'new' in val)) {
-        return JSON.stringify(val.old) !== JSON.stringify(val.new);
+        if (JSON.stringify(val.old) === JSON.stringify(val.new)) {
+          return typeof val.old === 'string' && val.old.endsWith('…');
+        }
+        return true;
       }
       return true;
     });

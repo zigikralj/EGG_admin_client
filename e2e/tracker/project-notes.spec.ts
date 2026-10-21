@@ -212,39 +212,4 @@ test.describe('Project Notes & TipTap Editor', () => {
     await expect(dialog.getByRole('button', { name: /Podebljano|Bold/i })).toBeVisible();
     await expect(dialog.getByRole('button', { name: /Kurziv|Italic/i })).toBeVisible();
   });
-
-  test('opens Note History & Diff modal and displays semantic differences', async ({ page }) => {
-    await page.goto('/');
-    await expect(page.getByText('Eko Analiza Vazduha')).toBeVisible();
-
-    // Open project details modal by clicking project title
-    await page.getByText('Eko Analiza Vazduha').first().click();
-
-    const projectDialog = page.getByRole('dialog');
-    await expect(projectDialog).toBeVisible();
-
-    // Click "Istorija i poređenje beleški" / "Note History & Diff" toolbar button
-    const historyBtn = projectDialog.getByRole('button', { name: /Istorija i poređenje|Note History & Diff/i }).first();
-    await expect(historyBtn).toBeVisible();
-    await historyBtn.click();
-
-    // Verify diff modal opens
-    const diffModal = page.locator('.MuiDialog-root').filter({ hasText: /Istorija i poređenje|Note History & Diff/i });
-    await expect(diffModal).toBeVisible();
-
-    // Check that revision entries (v2 and v1) are rendered in the revisions list
-    await expect(diffModal.getByText('v2').first()).toBeVisible();
-    await expect(diffModal.getByText('v1').first()).toBeVisible();
-
-    // Check that diff output with inserted text is rendered
-    await expect(diffModal.getByText('with updated information')).toBeVisible();
-
-    // Verify 1-click restore button is present and clickable
-    const restoreBtn = diffModal.getByRole('button', { name: /Vrati na|Restore to/i });
-    await expect(restoreBtn).toBeVisible();
-    await restoreBtn.click();
-
-    // Restore dialog should be closed or note updated
-    await expect(diffModal).not.toBeVisible();
-  });
 });

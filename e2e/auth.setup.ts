@@ -9,9 +9,9 @@ setup('authenticate', async ({ page }) => {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        user: { id: 1, name: 'Test User', email: 'test@example.com', role: 'Admin' },
+        user: { id: '1', name: 'Test User', email: 'test@example.com', role: 'Admin', isApproved: true, status: 'ACTIVE' },
         token: 'fake-jwt-token',
-        expiresIn: 3600
+        expiresIn: 3600,
       }),
     });
   });
@@ -20,7 +20,7 @@ setup('authenticate', async ({ page }) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ id: 1, name: 'Test User', email: 'test@example.com', role: 'Admin' }),
+      body: JSON.stringify({ id: '1', name: 'Test User', email: 'test@example.com', role: 'Admin', isApproved: true, status: 'ACTIVE' }),
     });
   });
 
@@ -28,7 +28,7 @@ setup('authenticate', async ({ page }) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify([{ id: 1, name: 'Admin', isSystemAdmin: true, permissions: {} }]),
+      body: JSON.stringify([{ id: '1', name: 'Admin', isSystemAdmin: true, permissions: {} }]),
     });
   });
 
@@ -38,10 +38,9 @@ setup('authenticate', async ({ page }) => {
   await page.locator('input[type="password"]').fill('password123');
   await page.locator('button[type="submit"]').click();
 
-  // Wait until the page receives the cookies/local storage
   await page.waitForURL('**/project-tracker/**');
-  
-  // End of authentication steps.
+  await page.waitForTimeout(500);
+
   // Save storage state into the file.
   await page.context().storageState({ path: authFile });
 });

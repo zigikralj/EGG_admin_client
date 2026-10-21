@@ -62,4 +62,40 @@ describe('LogDiffView component', () => {
     expect(screen.getByText('description:')).toBeInTheDocument();
     expect(screen.getByText('Added description')).toBeInTheDocument();
   });
+
+  it('renders truncated matching diff with (modified) badge and maps notesPreview to notes', () => {
+    const details = JSON.stringify({
+      diff: {
+        notesPreview: {
+          old: 'We can move in time time time…',
+          new: 'We can move in time time time…'
+        }
+      }
+    });
+
+    render(
+      <LogDiffView detailsStr={details} isDark={false} language="en" />
+    );
+
+    expect(screen.getByText('notes:')).toBeInTheDocument();
+    expect(screen.getByText('We can move in time time time…')).toBeInTheDocument();
+    expect(screen.getByText('(modified)')).toBeInTheDocument();
+  });
+
+  it('renders Serbian fallback for modified badge', () => {
+    const details = JSON.stringify({
+      diff: {
+        notesPreview: {
+          old: 'We can move in time time time…',
+          new: 'We can move in time time time…'
+        }
+      }
+    });
+
+    render(
+      <LogDiffView detailsStr={details} isDark={false} language="sr" />
+    );
+
+    expect(screen.getByText('(izmenjeno)')).toBeInTheDocument();
+  });
 });
