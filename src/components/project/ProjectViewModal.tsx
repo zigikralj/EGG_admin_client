@@ -11,6 +11,7 @@ import {
   Box,
   Paper,
   IconButton,
+  Tooltip,
 } from '@mui/material';
 
 import type { Project } from '../../types';
@@ -22,8 +23,9 @@ import { ProjectProgressSlider } from './ProjectProgressSlider';
 import { ProjectReminderSection } from './ProjectReminderSection';
 import { ProjectInvoiceSection } from './ProjectInvoiceSection';
 import { useProjectForm } from '../../hooks/useProjectForm';
-import { EditIcon, CloseIcon, NotesIcon } from '../icons';
+import { EditIcon, CloseIcon, NotesIcon, HistoryIcon } from '../icons';
 import { ConfirmDialog } from '../dialogs/ConfirmDialog';
+import { HistoryTimelineModal } from '../history';
 import { useClientsQuery, useUsersQuery, useServicesQuery, useRemindersQuery, useInvoicesQuery, useProjectsMutations, useRemindersMutations, useInvoicesMutations, useProjectDetailsQuery } from '../../queries';
 
 interface Props {
@@ -44,7 +46,7 @@ const ProjectViewModal: React.FC<Props> = ({
   const { data: services = [] } = useServicesQuery();
   const { data: reminders = [] } = useRemindersQuery();
   const { data: invoices = [] } = useInvoicesQuery();
-  const { handleSave: onSave, toggleDoneMutation } = useProjectsMutations();
+  const { handleSave: onSave, handleSaveNotes, toggleDoneMutation } = useProjectsMutations();
   const { handleSave: onSaveReminder, handleDelete: onDeleteReminder, handleStatusChangeReminder: onStatusChangeReminder } = useRemindersMutations();
   const { handleSave: onSaveInvoice, handleDelete: onDeleteInvoice, handleUpdateInvoiceStatus: _onStatusChangeInvoice } = useInvoicesMutations();
 
@@ -72,6 +74,7 @@ const ProjectViewModal: React.FC<Props> = ({
     open: false,
     message: '',
   });
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
 
@@ -96,7 +99,14 @@ const ProjectViewModal: React.FC<Props> = ({
     if (!effectiveProjectId) return;
     if (prevProjectIdRef.current !== effectiveProjectId) {
       prevProjectIdRef.current = effectiveProjectId;
-      setNotes(effectiveProjectNotes || '');
+      let initialVal = effectiveProjectNotes || '';
+      try {
+        const savedDraft = localStorage.getItem(`ekos_draft_notes_${effectiveProjectId}`);
+        if (savedDraft && savedDraft !== initialVal) {
+          initialVal = savedDraft;
+        }
+      } catch {}
+      setNotes(initialVal);
       lastSavedNotesRef.current = effectiveProjectNotes || '';
     } else if (effectiveProjectNotes !== undefined && effectiveProjectNotes !== lastSavedNotesRef.current && !isAutoSavingRef.current) {
       setNotes((curr) => {
@@ -120,15 +130,18 @@ const ProjectViewModal: React.FC<Props> = ({
   });
 
   const handleAutoSaveNotes = async (val: string) => {
-    if (!effectiveProject || !onSave) return;
+    if (!effectiveProject) return;
     isAutoSavingRef.current = true;
     lastSavedNotesRef.current = val;
     try {
-      const res = await onSave({ ...effectiveProject, notes: val || null }, { silent: true });
+      const res = await handleSaveNotes(effectiveProject.id, val || null);
       if (res && !res.success) {
         setErrorDialogState({ open: true, message: res.error || t('errorSavingProject') });
         throw new Error(res.error || t('errorSavingProject'));
       }
+      try {
+        localStorage.removeItem(`ekos_draft_notes_${effectiveProject.id}`);
+      } catch {}
       window.dispatchEvent(new CustomEvent('notifications:refresh'));
     } finally {
       isAutoSavingRef.current = false;
@@ -349,20 +362,45 @@ const ProjectViewModal: React.FC<Props> = ({
             {/* PROJECT NOTES - RICH TEXT WITH DIRECT AUTO-SAVE */}
             <Grid size={{ xs: 12 }}>
               <Paper variant="outlined" sx={{ p: 2, bgcolor: 'background.default', borderRadius: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <NotesIcon color="primary" fontSize="small" />
                     <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                       {t('lblProjectNotes')}
                     </Typography>
                   </Box>
+                  <Tooltip title={t('btnHistory') || 'Istorija izmena'}>
+                    <IconButton
+                      size="small"
+                      onClick={() => setIsHistoryOpen(true)}
+                      sx={{
+                        color: 'primary.main',
+                        bgcolor: (theme) =>
+                          theme.palette.mode === 'dark' ? 'rgba(25, 118, 210, 0.12)' : 'rgba(25, 118, 210, 0.08)',
+                        '&:hover': {
+                          bgcolor: (theme) =>
+                            theme.palette.mode === 'dark' ? 'rgba(25, 118, 210, 0.24)' : 'rgba(25, 118, 210, 0.16)',
+                        },
+                      }}
+                    >
+                      <HistoryIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
                 </Box>
                 {isEditable ? (
                   <RichTextEditor
                     value={notes}
-                    onChange={setNotes}
+                    onChange={(val) => {
+                      setNotes(val);
+                      try {
+                        if (effectiveProjectId) {
+                          localStorage.setItem(`ekos_draft_notes_${effectiveProjectId}`, val);
+                        }
+                      } catch {}
+                    }}
                     autoSave={{
                       onSave: handleAutoSaveNotes,
+                      delay: 3500,
                     }}
                     users={users}
                     placeholder={t('phProjectNotes')}
@@ -449,6 +487,16 @@ const ProjectViewModal: React.FC<Props> = ({
         onClose={() => setDeleteConfirmState(prev => ({ ...prev, open: false }))}
         confirmColor="warning"
       />
+
+      {isHistoryOpen && effectiveProject && (
+        <HistoryTimelineModal
+          open={isHistoryOpen}
+          onClose={() => setIsHistoryOpen(false)}
+          entityType="Project"
+          entityId={effectiveProject.id}
+          entityTitle={effectiveProject.name}
+        />
+      )}
     </>
   );
 };

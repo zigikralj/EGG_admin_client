@@ -438,6 +438,8 @@ const srLatnTranslations: TranslationKeys = {
   "lblProjectNotes": "Beleške projekta",
   "pinNotesPreview": "Zakači prikaz beleški",
   "unpinNotesPreview": "Otkači prikaz beleški",
+  "expandNotesPreview": "Proširi beleške",
+  "collapseNotesPreview": "Smanji beleške",
   "hintClickToLockNotes": "Kliknite da zakačite prikaz",
   "hintNotesLocked": "Prikaz je zakačen",
   "phProjectNotes": "Unesite beleške o projektu, stavke, detalje, nabrajanja...",
@@ -824,7 +826,15 @@ const srLatnTranslations: TranslationKeys = {
   "historyOpUpdate": "Ažurirano",
   "historyOpDelete": "Obrisano",
   "historyOpBaseline": "Početno stanje",
-  "historyLoading": "Učitavanje istorije izmena..."
+  "historyLoading": "Učitavanje istorije izmena...",
+  "historyTimeline": "Hronologija izmena",
+  "historyCompareDates": "Uporedi po datumima",
+  "historySelectDateRange": "Izaberite vremenski opseg za poređenje",
+  "historySelectDatesPrompt": "Izaberite početni i krajnji datum za prikaz promena.",
+  "historyDiffResultTitle": "Detektovane promene",
+  "historyLoadingDiff": "Učitavanje razlika...",
+  "btnClear": "Očisti",
+  "btnHistory": "Istorija izmena"
 };
 
 export default srLatnTranslations;

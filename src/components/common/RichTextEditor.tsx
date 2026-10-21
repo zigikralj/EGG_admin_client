@@ -443,7 +443,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         if (saveTimeoutRef.current) {
           clearTimeout(saveTimeoutRef.current);
         }
-        const delay = autoSaveRef.current.delay ?? 1200;
+        const delay = autoSaveRef.current.delay ?? 3500;
         saveTimeoutRef.current = setTimeout(() => {
           triggerSave(valueRef.current);
         }, delay);
@@ -581,7 +581,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       mentionSpan.style.margin = '0 2px';
       mentionSpan.style.userSelect = 'all';
 
-      const spaceNode = document.createTextNode('\u00A0'); // Non-breaking space
+      const spaceNode = document.createTextNode(' ');
 
       range.insertNode(spaceNode);
       range.insertNode(mentionSpan);

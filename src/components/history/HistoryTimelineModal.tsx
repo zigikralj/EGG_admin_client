@@ -18,6 +18,11 @@ import {
   useTheme,
   alpha,
   Divider,
+  TextField,
+  ToggleButton,
+  ToggleButtonGroup,
+  Stack,
+  Paper,
 } from '@mui/material';
 import {
   CloseIcon,
@@ -33,6 +38,7 @@ import { useAuth } from '../../context/AuthContext';
 import {
   useEntityTimelineQuery,
   useVersionDiffQuery,
+  useDateRangeDiffQuery,
   useRebuiltVersionQuery,
   useRestoreVersionMutation,
 } from '../../queries';
@@ -124,6 +130,7 @@ const VersionItem: React.FC<VersionItemProps> = ({
       }}
     >
       <AccordionSummary
+        component="div"
         expandIcon={<ExpandMoreIcon />}
         sx={{
           px: 2,
@@ -320,13 +327,19 @@ export const HistoryTimelineModal: React.FC<HistoryTimelineModalProps> = ({
   entityTitle,
   onRestored,
 }) => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const { hasPermission } = useAuth();
   const canRestore = hasPermission('history', 'restore');
 
   const [confirmVersion, setConfirmVersion] = useState<number | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const [viewMode, setViewMode] = useState<'timeline' | 'compare'>('timeline');
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
 
   const {
     data: timeline,
@@ -336,6 +349,19 @@ export const HistoryTimelineModal: React.FC<HistoryTimelineModalProps> = ({
     error,
     refetch,
   } = useEntityTimelineQuery(entityType, entityId, { enabled: open });
+
+  const {
+    data: dateDiffData,
+    isLoading: isDateDiffLoading,
+    isError: isDateDiffError,
+    error: dateDiffError,
+  } = useDateRangeDiffQuery(
+    entityType,
+    entityId,
+    dateFrom || undefined,
+    dateTo || undefined,
+    open && viewMode === 'compare' && Boolean(dateFrom || dateTo)
+  );
 
   useEffect(() => {
     if (open) {
@@ -440,6 +466,33 @@ export const HistoryTimelineModal: React.FC<HistoryTimelineModalProps> = ({
           </Box>
         </DialogTitle>
 
+        {/* View Mode Toggle: Timeline vs Date-to-Date Comparison */}
+        <Box
+          sx={{
+            px: 2.5,
+            pt: 1.5,
+            pb: 1,
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+            bgcolor: (theme) =>
+              theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)',
+          }}
+        >
+          <ToggleButtonGroup
+            value={viewMode}
+            exclusive
+            onChange={(_, val) => val && setViewMode(val)}
+            size="small"
+          >
+            <ToggleButton value="timeline" sx={{ px: 2, py: 0.5, textTransform: 'none', fontWeight: 600 }}>
+              {t('historyTimeline')}
+            </ToggleButton>
+            <ToggleButton value="compare" sx={{ px: 2, py: 0.5, textTransform: 'none', fontWeight: 600 }}>
+              {t('historyCompareDates')}
+            </ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
+
         <DialogContent sx={{ p: 2.5, flex: 1, overflowY: 'auto' }}>
           {successMessage && (
             <Alert severity="success" onClose={() => setSuccessMessage(null)} sx={{ mb: 2 }}>
@@ -453,38 +506,153 @@ export const HistoryTimelineModal: React.FC<HistoryTimelineModalProps> = ({
             </Alert>
           )}
 
-          {isLoading ? (
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 6, gap: 1.5 }}>
-              <CircularProgress size={32} />
-              <Typography variant="body2" color="text.secondary">
-                {t('historyLoading')}
-              </Typography>
-            </Box>
-          ) : isError ? (
-            <Alert severity="error">
-              {error?.message || 'Failed to load version history for this entity.'}
-            </Alert>
-          ) : versions.length === 0 ? (
-            <Box sx={{ textAlign: 'center', py: 6 }}>
-              <Typography variant="body1" color="text.secondary">
-                {t('historyEmpty')}
-              </Typography>
+          {viewMode === 'compare' ? (
+            <Box sx={{ mt: 0.5 }}>
+              <Paper variant="outlined" sx={{ p: 2, mb: 2, borderRadius: 2 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
+                  {t('historySelectDateRange')}
+                </Typography>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
+                  <TextField
+                    type="date"
+                    size="small"
+                    label={t('lblStartDate') || 'Od datuma'}
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    fullWidth
+                  />
+                  <TextField
+                    type="date"
+                    size="small"
+                    label={t('lblDeadlineDate') || 'Do datuma'}
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    fullWidth
+                  />
+                </Stack>
+                <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
+                  <Chip
+                    label={t('filterToday')}
+                    size="small"
+                    clickable
+                    onClick={() => {
+                      const today = new Date().toISOString().split('T')[0];
+                      setDateFrom(today);
+                      setDateTo(today);
+                    }}
+                  />
+                  <Chip
+                    label={t('filterLast7Days')}
+                    size="small"
+                    clickable
+                    onClick={() => {
+                      const d = new Date();
+                      const to = d.toISOString().split('T')[0];
+                      d.setDate(d.getDate() - 7);
+                      const from = d.toISOString().split('T')[0];
+                      setDateFrom(from);
+                      setDateTo(to);
+                    }}
+                  />
+                  <Chip
+                    label={t('filterTimeRange')}
+                    size="small"
+                    clickable
+                    onClick={() => {
+                      const now = new Date();
+                      const from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+                      const to = now.toISOString().split('T')[0];
+                      setDateFrom(from);
+                      setDateTo(to);
+                    }}
+                  />
+                  {(dateFrom || dateTo) && (
+                    <Chip
+                      label={t('btnClear') || 'Očisti'}
+                      size="small"
+                      variant="outlined"
+                      clickable
+                      onClick={() => {
+                        setDateFrom('');
+                        setDateTo('');
+                      }}
+                    />
+                  )}
+                </Stack>
+              </Paper>
+
+              {isDateDiffLoading ? (
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 4, gap: 1 }}>
+                  <CircularProgress size={28} />
+                  <Typography variant="body2" color="text.secondary">
+                    {t('historyLoadingDiff')}
+                  </Typography>
+                </Box>
+              ) : isDateDiffError ? (
+                <Alert severity="error">
+                  {dateDiffError?.message || 'Greška prilikom učitavanja razlika za zadate datume.'}
+                </Alert>
+              ) : !dateFrom && !dateTo ? (
+                <Box sx={{ textAlign: 'center', py: 4 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    {t('historySelectDatesPrompt')}
+                  </Typography>
+                </Box>
+              ) : dateDiffData ? (
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, flexWrap: 'wrap', gap: 1 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                      {t('historyDiffResultTitle')}:
+                    </Typography>
+                    <Chip
+                      label={`v${dateDiffData.vFrom} → v${dateDiffData.vTo}`}
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                    />
+                  </Box>
+                  <HistoryDiffView diff={dateDiffData.diff} isDark={isDark} language={language} />
+                </Box>
+              ) : null}
             </Box>
           ) : (
-            <Box sx={{ mt: 1 }}>
-              {versions.map((ver, idx) => (
-                <VersionItem
-                  key={ver.id}
-                  version={ver}
-                  isLatest={idx === 0}
-                  entityType={entityType}
-                  entityId={entityId}
-                  canRestore={canRestore}
-                  onRestoreClick={(v) => setConfirmVersion(v)}
-                  isRestoring={restoreMutation.isPending}
-                />
-              ))}
-            </Box>
+            <>
+              {isLoading ? (
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 6, gap: 1.5 }}>
+                  <CircularProgress size={32} />
+                  <Typography variant="body2" color="text.secondary">
+                    {t('historyLoading')}
+                  </Typography>
+                </Box>
+              ) : isError ? (
+                <Alert severity="error">
+                  {error?.message || 'Failed to load version history for this entity.'}
+                </Alert>
+              ) : versions.length === 0 ? (
+                <Box sx={{ textAlign: 'center', py: 6 }}>
+                  <Typography variant="body1" color="text.secondary">
+                    {t('historyEmpty')}
+                  </Typography>
+                </Box>
+              ) : (
+                <Box sx={{ mt: 1 }}>
+                  {versions.map((ver, idx) => (
+                    <VersionItem
+                      key={ver.id}
+                      version={ver}
+                      isLatest={idx === 0}
+                      entityType={entityType}
+                      entityId={entityId}
+                      canRestore={canRestore}
+                      onRestoreClick={(v) => setConfirmVersion(v)}
+                      isRestoring={restoreMutation.isPending}
+                    />
+                  ))}
+                </Box>
+              )}
+            </>
           )}
         </DialogContent>
 

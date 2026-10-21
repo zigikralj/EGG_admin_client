@@ -16,6 +16,7 @@ vi.mock('../../context/AuthContext', () => ({
 vi.mock('../../queries', () => ({
   useEntityTimelineQuery: vi.fn(),
   useVersionDiffQuery: vi.fn(),
+  useDateRangeDiffQuery: vi.fn(),
   useRebuiltVersionQuery: vi.fn(),
   useRestoreVersionMutation: vi.fn(),
 }));
@@ -44,6 +45,13 @@ describe('HistoryTimelineModal', () => {
     (Queries.useVersionDiffQuery as any).mockReturnValue({
       data: null,
       isLoading: false,
+    });
+
+    (Queries.useDateRangeDiffQuery as any).mockReturnValue({
+      data: null,
+      isLoading: false,
+      isError: false,
+      error: null,
     });
 
     (Queries.useRebuiltVersionQuery as any).mockReturnValue({

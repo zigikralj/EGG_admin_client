@@ -773,9 +773,58 @@ export function useProjectsMutations() {
     }
   });
 
+  const updateNotesMutation = useMutation({
+    meta: { silent: true },
+    mutationFn: async ({ id, notes }: { id: string; notes: string | null }) => {
+      const res = await apiFetch(API_ROUTES.PROJECTS.UPDATE_NOTES(id), {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({ notes }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || t('errorSavingProject'));
+      }
+      return await res.json();
+    },
+    onSuccess: (data: { id: string; notes: string | null; notesPreview: string | null }) => {
+      // Direct optimistic cache update to avoid refetching entire project list from Neon
+      queryClient.setQueryData(['projects', 'details', data.id], (old: any) => {
+        if (!old) return old;
+        return { ...old, notes: data.notes, notesPreview: data.notesPreview };
+      });
+
+      queryClient.setQueriesData({ queryKey: ['projects'] }, (old: any) => {
+        if (!old) return old;
+        if (Array.isArray(old)) {
+          return old.map((p: any) =>
+            p.id === data.id ? { ...p, notesPreview: data.notesPreview } : p
+          );
+        }
+        return old;
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['history'] });
+      queryClient.invalidateQueries({ queryKey: ['history-diff'] });
+      queryClient.invalidateQueries({ queryKey: ['history-version'] });
+    },
+  });
+
   return {
     ...generic,
     toggleDoneMutation,
+    updateNotesMutation,
+    handleSaveNotes: async (id: string, notes: string | null): Promise<SaveResult> => {
+      try {
+        const data = await updateNotesMutation.mutateAsync({ id, notes });
+        return { success: true, id: data.id, data };
+      } catch (e: any) {
+        return { success: false, error: e.message };
+      }
+    },
   };
 }
 
@@ -1057,6 +1106,38 @@ export function useVersionDiffQuery(
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || 'Failed to fetch version diff');
+      }
+      return res.json();
+    },
+    enabled: canFetch,
+    staleTime: 0,
+    refetchOnMount: 'always',
+  });
+}
+
+export function useDateRangeDiffQuery(
+  entityType: string | null | undefined,
+  entityId: string | null | undefined,
+  dateFrom: string | null | undefined,
+  dateTo: string | null | undefined,
+  enabled: boolean = true
+) {
+  const getAuthHeaders = useAuthHeaders();
+  const canFetch = Boolean(
+    entityType &&
+    entityId &&
+    (dateFrom || dateTo) &&
+    enabled
+  );
+
+  return useQuery<VersionDiffResponse & { dateFrom?: string; dateTo?: string }>({
+    queryKey: ['history-diff-date', entityType, entityId, dateFrom, dateTo],
+    queryFn: async () => {
+      const url = API_ROUTES.HISTORY.DIFF_BY_DATE(entityType!, entityId!, dateFrom || undefined, dateTo || undefined);
+      const res = await apiFetch(url, { headers: getAuthHeaders() });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to fetch date diff');
       }
       return res.json();
     },

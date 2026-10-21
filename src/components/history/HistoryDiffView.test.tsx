@@ -37,4 +37,18 @@ describe('HistoryDiffView component', () => {
     expect(screen.getByText('false')).toBeInTheDocument();
     expect(screen.getByText('true')).toBeInTheDocument();
   });
+
+  it('renders word-level visual diff for notes field without showing raw HTML tags', () => {
+    const diff = {
+      notes: {
+        old: '<p>Initial notes here</p>',
+        new: '<p>Initial updated notes here</p>',
+      },
+    };
+
+    render(<HistoryDiffView diff={diff} isDark={false} language="en" />);
+
+    expect(screen.getByText('notes:')).toBeInTheDocument();
+    expect(screen.getByText('updated')).toBeInTheDocument();
+  });
 });

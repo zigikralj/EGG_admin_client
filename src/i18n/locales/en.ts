@@ -438,6 +438,8 @@ const enTranslations: TranslationKeys = {
   "lblProjectNotes": "Project Notes",
   "pinNotesPreview": "Pin notes preview",
   "unpinNotesPreview": "Unpin notes preview",
+  "expandNotesPreview": "Expand notes",
+  "collapseNotesPreview": "Collapse notes",
   "hintClickToLockNotes": "Click to pin preview",
   "hintNotesLocked": "Preview is pinned",
   "phProjectNotes": "Write project notes, tasks, details, bullet points...",
@@ -824,7 +826,15 @@ const enTranslations: TranslationKeys = {
   "historyOpUpdate": "Updated",
   "historyOpDelete": "Deleted",
   "historyOpBaseline": "Baseline",
-  "historyLoading": "Loading version history..."
+  "historyLoading": "Loading version history...",
+  "historyTimeline": "Timeline",
+  "historyCompareDates": "Compare by Dates",
+  "historySelectDateRange": "Select Date Range for Comparison",
+  "historySelectDatesPrompt": "Select start and end dates to compare changes.",
+  "historyDiffResultTitle": "Detected Changes",
+  "historyLoadingDiff": "Loading differences...",
+  "btnClear": "Clear",
+  "btnHistory": "Edit History"
 };
 
 export default enTranslations;

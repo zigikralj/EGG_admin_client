@@ -438,6 +438,8 @@ const srCyrlTranslations: TranslationKeys = {
   "lblProjectNotes": "Белешке пројекта",
   "pinNotesPreview": "Закачи приказ белешки",
   "unpinNotesPreview": "Откачи приказ белешки",
+  "expandNotesPreview": "Прошири белешке",
+  "collapseNotesPreview": "Смањи белешке",
   "hintClickToLockNotes": "Кликните да закачите приказ",
   "hintNotesLocked": "Приказ је закачен",
   "phProjectNotes": "Унесите белешке о пројекту, ставке, детаље, набрајања...",
@@ -824,7 +826,15 @@ const srCyrlTranslations: TranslationKeys = {
   "historyOpUpdate": "Ажурирано",
   "historyOpDelete": "Обрисано",
   "historyOpBaseline": "Почетно стање",
-  "historyLoading": "Учитавање историје измена..."
+  "historyLoading": "Учитавање историје измена...",
+  "historyTimeline": "Хронологија измена",
+  "historyCompareDates": "Упореди по датумима",
+  "historySelectDateRange": "Изаберите временски опсег за поређење",
+  "historySelectDatesPrompt": "Изаберите почетни и крајњи датум за приказ промена.",
+  "historyDiffResultTitle": "Детектоване промене",
+  "historyLoadingDiff": "Учитавање разлика...",
+  "btnClear": "Очисти",
+  "btnHistory": "Историја измена"
 };
 
 export default srCyrlTranslations;

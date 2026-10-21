@@ -469,6 +469,8 @@ export interface TranslationKeys {
   lblProjectNotes: string;
   pinNotesPreview: string;
   unpinNotesPreview: string;
+  expandNotesPreview: string;
+  collapseNotesPreview: string;
   hintClickToLockNotes: string;
   hintNotesLocked: string;
   phProjectNotes: string;
@@ -871,6 +873,14 @@ export interface TranslationKeys {
   historyOpDelete: string;
   historyOpBaseline: string;
   historyLoading: string;
+  historyTimeline: string;
+  historyCompareDates: string;
+  historySelectDateRange: string;
+  historySelectDatesPrompt: string;
+  historyDiffResultTitle: string;
+  historyLoadingDiff: string;
+  btnClear: string;
+  btnHistory: string;
 }
 
 export const serviceTypeTranslations: Record<Language, Record<string, string>> = {
