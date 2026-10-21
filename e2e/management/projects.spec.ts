@@ -64,7 +64,22 @@ test.describe('Projects Management', () => {
       const idMatch = url.match(/\/api\/projects\/([^/?#]+)/);
       const id = idMatch ? idMatch[1] : null;
 
-      if (method === 'PUT' && id) {
+      if (method === 'GET' && id) {
+        if (url.includes('/note')) {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ id: 'note-1', projectId: id, content: '', version: 1 }),
+          });
+          return;
+        }
+        const proj = projectsData.find((p) => p.id === id);
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(proj || projectsData[0]),
+        });
+      } else if (method === 'PUT' && id) {
         const payload = route.request().postDataJSON();
         const idx = projectsData.findIndex((p) => p.id === id);
         if (idx !== -1) {
@@ -241,6 +256,12 @@ test.describe('Projects Management', () => {
           status: 200,
           contentType: 'application/json',
           body: JSON.stringify({ id: '1', ...payload }),
+        });
+      } else if (route.request().method() === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(projectsData[0]),
         });
       } else {
         await route.continue();

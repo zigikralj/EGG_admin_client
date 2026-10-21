@@ -129,12 +129,12 @@ const ProjectViewModal: React.FC<Props> = ({
       lastSavedNotesRef.current = effectiveProjectNotes || '';
     } else if (effectiveProjectNotes !== undefined && effectiveProjectNotes !== lastSavedNotesRef.current && !isAutoSavingRef.current) {
       setNotes((curr) => {
-        if (curr === lastSavedNotesRef.current) {
-          lastSavedNotesRef.current = effectiveProjectNotes || '';
+        if (!curr || curr === '<p></p>' || curr === lastSavedNotesRef.current) {
           return effectiveProjectNotes || '';
         }
         return curr;
       });
+      lastSavedNotesRef.current = effectiveProjectNotes || '';
     }
   }, [effectiveProjectId, effectiveProjectNotes]);
 
