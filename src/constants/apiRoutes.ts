@@ -30,6 +30,10 @@ export const API_ROUTES = {
     BY_ID: (id: string) => `/api/projects/${encodeURIComponent(id)}`,
     TOGGLE_DONE: (id: string) => `/api/projects/${encodeURIComponent(id)}/toggle-done`,
     UPDATE_NOTES: (id: string) => `/api/projects/${encodeURIComponent(id)}/notes`,
+    NOTE: (id: string) => `/api/projects/${encodeURIComponent(id)}/note`,
+    NOTE_HISTORY: (id: string) => `/api/projects/${encodeURIComponent(id)}/note/history`,
+    NOTE_DIFF: (id: string) => `/api/projects/${encodeURIComponent(id)}/note/diff`,
+    NOTE_RESTORE: (id: string, v: number) => `/api/projects/${encodeURIComponent(id)}/note/restore/${v}`,
   },
   CLIENTS: {
     BASE: '/api/clients',

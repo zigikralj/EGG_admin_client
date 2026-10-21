@@ -834,7 +834,32 @@ const srLatnTranslations: TranslationKeys = {
   "historyDiffResultTitle": "Detektovane promene",
   "historyLoadingDiff": "Učitavanje razlika...",
   "btnClear": "Očisti",
-  "btnHistory": "Istorija izmena"
+  "btnHistory": "Istorija izmena",
+  "projectNotesHistory": "Istorija i poređenje beleški projekta",
+  "revisionTimeline": "Hronologija revizija",
+  "selectVersionsToCompare": "Izaberite dve revizije ili datume za poređenje promena.",
+  "noDifferencesFound": "Nema razlika između izabranih revizija.",
+  "noRevisionsRecorded": "Nema zabeleženih revizija.",
+  "compareFromBaseline": "Od (Polazna)",
+  "compareToTarget": "Do (Ciljna)",
+  "restoreToVersion": "Vrati na v{version}",
+  "noteHistoryAndDiff": "Istorija i poređenje beleški",
+  "typeNotesHere": "Unesite beleške ovde... (unesite @ za pominjanje kolege)",
+  "allChangesSaved": "Sve izmene su sačuvane",
+  "unsavedChanges": "Nesačuvane izmene",
+  "saving": "Čuvanje...",
+  "undo": "Opozovi",
+  "redo": "Ponovi",
+  "bold": "Podebljano",
+  "italic": "Kurziv",
+  "strikethrough": "Precrtano",
+  "bulletList": "Lista sa tačkama",
+  "orderedList": "Numerisana lista",
+  "quote": "Citat",
+  "link": "Link",
+  "removeLink": "Ukloni link",
+  "insertTable": "Ubaci tabelu",
+  "clearFormatting": "Ukloni formatiranje"
 };
 
 export default srLatnTranslations;

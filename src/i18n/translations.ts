@@ -881,6 +881,31 @@ export interface TranslationKeys {
   historyLoadingDiff: string;
   btnClear: string;
   btnHistory: string;
+  projectNotesHistory: string;
+  revisionTimeline: string;
+  selectVersionsToCompare: string;
+  noDifferencesFound: string;
+  noRevisionsRecorded: string;
+  compareFromBaseline: string;
+  compareToTarget: string;
+  restoreToVersion: string;
+  noteHistoryAndDiff: string;
+  typeNotesHere: string;
+  allChangesSaved: string;
+  unsavedChanges: string;
+  saving: string;
+  undo: string;
+  redo: string;
+  bold: string;
+  italic: string;
+  strikethrough: string;
+  bulletList: string;
+  orderedList: string;
+  quote: string;
+  link: string;
+  removeLink: string;
+  insertTable: string;
+  clearFormatting: string;
 }
 
 export const serviceTypeTranslations: Record<Language, Record<string, string>> = {

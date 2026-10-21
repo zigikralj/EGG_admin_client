@@ -19,7 +19,7 @@ import type { Project } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { ErrorDialog } from '../dialogs/ErrorDialog';
-import { RichTextEditor } from '../common/RichTextEditor';
+import { TipTapEditor } from '../common/tiptap/TipTapEditor';
 import { ProjectProgressSlider } from './ProjectProgressSlider';
 import { ProjectReminderSection } from './ProjectReminderSection';
 import { ProjectInvoiceSection } from './ProjectInvoiceSection';
@@ -533,11 +533,12 @@ const ProjectModal: React.FC<Props> = ({
                       {t('lblProjectNotes')}
                     </Typography>
                   </Box>
-                  <RichTextEditor
+                  <TipTapEditor
                     value={notes}
                     onChange={setNotes}
                     users={users}
                     placeholder={t('phProjectNotes')}
+                    autoSaveEnabled={false}
                     minHeight={150}
                   />
                 </Paper>

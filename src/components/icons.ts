@@ -121,3 +121,5 @@ export { default as CodeIcon } from '@mui/icons-material/Code';
 export { default as TextFieldsIcon } from '@mui/icons-material/TextFields';
 export { default as EditNoteIcon } from '@mui/icons-material/EditNote';
 export { default as AutoFixHighIcon } from '@mui/icons-material/AutoFixHigh';
+export { default as CompareArrowsIcon } from '@mui/icons-material/CompareArrows';
+export { default as TableChartIcon } from '@mui/icons-material/TableChart';

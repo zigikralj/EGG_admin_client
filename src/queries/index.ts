@@ -82,6 +82,28 @@ export function useProjectDetailsQuery(id: string | undefined, enabled: boolean 
   });
 }
 
+export interface ProjectNoteData {
+  id: string | null;
+  projectId: string;
+  content: string;
+  version: number;
+  updatedAt: string | null;
+}
+
+export function useProjectNoteQuery(projectId: string | undefined, enabled: boolean = true) {
+  const getAuthHeaders = useAuthHeaders();
+  return useQuery<ProjectNoteData>({
+    queryKey: ['projects', 'note', projectId],
+    queryFn: async () => {
+      const res = await apiFetch(API_ROUTES.PROJECTS.NOTE(projectId!), { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error('Failed to fetch project note');
+      return res.json();
+    },
+    enabled: Boolean(projectId) && enabled,
+    staleTime: 60_000,
+  });
+}
+
 export function useClientsQuery() {
   const getAuthHeaders = useAuthHeaders();
   return useQuery<Client[]>({
@@ -813,13 +835,61 @@ export function useProjectsMutations() {
     },
   });
 
+  const updateNoteMutation = useMutation({
+    meta: { silent: true },
+    mutationFn: async ({ id, content, reason }: { id: string; content: string; reason?: string }) => {
+      const res = await apiFetch(API_ROUTES.PROJECTS.NOTE(id), {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({ content, reason }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || t('errorSavingProject'));
+      }
+      return await res.json();
+    },
+    onSuccess: (data: { id: string; content: string; notesPreview: string | null; version: number }) => {
+      queryClient.setQueryData(['projects', 'note', data.id], data);
+
+      queryClient.setQueryData(['projects', 'details', data.id], (old: any) => {
+        if (!old) return old;
+        return { ...old, notes: data.content, notesPreview: data.notesPreview };
+      });
+
+      queryClient.setQueriesData({ queryKey: ['projects'] }, (old: any) => {
+        if (!old) return old;
+        if (Array.isArray(old)) {
+          return old.map((p: any) =>
+            p.id === data.id ? { ...p, notesPreview: data.notesPreview } : p
+          );
+        }
+        return old;
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['projects', 'note', 'revisions', data.id] });
+    },
+  });
+
   return {
     ...generic,
     toggleDoneMutation,
     updateNotesMutation,
+    updateNoteMutation,
     handleSaveNotes: async (id: string, notes: string | null): Promise<SaveResult> => {
       try {
         const data = await updateNotesMutation.mutateAsync({ id, notes });
+        return { success: true, id: data.id, data };
+      } catch (e: any) {
+        return { success: false, error: e.message };
+      }
+    },
+    handleSaveNote: async (id: string, content: string, reason?: string): Promise<SaveResult> => {
+      try {
+        const data = await updateNoteMutation.mutateAsync({ id, content, reason });
         return { success: true, id: data.id, data };
       } catch (e: any) {
         return { success: false, error: e.message };

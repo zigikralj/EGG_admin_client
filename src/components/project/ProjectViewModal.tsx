@@ -18,7 +18,7 @@ import type { Project } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { ErrorDialog } from '../dialogs/ErrorDialog';
-import { RichTextEditor } from '../common/RichTextEditor';
+import { TipTapEditor } from '../common/tiptap/TipTapEditor';
 import { ProjectProgressSlider } from './ProjectProgressSlider';
 import { ProjectReminderSection } from './ProjectReminderSection';
 import { ProjectInvoiceSection } from './ProjectInvoiceSection';
@@ -26,7 +26,19 @@ import { useProjectForm } from '../../hooks/useProjectForm';
 import { EditIcon, CloseIcon, NotesIcon, HistoryIcon } from '../icons';
 import { ConfirmDialog } from '../dialogs/ConfirmDialog';
 import { HistoryTimelineModal } from '../history';
-import { useClientsQuery, useUsersQuery, useServicesQuery, useRemindersQuery, useInvoicesQuery, useProjectsMutations, useRemindersMutations, useInvoicesMutations, useProjectDetailsQuery } from '../../queries';
+import { NoteHistoryDiffModal } from '../history/NoteHistoryDiffModal';
+import {
+  useClientsQuery,
+  useUsersQuery,
+  useServicesQuery,
+  useRemindersQuery,
+  useInvoicesQuery,
+  useProjectsMutations,
+  useRemindersMutations,
+  useInvoicesMutations,
+  useProjectDetailsQuery,
+  useProjectNoteQuery,
+} from '../../queries';
 
 interface Props {
   isOpen: boolean;
@@ -46,9 +58,10 @@ const ProjectViewModal: React.FC<Props> = ({
   const { data: services = [] } = useServicesQuery();
   const { data: reminders = [] } = useRemindersQuery();
   const { data: invoices = [] } = useInvoicesQuery();
-  const { handleSave: onSave, handleSaveNotes, toggleDoneMutation } = useProjectsMutations();
+  const { handleSave: onSave, handleSaveNotes: _handleSaveNotes, handleSaveNote, toggleDoneMutation } = useProjectsMutations();
   const { handleSave: onSaveReminder, handleDelete: onDeleteReminder, handleStatusChangeReminder: onStatusChangeReminder } = useRemindersMutations();
   const { handleSave: onSaveInvoice, handleDelete: onDeleteInvoice, handleUpdateInvoiceStatus: _onStatusChangeInvoice } = useInvoicesMutations();
+  const [isNoteHistoryOpen, setIsNoteHistoryOpen] = useState(false);
 
   const { data: projectDetails } = useProjectDetailsQuery(
     project?.id,
@@ -86,14 +99,20 @@ const ProjectViewModal: React.FC<Props> = ({
   const wrappedOnDeleteInvoice = wrapDelete(onDeleteInvoice);
 
 
-  // Local state for editable notes
-  const [notes, setNotes] = useState(effectiveProject?.notes || '');
-  const prevProjectIdRef = useRef(effectiveProject?.id);
-  const lastSavedNotesRef = useRef(effectiveProject?.notes || '');
-  const isAutoSavingRef = useRef(false);
-
   const effectiveProjectId = effectiveProject?.id;
-  const effectiveProjectNotes = effectiveProject?.notes;
+
+  const { data: noteData } = useProjectNoteQuery(
+    effectiveProjectId,
+    isOpen && Boolean(effectiveProjectId)
+  );
+
+  const effectiveProjectNotes = noteData?.content !== undefined ? noteData.content : effectiveProject?.notes;
+
+  // Local state for editable notes
+  const [notes, setNotes] = useState(effectiveProjectNotes || '');
+  const prevProjectIdRef = useRef(effectiveProjectId);
+  const lastSavedNotesRef = useRef(effectiveProjectNotes || '');
+  const isAutoSavingRef = useRef(false);
 
   useEffect(() => {
     if (!effectiveProjectId) return;
@@ -130,17 +149,17 @@ const ProjectViewModal: React.FC<Props> = ({
   });
 
   const handleAutoSaveNotes = async (val: string) => {
-    if (!effectiveProject) return;
+    if (!effectiveProjectId) return;
     isAutoSavingRef.current = true;
     lastSavedNotesRef.current = val;
     try {
-      const res = await handleSaveNotes(effectiveProject.id, val || null);
+      const res = await handleSaveNote(effectiveProjectId, val);
       if (res && !res.success) {
         setErrorDialogState({ open: true, message: res.error || t('errorSavingProject') });
         throw new Error(res.error || t('errorSavingProject'));
       }
       try {
-        localStorage.removeItem(`ekos_draft_notes_${effectiveProject.id}`);
+        localStorage.removeItem(`ekos_draft_notes_${effectiveProjectId}`);
       } catch {}
       window.dispatchEvent(new CustomEvent('notifications:refresh'));
     } finally {
@@ -369,10 +388,10 @@ const ProjectViewModal: React.FC<Props> = ({
                       {t('lblProjectNotes')}
                     </Typography>
                   </Box>
-                  <Tooltip title={t('btnHistory') || 'Istorija izmena'}>
+                  <Tooltip title={t('noteHistoryAndDiff') || 'Istorija i poređenje beleški'}>
                     <IconButton
                       size="small"
-                      onClick={() => setIsHistoryOpen(true)}
+                      onClick={() => setIsNoteHistoryOpen(true)}
                       sx={{
                         color: 'primary.main',
                         bgcolor: (theme) =>
@@ -388,7 +407,7 @@ const ProjectViewModal: React.FC<Props> = ({
                   </Tooltip>
                 </Box>
                 {isEditable ? (
-                  <RichTextEditor
+                  <TipTapEditor
                     value={notes}
                     onChange={(val) => {
                       setNotes(val);
@@ -398,46 +417,19 @@ const ProjectViewModal: React.FC<Props> = ({
                         }
                       } catch {}
                     }}
-                    autoSave={{
-                      onSave: handleAutoSaveNotes,
-                      delay: 3500,
-                    }}
+                    onAutoSave={handleAutoSaveNotes}
                     users={users}
                     placeholder={t('phProjectNotes')}
-                    minHeight={150}
+                    onOpenHistory={() => setIsNoteHistoryOpen(true)}
+                    minHeight={160}
                   />
                 ) : (
-                  <Box
-                    sx={{
-                      p: 1.5,
-                      bgcolor: 'background.paper',
-                      borderRadius: 1,
-                      minHeight: 80,
-                      maxHeight: 250,
-                      overflowY: 'auto',
-                      fontSize: '0.875rem',
-                      '& p': { m: 0, mb: 0.5 },
-                      '& ul, & ol': { m: 0, pl: 2.5 },
-                      '& blockquote': { m: 0, pl: 1.5, borderLeft: '3px solid', borderColor: 'primary.main' },
-                      '& .mention-tag': {
-                        bgcolor: (theme) =>
-                          theme.palette.mode === 'dark' ? 'rgba(144, 202, 249, 0.18)' : 'rgba(25, 118, 210, 0.12)',
-                        color: (theme) => (theme.palette.mode === 'dark' ? '#90caf9' : 'primary.main'),
-                        border: '1px solid',
-                        borderColor: (theme) =>
-                          theme.palette.mode === 'dark' ? 'rgba(144, 202, 249, 0.35)' : 'rgba(25, 118, 210, 0.25)',
-                        borderRadius: '4px',
-                        px: 0.75,
-                        py: 0.15,
-                        fontWeight: 600,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        margin: '0 2px',
-                        userSelect: 'all',
-                        lineHeight: 1.3,
-                      },
-                    }}
-                    dangerouslySetInnerHTML={{ __html: notes || `<span style="color: grey; font-style: italic;">${t('noProjectNotes')}</span>` }}
+                  <TipTapEditor
+                    value={notes}
+                    readOnly
+                    users={users}
+                    onOpenHistory={() => setIsNoteHistoryOpen(true)}
+                    minHeight={100}
                   />
                 )}
               </Paper>
@@ -495,6 +487,15 @@ const ProjectViewModal: React.FC<Props> = ({
           entityType="Project"
           entityId={effectiveProject.id}
           entityTitle={effectiveProject.name}
+        />
+      )}
+
+      {isNoteHistoryOpen && effectiveProjectId && (
+        <NoteHistoryDiffModal
+          open={isNoteHistoryOpen}
+          onClose={() => setIsNoteHistoryOpen(false)}
+          projectId={effectiveProjectId}
+          projectName={effectiveProject?.name || ''}
         />
       )}
     </>

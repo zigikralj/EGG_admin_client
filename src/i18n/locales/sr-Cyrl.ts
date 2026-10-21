@@ -834,7 +834,32 @@ const srCyrlTranslations: TranslationKeys = {
   "historyDiffResultTitle": "Детектоване промене",
   "historyLoadingDiff": "Учитавање разлика...",
   "btnClear": "Очисти",
-  "btnHistory": "Историја измена"
+  "btnHistory": "Историја измена",
+  "projectNotesHistory": "Историја и поређење белешки пројекта",
+  "revisionTimeline": "Хронологија ревизија",
+  "selectVersionsToCompare": "Изаберите две ревизије или датуме за поређење промена.",
+  "noDifferencesFound": "Нема разлика између изабраних ревизија.",
+  "noRevisionsRecorded": "Нема забележених ревизија.",
+  "compareFromBaseline": "Од (Полазна)",
+  "compareToTarget": "До (Циљна)",
+  "restoreToVersion": "Врати на в{version}",
+  "noteHistoryAndDiff": "Историја и поређење белешки",
+  "typeNotesHere": "Унесите белешке овде... (унесите @ за помињање колеге)",
+  "allChangesSaved": "Све измене су сачуване",
+  "unsavedChanges": "Несачуване измене",
+  "saving": "Чување...",
+  "undo": "Опозови",
+  "redo": "Понови",
+  "bold": "Подебљано",
+  "italic": "Курзив",
+  "strikethrough": "Прецртано",
+  "bulletList": "Листа са тачкама",
+  "orderedList": "Нумерисана листа",
+  "quote": "Цитат",
+  "link": "Линк",
+  "removeLink": "Уклони линк",
+  "insertTable": "Убаци табелу",
+  "clearFormatting": "Уклони форматирање"
 };
 
 export default srCyrlTranslations;

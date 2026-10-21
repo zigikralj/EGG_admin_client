@@ -834,7 +834,32 @@ const enTranslations: TranslationKeys = {
   "historyDiffResultTitle": "Detected Changes",
   "historyLoadingDiff": "Loading differences...",
   "btnClear": "Clear",
-  "btnHistory": "Edit History"
+  "btnHistory": "Edit History",
+  "projectNotesHistory": "Project Notes History & Diff",
+  "revisionTimeline": "Revision Timeline",
+  "selectVersionsToCompare": "Select two revisions or dates to compare changes.",
+  "noDifferencesFound": "No differences between selected versions.",
+  "noRevisionsRecorded": "No revisions recorded yet.",
+  "compareFromBaseline": "From (Baseline)",
+  "compareToTarget": "To (Target)",
+  "restoreToVersion": "Restore to v{version}",
+  "noteHistoryAndDiff": "Note History & Diff",
+  "typeNotesHere": "Type notes here... (type @ to mention someone)",
+  "allChangesSaved": "All changes saved",
+  "unsavedChanges": "Unsaved changes",
+  "saving": "Saving...",
+  "undo": "Undo",
+  "redo": "Redo",
+  "bold": "Bold",
+  "italic": "Italic",
+  "strikethrough": "Strikethrough",
+  "bulletList": "Bullet List",
+  "orderedList": "Numbered List",
+  "quote": "Quote",
+  "link": "Link",
+  "removeLink": "Remove Link",
+  "insertTable": "Insert Table",
+  "clearFormatting": "Clear Formatting"
 };
 
 export default enTranslations;
