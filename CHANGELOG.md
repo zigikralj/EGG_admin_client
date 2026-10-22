@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.10.1] - 2026-10-20
+
+- perf: increase polling and flush intervals to 60 seconds to reduce ne… (#84) by @zigikralj
+
 ## [v1.10.0] - 2026-10-19
 
 - feat: enhance RichTextEditor with autosave, multi-mode view, and form… (#82) by @zigikralj
