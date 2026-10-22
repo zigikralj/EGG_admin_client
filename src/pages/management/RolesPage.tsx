@@ -104,7 +104,6 @@ const RolesPage: React.FC = () => {
               <TableCell><strong>Role Name</strong></TableCell>
               <TableCell><strong>Description</strong></TableCell>
               <TableCell align="center"><strong>Access Level</strong></TableCell>
-              <TableCell align="center"><strong>Assigned Users</strong></TableCell>
               <TableCell align="right"><strong>Actions</strong></TableCell>
             </TableRow>
           </TableHead>
@@ -124,9 +123,6 @@ const RolesPage: React.FC = () => {
                     )}
                   </Box>
                 </TableCell>
-                <TableCell align="center">
-                  <Chip label={role._count?.users || 0} size="small" />
-                </TableCell>
                 <TableCell align="right">
                   {canEdit && (
                     <Tooltip title="Edit Role">
@@ -135,7 +131,7 @@ const RolesPage: React.FC = () => {
                       </IconButton>
                     </Tooltip>
                   )}
-                  {canDelete && !role.isSystemAdmin && (role._count?.users || 0) === 0 && (
+                  {canDelete && !role.isSystemAdmin && (
                     <Tooltip title="Delete Role">
                       <IconButton onClick={() => handleDeleteClick(role)} color="error">
                         <DeleteIcon />
@@ -147,7 +143,7 @@ const RolesPage: React.FC = () => {
             ))}
             {roles?.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} align="center" sx={{ py: 3 }}>
+                <TableCell colSpan={4} align="center" sx={{ py: 3 }}>
                   No roles found.
                 </TableCell>
               </TableRow>
