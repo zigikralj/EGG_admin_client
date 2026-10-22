@@ -1,24 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Card,
-  Table,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableCell,
-  TableContainer,
   TablePagination,
-  TableSortLabel,
   TextField,
   Button,
   IconButton,
   Chip,
   Box,
   Typography,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Autocomplete,
   Tooltip,
   Select,
@@ -45,22 +34,33 @@ import { TableQuickFilters, type QuickFilterItem } from '../../components/common
 import { DateRangeFilter } from '../../components/common/DateRangeFilter';
 import { PermitModal } from '../../components/dialogs/PermitModal';
 import { ErrorDialog } from '../../components/dialogs/ErrorDialog';
+import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
+import { HistoryTimelineModal } from '../../components/history';
 import {
   AddIcon,
-  EditIcon,
-  DeleteIcon,
-  CloseIcon,
   ArrowUpwardIcon,
   ArrowDownwardIcon,
   RefreshIcon,
-  NotificationsActiveIcon,
-  CheckCircleIcon,
-  WarningAmberIcon,
-  ErrorIcon,
-  FilterListIcon,
-  HistoryIcon,
 } from '../../components/icons';
-import { HistoryTimelineModal } from '../../components/history';
+import {
+  usePermitsQuery,
+  useClientsQuery,
+  useRemindersQuery,
+  usePermitsMutations,
+  useRemindersMutations,
+} from '../../queries';
+import {
+  PermitStatusBadge,
+  getPermitStatus,
+  type PermitStatusResult,
+} from '../../components/permit/PermitStatusBadge';
+import { PermitsTable } from '../../components/permit/PermitsTable';
+import {
+  PermitQuickReminderDialog,
+  PermitEditReminderModal,
+} from '../../components/permit/PermitReminderDialogs';
+
+export { getPermitStatus, PermitStatusBadge, type PermitStatusResult };
 
 interface Props extends TableViewProps {
   quickFilters?: string[];
@@ -80,81 +80,6 @@ const DEFAULT_COLUMNS = [
   'reminders',
   'notes',
 ];
-
-export const getPermitStatus = (
-  endDateStr: string | null | undefined
-): {
-  status: 'expired' | 'expiring' | 'active' | 'none';
-  daysLeft?: number;
-} => {
-  if (!endDateStr) return { status: 'none' };
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const end = new Date(endDateStr.split('T')[0]);
-  end.setHours(0, 0, 0, 0);
-  const diffTime = end.getTime() - today.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-  if (diffDays < 0) {
-    return { status: 'expired', daysLeft: Math.abs(diffDays) };
-  } else if (diffDays <= 30) {
-    return { status: 'expiring', daysLeft: diffDays };
-  } else {
-    return { status: 'active', daysLeft: diffDays };
-  }
-};
-
-import { usePermitsQuery, useClientsQuery, useRemindersQuery, usePermitsMutations, useRemindersMutations } from '../../queries';
-import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
-
-const ExpandableChipList = ({ wcs, max = 2 }: { wcs: any[]; max?: number }) => {
-  const [expanded, setExpanded] = React.useState(false);
-  
-  if (wcs.length <= max) {
-    return (
-      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-        {wcs.map((wc, i) => (
-          <Tooltip key={i} title={`${wc.code} - ${wc.description || ''}${wc.hazardListMark ? ` (${wc.hazardListMark})` : ''}`}>
-            <Chip
-              label={wc.code}
-              size="small"
-              variant="outlined"
-              sx={{ fontWeight: 600, height: 20, fontSize: '0.7rem' }}
-            />
-          </Tooltip>
-        ))}
-      </Box>
-    );
-  }
-
-  const visibleWcs = expanded ? wcs : wcs.slice(0, max);
-  
-  return (
-    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
-      {visibleWcs.map((wc, i) => (
-        <Tooltip key={i} title={`${wc.code} - ${wc.description || ''}${wc.hazardListMark ? ` (${wc.hazardListMark})` : ''}`}>
-          <Chip
-            label={wc.code}
-            size="small"
-            variant="outlined"
-            sx={{ fontWeight: 600, height: 20, fontSize: '0.7rem' }}
-          />
-        </Tooltip>
-      ))}
-      <Chip
-        label={expanded ? '−' : `+${wcs.length - max}`}
-        size="small"
-        color="default"
-        variant="filled"
-        onClick={(e) => {
-          e.stopPropagation();
-          setExpanded(!expanded);
-        }}
-        sx={{ fontWeight: 700, height: 20, fontSize: '0.65rem', cursor: 'pointer', minWidth: 24 }}
-      />
-    </Box>
-  );
-};
 
 const PermitsPage: React.FC<Props> = ({
   visibleColumns = DEFAULT_COLUMNS,
@@ -184,7 +109,10 @@ const PermitsPage: React.FC<Props> = ({
 
   const [isOpen, setIsOpen] = useState(false);
   const [editingPermit, setEditingPermit] = useState<Permit | null>(null);
-  const [historyModalState, setHistoryModalState] = useState<{ open: boolean; permit: Permit | null }>({ open: false, permit: null });
+  const [historyModalState, setHistoryModalState] = useState<{ open: boolean; permit: Permit | null }>({
+    open: false,
+    permit: null,
+  });
 
   const { data: permits = [], refetch: refetchPermits } = usePermitsQuery();
   const { data: clients = [] } = useClientsQuery();
@@ -192,40 +120,43 @@ const PermitsPage: React.FC<Props> = ({
   const { handleSave: handleSavePermit, handleDelete: handleDeletePermit } = usePermitsMutations();
   const { handleSave: handleSaveReminder, handleDelete: handleDeleteReminder } = useRemindersMutations();
 
-  const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
-  const onDeletePermit = (id: string) => handleDeletePermit(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
-  const onDeleteReminder = (id: string) => handleDeleteReminder(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
+  const [deleteConfirmState, setDeleteConfirmState] = useState<{
+    open: boolean;
+    message: string;
+    onConfirm: () => void;
+  }>({ open: false, message: '', onConfirm: () => {} });
 
-  const getLinkedClient = useCallback((p: Permit | null | undefined): Client | null => {
-    if (!p) return null;
-    if (p.client) return p.client;
-    if (p.clientId) {
-      const found = clients.find((c) => c.id === p.clientId);
-      if (found) return found;
-    }
-    if (p.clients && p.clients.length > 0) return p.clients[0];
-    const foundInClients = clients.find(
-      (c) =>
-        c.permits?.some((cp) => cp.id === p.id) ||
-        c.permitId === p.id ||
-        c.extraData?.permitId === p.id
-    );
-    return foundInClients || null;
-  }, [clients]);
+  const onDeletePermit = (id: string) =>
+    handleDeletePermit(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
+  const onDeleteReminder = (id: string) =>
+    handleDeleteReminder(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
+
+  const getLinkedClient = useCallback(
+    (p: Permit | null | undefined): Client | null => {
+      if (!p) return null;
+      if (p.client) return p.client;
+      if (p.clientId) {
+        const found = clients.find((c) => c.id === p.clientId);
+        if (found) return found;
+      }
+      if (p.clients && p.clients.length > 0) return p.clients[0];
+      const foundInClients = clients.find(
+        (c) =>
+          c.permits?.some((cp) => cp.id === p.id) ||
+          c.permitId === p.id ||
+          c.extraData?.permitId === p.id
+      );
+      return foundInClients || null;
+    },
+    [clients]
+  );
 
   // Edit modal for existing reminders
   const [editingReminderModalItem, setEditingReminderModalItem] = useState<Reminder | null>(null);
-  const [editReminderModalTitle, setEditReminderModalTitle] = useState('');
-  const [editReminderModalDueDate, setEditReminderModalDueDate] = useState('');
-  const [editReminderModalStatus, setEditReminderModalStatus] = useState('Pending');
-  const [editReminderModalNotes, setEditReminderModalNotes] = useState('');
 
   // Quick reminder creation modal tied to permit from row action
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
   const [targetPermitForReminder, setTargetPermitForReminder] = useState<Permit | null>(null);
-  const [newReminderTitle, setNewReminderTitle] = useState('');
-  const [newReminderDueDate, setNewReminderDueDate] = useState('');
-  const [newReminderNotes, setNewReminderNotes] = useState('');
 
   const {
     activeCols,
@@ -257,7 +188,9 @@ const PermitsPage: React.FC<Props> = ({
     onRowsPerPageOptionsChange,
     sortState,
     onSortChange,
-    onRefresh: () => { refetchPermits(); },
+    onRefresh: () => {
+      refetchPermits();
+    },
     defaultSortField: 'endDate',
     defaultSortDirection: 'asc',
   });
@@ -277,11 +210,14 @@ const PermitsPage: React.FC<Props> = ({
     }
   }, [quickFiltersProp, quickFilterProp]);
 
-  const permitQuickFilterOptions: QuickFilterItem[] = useMemo(() => [
-    { key: 'active', label: t('statusActivePermit'), color: 'primary' },
-    { key: 'expiring', label: t('quickFilterExpiringPermits'), color: 'warning', labelColor: 'warning.main' },
-    { key: 'expired', label: t('quickFilterExpiredPermits'), color: 'error', labelColor: 'error.main' },
-  ], [t]);
+  const permitQuickFilterOptions: QuickFilterItem[] = useMemo(
+    () => [
+      { key: 'active', label: t('statusActivePermit'), color: 'primary' },
+      { key: 'expiring', label: t('quickFilterExpiringPermits'), color: 'warning', labelColor: 'warning.main' },
+      { key: 'expired', label: t('quickFilterExpiredPermits'), color: 'error', labelColor: 'error.main' },
+    ],
+    [t]
+  );
 
   const handleQuickFiltersChange = (newKeys: string[]) => {
     setQuickFilters(newKeys);
@@ -376,32 +312,28 @@ const PermitsPage: React.FC<Props> = ({
 
   const handleOpenEditReminder = (rem: Reminder) => {
     setEditingReminderModalItem(rem);
-    setEditReminderModalTitle(rem.title || '');
-    setEditReminderModalDueDate(rem.dueDate ? rem.dueDate.split('T')[0] : '');
-    setEditReminderModalStatus(rem.status || 'Pending');
-    setEditReminderModalNotes(rem.notes || '');
   };
 
-  const handleSaveEditedReminder = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingReminderModalItem) return;
-    if (!editReminderModalTitle.trim()) {
-      setErrorDialogState({
-        open: true,
-        message: t('alertReminderTitleRequired') || 'Naziv podsetnika je obavezan.',
-      });
-      return;
-    }
+  const handleSaveEditedReminder = async (data: {
+    id: string;
+    title: string;
+    dueDate: string | null;
+    status: string;
+    notes: string | null;
+  }) => {
     try {
       const res = await handleSaveReminder({
-        id: editingReminderModalItem.id,
-        title: editReminderModalTitle.trim(),
-        dueDate: editReminderModalDueDate || null,
-        status: editReminderModalStatus,
-        notes: editReminderModalNotes.trim() || null,
+        id: data.id,
+        title: data.title,
+        dueDate: data.dueDate,
+        status: data.status,
+        notes: data.notes,
       });
-      if (res.success) setEditingReminderModalItem(null);
-      else setErrorDialogState({ open: true, message: res.error || t('errorSavingProject') });
+      if (res.success) {
+        setEditingReminderModalItem(null);
+      } else {
+        setErrorDialogState({ open: true, message: res.error || t('errorSavingProject') });
+      }
     } catch (err: any) {
       setErrorDialogState({ open: true, message: err?.message || t('errorSavingProject') });
     }
@@ -421,32 +353,27 @@ const PermitsPage: React.FC<Props> = ({
 
   const openAddReminderForPermit = (p: Permit) => {
     setTargetPermitForReminder(p);
-    const idxStr = p.indexNumber || p.wasteCatalog?.code || p.wasteCatalogs?.[0]?.code || '';
-    setNewReminderTitle(`${t('lblPermit')}: ${p.permitNumber}${idxStr ? ` (${idxStr})` : ''}`);
-    setNewReminderDueDate(p.endDate ? p.endDate.split('T')[0] : '');
-    setNewReminderNotes('');
     setIsReminderModalOpen(true);
   };
 
-  const handleSaveReminderSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveQuickReminder = async (data: {
+    title: string;
+    dueDate: string | null;
+    notes: string | null;
+  }) => {
     if (!targetPermitForReminder) return;
-    if (!newReminderTitle.trim()) return;
 
     const targetPermitClient = getLinkedClient(targetPermitForReminder);
 
     try {
       const res = await handleSaveReminder({
-        title: newReminderTitle.trim(),
+        title: data.title,
         clientId: targetPermitClient?.id || targetPermitForReminder.clientId || null,
-        clientName:
-          targetPermitClient?.name ||
-          targetPermitForReminder.clientName ||
-          null,
+        clientName: targetPermitClient?.name || targetPermitForReminder.clientName || null,
         permitId: targetPermitForReminder.id,
         permitNumber: targetPermitForReminder.permitNumber,
-        dueDate: newReminderDueDate || null,
-        notes: newReminderNotes.trim() || null,
+        dueDate: data.dueDate,
+        notes: data.notes,
         status: 'Pending',
       });
       if (res.success) {
@@ -535,7 +462,7 @@ const PermitsPage: React.FC<Props> = ({
     return map;
   }, [reminders]);
 
-  // Filter and sort permits
+  // Filter permits
   const filteredPermits = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
@@ -590,7 +517,7 @@ const PermitsPage: React.FC<Props> = ({
 
       // Permit Type filter
       if (filterPermitType !== 'all') {
-        const types = (permit.permitTypes || []).map((t) => String(t).trim().toLowerCase());
+        const types = (permit.permitTypes || []).map((typeItem) => String(typeItem).trim().toLowerCase());
         if (!types.includes(filterPermitType.trim().toLowerCase())) {
           return false;
         }
@@ -621,7 +548,7 @@ const PermitsPage: React.FC<Props> = ({
     });
   }, [
     permits,
-    clients,
+    getLinkedClient,
     searchQuery,
     quickFilters,
     filterStatus,
@@ -669,72 +596,13 @@ const PermitsPage: React.FC<Props> = ({
       return sortDirection === 'asc' ? comp : -comp;
     });
     return result;
-  }, [filteredPermits, clients, sortColumn, sortDirection]);
+  }, [filteredPermits, getLinkedClient, sortColumn, sortDirection, getPermitTypeLabel]);
 
   // Pagination
   const paginatedPermits = useMemo(() => {
     const start = page * activeRowsPerPage;
     return sortedPermits.slice(start, start + activeRowsPerPage);
   }, [sortedPermits, page, activeRowsPerPage]);
-
-  const formatDate = (iso: string | null | undefined) => {
-    if (!iso) return '-';
-    try {
-      const parts = iso.split('T')[0].split('-');
-      if (parts.length === 3) {
-        return `${parts[2]}.${parts[1]}.${parts[0]}.`;
-      }
-      return iso;
-    } catch {
-      return iso;
-    }
-  };
-
-  const renderStatusBadge = (endDateStr: string | null | undefined) => {
-    const statusObj = getPermitStatus(endDateStr);
-
-    if (statusObj.status === 'expired') {
-      return (
-        <Chip
-          icon={<ErrorIcon fontSize="small" />}
-          label={`${t('statusExpired')}${statusObj.daysLeft ? ` (${statusObj.daysLeft} ${t('daysExpired')})` : ''}`}
-          size="small"
-          color="error"
-          sx={{ fontWeight: 600 }}
-        />
-      );
-    }
-    if (statusObj.status === 'expiring') {
-      return (
-        <Chip
-          icon={<WarningAmberIcon fontSize="small" />}
-          label={`${t('statusExpiring')}${statusObj.daysLeft !== undefined ? ` (${statusObj.daysLeft} ${t('daysRemaining')})` : ''}`}
-          size="small"
-          color="warning"
-          sx={{ fontWeight: 600 }}
-        />
-      );
-    }
-    if (statusObj.status === 'active') {
-      return (
-        <Chip
-          icon={<CheckCircleIcon fontSize="small" />}
-          label={t('statusActivePermit')}
-          size="small"
-          color="success"
-          sx={{ fontWeight: 600 }}
-        />
-      );
-    }
-    return (
-      <Chip
-        label="-"
-        size="small"
-        variant="outlined"
-        sx={{ color: 'text.disabled' }}
-      />
-    );
-  };
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%', flex: 1, minHeight: 0 }}>
@@ -967,343 +835,33 @@ const PermitsPage: React.FC<Props> = ({
           </Box>
         </Box>
 
-        {/* TABLE */}
-        <TableContainer sx={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
-          <Table stickyHeader sx={{ width: '100%', minWidth: 650 }}>
-            <TableHead>
-              <TableRow>
-                {activeCols.includes('indexNumber') && (
-                  <TableCell>
-                    <TableSortLabel
-                      active={sortColumn === 'indexNumber'}
-                      direction={sortColumn === 'indexNumber' ? sortDirection : 'asc'}
-                      onClick={() => handleSort('indexNumber')}
-                    >
-                      {t('colIndexNumber')}
-                    </TableSortLabel>
-                  </TableCell>
-                )}
-                {activeCols.includes('permitNumber') && (
-                  <TableCell>
-                    <TableSortLabel
-                      active={sortColumn === 'permitNumber'}
-                      direction={sortColumn === 'permitNumber' ? sortDirection : 'asc'}
-                      onClick={() => handleSort('permitNumber')}
-                    >
-                      {t('colPermitNumber')}
-                    </TableSortLabel>
-                  </TableCell>
-                )}
-                {activeCols.includes('permitTypes') && (
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.5 }}>
-                      <TableSortLabel
-                        active={sortColumn === 'permitTypes'}
-                        direction={sortColumn === 'permitTypes' ? sortDirection : 'asc'}
-                        onClick={() => handleSort('permitTypes')}
-                      >
-                        {t('colPermitType')}
-                      </TableSortLabel>
-                      <Tooltip
-                        title={
-                          filterPermitType !== 'all'
-                            ? `${t('filterPermitType')}: ${getPermitTypeLabel(filterPermitType)}`
-                            : t('filterPermitType')
-                        }
-                      >
-                        <IconButton
-                          size="small"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setPermitTypeHeaderAnchor(e.currentTarget);
-                          }}
-                          color={filterPermitType !== 'all' ? 'primary' : 'default'}
-                          sx={{
-                            p: 0.4,
-                            border: filterPermitType !== 'all' ? 1 : 0,
-                            borderColor: 'primary.main',
-                            bgcolor: filterPermitType !== 'all' ? 'action.selected' : 'transparent',
-                          }}
-                        >
-                          <FilterListIcon fontSize="small" sx={{ fontSize: '1rem' }} />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  </TableCell>
-                )}
-                {activeCols.includes('client') && (
-                  <TableCell>
-                    <TableSortLabel
-                      active={sortColumn === 'client'}
-                      direction={sortColumn === 'client' ? sortDirection : 'asc'}
-                      onClick={() => handleSort('client')}
-                    >
-                      {t('colClientName')}
-                    </TableSortLabel>
-                  </TableCell>
-                )}
-                {activeCols.includes('startDate') && (
-                  <TableCell>
-                    <TableSortLabel
-                      active={sortColumn === 'startDate'}
-                      direction={sortColumn === 'startDate' ? sortDirection : 'asc'}
-                      onClick={() => handleSort('startDate')}
-                    >
-                      {t('colStartDate')}
-                    </TableSortLabel>
-                  </TableCell>
-                )}
-                {activeCols.includes('endDate') && (
-                  <TableCell>
-                    <TableSortLabel
-                      active={sortColumn === 'endDate'}
-                      direction={sortColumn === 'endDate' ? sortDirection : 'asc'}
-                      onClick={() => handleSort('endDate')}
-                    >
-                      {t('colEndDate')}
-                    </TableSortLabel>
-                  </TableCell>
-                )}
-                {activeCols.includes('status') && (
-                  <TableCell>
-                    {t('colStatus')}
-                  </TableCell>
-                )}
-                {activeCols.includes('reminders') && (
-                  <TableCell>
-                    {t('linkedReminders')}
-                  </TableCell>
-                )}
-                {activeCols.includes('notes') && (
-                  <TableCell>
-                    {t('colNotes')}
-                  </TableCell>
-                )}
-                {hasAnyRowAction && (
-                  <TableCell align="right" sx={{ width: 120 }}>
-                    {t('colActions')}
-                  </TableCell>
-                )}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {paginatedPermits.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={activeCols.length + (hasAnyRowAction ? 1 : 0)} align="center" sx={{ py: 6 }}>
-                    <Typography variant="body1" color="text.secondary">
-                      {t('emptyPermits')}
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                paginatedPermits.map((permit) => {
-                  const linkedClient = getLinkedClient(permit);
-                  const clientDisplay = linkedClient?.name || (permit.clients?.length ? permit.clients.map((c) => c.name).join(', ') : null) || permit.clientName || '—';
-                  const linkedRems = permitRemindersMap.get(permit.id) || [];
-
-                  return (
-                    <TableRow
-                      key={permit.id}
-                      hover
-                      sx={{
-                        '&:last-child td, &:last-child th': { border: 0 },
-                        cursor: 'pointer',
-                      }}
-                      onClick={() => openEdit(permit)}
-                    >
-                      {activeCols.includes('indexNumber') && (
-                        <TableCell>
-                          {(() => {
-                            const wcs = permit.wasteCatalogs?.length ? permit.wasteCatalogs : (permit.wasteCatalog ? [permit.wasteCatalog] : []);
-                            if (!wcs.length && !permit.indexNumber) {
-                              return (
-                                <Typography variant="body2" color="text.disabled">
-                                  —
-                                </Typography>
-                              );
-                            }
-                            if (wcs.length > 0) {
-                              return <ExpandableChipList wcs={wcs} max={2} />;
-                            }
-                            return (
-                              <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                                {permit.indexNumber}
-                              </Typography>
-                            );
-                          })()}
-                        </TableCell>
-                      )}
-                      {activeCols.includes('permitNumber') && (
-                        <TableCell>
-                          <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main' }}>
-                            {permit.permitNumber}
-                          </Typography>
-                        </TableCell>
-                      )}
-                      {activeCols.includes('permitTypes') && (
-                        <TableCell>
-                          {permit.permitTypes && permit.permitTypes.length > 0 ? (
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                              {permit.permitTypes.map((pt) => {
-                                const isSelected = filterPermitType === pt;
-                                return (
-                                  <Tooltip
-                                    key={pt}
-                                    title={
-                                      isSelected
-                                        ? t('btnClearFilters')
-                                        : `${t('filterPermitType')}: ${getPermitTypeLabel(pt)}`
-                                    }
-                                  >
-                                    <Chip
-                                      label={getPermitTypeLabel(pt)}
-                                      size="small"
-                                      variant={isSelected ? 'filled' : 'outlined'}
-                                      color={isSelected ? 'primary' : 'default'}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setFilterPermitType(isSelected ? 'all' : pt);
-                                        setPage(0);
-                                      }}
-                                      sx={{
-                                        fontSize: '0.725rem',
-                                        fontWeight: isSelected ? 700 : 500,
-                                        height: 22,
-                                        cursor: 'pointer',
-                                        bgcolor: isSelected ? undefined : 'action.hover',
-                                        '&:hover': {
-                                          bgcolor: isSelected ? undefined : 'action.selected',
-                                        },
-                                      }}
-                                    />
-                                  </Tooltip>
-                                );
-                              })}
-                            </Box>
-                          ) : (
-                            <Typography variant="body2" color="text.disabled">
-                              —
-                            </Typography>
-                          )}
-                        </TableCell>
-                      )}
-                      {activeCols.includes('client') && (
-                        <TableCell>
-                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                            {clientDisplay}
-                          </Typography>
-                        </TableCell>
-                      )}
-                      {activeCols.includes('startDate') && (
-                        <TableCell>
-                          <Typography variant="body2" color="text.secondary">
-                            {formatDate(permit.startDate)}
-                          </Typography>
-                        </TableCell>
-                      )}
-                      {activeCols.includes('endDate') && (
-                        <TableCell>
-                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                            {formatDate(permit.endDate)}
-                          </Typography>
-                        </TableCell>
-                      )}
-                      {activeCols.includes('status') && (
-                        <TableCell>{renderStatusBadge(permit.endDate)}</TableCell>
-                      )}
-                      {activeCols.includes('reminders') && (
-                        <TableCell onClick={(e) => e.stopPropagation()}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
-                            {linkedRems.length > 0 ? (
-                              <Chip
-                                icon={<NotificationsActiveIcon fontSize="small" />}
-                                label={`${linkedRems.length}`}
-                                size="small"
-                                color="info"
-                                variant="outlined"
-                              />
-                            ) : (
-                              <Typography variant="caption" color="text.disabled">
-                                -
-                              </Typography>
-                            )}
-                            {canCreateReminder && (
-                              <Tooltip title={t('btnAddReminderForPermit')}>
-                                <IconButton
-                                  size="small"
-                                  color="primary"
-                                  onClick={() => openAddReminderForPermit(permit)}
-                                  sx={{ p: 0.4 }}
-                                >
-                                  <AddIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                          </Box>
-                        </TableCell>
-                      )}
-                      {activeCols.includes('notes') && (
-                        <TableCell>
-                          <Typography
-                            variant="body2"
-                            color="text.secondary"
-                            sx={{
-                              maxWidth: 220,
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                            }}
-                          >
-                            {permit.notes || '-'}
-                          </Typography>
-                        </TableCell>
-                      )}
-                      {hasAnyRowAction && (
-                        <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
-                            {canViewHistory && (
-                              <Tooltip title={t('historyModalTitle')}>
-                                <IconButton
-                                  size="small"
-                                  color="secondary"
-                                  onClick={() => setHistoryModalState({ open: true, permit })}
-                                >
-                                  <HistoryIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                            {canEdit && (
-                              <Tooltip title={t('btnEdit')}>
-                                <IconButton
-                                  size="small"
-                                  onClick={() => openEdit(permit)}
-                                  color="primary"
-                                >
-                                  <EditIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                            {canDelete && (
-                              <Tooltip title={t('btnDelete')}>
-                                <IconButton
-                                  size="small"
-                                  onClick={() => onDeletePermit(permit.id)}
-                                  color="error"
-                                >
-                                  <DeleteIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                          </Box>
-                        </TableCell>
-                      )}
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        {/* PERMITS TABLE */}
+        <PermitsTable
+          permits={paginatedPermits}
+          activeCols={activeCols}
+          sortColumn={sortColumn}
+          sortDirection={sortDirection}
+          onSort={handleSort}
+          filterPermitType={filterPermitType}
+          onFilterPermitTypeChange={(type) => {
+            setFilterPermitType(type);
+            setPage(0);
+          }}
+          onOpenPermitTypeFilterMenu={(anchor) => setPermitTypeHeaderAnchor(anchor)}
+          getPermitTypeLabel={getPermitTypeLabel}
+          getLinkedClient={getLinkedClient}
+          permitRemindersMap={permitRemindersMap}
+          canEdit={canEdit}
+          canDelete={canDelete}
+          canViewHistory={canViewHistory}
+          canCreateReminder={canCreateReminder}
+          hasAnyRowAction={hasAnyRowAction}
+          onRowClick={openEdit}
+          onEditPermit={openEdit}
+          onDeletePermit={onDeletePermit}
+          onOpenHistory={(permit) => setHistoryModalState({ open: true, permit })}
+          onAddReminderForPermit={openAddReminderForPermit}
+        />
 
         <TablePagination
           component="div"
@@ -1338,221 +896,22 @@ const PermitsPage: React.FC<Props> = ({
       />
 
       {/* QUICK ADD REMINDER FOR PERMIT DIALOG */}
-      <Dialog
+      <PermitQuickReminderDialog
         open={isReminderModalOpen}
-        onClose={() => setIsReminderModalOpen(false)}
-        maxWidth="sm"
-        fullWidth
-        slotProps={{
-          paper: {
-            sx: {
-              borderRadius: 3,
-              maxHeight: 'calc(100vh - 64px)',
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'hidden',
-            },
-          },
+        permit={targetPermitForReminder}
+        onClose={() => {
+          setIsReminderModalOpen(false);
+          setTargetPermitForReminder(null);
         }}
-      >
-        <Box
-          component="form"
-          onSubmit={handleSaveReminderSubmit}
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            height: '100%',
-            maxHeight: 'inherit',
-            minHeight: 0,
-            overflow: 'hidden',
-          }}
-        >
-          <DialogTitle
-            sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              fontWeight: 700,
-              p: 2,
-              flexShrink: 0,
-            }}
-          >
-            <Typography variant="h6" component="span" sx={{ fontWeight: 700 }}>
-              {t('btnAddReminderForPermit')}
-            </Typography>
-            <IconButton
-              aria-label="close"
-              onClick={() => setIsReminderModalOpen(false)}
-              size="small"
-              sx={{ color: 'text.secondary' }}
-            >
-              <CloseIcon fontSize="small" />
-            </IconButton>
-          </DialogTitle>
-          <DialogContent
-            dividers
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2,
-              p: { xs: 2, sm: 2.5 },
-              overflowY: 'auto',
-              flex: '1 1 auto',
-            }}
-          >
-            <TextField
-              fullWidth
-              required
-              size="small"
-              label={t('lblReminderTitle')}
-              value={newReminderTitle}
-              onChange={(e) => setNewReminderTitle(e.target.value)}
-            />
-            <TextField
-              fullWidth
-              type="date"
-              size="small"
-              label={t('colDueDate')}
-              value={newReminderDueDate}
-              onChange={(e) => setNewReminderDueDate(e.target.value)}
-              slotProps={{ inputLabel: { shrink: true } }}
-            />
-            <TextField
-              fullWidth
-              multiline
-              rows={2}
-              size="small"
-              label={t('colNotes')}
-              value={newReminderNotes}
-              onChange={(e) => setNewReminderNotes(e.target.value)}
-            />
-          </DialogContent>
-          <DialogActions sx={{ p: 2, flexShrink: 0, justifyContent: 'flex-end', gap: 1 }}>
-            <Button onClick={() => setIsReminderModalOpen(false)} color="inherit" sx={{ textTransform: 'none' }}>
-              {t('btnCancel')}
-            </Button>
-            <Button type="submit" variant="contained" color="primary" sx={{ textTransform: 'none', fontWeight: 600 }}>
-              {t('btnSave')}
-            </Button>
-          </DialogActions>
-        </Box>
-      </Dialog>
+        onSave={handleSaveQuickReminder}
+      />
 
       {/* EDIT REMINDER MODAL */}
-      <Dialog
-        open={Boolean(editingReminderModalItem)}
+      <PermitEditReminderModal
+        reminder={editingReminderModalItem}
         onClose={() => setEditingReminderModalItem(null)}
-        maxWidth="sm"
-        fullWidth
-        slotProps={{
-          paper: {
-            sx: {
-              borderRadius: 3,
-              maxHeight: 'calc(100vh - 64px)',
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'hidden',
-            },
-          },
-        }}
-      >
-        {editingReminderModalItem && (
-          <Box
-            component="form"
-            onSubmit={handleSaveEditedReminder}
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              height: '100%',
-              maxHeight: 'inherit',
-              minHeight: 0,
-              overflow: 'hidden',
-            }}
-          >
-            <DialogTitle
-              sx={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                fontWeight: 700,
-                p: 2,
-                flexShrink: 0,
-              }}
-            >
-              <Typography variant="h6" component="span" sx={{ fontWeight: 700 }}>
-                {t('modalEditReminder')}
-              </Typography>
-              <IconButton
-                aria-label="close"
-                onClick={() => setEditingReminderModalItem(null)}
-                size="small"
-                sx={{ color: 'text.secondary' }}
-              >
-                <CloseIcon fontSize="small" />
-              </IconButton>
-            </DialogTitle>
-            <DialogContent
-              dividers
-              sx={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 2,
-                p: { xs: 2, sm: 2.5 },
-                overflowY: 'auto',
-                flex: '1 1 auto',
-              }}
-            >
-              <TextField
-                fullWidth
-                required
-                size="small"
-                label={t('lblReminderTitle')}
-                value={editReminderModalTitle}
-                onChange={(e) => setEditReminderModalTitle(e.target.value)}
-              />
-              <TextField
-                fullWidth
-                type="date"
-                size="small"
-                label={t('colDueDate')}
-                value={editReminderModalDueDate}
-                onChange={(e) => setEditReminderModalDueDate(e.target.value)}
-                slotProps={{ inputLabel: { shrink: true } }}
-              />
-              <FormControl size="small" fullWidth>
-                <InputLabel>{t('colStatus')}</InputLabel>
-                <Select
-                  value={editReminderModalStatus}
-                  label={t('colStatus')}
-                  onChange={(e) => setEditReminderModalStatus(e.target.value)}
-                >
-                  <MenuItem value="Pending">{t('statusPending')}</MenuItem>
-                  <MenuItem value="In Progress">{t('statusInProgress')}</MenuItem>
-                  <MenuItem value="Completed">{t('statusCompleted')}</MenuItem>
-                  <MenuItem value="Overdue">{t('statusOverdue')}</MenuItem>
-                </Select>
-              </FormControl>
-              <TextField
-                fullWidth
-                multiline
-                rows={2}
-                size="small"
-                label={t('colNotes')}
-                value={editReminderModalNotes}
-                onChange={(e) => setEditReminderModalNotes(e.target.value)}
-              />
-            </DialogContent>
-            <DialogActions sx={{ p: 2, flexShrink: 0, justifyContent: 'flex-end', gap: 1 }}>
-              <Button onClick={() => setEditingReminderModalItem(null)} color="inherit" sx={{ textTransform: 'none' }}>
-                {t('btnCancel')}
-              </Button>
-              <Button type="submit" variant="contained" color="primary" sx={{ textTransform: 'none', fontWeight: 600 }}>
-                {t('btnSave')}
-              </Button>
-            </DialogActions>
-          </Box>
-        )}
-      </Dialog>
+        onSave={handleSaveEditedReminder}
+      />
 
       {/* PERMIT TYPE HEADER FILTER MENU */}
       <Menu
@@ -1592,7 +951,8 @@ const PermitsPage: React.FC<Props> = ({
         message={errorDialogState.message}
         onClose={() => setErrorDialogState({ open: false, message: '' })}
       />
-      {/* Delete Confirm */}
+
+      {/* DELETE CONFIRM */}
       <ConfirmDialog
         open={deleteConfirmState.open}
         title={t('confirmDeleteTitle')}
@@ -1603,6 +963,7 @@ const PermitsPage: React.FC<Props> = ({
         confirmColor="warning"
       />
 
+      {/* HISTORY MODAL */}
       {historyModalState.permit && (
         <HistoryTimelineModal
           open={historyModalState.open}

@@ -15,25 +15,16 @@ import {
   Chip,
   Box,
   Typography,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Grid,
   Select,
   MenuItem,
   FormControl,
   InputLabel,
   Autocomplete,
   Tooltip,
-  Paper,
-  Divider,
   Collapse,
 } from '@mui/material';
 
-import type { Invoice, InvoiceStatus, InvoiceCurrency,  InvoiceType,
-  TableViewProps,
-} from '../../types';
+import type { Invoice, TableViewProps } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { TableOptionsSelector, type ColumnDef } from '../../components/common/ColumnSelector';
@@ -42,7 +33,9 @@ import { DateRangeFilter } from '../../components/common/DateRangeFilter';
 import { TableSearchInput } from '../../components/common/TableSearchInput';
 import { TableQuickFilters } from '../../components/common/TableQuickFilters';
 import { ErrorDialog } from '../../components/dialogs/ErrorDialog';
-import { parseInvoiceNotes, serializeInvoiceNotes, enhanceInvoicesWithLinks } from '../../utils/invoiceUtils';
+import { enhanceInvoicesWithLinks } from '../../utils/invoiceUtils';
+import { InvoiceRowDetail } from '../../components/invoice/InvoiceRowDetail';
+import { InvoiceModal } from '../../components/invoice/InvoiceModal';
 import {
   AddIcon,
   EditIcon,
@@ -142,41 +135,6 @@ const InvoicesPage: React.FC<Props> = ({
   const onDeleteInvoice = (id: string) => handleDelete(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
 
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
-
-  // Modal form state
-  const [formData, setFormData] = useState<{
-    invoiceNumber: string;
-    invoiceType: InvoiceType;
-    parentInvoiceId: string;
-    dateCreated: string;
-    dueDate: string;
-    paymentDate: string;
-    clientId: string;
-    clientName: string;
-    projectId: string;
-    projectName: string;
-    providedServiceId: string;
-    status: InvoiceStatus;
-    currency: InvoiceCurrency;
-    notes: string;
-    items: { description: string; quantity: number; unitPrice: number; currency: InvoiceCurrency }[];
-  }>({
-    invoiceNumber: '',
-    invoiceType: 'Standard',
-    parentInvoiceId: '',
-    dateCreated: new Date().toISOString().slice(0, 10),
-    dueDate: '',
-    paymentDate: '',
-    clientId: '',
-    clientName: '',
-    projectId: '',
-    projectName: '',
-    providedServiceId: '',
-    status: 'Draft',
-    currency: 'RSD',
-    notes: '',
-    items: [{ description: '', quantity: 1, unitPrice: 0, currency: 'RSD' }],
-  });
 
 
 
@@ -367,152 +325,45 @@ const InvoicesPage: React.FC<Props> = ({
   const handleOpenNew = () => {
     if (!canCreate) return;
     setEditingInvoice(null);
-    setFormData({
-      invoiceNumber: '',
-      invoiceType: 'Standard',
-      parentInvoiceId: '',
-      dateCreated: new Date().toISOString().slice(0, 10),
-      dueDate: '',
-      paymentDate: '',
-      clientId: '',
-      clientName: '',
-      projectId: '',
-      projectName: '',
-      providedServiceId: '',
-      status: 'Draft',
-      currency: 'RSD',
-      notes: '',
-      items: [{ description: '', quantity: 1, unitPrice: 0, currency: 'RSD' }],
-    });
     setIsOpen(true);
   };
 
   // Open modal for editing invoice
   const handleOpenEdit = (inv: Invoice) => {
     if (!canEdit) return;
-    const { cleanNotes, invoiceType: pType, parentInvoiceId: pParentId } = parseInvoiceNotes(inv.notes);
-    const linkedPs = providedServices?.find(ps => ps.invoiceId === inv.id);
     setEditingInvoice(inv);
-    setFormData({
-      invoiceNumber: inv.invoiceNumber || '',
-      invoiceType: (inv.invoiceType || pType || 'Standard') as InvoiceType,
-      parentInvoiceId: inv.parentInvoiceId || pParentId || '',
-      dateCreated: inv.dateCreated || '',
-      dueDate: inv.dueDate || '',
-      paymentDate: inv.paymentDate || '',
-      clientId: inv.clientId || (inv.client?.id || ''),
-      clientName: inv.clientName || (inv.client?.name || ''),
-      projectId: inv.projectId || (inv.project?.id || ''),
-      projectName: inv.projectName || (inv.project?.name || ''),
-      providedServiceId: linkedPs ? linkedPs.id : '',
-      status: (inv.status as InvoiceStatus) || 'Draft',
-      currency: (inv.currency as InvoiceCurrency) || 'RSD',
-      notes: cleanNotes || '',
-      items:
-        inv.items && inv.items.length > 0
-          ? inv.items.map((item) => ({
-              description: item.description,
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-              currency: (item.currency as InvoiceCurrency) || (inv.currency as InvoiceCurrency) || 'RSD',
-            }))
-          : [{ description: '', quantity: 1, unitPrice: 0, currency: (inv.currency as InvoiceCurrency) || 'RSD' }],
-    });
     setIsOpen(true);
   };
 
-  // Add / Remove item in modal
-  const handleAddItem = () => {
-    setFormData((prev) => ({
-      ...prev,
-      items: [...prev.items, { description: '', quantity: 1, unitPrice: 0, currency: prev.currency }],
-    }));
-  };
-
-  const handleRemoveItem = (index: number) => {
-    setFormData((prev) => ({
-      ...prev,
-      items: prev.items.filter((_, i) => i !== index),
-    }));
-  };
-
-  const handleItemChange = (index: number, field: string, value: any) => {
-    setFormData((prev) => {
-      const newItems = [...prev.items];
-      newItems[index] = { ...newItems[index], [field]: value };
-      return { ...prev, items: newItems };
-    });
-  };
-
-  // Compute live modal total
-  const modalTotal = useMemo(() => {
-    return formData.items.reduce((sum, it) => sum + (Number(it.quantity) || 0) * (Number(it.unitPrice) || 0), 0);
-  }, [formData.items]);
-
-  // Handle Save
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.invoiceNumber.trim()) {
-      setErrorDialogState({ open: true, message: t('alertInvoiceNumberRequired') });
-      return;
-    }
-    if (!formData.dueDate || !formData.dueDate.trim()) {
-      setErrorDialogState({ open: true, message: t('alertDueDateRequired') });
-      return;
-    }
-    if (!formData.clientId && !formData.clientName) {
-      setErrorDialogState({ open: true, message: t('alertClientRequired') });
-      return;
-    }
-
+  // Handle Save from InvoiceModal
+  const handleSaveInvoiceFromModal = async (
+    payload: Partial<Invoice>,
+    providedServiceId?: string,
+    initialPsId?: string
+  ) => {
     setIsSaving(true);
     try {
-      const combinedNotes = serializeInvoiceNotes(formData.notes, formData.invoiceType, formData.parentInvoiceId);
-
-      const payload: Partial<Invoice> = {
-        ...(editingInvoice ? { id: editingInvoice.id } : {}),
-        invoiceNumber: formData.invoiceNumber.trim(),
-        invoiceType: formData.invoiceType,
-        parentInvoiceId: formData.parentInvoiceId || null,
-        dateCreated: formData.dateCreated || null,
-        dueDate: formData.dueDate || null,
-        paymentDate: formData.paymentDate || null,
-        clientId: formData.clientId || null,
-        clientName: formData.clientName || null,
-        projectId: formData.projectId || null,
-        projectName: formData.projectName || null,
-        status: formData.status,
-        currency: formData.currency,
-        notes: combinedNotes,
-        items: formData.items
-          .filter((it) => it.description.trim())
-          .map((it) => ({
-            description: it.description.trim(),
-            quantity: Number(it.quantity) || 1,
-            unitPrice: Number(it.unitPrice) || 0,
-            currency: it.currency || formData.currency || 'RSD',
-          })),
-      };
-
       const res = await handleSaveInvoice(payload);
       if (res && res.error) {
         setErrorDialogState({ open: true, message: res.error });
-      } else {
-        const savedInvoiceId = res.id;
-        if (savedInvoiceId) {
-          // Find original
-          const initialPs = providedServices?.find(ps => ps.invoiceId === editingInvoice?.id);
-          
-          if (formData.providedServiceId) {
-            if (!initialPs || initialPs.id !== formData.providedServiceId) {
-                await Promise.resolve(handleSaveProvidedService({ id: formData.providedServiceId, invoiceId: savedInvoiceId })).catch(() => {});
-            }
-          } else if (initialPs) {
-                await Promise.resolve(handleSaveProvidedService({ id: initialPs.id, invoiceId: null })).catch(() => {});
-          }
-        }
-        setIsOpen(false);
+        return;
       }
+
+      const savedInvoiceId = res?.id;
+      if (savedInvoiceId) {
+        if (providedServiceId) {
+          if (!initialPsId || initialPsId !== providedServiceId) {
+            await Promise.resolve(
+              handleSaveProvidedService({ id: providedServiceId, invoiceId: savedInvoiceId })
+            ).catch(() => {});
+          }
+        } else if (initialPsId) {
+          await Promise.resolve(
+            handleSaveProvidedService({ id: initialPsId, invoiceId: null })
+          ).catch(() => {});
+        }
+      }
+      setIsOpen(false);
     } catch (err: any) {
       setErrorDialogState({ open: true, message: err?.message || 'Error saving invoice' });
     } finally {
@@ -659,23 +510,7 @@ const InvoicesPage: React.FC<Props> = ({
     });
   }, [filteredInvoices, sortColumn, sortDirection]);
 
-  // Filtered projects based on selected client in modal
-  const modalProjects = useMemo(() => {
-    if (!formData.clientId) return projects;
-    return projects.filter((p) => p.clientId === formData.clientId);
-  }, [projects, formData.clientId]);
 
-  // Filtered provided services based on selected client
-  const modalProvidedServices = useMemo(() => {
-    if (!providedServices) return [];
-    if (!formData.clientId) return providedServices;
-    return providedServices.filter((ps) => ps.clientId === formData.clientId);
-  }, [providedServices, formData.clientId]);
-
-  // Available parent invoices for linking in modal
-  const availableParentInvoices = useMemo(() => {
-    return enhancedInvoices.filter((inv) => !editingInvoice || inv.id !== editingInvoice.id);
-  }, [enhancedInvoices, editingInvoice]);
 
   return (
     <Box sx={{ width: '100%', py: 2 }}>
@@ -1264,149 +1099,15 @@ const InvoicesPage: React.FC<Props> = ({
                         <TableRow>
                           <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={activeCols.length + 1 + (hasAnyRowAction ? 1 : 0)}>
                             <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-                              <Box sx={{ margin: 2, p: 2, bgcolor: 'action.hover', borderRadius: 2 }}>
-                                {/* LINKED INVOICES BREAKDOWN CARD */}
-                                {hasLinks && (
-                                  <Box sx={{ mb: 2, p: 1.5, bgcolor: 'background.paper', borderRadius: 1.5, border: '1px solid', borderColor: 'divider' }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                                      <LinkIcon color="primary" sx={{ fontSize: 18 }} />
-                                      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                                        {t('lblLinkedInvoices')}
-                                      </Typography>
-                                    </Box>
-
-                                    <Grid container spacing={1.5}>
-                                      {/* Parent Invoice info */}
-                                      {inv.parentInvoice && (
-                                        <Grid size={{ xs: 12, md: inv.childInvoices && inv.childInvoices.filter((c) => c.id !== inv.parentInvoice?.id).length > 0 ? 6 : 12 }}>
-                                          <Paper variant="outlined" sx={{ p: 1.25, bgcolor: 'background.default', borderRadius: 1 }}>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.5 }}>
-                                              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-                                                {t('lblParentInvoice')}:
-                                              </Typography>
-                                              {getInvoiceTypeChip(inv.parentInvoice.invoiceType)}
-                                            </Box>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-                                              <Typography
-                                                variant="body2"
-                                                sx={{ fontWeight: 700, color: 'primary.main', cursor: 'pointer' }}
-                                                onClick={() => inv.parentInvoice?.invoiceNumber && setSearch(inv.parentInvoice.invoiceNumber)}
-                                              >
-                                                {inv.parentInvoice.invoiceNumber}
-                                              </Typography>
-                                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                <Chip
-                                                  label={getStatusLabel(inv.parentInvoice.status)}
-                                                  size="small"
-                                                  color={getStatusChipColor(inv.parentInvoice.status)}
-                                                  sx={{ height: 18, fontSize: '0.65rem' }}
-                                                />
-                                                <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                                                  {formatAmount(inv.parentInvoice.totalAmount, inv.parentInvoice.currency)}
-                                                </Typography>
-                                              </Box>
-                                            </Box>
-                                          </Paper>
-                                        </Grid>
-                                      )}
-
-                                      {/* Child Invoices info */}
-                                      {inv.childInvoices && inv.childInvoices.filter((c) => !inv.parentInvoice || c.id !== inv.parentInvoice.id).length > 0 && (
-                                        <Grid size={{ xs: 12, md: inv.parentInvoice ? 6 : 12 }}>
-                                          <Paper variant="outlined" sx={{ p: 1.25, bgcolor: 'background.default', borderRadius: 1 }}>
-                                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block', mb: 0.5 }}>
-                                              {t('lblLinkedInvoices')} ({inv.childInvoices.filter((c) => !inv.parentInvoice || c.id !== inv.parentInvoice.id).length})
-                                            </Typography>
-                                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-                                              {inv.childInvoices
-                                                .filter((c) => !inv.parentInvoice || c.id !== inv.parentInvoice.id)
-                                                .map((child) => (
-                                                  <Box key={child.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                                                      <Typography
-                                                        variant="body2"
-                                                        sx={{ fontWeight: 700, color: 'primary.main', cursor: 'pointer' }}
-                                                        onClick={() => child.invoiceNumber && setSearch(child.invoiceNumber)}
-                                                      >
-                                                        {child.invoiceNumber}
-                                                      </Typography>
-                                                      {getInvoiceTypeChip(child.invoiceType)}
-                                                    </Box>
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                      <Chip
-                                                        label={getStatusLabel(child.status)}
-                                                        size="small"
-                                                        color={getStatusChipColor(child.status)}
-                                                        sx={{ height: 18, fontSize: '0.65rem' }}
-                                                      />
-                                                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                                                        {formatAmount(child.totalAmount, child.currency)}
-                                                      </Typography>
-                                                    </Box>
-                                                  </Box>
-                                                ))}
-                                            </Box>
-                                          </Paper>
-                                        </Grid>
-                                      )}
-                                    </Grid>
-                                  </Box>
-                                )}
-
-                                {/* ITEMS TABLE */}
-                                {itemsCount > 0 ? (
-                                  <>
-                                    <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                                      {t('invoiceItemsSection')}
-                                    </Typography>
-                                    <Table size="small">
-                                      <TableHead>
-                                        <TableRow>
-                                          <TableCell sx={{ fontWeight: 700 }}>{t('lblItemDescription')}</TableCell>
-                                          <TableCell align="right" sx={{ fontWeight: 700 }}>
-                                            {t('lblItemQuantity')}
-                                          </TableCell>
-                                          <TableCell align="right" sx={{ fontWeight: 700 }}>
-                                            {t('lblItemUnitPrice')}
-                                          </TableCell>
-                                          <TableCell align="right" sx={{ fontWeight: 700, whiteSpace: 'nowrap', minWidth: 120 }}>
-                                            {t('lblItemTotal')}
-                                          </TableCell>
-                                        </TableRow>
-                                      </TableHead>
-                                      <TableBody>
-                                        {inv.items?.map((item, idx) => (
-                                          <TableRow key={item.id || idx}>
-                                            <TableCell>{item.description}</TableCell>
-                                            <TableCell align="right">{item.quantity}</TableCell>
-                                            <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                                              {formatAmount(item.unitPrice, item.currency || inv.currency)}
-                                            </TableCell>
-                                            <TableCell align="right" sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
-                                              {formatAmount(item.quantity * item.unitPrice, item.currency || inv.currency)}
-                                            </TableCell>
-                                          </TableRow>
-                                        ))}
-                                      </TableBody>
-                                    </Table>
-                                  </>
-                                ) : (
-                                  <Typography variant="caption" color="text.secondary">
-                                    {t('noItemsInInvoice')}
-                                  </Typography>
-                                )}
-
-                                {inv.notes && (
-                                  <Box sx={{ mt: 1.5 }}>
-                                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-                                      {t('lblNotes')}:
-                                    </Typography>
-                                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                                      {inv.notes}
-                                    </Typography>
-                                  </Box>
-                                )}
-                              </Box>
+                              <InvoiceRowDetail
+                                invoice={inv}
+                                hasLinks={hasLinks}
+                                onSearchInvoice={(invoiceNumber) => setSearch(invoiceNumber)}
+                                getStatusLabel={getStatusLabel}
+                                getStatusChipColor={getStatusChipColor}
+                                getInvoiceTypeChip={getInvoiceTypeChip}
+                                formatAmount={formatAmount}
+                              />
                             </Collapse>
                           </TableCell>
                         </TableRow>
@@ -1434,373 +1135,17 @@ const InvoicesPage: React.FC<Props> = ({
       </Card>
 
       {/* CREATE / EDIT INVOICE MODAL */}
-      <Dialog open={isOpen} onClose={() => !isSaving && setIsOpen(false)} maxWidth="md" fullWidth>
-        <form onSubmit={handleSave}>
-          <DialogTitle sx={{ fontWeight: 700 }}>
-            {editingInvoice ? t('modalEditInvoice') : t('modalNewInvoice')}
-          </DialogTitle>
-
-          <DialogContent dividers>
-            <Grid container spacing={2.5}>
-              {/* ID if editing (not editable) */}
-              {editingInvoice && (
-                <Grid size={{ xs: 12 }}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Unique ID"
-                    value={editingInvoice.id}
-                    disabled
-                    helperText="Immutable unique identifier"
-                  />
-                </Grid>
-              )}
-
-              {/* Invoice Number */}
-              <Grid size={{ xs: 12, sm: 5 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  required
-                  label={t('lblInvoiceNumber')}
-                  placeholder={t('phInvoiceNumber')}
-                  value={formData.invoiceNumber}
-                  onChange={(e) => setFormData({ ...formData, invoiceNumber: e.target.value })}
-                />
-              </Grid>
-
-              {/* Invoice Type */}
-              <Grid size={{ xs: 12, sm: 3.5 }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>{t('lblInvoiceType')}</InputLabel>
-                  <Select
-                    value={formData.invoiceType}
-                    label={t('lblInvoiceType')}
-                    onChange={(e) => setFormData({ ...formData, invoiceType: e.target.value as InvoiceType })}
-                  >
-                    <MenuItem value="Standard">{t('typeStandard')}</MenuItem>
-                    <MenuItem value="Advance">{t('typeAdvance')}</MenuItem>
-                    <MenuItem value="Final">{t('typeFinal')}</MenuItem>
-                    <MenuItem value="Partial">{t('typePartial')}</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              {/* Status */}
-              <Grid size={{ xs: 12, sm: 3.5 }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>{t('lblInvoiceStatus')}</InputLabel>
-                  <Select
-                    value={formData.status}
-                    label={t('lblInvoiceStatus')}
-                    onChange={(e) => {
-                      const newStatus = e.target.value as InvoiceStatus;
-                      setFormData({
-                        ...formData,
-                        status: newStatus,
-                        paymentDate:
-                          newStatus === 'Paid' && !formData.paymentDate
-                            ? new Date().toISOString().slice(0, 10)
-                            : formData.paymentDate,
-                      });
-                    }}
-                  >
-                    <MenuItem value="Draft">{t('statusDraft')}</MenuItem>
-                    <MenuItem value="Sent">{t('statusSent')}</MenuItem>
-                    <MenuItem value="Paid">{t('statusPaid')}</MenuItem>
-                    <MenuItem value="Overdue">{t('statusOverdue')}</MenuItem>
-                    <MenuItem value="Cancelled">{t('statusCancelled')}</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              {/* Linked / Parent Invoice Selection */}
-              <Grid size={{ xs: 12, sm: 8 }}>
-                <Autocomplete
-                  options={availableParentInvoices}
-                  groupBy={(inv) => {
-                    const matchClient = formData.clientId && inv.clientId === formData.clientId;
-                    const matchProj = formData.projectId && inv.projectId === formData.projectId;
-                    if (matchProj) return `${t('tabProjects')}: ${formData.projectName || ''}`;
-                    if (matchClient) return `${t('lblClient')}: ${formData.clientName || ''}`;
-                    return t('other');
-                  }}
-                  getOptionLabel={(inv) =>
-                    `${inv.invoiceNumber}${inv.invoiceType && inv.invoiceType !== 'Standard' ? ` [${inv.invoiceType}]` : ''}${inv.clientName ? ` (${inv.clientName})` : ''} [${inv.status}]`
-                  }
-                  value={availableParentInvoices.find((inv) => inv.id === formData.parentInvoiceId) || null}
-                  onChange={(_, val) => {
-                    setFormData({
-                      ...formData,
-                      parentInvoiceId: val ? val.id : '',
-                    });
-                  }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      size="small"
-                      label={t('lblParentInvoice')}
-                      placeholder={t('phSelectParentInvoice')}
-                    />
-                  )}
-                />
-              </Grid>
-
-              {/* Currency */}
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>{t('lblCurrency')}</InputLabel>
-                  <Select
-                    value={formData.currency}
-                    label={t('lblCurrency')}
-                    onChange={(e) => {
-                      const newCurr = e.target.value as InvoiceCurrency;
-                      setFormData({
-                        ...formData,
-                        currency: newCurr,
-                        items: formData.items.map((it) => ({ ...it, currency: newCurr })),
-                      });
-                    }}
-                  >
-                    <MenuItem value="RSD">RSD (Dinar)</MenuItem>
-                    <MenuItem value="€">€ (Euro)</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              {/* Client Selection */}
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Autocomplete
-                  options={clients}
-                  getOptionLabel={(option) => option.name || ''}
-                  value={clients.find((c) => c.id === formData.clientId) || null}
-                  onChange={(_, val) => {
-                    setFormData({
-                      ...formData,
-                      clientId: val ? val.id : '',
-                      clientName: val ? val.name : '',
-                    });
-                  }}
-                  renderInput={(params) => (
-                    <TextField {...params} size="small" label={t('lblClient')} placeholder={t('phClient')} required />
-                  )}
-                />
-              </Grid>
-
-              {/* Project Selection */}
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Autocomplete
-                  options={modalProjects}
-                  getOptionLabel={(option) => option.name || ''}
-                  value={projects.find((p) => p.id === formData.projectId) || null}
-                  onChange={(_, val) => {
-                    setFormData({
-                      ...formData,
-                      projectId: val ? val.id : '',
-                      projectName: val ? val.name : '',
-                      clientId: val && val.clientId ? val.clientId : formData.clientId,
-                      clientName: val && val.clientName ? val.clientName : formData.clientName,
-                    });
-                  }}
-                  renderInput={(params) => (
-                    <TextField {...params} size="small" label={t('tabProjects')} placeholder={t('phProjectName')} />
-                  )}
-                />
-              </Grid>
-
-              {/* Provided Service Selection */}
-              {(hasPermission('providedServices', 'view') || hasPermission('wasteDisposal', 'view')) && (
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <Autocomplete
-                    options={modalProvidedServices}
-                    isOptionEqualToValue={(option, value) => option.id === value.id}
-                    getOptionLabel={(option) => {
-                      const serviceName = option.service?.name || option.serviceId || 'Unknown Service';
-                      return `${serviceName}${option.location ? ` - ${option.location}` : ''}`;
-                    }}
-                    value={providedServices.find((ps) => ps.id === formData.providedServiceId) || null}
-                    onChange={(_, val) => {
-                      setFormData({
-                        ...formData,
-                        providedServiceId: val ? val.id : '',
-                        clientId: val && val.clientId ? val.clientId : formData.clientId,
-                      });
-                    }}
-                    renderInput={(params) => (
-                      <TextField {...params} size="small" label={t('tabProvidedServices')} placeholder={t('tabProvidedServices')} />
-                    )}
-                  />
-                </Grid>
-              )}
-
-              {/* Date Created */}
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="date"
-                  label={t('lblDateCreated')}
-                  value={formData.dateCreated}
-                  onChange={(e) => setFormData({ ...formData, dateCreated: e.target.value })}
-                  slotProps={{ inputLabel: { shrink: true } }}
-                />
-              </Grid>
-
-              {/* Due Date */}
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="date"
-                  label={t('lblDueDate')}
-                  required
-                  value={formData.dueDate}
-                  onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                  slotProps={{ inputLabel: { shrink: true } }}
-                />
-              </Grid>
-
-              {/* Payment Date */}
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="date"
-                  label={t('lblPaymentDate')}
-                  value={formData.paymentDate}
-                  onChange={(e) => setFormData({ ...formData, paymentDate: e.target.value })}
-                  slotProps={{ inputLabel: { shrink: true } }}
-                />
-              </Grid>
-
-              {/* ITEMS SECTION */}
-              <Grid size={{ xs: 12 }}>
-                <Divider sx={{ my: 1 }} />
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                    {t('invoiceItemsSection')}
-                  </Typography>
-                  <Button
-                    size="small"
-                    startIcon={<AddIcon />}
-                    onClick={handleAddItem}
-                    variant="outlined"
-                    sx={{ borderRadius: 2 }}
-                  >
-                    {t('btnAddInvoiceItem')}
-                  </Button>
-                </Box>
-
-                {formData.items.map((item, index) => (
-                  <Paper
-                    key={index}
-                    variant="outlined"
-                    sx={{ p: 1.5, mb: 1.5, borderRadius: 2, bgcolor: 'background.paper' }}
-                  >
-                    <Grid container spacing={1.5} sx={{ alignItems: 'center' }}>
-                      <Grid size={{ xs: 12, sm: 4.5 }}>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          label={t('lblItemDescription')}
-                          value={item.description}
-                          onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                        />
-                      </Grid>
-
-                      <Grid size={{ xs: 4, sm: 1.75 }}>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          type="number"
-                          label={t('lblItemQuantity')}
-                          slotProps={{ htmlInput: { min: 0.01, step: 'any' } }}
-                          value={item.quantity}
-                          onChange={(e) => handleItemChange(index, 'quantity', parseFloat(e.target.value) || 0)}
-                        />
-                      </Grid>
-
-                      <Grid size={{ xs: 4, sm: 2.25 }}>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          type="number"
-                          label={t('lblItemUnitPrice')}
-                          slotProps={{ htmlInput: { min: 0, step: 'any' } }}
-                          value={item.unitPrice}
-                          onChange={(e) => handleItemChange(index, 'unitPrice', parseFloat(e.target.value) || 0)}
-                        />
-                      </Grid>
-
-                      <Grid size={{ xs: 3, sm: 2.75 }} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-                        <Typography variant="body2" sx={{ fontWeight: 700, textAlign: 'right', whiteSpace: 'nowrap', minWidth: 120 }}>
-                          {formatAmount(item.quantity * item.unitPrice, item.currency || formData.currency)}
-                        </Typography>
-                      </Grid>
-
-                      <Grid size={{ xs: 1, sm: 0.75 }} sx={{ textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-                        {formData.items.length > 1 && (
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => handleRemoveItem(index)}
-                            title={t('btnRemoveInvoiceItem')}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        )}
-                      </Grid>
-                    </Grid>
-                  </Paper>
-                ))}
-
-                {/* Total Summary */}
-                <Box
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'flex-end',
-                    alignItems: 'center',
-                    gap: 2,
-                    p: 1.5,
-                    bgcolor: 'action.hover',
-                    borderRadius: 2,
-                    mt: 1,
-                  }}
-                >
-                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                    {t('colTotalAmount')}:
-                  </Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 800, color: 'primary.main' }}>
-                    {formatAmount(modalTotal, formData.currency)}
-                  </Typography>
-                </Box>
-              </Grid>
-
-              {/* Notes */}
-              <Grid size={{ xs: 12 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  multiline
-                  rows={2}
-                  label={t('lblNotes')}
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                />
-              </Grid>
-            </Grid>
-          </DialogContent>
-
-          <DialogActions sx={{ p: 2 }}>
-            <Button onClick={() => setIsOpen(false)} disabled={isSaving}>
-              {t('btnCancel')}
-            </Button>
-            <Button type="submit" variant="contained" color="primary" disabled={isSaving} sx={{ px: 3 }}>
-              {isSaving ? '...' : t('btnSave')}
-            </Button>
-          </DialogActions>
-        </form>
-      </Dialog>
+      <InvoiceModal
+        open={isOpen}
+        onClose={() => setIsOpen(false)}
+        editingInvoice={editingInvoice}
+        clients={clients}
+        projects={projects}
+        providedServices={providedServices}
+        invoices={invoices}
+        onSave={handleSaveInvoiceFromModal}
+        isSaving={isSaving}
+      />
 
       {/* ERROR DIALOG */}
       <ErrorDialog
