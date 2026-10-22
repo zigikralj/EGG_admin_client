@@ -283,6 +283,7 @@ const ProjectViewModal: React.FC<Props> = ({
         slotProps={{
           paper: {
             sx: {
+              height: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
               maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
               display: 'flex',
               flexDirection: 'column',
@@ -290,7 +291,7 @@ const ProjectViewModal: React.FC<Props> = ({
           },
         }}
       >
-        <DialogTitle component="div" sx={{ display: 'flex', alignItems: { xs: 'flex-start', sm: 'center' }, justifyContent: 'space-between', flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5, pb: 1 }}>
+        <DialogTitle component="div" sx={{ display: 'flex', alignItems: { xs: 'flex-start', sm: 'center' }, justifyContent: 'space-between', flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5, pb: 1, flexShrink: 0 }}>
           <Typography variant="h6" component="h2" sx={{ fontWeight: 700 }}>
             {t('modalViewProject')}
           </Typography>
@@ -407,7 +408,7 @@ const ProjectViewModal: React.FC<Props> = ({
           />
         )}
 
-        <DialogContent dividers sx={{ pt: 2 }}>
+        <DialogContent dividers sx={{ pt: 2, flex: 1, overflowY: 'auto' }}>
           <Grid container spacing={1.25}>
             {/* PROJECT NAME */}
             <Grid size={{ xs: 12 }}>
@@ -871,7 +872,7 @@ const ProjectViewModal: React.FC<Props> = ({
           </Grid>
         </DialogContent>
 
-        <DialogActions sx={{ p: 2, display: 'flex', justifyContent: 'space-between' }}>
+        <DialogActions sx={{ p: 2, display: 'flex', justifyContent: 'space-between', flexShrink: 0 }}>
           <Box>
             {isEditable && (
               <Button

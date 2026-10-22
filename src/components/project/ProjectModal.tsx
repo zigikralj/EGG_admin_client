@@ -275,6 +275,7 @@ const ProjectModal: React.FC<Props> = ({
             component: 'form',
             onSubmit: handleSubmit,
             sx: {
+              height: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
               maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
               display: 'flex',
               flexDirection: 'column',
@@ -282,7 +283,7 @@ const ProjectModal: React.FC<Props> = ({
           },
         }}
       >
-        <DialogTitle component="div" sx={{ display: 'flex', alignItems: { xs: 'flex-start', sm: 'center' }, justifyContent: 'space-between', flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5, pb: 1 }}>
+        <DialogTitle component="div" sx={{ display: 'flex', alignItems: { xs: 'flex-start', sm: 'center' }, justifyContent: 'space-between', flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5, pb: 1, flexShrink: 0 }}>
           <Typography variant="h6" component="h2" sx={{ fontWeight: 700 }}>
             {projectToEdit ? t('modalEditProject') : t('modalNewProject')}
           </Typography>
@@ -354,7 +355,7 @@ const ProjectModal: React.FC<Props> = ({
           </Box>
         </DialogTitle>
 
-          <DialogContent dividers sx={{ pt: 2 }}>
+          <DialogContent dividers sx={{ pt: 2, flex: 1, overflowY: 'auto' }}>
             <Grid container spacing={2}>
               {/* PROJECT NAME */}
               <Grid size={{ xs: 12 }}>
@@ -671,7 +672,7 @@ const ProjectModal: React.FC<Props> = ({
             </Grid>
           </DialogContent>
 
-          <DialogActions sx={{ p: 2 }}>
+          <DialogActions sx={{ p: 2, flexShrink: 0 }}>
             <Button onClick={onClose} variant="outlined" color="inherit" disabled={isSaving}>
               {t('btnCancel')}
             </Button>
