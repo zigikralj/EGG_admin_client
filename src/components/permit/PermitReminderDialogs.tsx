@@ -8,7 +8,6 @@ import {
   Button,
   IconButton,
   Typography,
-  Box,
   FormControl,
   InputLabel,
   Select,
@@ -74,9 +73,11 @@ export const PermitQuickReminderDialog: React.FC<PermitQuickReminderDialogProps>
       fullWidth
       slotProps={{
         paper: {
+          component: 'form',
+          onSubmit: handleSubmit,
           sx: {
             borderRadius: 3,
-            maxHeight: 'calc(100vh - 64px)',
+            maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
@@ -84,19 +85,7 @@ export const PermitQuickReminderDialog: React.FC<PermitQuickReminderDialogProps>
         },
       }}
     >
-      <Box
-        component="form"
-        onSubmit={handleSubmit}
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          height: '100%',
-          maxHeight: 'inherit',
-          minHeight: 0,
-          overflow: 'hidden',
-        }}
-      >
-        <DialogTitle
+      <DialogTitle
           sx={{
             display: 'flex',
             justifyContent: 'space-between',
@@ -170,7 +159,6 @@ export const PermitQuickReminderDialog: React.FC<PermitQuickReminderDialogProps>
             {t('btnSave')}
           </Button>
         </DialogActions>
-      </Box>
     </Dialog>
   );
 };
@@ -236,9 +224,11 @@ export const PermitEditReminderModal: React.FC<PermitEditReminderModalProps> = (
       fullWidth
       slotProps={{
         paper: {
+          component: 'form',
+          onSubmit: handleSubmit,
           sx: {
             borderRadius: 3,
-            maxHeight: 'calc(100vh - 64px)',
+            maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
@@ -246,19 +236,7 @@ export const PermitEditReminderModal: React.FC<PermitEditReminderModalProps> = (
         },
       }}
     >
-      <Box
-        component="form"
-        onSubmit={handleSubmit}
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          height: '100%',
-          maxHeight: 'inherit',
-          minHeight: 0,
-          overflow: 'hidden',
-        }}
-      >
-        <DialogTitle
+      <DialogTitle
           sx={{
             display: 'flex',
             justifyContent: 'space-between',
@@ -345,7 +323,6 @@ export const PermitEditReminderModal: React.FC<PermitEditReminderModalProps> = (
             {t('btnSave')}
           </Button>
         </DialogActions>
-      </Box>
     </Dialog>
   );
 };

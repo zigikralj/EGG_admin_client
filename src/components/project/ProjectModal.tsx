@@ -275,7 +275,6 @@ const ProjectModal: React.FC<Props> = ({
             component: 'form',
             onSubmit: handleSubmit,
             sx: {
-              height: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
               maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
               display: 'flex',
               flexDirection: 'column',

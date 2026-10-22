@@ -159,10 +159,25 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
   const isResponsibleDisabled = isRestricted || (!editingReminder ? !canCreate : !canEdit);
 
   return (
-    <Dialog open={open} onClose={() => !isSaving && onClose()} maxWidth="sm" fullWidth>
-      <form onSubmit={handleSubmit}>
-        <DialogTitle>{editingReminder ? t('modalEditReminder') : t('modalNewReminder')}</DialogTitle>
-        <DialogContent dividers>
+    <Dialog
+      open={open}
+      onClose={() => !isSaving && onClose()}
+      maxWidth="sm"
+      fullWidth
+      slotProps={{
+        paper: {
+          component: 'form',
+          onSubmit: handleSubmit,
+          sx: {
+            maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
+            display: 'flex',
+            flexDirection: 'column',
+          },
+        },
+      }}
+    >
+      <DialogTitle sx={{ flexShrink: 0 }}>{editingReminder ? t('modalEditReminder') : t('modalNewReminder')}</DialogTitle>
+      <DialogContent dividers sx={{ flex: 1, overflowY: 'auto' }}>
           <Grid container spacing={2} sx={{ pt: 1 }}>
             {/* Reminder Title */}
             <Grid size={{ xs: 12 }}>
@@ -371,7 +386,7 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
             </Grid>
           </Grid>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ p: 2, flexShrink: 0 }}>
           <Button onClick={onClose} color="inherit" disabled={isSaving}>
             {t('btnCancel')}
           </Button>
@@ -379,7 +394,6 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
             {isSaving ? '...' : t('btnSave')}
           </Button>
         </DialogActions>
-      </form>
     </Dialog>
   );
 };

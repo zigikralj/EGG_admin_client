@@ -283,7 +283,6 @@ const ProjectViewModal: React.FC<Props> = ({
         slotProps={{
           paper: {
             sx: {
-              height: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
               maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
               display: 'flex',
               flexDirection: 'column',

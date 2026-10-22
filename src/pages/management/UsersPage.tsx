@@ -775,11 +775,25 @@ const UsersPage: React.FC<Props> = ({
       </Card>
 
       {/* APPROVE & ASSIGN ROLE MODAL DIALOG */}
-      <Dialog open={Boolean(approveUserTarget)} onClose={() => setApproveUserTarget(null)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 700 }}>
+      <Dialog
+        open={Boolean(approveUserTarget)}
+        onClose={() => setApproveUserTarget(null)}
+        maxWidth="xs"
+        fullWidth
+        slotProps={{
+          paper: {
+            sx: {
+              maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
+              display: 'flex',
+              flexDirection: 'column',
+            },
+          },
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 700, flexShrink: 0 }}>
           {t('modalApproveUserTitle')}
         </DialogTitle>
-        <DialogContent dividers>
+        <DialogContent dividers sx={{ flex: 1, overflowY: 'auto' }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
             <Typography variant="body2" color="text.secondary">
               {t('modalApproveUserSubtitle', { name: approveUserTarget?.name || '' })}
@@ -818,7 +832,7 @@ const UsersPage: React.FC<Props> = ({
             </FormControl>
           </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
+        <DialogActions sx={{ p: 2, flexShrink: 0 }}>
           <Button onClick={() => setApproveUserTarget(null)} variant="outlined">
             {t('btnCancel')}
           </Button>
@@ -835,165 +849,179 @@ const UsersPage: React.FC<Props> = ({
       </Dialog>
 
       {/* USER EDIT/CREATE DIALOG */}
-      <Dialog open={isOpen} onClose={() => setIsOpen(false)} maxWidth="sm" fullWidth>
-        <form onSubmit={handleSubmit}>
-          <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              {editingUser ? t('modalEditUser') : t('modalNewUser')}
-            </Typography>
-            {editingUser && canDeleteUser(editingUser) && (
-              <Button
-                color="error"
+      <Dialog
+        open={isOpen}
+        onClose={() => setIsOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        slotProps={{
+          paper: {
+            component: 'form',
+            onSubmit: handleSubmit,
+            sx: {
+              maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
+              display: 'flex',
+              flexDirection: 'column',
+            },
+          },
+        }}
+      >
+        <DialogTitle component="div" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+            {editingUser ? t('modalEditUser') : t('modalNewUser')}
+          </Typography>
+          {editingUser && canDeleteUser(editingUser) && (
+            <Button
+              color="error"
+              size="small"
+              variant="outlined"
+              startIcon={<DeleteIcon />}
+              onClick={() => {
+                onDeleteUser(editingUser.id);
+                setIsOpen(false);
+              }}
+            >
+              {t('btnDelete')}
+            </Button>
+          )}
+        </DialogTitle>
+        <DialogContent dividers sx={{ flex: 1, overflowY: 'auto' }}>
+          <Grid container spacing={2} sx={{ pt: 1 }}>
+            <Grid size={{ xs: 12 }}>
+              <TextField
+                fullWidth
                 size="small"
-                variant="outlined"
-                startIcon={<DeleteIcon />}
-                onClick={() => {
-                  onDeleteUser(editingUser.id);
-                  setIsOpen(false);
-                }}
-              >
-                {t('btnDelete')}
-              </Button>
-            )}
-          </DialogTitle>
-          <DialogContent dividers>
-            <Grid container spacing={2} sx={{ pt: 1 }}>
-              <Grid size={{ xs: 12 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label={t('colFullName')}
-                  placeholder={t('phFullName')}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>{t('lblRole')}</InputLabel>
-                  <Select
-                    value={role}
-                    label={t('lblRole')}
-                    onChange={(e) => setRole(e.target.value as string)}
-                  >
-                    {rolesList.map((r) => {
-                      if (r.name === 'Administrator' && !hasPermission('roles', 'edit')) return null;
-                      return (
-                        <MenuItem key={r.name} value={r.name}>
-                          {getRoleLabel(r.name)}
-                        </MenuItem>
-                      );
-                    })}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>{t('lblGender')}</InputLabel>
-                  <Select
-                    value={gender}
-                    label={t('lblGender')}
-                    onChange={(e) => setGender(e.target.value as string)}
-                  >
-                    <MenuItem value=""><em>{t('genderNotSpecified')}</em></MenuItem>
-                    <MenuItem value="Male">{t('genderMale')}</MenuItem>
-                    <MenuItem value="Female">{t('genderFemale')}</MenuItem>
-                    <MenuItem value="Other">{t('genderOther')}</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              {editingUser ? (
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>{t('colApprovalStatus')}</InputLabel>
-                    <Select
-                      value={status}
-                      label={t('colApprovalStatus')}
-                      onChange={(e) => setStatus(e.target.value as string)}
-                    >
-                      <MenuItem value="APPROVED">{t('statusApproved')}</MenuItem>
-                      <MenuItem value="BLOCKED">{t('statusBlocked')}</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-              ) : (
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label={t('colPhone')}
-                    placeholder="+381 36 311 100"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                  />
-                </Grid>
-              )}
-              {editingUser && (
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label={t('colPhone')}
-                    placeholder="+381 36 311 100"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                  />
-                </Grid>
-              )}
-              <Grid size={{ xs: 12 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="email"
-                  label={t('colEmail')}
-                  placeholder="aleksandar@ekosgreen.rs"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </Grid>
-              <Grid size={{ xs: 12 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type={showPassword ? 'text' : 'password'}
-                  label={editingUser ? t('lblResetPassword') : t('lblPassword')}
-                  placeholder={editingUser ? t('phLeaveBlankToKeep') : t('phInitialPassword')}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  slotProps={{
-                    input: {
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <VpnKeyIcon fontSize="small" color="action" />
-                        </InputAdornment>
-                      ),
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton
-                            size="small"
-                            onClick={() => setShowPassword(!showPassword)}
-                            edge="end"
-                          >
-                            {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    },
-                  }}
-                />
-              </Grid>
+                label={t('colFullName')}
+                placeholder={t('phFullName')}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
             </Grid>
-          </DialogContent>
-          <DialogActions sx={{ p: 2 }}>
-            <Button onClick={() => setIsOpen(false)} variant="outlined" disabled={isSaving}>
-              {t('btnCancel')}
-            </Button>
-            <Button type="submit" variant="contained" color="primary" disabled={isSaving}>
-              {isSaving ? '...' : t('btnSave')}
-            </Button>
-          </DialogActions>
-        </form>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel>{t('lblRole')}</InputLabel>
+                <Select
+                  value={role}
+                  label={t('lblRole')}
+                  onChange={(e) => setRole(e.target.value as string)}
+                >
+                  {rolesList.map((r) => {
+                    if (r.name === 'Administrator' && !hasPermission('roles', 'edit')) return null;
+                    return (
+                      <MenuItem key={r.name} value={r.name}>
+                        {getRoleLabel(r.name)}
+                      </MenuItem>
+                    );
+                  })}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel>{t('lblGender')}</InputLabel>
+                <Select
+                  value={gender}
+                  label={t('lblGender')}
+                  onChange={(e) => setGender(e.target.value as string)}
+                >
+                  <MenuItem value=""><em>{t('genderNotSpecified')}</em></MenuItem>
+                  <MenuItem value="Male">{t('genderMale')}</MenuItem>
+                  <MenuItem value="Female">{t('genderFemale')}</MenuItem>
+                  <MenuItem value="Other">{t('genderOther')}</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            {editingUser ? (
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>{t('colApprovalStatus')}</InputLabel>
+                  <Select
+                    value={status}
+                    label={t('colApprovalStatus')}
+                    onChange={(e) => setStatus(e.target.value as string)}
+                  >
+                    <MenuItem value="APPROVED">{t('statusApproved')}</MenuItem>
+                    <MenuItem value="BLOCKED">{t('statusBlocked')}</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+            ) : (
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label={t('colPhone')}
+                  placeholder="+381 36 311 100"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+              </Grid>
+            )}
+            {editingUser && (
+              <Grid size={{ xs: 12, sm: 6 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label={t('colPhone')}
+                  placeholder="+381 36 311 100"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
+              </Grid>
+            )}
+            <Grid size={{ xs: 12 }}>
+              <TextField
+                fullWidth
+                size="small"
+                type="email"
+                label={t('colEmail')}
+                placeholder="aleksandar@ekosgreen.rs"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <TextField
+                fullWidth
+                size="small"
+                type={showPassword ? 'text' : 'password'}
+                label={editingUser ? t('lblResetPassword') : t('lblPassword')}
+                placeholder={editingUser ? t('phLeaveBlankToKeep') : t('phInitialPassword')}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <VpnKeyIcon fontSize="small" color="action" />
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          size="small"
+                          onClick={() => setShowPassword(!showPassword)}
+                          edge="end"
+                        >
+                          {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  },
+                }}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, flexShrink: 0 }}>
+          <Button onClick={() => setIsOpen(false)} variant="outlined" disabled={isSaving}>
+            {t('btnCancel')}
+          </Button>
+          <Button type="submit" variant="contained" color="primary" disabled={isSaving}>
+            {isSaving ? '...' : t('btnSave')}
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {/* FORCE LOGOUT CONFIRMATION DIALOG */}
@@ -1002,17 +1030,26 @@ const UsersPage: React.FC<Props> = ({
         onClose={() => setForceLogoutTarget(null)}
         maxWidth="xs"
         fullWidth
+        slotProps={{
+          paper: {
+            sx: {
+              maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
+              display: 'flex',
+              flexDirection: 'column',
+            },
+          },
+        }}
       >
-        <DialogTitle sx={{ fontWeight: 700, pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <DialogTitle sx={{ fontWeight: 700, pb: 1, display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
           <ExitToAppIcon color="error" />
           {t('confirmForceLogoutTitle')}
         </DialogTitle>
-        <DialogContent dividers>
+        <DialogContent dividers sx={{ flex: 1, overflowY: 'auto' }}>
           <Typography variant="body2" sx={{ pt: 1 }}>
             {t('confirmForceLogoutMessage', { name: forceLogoutTarget?.name || '' })}
           </Typography>
         </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
+        <DialogActions sx={{ p: 2, flexShrink: 0 }}>
           <Button
             onClick={() => setForceLogoutTarget(null)}
             variant="outlined"

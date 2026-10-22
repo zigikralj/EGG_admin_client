@@ -389,7 +389,23 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   };
 
   return (
-    <Dialog open={open} onClose={() => !isSaving && onClose()} maxWidth="md" fullWidth>
+    <Dialog
+      open={open}
+      onClose={() => !isSaving && onClose()}
+      maxWidth="md"
+      fullWidth
+      slotProps={{
+        paper: {
+          component: isViewMode ? 'div' : 'form',
+          onSubmit: isViewMode ? undefined : handleSubmit,
+          sx: {
+            maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
+            display: 'flex',
+            flexDirection: 'column',
+          },
+        },
+      }}
+    >
       {isViewMode ? (
         <>
           <DialogTitle
@@ -398,6 +414,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
+              flexShrink: 0,
             }}
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -415,7 +432,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             </Box>
           </DialogTitle>
 
-          <DialogContent dividers>
+          <DialogContent dividers sx={{ flex: 1, overflowY: 'auto' }}>
             <Grid container spacing={2.5}>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <Typography variant="caption" color="text.secondary">
@@ -551,7 +568,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             </Grid>
           </DialogContent>
 
-          <DialogActions sx={{ p: 2 }}>
+          <DialogActions sx={{ p: 2, flexShrink: 0 }}>
             {canEdit && onToggleEditMode && (
               <Button
                 startIcon={<EditIcon />}
@@ -567,12 +584,12 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
           </DialogActions>
         </>
       ) : (
-        <form onSubmit={handleSubmit}>
-          <DialogTitle sx={{ fontWeight: 700 }}>
+        <>
+          <DialogTitle sx={{ fontWeight: 700, flexShrink: 0 }}>
             {editingInvoice ? t('modalEditInvoice') : t('modalNewInvoice')}
           </DialogTitle>
 
-          <DialogContent dividers>
+          <DialogContent dividers sx={{ flex: 1, overflowY: 'auto' }}>
             {errorMsg && (
               <Box sx={{ mb: 2, p: 1.5, bgcolor: 'error.main', color: '#fff', borderRadius: 1.5 }}>
                 <Typography variant="body2">{errorMsg}</Typography>
@@ -985,7 +1002,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             </Grid>
           </DialogContent>
 
-          <DialogActions sx={{ p: 2 }}>
+          <DialogActions sx={{ p: 2, flexShrink: 0 }}>
             <Button onClick={onClose} disabled={isSaving}>
               {t('btnCancel')}
             </Button>
@@ -999,7 +1016,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
               {isSaving ? '...' : t('btnSave')}
             </Button>
           </DialogActions>
-        </form>
+        </>
       )}
     </Dialog>
   );

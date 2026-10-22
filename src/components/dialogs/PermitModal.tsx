@@ -350,9 +350,11 @@ export const PermitModal: React.FC<PermitModalProps> = React.memo(({
         fullWidth
         slotProps={{
           paper: {
+            component: 'form',
+            onSubmit: handleSubmit,
             sx: {
               borderRadius: 3,
-              maxHeight: 'calc(100vh - 64px)',
+              maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
@@ -360,19 +362,7 @@ export const PermitModal: React.FC<PermitModalProps> = React.memo(({
           },
         }}
       >
-        <Box
-          component="form"
-          onSubmit={handleSubmit}
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            height: '100%',
-            maxHeight: 'inherit',
-            minHeight: 0,
-            overflow: 'hidden',
-          }}
-        >
-          <DialogTitle
+        <DialogTitle
             sx={{
               display: 'flex',
               justifyContent: 'space-between',
@@ -864,7 +854,6 @@ export const PermitModal: React.FC<PermitModalProps> = React.memo(({
               {t('btnSave')}
             </Button>
           </DialogActions>
-        </Box>
       </Dialog>
 
       <ErrorDialog

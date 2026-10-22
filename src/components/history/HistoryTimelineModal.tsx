@@ -407,7 +407,7 @@ export const HistoryTimelineModal: React.FC<HistoryTimelineModalProps> = ({
           paper: {
             sx: {
               borderRadius: 3,
-              maxHeight: '85vh',
+              maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
               display: 'flex',
               flexDirection: 'column',
             },
@@ -417,6 +417,7 @@ export const HistoryTimelineModal: React.FC<HistoryTimelineModalProps> = ({
         <DialogTitle
           component="div"
           sx={{
+            flexShrink: 0,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -470,6 +471,7 @@ export const HistoryTimelineModal: React.FC<HistoryTimelineModalProps> = ({
         {/* View Mode Toggle: Timeline vs Date-to-Date Comparison */}
         <Box
           sx={{
+            flexShrink: 0,
             px: 2.5,
             pt: 1.5,
             pb: 1,
@@ -657,7 +659,7 @@ export const HistoryTimelineModal: React.FC<HistoryTimelineModalProps> = ({
           )}
         </DialogContent>
 
-        <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
+        <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: '1px solid', borderColor: 'divider', flexShrink: 0 }}>
           <Button onClick={onClose} variant="outlined" color="inherit">
             {t('btnClose')}
           </Button>

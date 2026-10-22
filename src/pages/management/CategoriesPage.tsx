@@ -426,28 +426,43 @@ const CategoriesPage: React.FC<Props> = ({
       </Card>
 
       {/* CATEGORY DIALOG */}
-      <Dialog open={isOpen} onClose={() => setIsOpen(false)} maxWidth="sm" fullWidth>
-        <form onSubmit={handleSubmit}>
-          <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              {editingCategory ? t('modalEditCategory') : t('modalNewCategory')}
-            </Typography>
-            {editingCategory && canDelete && (
-              <Button
-                color="error"
-                size="small"
-                variant="outlined"
-                startIcon={<DeleteIcon />}
-                onClick={() => {
-                  onDeleteCategory(editingCategory.id);
-                  setIsOpen(false);
-                }}
-              >
-                {t('btnDelete')}
-              </Button>
-            )}
-          </DialogTitle>
-          <DialogContent dividers>
+      <Dialog
+        open={isOpen}
+        onClose={() => setIsOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        slotProps={{
+          paper: {
+            component: 'form',
+            onSubmit: handleSubmit,
+            sx: {
+              maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
+              display: 'flex',
+              flexDirection: 'column',
+            },
+          },
+        }}
+      >
+        <DialogTitle component="div" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+            {editingCategory ? t('modalEditCategory') : t('modalNewCategory')}
+          </Typography>
+          {editingCategory && canDelete && (
+            <Button
+              color="error"
+              size="small"
+              variant="outlined"
+              startIcon={<DeleteIcon />}
+              onClick={() => {
+                onDeleteCategory(editingCategory.id);
+                setIsOpen(false);
+              }}
+            >
+              {t('btnDelete')}
+            </Button>
+          )}
+        </DialogTitle>
+        <DialogContent dividers sx={{ flex: 1, overflowY: 'auto' }}>
             <Grid container spacing={2} sx={{ pt: 1 }}>
               <Grid size={{ xs: 12 }}>
                 <TextField
@@ -486,7 +501,7 @@ const CategoriesPage: React.FC<Props> = ({
               </Grid>
             </Grid>
           </DialogContent>
-          <DialogActions sx={{ p: 2 }}>
+          <DialogActions sx={{ p: 2, flexShrink: 0 }}>
             <Button onClick={() => setIsOpen(false)} variant="outlined" disabled={isSaving}>
               {t('btnCancel')}
             </Button>
@@ -494,7 +509,6 @@ const CategoriesPage: React.FC<Props> = ({
               {isSaving ? '...' : t('btnSave')}
             </Button>
           </DialogActions>
-        </form>
       </Dialog>
 
       <ErrorDialog
