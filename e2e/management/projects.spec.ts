@@ -34,7 +34,7 @@ test.describe('Projects Management', () => {
       },
     ];
 
-    await page.route('**/api/projects', async (route) => {
+    await page.route(/\/api\/projects(\?.*)?$/, async (route) => {
       if (route.request().method() === 'GET') {
         await route.fulfill({
           status: 200,
@@ -102,7 +102,7 @@ test.describe('Projects Management', () => {
       }
     });
 
-    await page.route('**/api/clients', async (route) => {
+    await page.route(/\/api\/clients(\?.*)?$/, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -112,7 +112,7 @@ test.describe('Projects Management', () => {
       });
     });
 
-    await page.route('**/api/services', async (route) => {
+    await page.route(/\/api\/services(\?.*)?$/, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -122,11 +122,11 @@ test.describe('Projects Management', () => {
       });
     });
 
-    await page.route('**/api/categories', async (route) => {
+    await page.route(/\/api\/categories(\?.*)?$/, async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
 
-    await page.route('**/api/provided-services', async (route) => {
+    await page.route(/\/api\/provided-services(\?.*)?$/, async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
 
@@ -166,11 +166,11 @@ test.describe('Projects Management', () => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
     });
 
-    await page.route('**/api/reminders', async (route) => {
+    await page.route(/\/api\/reminders(\?.*)?$/, async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
 
-    await page.route('**/api/invoices', async (route) => {
+    await page.route(/\/api\/invoices(\?.*)?$/, async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
 
@@ -193,7 +193,7 @@ test.describe('Projects Management', () => {
 
   test('should create a new project', async ({ page }) => {
     let postReceived = false;
-    await page.route('**/api/projects', async (route) => {
+    await page.route(/\/api\/projects(\?.*)?$/, async (route) => {
       if (route.request().method() === 'POST') {
         postReceived = true;
         const payload = route.request().postDataJSON();

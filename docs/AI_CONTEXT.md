@@ -145,6 +145,7 @@ The client talks to a separate Express 5 REST API server (see `../server/`).
 ### Utilities (`src/utils/`)
 | File | Purpose |
 |---|---|
+| `deltaSync.ts` | **Delta Synchronization Engine.** Transparent client-side delta sync with `fetchWithDeltaSync(queryClient, queryKey, endpoint)` and `mergeDelta(cachedItems, delta)`. Manages `syncedAt` timestamps per query key and reconciles updated entities while purging tombstones (`deletedIds`). |
 | `invoiceUtils.ts` | `parseInvoiceNotes()` / `serializeInvoiceNotes()` — embeds invoice metadata (type, parent link) as HTML comment in notes field. `enhanceInvoicesWithLinks()` — resolves parent/child invoice relationships. |
 | `customFields.ts` | Core utilities for custom fields including structure validation, linked list dependencies, and automatic extraction of waste weights. |
 | `router.ts` | `getRouterBasename()` — handles dynamic resolution of the router basename. |

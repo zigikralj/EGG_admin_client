@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
 import { apiFetch } from '../api';
+import { fetchWithDeltaSync } from '../utils/deltaSync';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { API_ROUTES } from '../constants';
@@ -52,17 +53,23 @@ export function useAuthHeaders() {
 export function useProjectsQuery(searchQuery: string = '', options?: { done?: boolean }) {
   const { currentUser } = useAuth();
   const getAuthHeaders = useAuthHeaders();
+  const queryClient = useQueryClient();
+  const queryKey = ['projects', currentUser?.id, searchQuery, options?.done] as const;
+
   return useQuery<Project[]>({
-    queryKey: ['projects', currentUser?.id, searchQuery, options?.done],
-    queryFn: async () => {
+    queryKey,
+    queryFn: () => {
       const params = new URLSearchParams();
       if (searchQuery) params.set('search', searchQuery);
       if (options?.done !== undefined) params.set('done', String(options.done));
       const q = params.toString() ? `?${params.toString()}` : '';
-      const res = await apiFetch(`${API_ROUTES.PROJECTS.BASE}${q}`, { headers: getAuthHeaders() });
-      if (!res.ok) throw new Error('Failed to fetch projects');
-      return res.json();
-    }
+      return fetchWithDeltaSync<Project>({
+        url: `${API_ROUTES.PROJECTS.BASE}${q}`,
+        queryKey,
+        queryClient,
+        headers: getAuthHeaders(),
+      });
+    },
   });
 }
 
@@ -179,13 +186,18 @@ export function useProjectUpdatesDiffQuery(
 
 export function useClientsQuery() {
   const getAuthHeaders = useAuthHeaders();
+  const queryClient = useQueryClient();
+  const queryKey = ['clients'] as const;
+
   return useQuery<Client[]>({
-    queryKey: ['clients'],
-    queryFn: async () => {
-      const res = await apiFetch(API_ROUTES.CLIENTS.BASE, { headers: getAuthHeaders() });
-      if (!res.ok) throw new Error('Failed to fetch clients');
-      return res.json();
-    }
+    queryKey,
+    queryFn: () =>
+      fetchWithDeltaSync<Client>({
+        url: API_ROUTES.CLIENTS.BASE,
+        queryKey,
+        queryClient,
+        headers: getAuthHeaders(),
+      }),
   });
 }
 
@@ -215,13 +227,18 @@ export function useServicesQuery() {
 
 export function useProvidedServicesQuery() {
   const getAuthHeaders = useAuthHeaders();
+  const queryClient = useQueryClient();
+  const queryKey = ['provided-services'] as const;
+
   return useQuery<ProvidedService[]>({
-    queryKey: ['provided-services'],
-    queryFn: async () => {
-      const res = await apiFetch(API_ROUTES.PROVIDED_SERVICES.BASE, { headers: getAuthHeaders() });
-      if (!res.ok) throw new Error('Failed to fetch provided services');
-      return res.json();
-    }
+    queryKey,
+    queryFn: () =>
+      fetchWithDeltaSync<ProvidedService>({
+        url: API_ROUTES.PROVIDED_SERVICES.BASE,
+        queryKey,
+        queryClient,
+        headers: getAuthHeaders(),
+      }),
   });
 }
 
@@ -284,50 +301,70 @@ export function usePreferencesMutations() {
 export function useRemindersQuery() {
   const { currentUser } = useAuth();
   const getAuthHeaders = useAuthHeaders();
+  const queryClient = useQueryClient();
+  const queryKey = ['reminders', currentUser?.id] as const;
+
   return useQuery<Reminder[]>({
-    queryKey: ['reminders', currentUser?.id],
-    queryFn: async () => {
-      const res = await apiFetch(API_ROUTES.REMINDERS.BASE, { headers: getAuthHeaders() });
-      if (!res.ok) throw new Error('Failed to fetch reminders');
-      return res.json();
-    }
+    queryKey,
+    queryFn: () =>
+      fetchWithDeltaSync<Reminder>({
+        url: API_ROUTES.REMINDERS.BASE,
+        queryKey,
+        queryClient,
+        headers: getAuthHeaders(),
+      }),
   });
 }
 
 export function useInvoicesQuery() {
   const getAuthHeaders = useAuthHeaders();
+  const queryClient = useQueryClient();
+  const queryKey = ['invoices'] as const;
+
   return useQuery<Invoice[]>({
-    queryKey: ['invoices'],
-    queryFn: async () => {
-      const res = await apiFetch(API_ROUTES.INVOICES.BASE, { headers: getAuthHeaders() });
-      if (!res.ok) throw new Error('Failed to fetch invoices');
-      return res.json();
-    }
+    queryKey,
+    queryFn: () =>
+      fetchWithDeltaSync<Invoice>({
+        url: API_ROUTES.INVOICES.BASE,
+        queryKey,
+        queryClient,
+        headers: getAuthHeaders(),
+      }),
   });
 }
 
 export function usePermitsQuery() {
   const getAuthHeaders = useAuthHeaders();
+  const queryClient = useQueryClient();
+  const queryKey = ['permits'] as const;
+
   return useQuery<Permit[]>({
-    queryKey: ['permits'],
-    queryFn: async () => {
-      const res = await apiFetch(API_ROUTES.PERMITS.BASE, { headers: getAuthHeaders() });
-      if (!res.ok) throw new Error('Failed to fetch permits');
-      return res.json();
-    }
+    queryKey,
+    queryFn: () =>
+      fetchWithDeltaSync<Permit>({
+        url: API_ROUTES.PERMITS.BASE,
+        queryKey,
+        queryClient,
+        headers: getAuthHeaders(),
+      }),
   });
 }
 
 /** Lightweight permits query without nested relations (waste catalogs, reminders, etc.) for linking and dropdowns. */
 export function usePermitsSummaryQuery() {
   const getAuthHeaders = useAuthHeaders();
+  const queryClient = useQueryClient();
+  const queryKey = ['permits', 'summary'] as const;
+
   return useQuery<Permit[]>({
-    queryKey: ['permits', 'summary'],
-    queryFn: async () => {
-      const res = await apiFetch(`${API_ROUTES.PERMITS.BASE}?fields=summary`, { headers: getAuthHeaders() });
-      if (!res.ok) throw new Error('Failed to fetch permits summary');
-      return res.json();
-    }
+    queryKey,
+    queryFn: () =>
+      fetchWithDeltaSync<Permit>({
+        url: `${API_ROUTES.PERMITS.BASE}?fields=summary`,
+        queryKey,
+        queryClient,
+        headers: getAuthHeaders(),
+      }),
   });
 }
 
