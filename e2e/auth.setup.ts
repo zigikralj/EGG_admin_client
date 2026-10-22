@@ -4,7 +4,7 @@ import path from 'path';
 
 const authFile = 'playwright/.auth/user.json';
 
-setup('authenticate', async () => {
+setup('authenticate', async ({ baseURL }) => {
   const testUser = {
     id: '1',
     name: 'Test User',
@@ -21,11 +21,12 @@ setup('authenticate', async () => {
     fs.mkdirSync(authDir, { recursive: true });
   }
 
+  const origin = baseURL || 'http://localhost:3000';
   const storageState = {
     cookies: [],
     origins: [
       {
-        origin: 'http://localhost:3000',
+        origin,
         localStorage: [
           { name: 'auth_user', value: JSON.stringify(testUser) },
           { name: 'auth_token', value: token },
