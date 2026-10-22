@@ -129,8 +129,71 @@ test.describe('Activity Logs Management', () => {
         return;
       }
 
+      if (url.includes('/api/activity-logs/monthly-stats')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([]),
+        });
+        return;
+      }
+
+      if (url.includes('/api/activity-logs/summary')) {
+        const userMap = new Map<string, any>();
+        mockLogs.forEach((log) => {
+          if (!userMap.has(log.userId)) {
+            userMap.set(log.userId, {
+              userId: log.userId,
+              userName: log.userName,
+              totalDurationSeconds: 0,
+              totalSessionsCount: 0,
+              totalActivitiesCount: 0,
+              lastActive: log.timestamp,
+              hasActiveSession: false,
+              topModules: [{ path: '/data-management', seconds: 100, percentage: 80 }],
+              sessionSet: new Set(),
+            });
+          }
+          const u = userMap.get(log.userId);
+          u.totalDurationSeconds += (log.durationSeconds || 0);
+          u.totalActivitiesCount += 1;
+          u.sessionSet.add(log.sessionId);
+          if (log.path && log.path.includes('services')) {
+            u.topModules = [{ path: '/data-management/services', seconds: 100, percentage: 80 }];
+          }
+          if (new Date(log.timestamp) > new Date(u.lastActive)) {
+            u.lastActive = log.timestamp;
+          }
+        });
+
+        const userSummaries = Array.from(userMap.values()).map(({ sessionSet, ...rest }) => ({
+          ...rest,
+          totalSessionsCount: sessionSet.size,
+        }));
+
+        const totalTrackedSeconds = userSummaries.reduce((acc, u) => acc + u.totalDurationSeconds, 0);
+        const totalSessions = userSummaries.reduce((acc, u) => acc + u.totalSessionsCount, 0);
+
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            kpiStats: {
+              totalUsers: userSummaries.length,
+              activeToday: userSummaries.length,
+              totalSessions,
+              totalTrackedSeconds,
+              topModule: '/project-tracker',
+              topModulePercent: 60,
+            },
+            userSummaries,
+          }),
+        });
+        return;
+      }
+
       const singleMatch = url.match(/\/api\/activity-logs\/([^/?#]+)$/);
-      if (singleMatch && singleMatch[1] !== 'clear-all' && singleMatch[1] !== 'status') {
+      if (singleMatch && !['clear-all', 'status', 'summary', 'monthly-stats', 'analytics'].includes(singleMatch[1])) {
         const item = mockLogs.find((l) => l.id === singleMatch[1]);
         await route.fulfill({
           status: 200,
@@ -363,7 +426,7 @@ test.describe('Activity Logs Management', () => {
     mockLogs.unshift(newLog);
 
     // Click refresh button with RefreshIcon to re-fetch logs
-    const refreshBtn = mainContent.locator('button:has([data-testid="RefreshIcon"])');
+    const refreshBtn = mainContent.locator('button:has([data-testid="RefreshIcon"])').first();
     await refreshBtn.click();
 
     // Verify the new activity path / model is now reflected

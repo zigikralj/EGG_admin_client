@@ -63,6 +63,7 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
   const [notes, setNotes] = useState('');
 
   useEffect(() => {
+    if (!open) return;
     if (editingReminder) {
       setTitle(editingReminder.title || '');
       setSelectedProjectId(editingReminder.projectId || '');
@@ -95,7 +96,7 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
       setDueDate('');
       setNotes('');
     }
-  }, [editingReminder, open, isRestricted, currentUser]);
+  }, [editingReminder, open]);
 
   const handleProjectSelect = (pId: string) => {
     setSelectedProjectId(pId);

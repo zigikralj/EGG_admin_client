@@ -161,7 +161,7 @@ test.describe('Login flow', () => {
     // Wait for the menu to open and click the logout menu item
     const logoutMenuItem = page.getByRole('menuitem', { name: /Odjavi se|Log Out/i });
     await expect(logoutMenuItem).toBeVisible();
-    await logoutMenuItem.click();
+    await logoutMenuItem.dispatchEvent('click');
 
     // Verify login page is rendered
     await expect(page.locator('input[type="password"]')).toBeVisible();

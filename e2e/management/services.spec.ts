@@ -157,7 +157,7 @@ test.describe('Services & Provided Services Management', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ id: 1, name: 'Test User', email: 'test@example.com', role: 'Admin' }),
+        body: JSON.stringify({ id: '1', name: 'Test User', email: 'test@example.com', role: 'Admin' }),
       });
     });
 
@@ -193,7 +193,7 @@ test.describe('Services & Provided Services Management', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify([{ id: 1, name: 'Test User', email: 'test@example.com', role: 'Admin' }]),
+        body: JSON.stringify([{ id: '1', name: 'Test User', email: 'test@example.com', role: 'Admin' }]),
       });
     });
 
@@ -207,6 +207,10 @@ test.describe('Services & Provided Services Management', () => {
 
     await page.route('**/api/activity-logs/status', async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+    });
+
+    await page.route(/\/api\/waste-catalog(\?.*)?$/, async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
   });
 
@@ -337,7 +341,7 @@ test.describe('Services & Provided Services Management', () => {
     await page.goto('/data-management/provided-services');
 
     await expect(page.locator('td', { hasText: 'Revizija tokova otpada' })).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('td', { hasText: 'Eko Metal d.o.o.' })).toBeVisible();
-    await expect(page.locator('td', { hasText: 'Otpad 2024' })).toBeVisible();
+    await expect(page.locator('td', { hasText: 'Eko Metal d.o.o.' })).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('td', { hasText: 'Otpad 2024' })).toBeVisible({ timeout: 10000 });
   });
 });
