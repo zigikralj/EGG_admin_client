@@ -100,21 +100,27 @@ The client talks to a separate Express 5 REST API server (see `../server/`).
 |---|---|
 | `layout/AdminLayout.tsx` | Page shell — wraps AppHeader + Sidebar + main content + profile/settings/company modals. Handles nav item visibility based on RBAC. |
 | `project/ProjectCard.tsx` | Rich project card — progress bar, reminders, status chips, deadline alerts, rich notes previews. |
-| `project/ProjectModal.tsx` | Project create/edit dialog — uses `useProjectForm`, nested reminder/invoice sections. |
+| `project/ProjectModal.tsx` | Project create/edit dialog — uses `useProjectForm`, nested reminder/invoice sections, constrained scrolling flex layout. |
 | `project/ProjectViewModal.tsx` | Read-only project detail view with all related data, reminders, invoices, and rich notes renderer. |
 | `tracker/statistics/ProjectsStatistics.tsx` | Dashboard analytics — project status distribution, service category breakdown (MUI X Charts). |
 | `tracker/ReminderPanel.tsx` | Dashboard reminder panel — approaching/overdue reminders table. |
 | `tracker/ApproachingInvoicesPanel.tsx` | Dashboard invoice panel — invoices due soon with status management. |
 | `tracker/WasteDisposalPanel.tsx` | Dashboard waste disposal panel — waste service tracking. |
+| `tracker/ProjectUpdatesPanel.tsx` | Real-time audit and activity stream panel for project changes, note revisions, and task completions. |
 | `tracker/statistics/WasteDisposalStatistics.tsx` | Analytics charts for provided services (by status, category, monthly trend) and waste amounts. |
-| `common/RichTextEditor.tsx` | Advanced WYSIWYG editor with multi-mode view (Rich Text, Markdown, HTML Source), autosave indicator, formatting toolbar (headings, code blocks, tables, alignment), character/word counters, fullscreen mode, DOMPurify HTML sanitization, and @mention support. |
+| `common/tiptap/TipTapEditor.tsx` | Modern TipTap rich text editor with full toolbar, tables support, character/word counters, DOMPurify HTML sanitization, and mentions. |
+| `common/tiptap/TipTapToolbar.tsx` | Modular formatting toolbar for TipTap editor (headings, tables, lists, text formatting). |
+| `common/tiptap/MentionSuggestionList.tsx` | Autocomplete mention dropdown list for team members within TipTap editor. |
+| `history/NoteHistoryDiffModal.tsx` | Visual side-by-side and unified text diff modal for reviewing project note revisions and restoration. |
+| `history/HistoryTimelineModal.tsx` | Entity version timeline and diff review dialog for inspecting historic changesets and restoring past versions. |
+| `dialogs/PermitModal.tsx` | Dedicated environmental permit create/edit modal with waste catalog selector and validity management. |
 | `dialogs/CompanyInfoModal.tsx` | Company legal details editor (name, tax ID, bank accounts). |
 | `common/ColumnSelector.tsx` | Column visibility picker for table views. |
 | `common/DateRangeFilter.tsx` | Date range filter component. |
 | `dialogs/ConfirmDialog.tsx` / `ConfirmDeleteDialog.tsx` | Reusable confirmation modals. |
 | `dialogs/ErrorDialog.tsx` | Error display dialog. |
 | `dialogs/VersionUpdatePrompt.tsx` | Non-intrusive update banner when new version detected. |
-| `common/WasteCatalogAutocomplete.tsx` | Autocomplete picker for waste catalog entries (used in Permits and Custom Data Models). |
+| `common/WasteCatalogAutocomplete.tsx` | Autocomplete picker for waste catalog entries with instant IndexedDB offline cache lookup. |
 | `icons.ts` | Barrel file — re-exports ~90 MUI icons as named per-file imports for tree-shaking. |
 
 #### Feature Sub-Components
@@ -123,9 +129,11 @@ The client talks to a separate Express 5 REST API server (see `../server/`).
 | `components/project/` | `ProjectInvoiceSection.tsx`, `ProjectProgressSlider.tsx`, `ProjectReminderSection.tsx` | Nested sections within project modal. |
 | `components/invoice/` | `InvoiceChips.tsx`, `InvoiceFormFields.tsx`, `InvoiceItemsList.tsx` | Shared invoice UI components (extracted during refactoring). |
 | `components/providedService/` | `ProvidedServiceInvoiceSection.tsx` | Invoice management within provided service detail. |
-| `components/dialogs/` | `ConfirmDialog.tsx`, `ErrorDialog.tsx`, `CompanyInfoModal.tsx`, `CustomDataModelModal.tsx` | Reusable popups, modals, and the custom data model editor. |
+| `components/dialogs/` | `PermitModal.tsx`, `ConfirmDialog.tsx`, `ErrorDialog.tsx`, `CompanyInfoModal.tsx`, `CustomDataModelModal.tsx` | Reusable popups, modals, and the custom data model editor. |
 | `components/common/` | `ColumnSelector.tsx`, `DateRangeFilter.tsx`, `TableSearchInput.tsx`, `WasteCatalogAutocomplete.tsx` | Shared table utilities and controls. |
-| `components/tracker/` | `ReminderPanel.tsx`, `WasteDisposalPanel.tsx`, `statistics/` | Dashboard tracker panels. |
+| `components/common/tiptap/` | `TipTapEditor.tsx`, `TipTapToolbar.tsx`, `MentionSuggestionList.tsx`, `mentionExtension.ts` | TipTap rich text editor engine and extensions. |
+| `components/history/` | `NoteHistoryDiffModal.tsx`, `HistoryTimelineModal.tsx` | Historical diff inspection and version restoration modals. |
+| `components/tracker/` | `ProjectUpdatesPanel.tsx`, `ReminderPanel.tsx`, `WasteDisposalPanel.tsx`, `statistics/` | Dashboard tracker panels and activity feeds. |
 | `components/activityAnalytics/` | `AnalyticsHeader.tsx`, `AnalyticsKpiStrip.tsx`, `UsageTimelineChart.tsx`, `PageUsageChart.tsx`, `ActionsByEntityChart.tsx`, `UserUsageTable.tsx`, `UserPageBreakdownChart.tsx`, `UsageHeatmap.tsx`, `SessionLengthHistogram.tsx`, `FeatureAdoptionChart.tsx`, `EngagementScatter.tsx`, `NavigationFlows.tsx`, `EditedFieldsChart.tsx`, `InsightsPanel.tsx`, `insights.ts`, `utils.ts` | Activity Analytics visualizations, KPI strip, charts, and rule-based insights. |
 
 ### Internationalization (`src/i18n/`)
@@ -146,6 +154,9 @@ The client talks to a separate Express 5 REST API server (see `../server/`).
 | File | Purpose |
 |---|---|
 | `deltaSync.ts` | **Delta Synchronization Engine.** Transparent client-side delta sync with `fetchWithDeltaSync(queryClient, queryKey, endpoint)` and `mergeDelta(cachedItems, delta)`. Manages `syncedAt` timestamps per query key and reconciles updated entities while purging tombstones (`deletedIds`). |
+| `wasteCatalogStorage.ts` | **Multi-Tier Waste Catalog Storage.** IndexedDB persistence (`ekos_project_tracker_db`), in-memory cache for 0ms synchronous access, multi-tab `BroadcastChannel` synchronization, and background delta sync integration. |
+| `cleanWordHtml.ts` | Strips Microsoft Word XML schemas, Mso classes, Office document formatting, and cleans HTML tags for safe editing. |
+| `stripHtmlToText.ts` | Cleanly extracts plain text from HTML, converts entities, and strips non-breaking spaces for preview cards. |
 | `invoiceUtils.ts` | `parseInvoiceNotes()` / `serializeInvoiceNotes()` — embeds invoice metadata (type, parent link) as HTML comment in notes field. `enhanceInvoicesWithLinks()` — resolves parent/child invoice relationships. |
 | `customFields.ts` | Core utilities for custom fields including structure validation, linked list dependencies, and automatic extraction of waste weights. |
 | `router.ts` | `getRouterBasename()` — handles dynamic resolution of the router basename. |

@@ -10,15 +10,17 @@
 |---|---|---|
 | **Runtime** | React | 19.2.x |
 | **Language** | TypeScript | 6.0.x |
-| **Build Tool** | Vite | 8.2.x |
+| **Build Tool** | Vite | 8.3.x |
 | **UI Framework** | Material UI (MUI) | 9.3.x |
 | **CSS-in-JS** | Emotion | 11.14.x |
 | **Charts** | MUI X Charts | 9.11.x |
+| **Rich Text Editor** | TipTap (`@tiptap/react`, `@tiptap/starter-kit`, `@tiptap/extension-mention`, `@tiptap/extension-table`) | 3.20.x |
+| **HTML Sanitizer** | DOMPurify | 3.3.x |
+| **Offline Storage** | IndexedDB (`ekos_project_tracker_db`) + `BroadcastChannel` | Native Web APIs |
+| **State & Caching** | TanStack React Query + Delta Sync Engine | 5.102.x |
 | **Linting** | oxlint | 1.75.x |
 | **Deployment** | GitHub Pages (gh-pages) | 6.3.x |
 | **Routing** | React Router DOM | 7.18.x |
-| **Data Fetching** | TanStack React Query | 5.102.x |
-| **HTML Sanitizer** | DOMPurify | 3.3.x |
 | **E2E Testing** | Playwright | 1.64.x |
 | **Unit Testing** | Vitest + Testing Library | 5.0.x / 16.3.x |
 | **API Mocking** | MSW (Mock Service Worker) | 2.15.x |
@@ -274,6 +276,7 @@ graph TD
         RP[ReminderPanel]
         AIP[ApproachingInvoicesPanel]
         WDP[WasteDisposalPanel]
+        PUP[ProjectUpdatesPanel]
         PSS[WasteDisposalStatistics]
     end
 
@@ -286,15 +289,19 @@ graph TD
         PPS[ProjectProgressSlider]
     end
 
-    subgraph "Shared"
+    subgraph "Shared & Dialogs"
         IC[InvoiceChips]
         IFF[InvoiceFormFields]
         IIL[InvoiceItemsList]
-        RTE[RichTextEditor]
+        TTE[TipTapEditor]
+        NDM[NoteHistoryDiffModal]
+        HTM[HistoryTimelineModal]
+        PeM[PermitModal]
         CS[ColumnSelector]
         DRF[DateRangeFilter]
         TSI[TableSearchInput]
         TFS[TableFilterSelector]
+        WCA[WasteCatalogAutocomplete]
     end
 
     AL --> AH
@@ -303,6 +310,7 @@ graph TD
     DV --> RP
     DV --> AIP
     DV --> WDP
+    DV --> PUP
     PM --> PIS
     PM --> PRS
 ```
@@ -569,17 +577,127 @@ client/
 │   │   ├── handlers.ts            # Simulated API endpoints
 │   │   └── server.ts              # Node test server instance
 │   ├── components/                # Modular UI components
-│   │   ├── icons.ts               # MUI icon barrel (~90 icons)
+---
+
+## 9. Client-Side Delta Synchronization Engine
+
+To minimize bandwidth consumption and eliminate full collection refetches, the client incorporates a transparent delta synchronization layer integrated into TanStack React Query (`src/utils/deltaSync.ts`):
+
+```mermaid
+sequenceDiagram
+    participant UI as React Component
+    participant RQ as TanStack React Query
+    participant DS as deltaSync.ts
+    participant API as Express API Server
+
+    UI->>RQ: useProjectsQuery()
+    RQ->>DS: fetchWithDeltaSync({ queryKey, url })
+    alt First Request (No sync timestamp)
+        DS->>API: GET /api/projects
+        API-->>DS: Project[] (Full snapshot)
+        DS->>RQ: Store items & record syncedAt
+    else Incremental Request
+        DS->>API: GET /api/projects?since=<syncedAt>
+        API-->>DS: DeltaEnvelope { delta: true, items, deletedIds, syncedAt }
+        DS->>DS: mergeDelta(cachedItems, delta)
+        DS->>RQ: Reconciled cache (in-place updates + prepended new items - tombstones)
+    end
+    RQ-->>UI: Fresh Data
+```
+
+### Key Reconciler Behaviors (`mergeDelta`)
+1. **Preserves In-Place Ordering**: Existing records updated in-place retain their list positions without layout shifting.
+2. **Tombstone Purging**: IDs in `deletedIds` are immediately stripped from cache.
+3. **New Item Prepending**: Newly created items not present in previous cache are prepended to match descending order.
+4. **Safety Retention Fallback**: If `syncedAt` exceeds 30 days, server responds with `delta: false`, seamlessly triggering a full snapshot refresh.
+
+---
+
+## 10. Multi-Tier Waste Catalog Persistence (IndexedDB + BroadcastChannel)
+
+The Serbian national waste index contains ~1,000 regulatory waste codes. Transferring and rendering this catalog on every lookup is avoided through a 3-tier persistence strategy (`src/utils/wasteCatalogStorage.ts`):
+
+1. **Tier 1 — In-Memory Cache**: 0ms synchronous read access for active autocomplete components and dropdowns.
+2. **Tier 2 — IndexedDB Persistence (`ekos_project_tracker_db`)**: Durable browser database holding catalog items and sync metadata (`waste_catalog_meta`). Survives full page reloads, tab closes, and browser restarts.
+3. **Tier 3 — Cross-Tab Broadcast Synchronization (`BroadcastChannel`)**: Multiple open browser tabs communicate via `ekos_waste_catalog_sync`. When an item is added, edited, or deleted in one tab, other tabs immediately invalidate their in-memory cache and dispatch `ekos:waste-catalog-updated` window events.
+4. **Automated Delta Polling**: Background delta queries (`GET /api/waste-catalog?since=...`) update local IndexedDB records incrementally with tombstone deletion support.
+
+---
+
+## 11. Rich Text & Note Revision History Architecture
+
+Project notes use a dedicated TipTap editing engine and delta revision subsystem:
+
+1. **TipTap Rich Text Editor Suite (`src/components/common/tiptap/`)**:
+   - Built on TipTap 3 + ProseMirror (`TipTapEditor.tsx`).
+   - Features custom formatting toolbar (`TipTapToolbar.tsx`), table creation/editing extensions, heading levels, blockquotes, and lists.
+   - Mention autocomplete system (`MentionSuggestionList.tsx`, `mentionExtension.ts`) linking project team members directly into notes.
+   - Client-side sanitization via **DOMPurify** preventing stored XSS injection.
+2. **Microsoft Word & XML Sanitizer (`cleanWordHtml.ts`, `stripHtmlToText.ts`)**:
+   - Strips proprietary Microsoft Word XML metadata, Office classes, and mso formatting on paste.
+   - Decodes HTML entities and strips non-breaking space sequences (`&nbsp;`, `\u00A0`).
+3. **Note History & Diff Inspector (`src/components/history/NoteHistoryDiffModal.tsx`)**:
+   - Inspects full revision timeline per project note (`/api/projects/:id/note/history`).
+   - Side-by-side visual diff and unified patch inspection (`/api/projects/:id/note/diff`).
+   - One-click historical version restoration (`POST /api/projects/:id/note/restore/:v`).
+
+---
+
+## 12. Directory Structure
+
+```
+client/
+├── .github/
+│   ├── dependabot.yml              # Automated dependency PR grouping
+│   └── workflows/
+│       ├── bump-version.yml        # PR-driven semver bumping
+│       ├── deploy.yml              # GitHub Pages deployment
+│       └── playwright.yml          # Automated Playwright E2E testing
+├── e2e/                            # Playwright E2E test suites (~3,950 lines)
+│   ├── auth.setup.ts               # Global authenticated session fixture
+│   ├── auth/                       # Login & session tests
+│   ├── tracker/                    # Dashboard & project notes tests
+│   ├── management/                 # Entity management CRUD tests
+│   └── helpers/
+│       └── mockApi.ts              # E2E network mocking helper
+├── src/
+│   ├── main.tsx                    # ReactDOM bootstrap
+│   ├── App.tsx                     # Root orchestrator & route switch
+│   ├── api.ts                      # Centralized fetch client (apiFetch)
+│   ├── types.ts                    # TypeScript domain interfaces
+│   ├── constants/                  # Centralized routes (API_ROUTES, PAGE_ROUTES)
+│   ├── context/                    # Auth, Language, Theme, Notifications, Loading
+│   ├── hooks/                      # Custom hooks (useTableView, useProjectForm, etc.)
+│   ├── queries/                    # TanStack React Query hooks & mutations
+│   ├── utils/
+│   │   ├── deltaSync.ts            # Delta synchronization engine
+│   │   ├── wasteCatalogStorage.ts  # IndexedDB & BroadcastChannel persistence
+│   │   ├── cleanWordHtml.ts        # Word XML & metadata sanitization
+│   │   ├── stripHtmlToText.ts      # HTML tag stripper & text cleaner
+│   │   ├── customFields.ts         # Custom data models & weight extraction
+│   │   ├── invoiceUtils.ts         # Invoice parent/child linking
+│   │   └── router.ts               # Dynamic router basename resolution
+│   ├── components/
+│   │   ├── icons.ts                # MUI icon barrel (~90 icons)
 │   │   ├── common/
 │   │   │   ├── ColumnSelector.tsx
 │   │   │   ├── DateRangeFilter.tsx
 │   │   │   ├── LanguageSelector.tsx
 │   │   │   ├── LoadingMask.tsx
-│   │   │   ├── RichTextEditor.tsx # Multi-mode, autosave, DOMPurify sanitization
+│   │   │   ├── RichTextEditor.tsx
 │   │   │   ├── TableFilterSelector.tsx
 │   │   │   ├── TableSearchInput.tsx
-│   │   │   └── WasteCatalogAutocomplete.tsx
+│   │   │   ├── WasteCatalogAutocomplete.tsx
+│   │   │   └── tiptap/             # TipTap Rich Text Suite
+│   │   │       ├── TipTapEditor.tsx
+│   │   │       ├── TipTapToolbar.tsx
+│   │   │       ├── MentionSuggestionList.tsx
+│   │   │       └── mentionExtension.ts
+│   │   ├── history/                # Version history & diff review
+│   │   │   ├── NoteHistoryDiffModal.tsx
+│   │   │   └── HistoryTimelineModal.tsx
 │   │   ├── dialogs/
+│   │   │   ├── PermitModal.tsx     # Extracted responsive permit dialog
 │   │   │   ├── CompanyInfoModal.tsx
 │   │   │   ├── ConfirmDeleteDialog.tsx
 │   │   │   ├── ConfirmDialog.tsx
@@ -606,7 +724,7 @@ client/
 │   │   │   └── ProjectViewModal.tsx
 │   │   ├── providedService/
 │   │   │   └── ProvidedServiceInvoiceSection.tsx
-│   │   ├── activityAnalytics/     # Activity Analytics component suite (15 modules)
+│   │   ├── activityAnalytics/      # Activity Analytics component suite (15 modules)
 │   │   │   ├── ActionsByEntityChart.tsx
 │   │   │   ├── AnalyticsHeader.tsx
 │   │   │   ├── AnalyticsKpiStrip.tsx
@@ -630,8 +748,9 @@ client/
 │   │       ├── ApproachingInvoicesPanel.tsx
 │   │       ├── DashboardPanelSkeleton.tsx
 │   │       ├── ReminderPanel.tsx
-│   │       └── WasteDisposalPanel.tsx
-│   ├── pages/                     # Full page views
+│   │       ├── WasteDisposalPanel.tsx
+│   │       └── ProjectUpdatesPanel.tsx
+│   ├── pages/                      # Full page views
 │   │   ├── auth/
 │   │   │   └── LoginPage.tsx
 │   │   ├── management/

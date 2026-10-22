@@ -108,16 +108,89 @@ Check current auth status (periodic polling for blocked user detection).
 
 ### `GET /api/projects`
 
-List all projects. Supports search.
+List all projects. Supports search, status, and delta sync.
+Returns lightweight rows containing `notesPreview` (plain text up to 300 characters) for high list performance.
 
 **Query Parameters:**
 | Param | Type | Description |
 |---|---|---|
 | `search` | string | Filter by name, client, responsible (case-insensitive contains) |
+| `done` | boolean | Filter active vs completed projects |
+| `clientId` | string | Filter projects for a specific client |
+| `since` | string | ISO timestamp for incremental delta synchronization |
+| `page` / `limit` | number | Optional pagination parameters |
 
-**Response:** `Project[]`
+**Response (standard):** `Project[]`
+**Response (delta):** `DeltaEnvelope<Project>` `{ delta: true, items: Project[], deletedIds: string[], syncedAt: string }`
 
-**Used by:** [`useAppData.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/hooks/useAppData.ts)
+**Used by:** `useProjectsQuery` in [`src/queries/index.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/002_EkosGreenGroup/project_tracker/client/src/queries/index.ts) via `fetchWithDeltaSync`
+
+---
+
+### `GET /api/projects/updates`
+
+Retrieve real-time project updates and audit activity stream across the organization.
+
+**Query Parameters:**
+| Param | Type | Description |
+|---|---|---|
+| `limit` | number | Max events to return (default: 50) |
+| `offset` | number | Pagination offset |
+| `projectId`| string | Optional filter for a specific project |
+
+**Response (200):** Array of project update items with author, target entity, timestamp, and diff summary.
+
+**Used by:** `useProjectUpdatesQuery` / `ProjectUpdatesPanel.tsx`
+
+---
+
+### `GET /api/projects/:id`
+
+Get complete details of a single project, including full rich-text HTML `notes`.
+
+**Response (200):** `Project` object.
+
+**Used by:** `ProjectViewModal.tsx`, `useProjectsQuery`
+
+---
+
+### `GET /api/projects/:id/note`
+
+Fetch current rich-text note content directly from `ProjectNote`.
+
+**Response (200):** `{ projectId: string, content: string, version: number, updatedAt: string }`
+
+---
+
+### `GET /api/projects/:id/note/history`
+
+Get version revision timeline for a project's notes.
+
+**Response (200):** Array of `ProjectNoteVersion` items `{ version, kind, charDelta, authorName, createdAt }`
+
+**Used by:** `NoteHistoryDiffModal.tsx`
+
+---
+
+### `GET /api/projects/:id/note/diff`
+
+Get unified diff or field diff between two note versions or dates.
+
+**Query Parameters:** `?from=1&to=3` OR `?dateFrom=YYYY-MM-DD&dateTo=YYYY-MM-DD`
+
+**Response (200):** `{ fromVersion, toVersion, diff, addedCount, removedCount }`
+
+**Used by:** `NoteHistoryDiffModal.tsx`
+
+---
+
+### `POST /api/projects/:id/note/restore/:v`
+
+Restore a project note to historical version `:v`.
+
+**Response (200):** `{ success: true, version: number, content: string }`
+
+**Used by:** `NoteHistoryDiffModal.tsx`
 
 ---
 
@@ -129,29 +202,29 @@ Create a new project.
 
 **Response (201):** Created `Project` object with `id`
 
-**Used by:** [`useProjects.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/hooks/useProjects.ts) via `useCrudOperations`
+**Used by:** `useProjectMutations` in `src/queries/index.ts`
 
 ---
 
 ### `PUT /api/projects/:id`
 
-Update an existing project.
+Update an existing project. Automatically records delta revisions in `ProjectNote` and `EntityVersion`.
 
-**Request Body:** Full `Project` object (merged with existing data client-side)
+**Request Body:** Full or partial `Project` object
 
 **Response (200):** Updated `Project`
 
-**Used by:** [`useProjects.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/hooks/useProjects.ts) via `useCrudOperations`
+**Used by:** `useProjectMutations` in `src/queries/index.ts`
 
 ---
 
 ### `DELETE /api/projects/:id`
 
-Delete a project.
+Delete a project. Creates an `EntityVersion` tombstone (`op: 'D'`) to communicate deletion to delta sync clients.
 
-**Response (200):** `{ "message": "Deleted" }`
+**Response (200):** `{ "message": "Project deleted successfully" }`
 
-**Used by:** [`useProjects.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/hooks/useProjects.ts) via `useCrudOperations`
+**Used by:** `useProjectMutations` in `src/queries/index.ts`
 
 ---
 
@@ -161,13 +234,13 @@ Toggle project completion status.
 
 **Response (200):** Updated `Project`
 
-**Used by:** [`useProjects.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/hooks/useProjects.ts) — `handleToggleDone`
+**Used by:** `useProjectMutations` in `src/queries/index.ts`
 
 ---
 
 ### `GET /api/projects/stats`
 
-Dashboard aggregate statistics.
+Dashboard aggregate statistics (cached in server memory).
 
 **Response:**
 ```json
@@ -186,9 +259,7 @@ Dashboard aggregate statistics.
 }
 ```
 
-**Note:** This endpoint has **no authentication** on the server.
-
-**Used by:** [`useAppData.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/hooks/useAppData.ts)
+**Used by:** `useDashboardStatsQuery` in `src/queries/index.ts`
 
 ---
 
@@ -748,3 +819,60 @@ Delete all logs matching a specific session ID. Invalidates analytics cache.
 Delete a specific activity log. Invalidates analytics cache.
 - **Roles:** Administrator
 - **Returns:** `{ success: boolean }`
+
+---
+
+## History & Data Versioning (`/api/history`)
+
+Comprehensive entity versioning and point-in-time diff inspection.
+
+### `GET /api/history/:entityType/:id`
+Fetch historical version timeline for an entity.
+- **Params:** `entityType` (e.g. `Project`, `Invoice`, `Client`), `id` (entity UUID)
+- **Query Params:** `?limit=50&offset=0&includeChildren=true`
+- **Returns:** `{ entityType, entityId, currentVersion, versions: [...] }`
+- **Used by:** `HistoryTimelineModal.tsx`, `useEntityHistoryQuery`
+
+### `GET /api/history/:entityType/:id/diff`
+Compute field diffs between two versions or date ranges.
+- **Query Params:** `?from=1&to=4` OR `?dateFrom=YYYY-MM-DD&dateTo=YYYY-MM-DD`
+- **Returns:** `{ entityType, entityId, fromVersion, toVersion, changes: [...], dateFrom, dateTo }`
+- **Used by:** `HistoryTimelineModal.tsx`
+
+### `GET /api/history/:entityType/:id/versions/:v`
+Reconstruct full entity snapshot at version `:v`.
+- **Returns:** Reconstructed entity data at historical version `:v`.
+
+### `GET /api/history/changesets/:id`
+Inspect multi-entity transaction changeset details.
+- **Returns:** `ChangeSet` details with all touched entity versions.
+
+### `POST /api/history/:entityType/:id/restore/:v`
+Restore entity state to version `:v`.
+- **Roles:** User with `history:restore` permission
+- **Returns:** `{ success: true, restoredVersion, newVersion, entity }`
+- **Used by:** `HistoryTimelineModal.tsx`
+
+---
+
+## Delta Synchronization Engine (`src/utils/deltaSync.ts`)
+
+The client features transparent incremental delta synchronization built on top of TanStack React Query:
+
+- **`fetchWithDeltaSync<T>({ url, queryKey, queryClient })`**:
+  - Checks if valid cached data and a `syncedAt` timestamp exist for `queryKey`.
+  - Appends `?since=<syncedAt>` to the outgoing request.
+  - Receives either a raw array (initial full load) or a `DeltaEnvelope<T>` `{ delta: true, items, deletedIds, syncedAt }`.
+  - Reconciles updates using `mergeDelta()`: updates modified items in-place, appends new records, and purges deleted tombstone IDs.
+  - Updates the `syncedAt` map for the query key.
+
+---
+
+## Multi-Tier Waste Catalog Storage (`src/utils/wasteCatalogStorage.ts`)
+
+To avoid network latency and large payload transfers for the Serbian national waste index (~1,000+ entries):
+
+- **In-Memory Cache (Tier 1):** 0ms synchronous read access.
+- **IndexedDB (`ekos_project_tracker_db`, Tier 2):** Persistent browser storage surviving page refreshes and browser restarts.
+- **Cross-Tab `BroadcastChannel` (`ekos_waste_catalog_sync`):** Synchronizes additions, edits, or deletes across all open application tabs in real time.
+- **Delta Sync:** Checks `syncedAt` against `/api/waste-catalog?since=...` to fetch only catalog updates and purge deleted codes.
