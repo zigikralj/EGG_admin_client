@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
 import { apiFetch } from '../api';
 import { fetchWithDeltaSync } from '../utils/deltaSync';
+import { syncWasteCatalog, sortWasteCatalog, upsertCatalogItemInDB, getMemoryCachedCatalog } from '../utils/wasteCatalogStorage';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { API_ROUTES } from '../constants';
@@ -373,11 +374,42 @@ export function useWasteCatalogQuery() {
   return useQuery<WasteCatalog[]>({
     queryKey: ['waste-catalog'],
     queryFn: async () => {
-      const res = await apiFetch(API_ROUTES.WASTE_CATALOG.BASE, { headers: getAuthHeaders() });
-      if (!res.ok) throw new Error('Failed to fetch waste catalog');
-      return res.json();
-    }
+      return syncWasteCatalog(getAuthHeaders());
+    },
+    initialData: () => getMemoryCachedCatalog() ?? undefined,
+    staleTime: 1000 * 60 * 60, // 1 hour stale time since catalog updates rarely
+    gcTime: 1000 * 60 * 60 * 24, // 24 hours in memory
   });
+}
+
+export function useWasteCatalogMutations() {
+  const queryClient = useQueryClient();
+  const getAuthHeaders = useAuthHeaders();
+
+  const toggleFrequent = useMutation({
+    mutationFn: async ({ id, frequent }: { id: string; frequent?: number | boolean | null }) => {
+      const res = await apiFetch(API_ROUTES.WASTE_CATALOG.FREQUENT(id), {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({ frequent }),
+      });
+      if (!res.ok) throw new Error('Failed to toggle frequent status');
+      const updated: WasteCatalog = await res.json();
+      await upsertCatalogItemInDB(updated);
+      return updated;
+    },
+    onSuccess: (updated) => {
+      queryClient.setQueryData<WasteCatalog[]>(['waste-catalog'], (old) => {
+        if (!old) return [updated];
+        return sortWasteCatalog(old.map((it) => (it.id === updated.id ? updated : it)));
+      });
+    },
+  });
+
+  return { toggleFrequent };
 }
 
 export function useStatsQuery() {

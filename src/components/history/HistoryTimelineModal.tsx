@@ -415,6 +415,7 @@ export const HistoryTimelineModal: React.FC<HistoryTimelineModalProps> = ({
         }}
       >
         <DialogTitle
+          component="div"
           sx={{
             display: 'flex',
             alignItems: 'center',
@@ -426,7 +427,7 @@ export const HistoryTimelineModal: React.FC<HistoryTimelineModalProps> = ({
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <HistoryIcon color="primary" />
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+            <Typography variant="h6" component="h2" sx={{ fontWeight: 700 }}>
               {t('historyModalTitle')}
             </Typography>
             {entityTitle && (

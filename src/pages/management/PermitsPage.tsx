@@ -49,7 +49,7 @@ import { TableFilterSelector } from '../../components/common/TableFilterSelector
 import { TableSearchInput } from '../../components/common/TableSearchInput';
 import { TableQuickFilters, type QuickFilterItem } from '../../components/common/TableQuickFilters';
 import { DateRangeFilter } from '../../components/common/DateRangeFilter';
-import { WasteCatalogAutocomplete } from '../../components/common/WasteCatalogAutocomplete';
+import { PermitModal } from '../../components/dialogs/PermitModal';
 import { ErrorDialog } from '../../components/dialogs/ErrorDialog';
 import {
   AddIcon,
@@ -222,23 +222,6 @@ const PermitsPage: React.FC<Props> = ({
     return foundInClients || null;
   }, [clients]);
 
-  // Selected client for permit
-  const [selectedClientId, setSelectedClientId] = useState<string>('');
-
-  // Inline reminder creation/linking in permit dialog
-  const [isAddingReminderInline, setIsAddingReminderInline] = useState(false);
-  const [addReminderMode, setAddReminderMode] = useState<'new' | 'existing'>('new');
-  const [inlineReminderTitle, setInlineReminderTitle] = useState('');
-  const [inlineReminderDueDate, setInlineReminderDueDate] = useState('');
-  const [inlineReminderNotes, setInlineReminderNotes] = useState('');
-  const [selectedExistingReminderId, setSelectedExistingReminderId] = useState('');
-
-  // Staged reminders when creating or editing a permit
-  const [stagedNewReminders, setStagedNewReminders] = useState<
-    Array<{ id: string; title: string; dueDate?: string; notes?: string }>
-  >([]);
-  const [stagedLinkReminderIds, setStagedLinkReminderIds] = useState<string[]>([]);
-
   // Edit modal for existing reminders
   const [editingReminderModalItem, setEditingReminderModalItem] = useState<Reminder | null>(null);
   const [editReminderModalTitle, setEditReminderModalTitle] = useState('');
@@ -387,109 +370,18 @@ const PermitsPage: React.FC<Props> = ({
     { value: 'client', label: t('colClientName') },
   ];
 
-  // Form states
-  const [selectedWasteCatalogIds, setSelectedWasteCatalogIds] = useState<string[]>([]);
-  const [permitNumber, setPermitNumber] = useState('');
-  const [permitTypes, setPermitTypes] = useState<string[]>([]);
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [notes, setNotes] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-
-  // Lazy-loaded Waste Catalog state
-  const [selectedCatalogItems, setSelectedCatalogItems] = useState<WasteCatalog[]>([]);
-
-
 
   const openNew = () => {
     if (!canCreate) return;
     setEditingPermit(null);
-    setSelectedWasteCatalogIds([]);
-    setSelectedCatalogItems([]);
-    setPermitNumber('');
-    setPermitTypes([]);
-    setSelectedClientId('');
-    setStartDate('');
-    setEndDate('');
-    setNotes('');
-    setIsAddingReminderInline(false);
-    setStagedNewReminders([]);
-    setStagedLinkReminderIds([]);
-    setInlineReminderTitle('');
-    setInlineReminderDueDate('');
-    setInlineReminderNotes('');
-    setSelectedExistingReminderId('');
     setIsOpen(true);
   };
 
-  const openEdit = async (p: Permit) => {
+  const openEdit = (p: Permit) => {
     if (!canEdit) return;
     setEditingPermit(p);
-    const linkedClient = getLinkedClient(p);
-    setSelectedClientId(linkedClient?.id || p.clientId || '');
-
-    const ids = (p.wasteCatalogIds?.length ? p.wasteCatalogIds : (p.permitWastes?.map(pw => pw.wasteCatalogId).filter(Boolean) || (p.wasteCatalogId ? [p.wasteCatalogId] : []))) as string[];
-    const items = (p.wasteCatalogs?.length ? p.wasteCatalogs : (p.permitWastes?.map(pw => pw.wasteCatalog).filter(Boolean) || (p.wasteCatalog ? [p.wasteCatalog] : []))) as WasteCatalog[];
-    
-    setSelectedWasteCatalogIds(ids);
-    setSelectedCatalogItems(items);
-
-    setPermitNumber(p.permitNumber || '');
-    setPermitTypes((p.permitTypes || []) as string[]);
-    setStartDate(p.startDate ? p.startDate.split('T')[0] : '');
-    setEndDate(p.endDate ? p.endDate.split('T')[0] : '');
-    setNotes(p.notes || '');
-    setIsAddingReminderInline(false);
-    setStagedNewReminders([]);
-    setStagedLinkReminderIds([]);
-    setInlineReminderTitle('');
-    setInlineReminderDueDate('');
-    setInlineReminderNotes('');
-    setSelectedExistingReminderId('');
     setIsOpen(true);
-  };
-
-  const availableExistingReminders = useMemo(() => {
-    if (!reminders) return [];
-    const currentPermitId = editingPermit?.id;
-    const stagedIds = new Set(stagedLinkReminderIds);
-    return reminders.filter((r) => {
-      if (stagedIds.has(r.id)) return false;
-      if (currentPermitId && r.permitId === currentPermitId) return false;
-      return true;
-    });
-  }, [reminders, editingPermit, stagedLinkReminderIds]);
-
-  const handleAddStagedReminder = () => {
-    if (addReminderMode === 'new') {
-      if (!inlineReminderTitle.trim()) {
-        setErrorDialogState({
-          open: true,
-          message: t('alertReminderTitleRequired') || 'Naziv podsetnika je obavezan.',
-        });
-        return;
-      }
-      setStagedNewReminders((prev) => [
-        ...prev,
-        {
-          id: `staged_${Date.now()}_${Math.random()}`,
-          title: inlineReminderTitle.trim(),
-          dueDate: inlineReminderDueDate || undefined,
-          notes: inlineReminderNotes.trim() || undefined,
-        },
-      ]);
-      setInlineReminderTitle('');
-      setInlineReminderDueDate('');
-      setInlineReminderNotes('');
-      setIsAddingReminderInline(false);
-    } else {
-      if (!selectedExistingReminderId) return;
-      if (!stagedLinkReminderIds.includes(selectedExistingReminderId)) {
-        setStagedLinkReminderIds((prev) => [...prev, selectedExistingReminderId]);
-      }
-      setSelectedExistingReminderId('');
-      setIsAddingReminderInline(false);
-    }
   };
 
   const handleOpenEditReminder = (rem: Reminder) => {
@@ -578,99 +470,63 @@ const PermitsPage: React.FC<Props> = ({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!canEdit && !canCreate) return;
-    if (!permitNumber.trim() || selectedWasteCatalogIds.length === 0 || !startDate || !endDate) {
-      setErrorDialogState({
-        open: true,
-        message: t('alertPermitRequired'),
-      });
-      return;
-    }
-
-    if (!selectedClientId) {
-      setErrorDialogState({
-        open: true,
-        message: t('alertClientRequired'),
-      });
-      return;
-    }
-
-    if (!permitTypes || permitTypes.length === 0) {
-      setErrorDialogState({
-        open: true,
-        message: t('alertPermitTypeRequired'),
-      });
-      return;
-    }
-
-    if (new Date(startDate) > new Date(endDate)) {
-      setErrorDialogState({
-        open: true,
-        message: t('alertPermitDatesOrder') || 'Datum početka ne može biti posle datuma isteka.',
-      });
-      return;
-    }
-
+  const handleSavePermitFromModal = async (
+    permitData: any,
+    stagedNewRems: Array<{ id: string; title: string; dueDate?: string; notes?: string }>,
+    stagedLinkIds: string[]
+  ): Promise<boolean> => {
     setIsSaving(true);
     try {
-      const res = await handleSavePermit({
-        id: editingPermit?.id,
-        permitNumber: permitNumber.trim(),
-        permitTypes,
-        wasteCatalogIds: selectedWasteCatalogIds,
-        startDate: startDate ? new Date(startDate).toISOString() : null,
-        endDate: endDate ? new Date(endDate).toISOString() : null,
-        notes: notes.trim() || null,
-        clientId: selectedClientId || null,
-      });
-
+      const res = await handleSavePermit(permitData);
       const isSuccess = res.success;
-      const targetPermitId = editingPermit?.id || res.id;
-      const targetPermitNumber = permitNumber.trim();
+      const targetPermitId = permitData.id || res.id;
+      const targetPermitNumber = permitData.permitNumber;
 
       if (isSuccess && targetPermitId) {
-        const foundClient = clients.find((c) => c.id === selectedClientId);
+        const foundClient = clients.find((c) => c.id === permitData.clientId);
 
         // Save staged reminders
-        for (const rem of stagedNewReminders) {
+        for (const rem of stagedNewRems) {
           await handleSaveReminder({
             title: rem.title,
             dueDate: rem.dueDate || null,
             notes: rem.notes || null,
             permitId: targetPermitId,
             permitNumber: targetPermitNumber,
-            clientId: selectedClientId || null,
+            clientId: permitData.clientId || null,
             clientName: foundClient?.name || null,
             status: 'Pending',
           });
         }
 
-        for (const remId of stagedLinkReminderIds) {
+        for (const remId of stagedLinkIds) {
           await handleSaveReminder({
             id: remId,
             permitId: targetPermitId,
             permitNumber: targetPermitNumber,
-            clientId: selectedClientId || null,
+            clientId: permitData.clientId || null,
             clientName: foundClient?.name || null,
           });
         }
 
         setIsOpen(false);
+        return true;
       } else if (!isSuccess) {
         setErrorDialogState({
           open: true,
           message: res.error || t('errorSavingProject'),
         });
+        return false;
       } else {
         setIsOpen(false);
+        return true;
       }
     } catch (err: any) {
       setErrorDialogState({
         open: true,
         message: err?.message || t('errorSavingProject'),
       });
+      return false;
     } finally {
       setIsSaving(false);
     }
@@ -688,11 +544,6 @@ const PermitsPage: React.FC<Props> = ({
     });
     return map;
   }, [reminders]);
-
-  const totalRemindersCount = useMemo(() => {
-    const existingCount = editingPermit ? (permitRemindersMap.get(editingPermit?.id) || []).length : 0;
-    return existingCount + stagedNewReminders.length + stagedLinkReminderIds.length;
-  }, [editingPermit, permitRemindersMap, stagedNewReminders.length, stagedLinkReminderIds.length]);
 
   // Filter and sort permits
   const filteredPermits = useMemo(() => {
@@ -931,29 +782,31 @@ const PermitsPage: React.FC<Props> = ({
               {t('permitsListTitle') || t('tabPermits')}
             </Typography>
             <Tooltip title={t('btnRefresh')}>
-              <IconButton
-                size="small"
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-                color="primary"
-                sx={{
-                  border: 1,
-                  borderColor: 'divider',
-                  borderRadius: 2,
-                  p: 0.7,
-                }}
-              >
-                <RefreshIcon
-                  fontSize="small"
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                  color="primary"
                   sx={{
-                    animation: isRefreshing ? 'spin 1s linear infinite' : undefined,
-                    '@keyframes spin': {
-                      '0%': { transform: 'rotate(0deg)' },
-                      '100%': { transform: 'rotate(360deg)' },
-                    },
+                    border: 1,
+                    borderColor: 'divider',
+                    borderRadius: 2,
+                    p: 0.7,
                   }}
-                />
-              </IconButton>
+                >
+                  <RefreshIcon
+                    fontSize="small"
+                    sx={{
+                      animation: isRefreshing ? 'spin 1s linear infinite' : undefined,
+                      '@keyframes spin': {
+                        '0%': { transform: 'rotate(0deg)' },
+                        '100%': { transform: 'rotate(360deg)' },
+                      },
+                    }}
+                  />
+                </IconButton>
+              </span>
             </Tooltip>
           </Box>
 
@@ -1475,530 +1328,24 @@ const PermitsPage: React.FC<Props> = ({
       </Card>
 
       {/* CREATE / EDIT PERMIT MODAL */}
-      <Dialog
+      <PermitModal
         open={isOpen}
         onClose={() => setIsOpen(false)}
-        maxWidth="md"
-        fullWidth
-        slotProps={{
-          paper: {
-            sx: {
-              borderRadius: 3,
-              maxHeight: 'calc(100vh - 64px)',
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'hidden',
-            },
-          },
-        }}
-      >
-        <Box
-          component="form"
-          onSubmit={handleSubmit}
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            height: '100%',
-            maxHeight: 'inherit',
-            minHeight: 0,
-            overflow: 'hidden',
-          }}
-        >
-          <DialogTitle
-            sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              fontWeight: 700,
-              p: 2,
-              flexShrink: 0,
-            }}
-          >
-            <Typography variant="h6" component="span" sx={{ fontWeight: 700 }}>
-              {editingPermit ? t('modalEditPermit') : t('modalNewPermit')}
-            </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              {editingPermit && canDelete && (
-                <Button
-                  color="error"
-                  size="small"
-                  variant="outlined"
-                  startIcon={<DeleteIcon />}
-                  onClick={() => {
-                    onDeletePermit(editingPermit.id);
-                    setIsOpen(false);
-                  }}
-                  sx={{ textTransform: 'none' }}
-                >
-                  {t('btnDelete')}
-                </Button>
-              )}
-              <IconButton
-                aria-label="close"
-                onClick={() => setIsOpen(false)}
-                size="small"
-                sx={{ color: 'text.secondary' }}
-              >
-                <CloseIcon fontSize="small" />
-              </IconButton>
-            </Box>
-          </DialogTitle>
-          <DialogContent
-            dividers
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 2.5,
-              p: { xs: 2, sm: 2.5 },
-              overflowY: 'auto',
-              flex: '1 1 auto',
-            }}
-          >
-            <Grid container spacing={2}>
-              {/* Permit Number */}
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  fullWidth
-                  required
-                  size="small"
-                  label={t('lblPermitNumber')}
-                  placeholder={t('phPermitNumber')}
-                  value={permitNumber}
-                  onChange={(e) => setPermitNumber(e.target.value)}
-                />
-              </Grid>
-
-              {/* Client (Required) */}
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Autocomplete
-                  size="small"
-                  options={clients}
-                  getOptionLabel={(option) => `${option.name}${option.city ? ` (${option.city})` : ''}`}
-                  value={clients.find((c) => c.id === selectedClientId) || null}
-                  onChange={(_, newValue) => {
-                    setSelectedClientId(newValue ? newValue.id : '');
-                  }}
-                  isOptionEqualToValue={(option, val) => option.id === val.id}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label={t('colClientName')}
-                      placeholder={t('phClient')}
-                      required
-                    />
-                  )}
-                />
-              </Grid>
-
-              {/* Permit Type (Multiple Select) */}
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Autocomplete
-                  multiple
-                  size="small"
-                  options={PERMIT_TYPE_OPTIONS}
-                  getOptionLabel={(option) => getPermitTypeLabel(option)}
-                  value={permitTypes as PermitType[]}
-                  onChange={(_, newValue) => {
-                    setPermitTypes((newValue as PermitType[]) || []);
-                  }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label={t('lblPermitType')}
-                      placeholder={permitTypes.length === 0 ? t('phSelectPermitType') : ''}
-                      required={permitTypes.length === 0}
-                    />
-                  )}
-                />
-              </Grid>
-
-              {/* Start Date (Required) */}
-              <Grid size={{ xs: 12, sm: 3 }}>
-                <TextField
-                  fullWidth
-                  required
-                  type="date"
-                  size="small"
-                  label={t('colStartDate')}
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  slotProps={{ inputLabel: { shrink: true } }}
-                />
-              </Grid>
-
-              {/* End Date (Required) */}
-              <Grid size={{ xs: 12, sm: 3 }}>
-                <TextField
-                  fullWidth
-                  required
-                  type="date"
-                  size="small"
-                  label={t('colEndDate')}
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  slotProps={{ inputLabel: { shrink: true } }}
-                />
-              </Grid>
-
-              {/* Index Number (Waste Catalog) */}
-              <Grid size={{ xs: 12 }}>
-                <WasteCatalogAutocomplete
-                  value={selectedCatalogItems}
-                  onChange={(validValues: WasteCatalog[]) => {
-                    setSelectedCatalogItems(validValues);
-                    setSelectedWasteCatalogIds(validValues.map((v) => v.id));
-                  }}
-                  required={selectedWasteCatalogIds.length === 0}
-                />
-              </Grid>
-
-              {/* Notes */}
-              <Grid size={{ xs: 12 }}>
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={3}
-                  size="small"
-                  label={t('colNotes')}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                />
-              </Grid>
-            </Grid>
-
-            {/* REMINDERS SECTION (OPTIONAL) */}
-            <Divider sx={{ my: 1 }} />
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <NotificationsActiveIcon color="warning" sx={{ fontSize: 20 }} />
-                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                  {t('tabReminders')} ({totalRemindersCount})
-                </Typography>
-              </Box>
-              {canCreateReminder && (
-                <Button
-                  size="small"
-                  variant={isAddingReminderInline ? 'outlined' : 'contained'}
-                  color={isAddingReminderInline ? 'inherit' : 'primary'}
-                  startIcon={isAddingReminderInline ? <CloseIcon sx={{ fontSize: 14 }} /> : <AddIcon sx={{ fontSize: 14 }} />}
-                  onClick={() => {
-                    const willOpen = !isAddingReminderInline;
-                    setIsAddingReminderInline(willOpen);
-                    if (willOpen) {
-                      setAddReminderMode('new');
-                      const idxStr = selectedCatalogItems.length > 0 ? selectedCatalogItems[0].code : '';
-                      setInlineReminderTitle(
-                        permitNumber.trim()
-                          ? `${t('lblPermit')}: ${permitNumber.trim()}${idxStr ? ` (${idxStr})` : ''}`
-                          : ''
-                      );
-                      setInlineReminderDueDate(endDate || '');
-                      setInlineReminderNotes('');
-                      setSelectedExistingReminderId('');
-                    }
-                  }}
-                  sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.8rem', borderRadius: 1.5 }}
-                >
-                  {isAddingReminderInline ? t('btnCancel') : t('btnAddReminder')}
-                </Button>
-              )}
-            </Box>
-
-            {/* INLINE ADD REMINDER PANEL */}
-            {isAddingReminderInline && (
-              <Box
-                sx={{
-                  p: 2,
-                  bgcolor: 'action.hover',
-                  borderRadius: 2,
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 1.5,
-                }}
-              >
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <ToggleButtonGroup
-                    size="small"
-                    value={addReminderMode}
-                    exclusive
-                    onChange={(_, val) => {
-                      if (val) setAddReminderMode(val);
-                    }}
-                    color="primary"
-                  >
-                    <ToggleButton value="new" sx={{ textTransform: 'none', fontWeight: 600, px: 1.5, py: 0.25, fontSize: '0.75rem' }}>
-                      {t('btnCreateNewReminder')}
-                    </ToggleButton>
-                    <ToggleButton value="existing" sx={{ textTransform: 'none', fontWeight: 600, px: 1.5, py: 0.25, fontSize: '0.75rem' }}>
-                      {t('btnLinkExistingReminder')}
-                    </ToggleButton>
-                  </ToggleButtonGroup>
-                </Box>
-
-                {addReminderMode === 'new' ? (
-                  <Grid container spacing={1.5}>
-                    <Grid size={{ xs: 12 }}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        label={t('lblReminderTitle')}
-                        placeholder={t('phReminderTitle')}
-                        value={inlineReminderTitle}
-                        onChange={(e) => setInlineReminderTitle(e.target.value)}
-                        required
-                        autoFocus
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        type="date"
-                        label={t('colDueDate')}
-                        slotProps={{ inputLabel: { shrink: true } }}
-                        value={inlineReminderDueDate}
-                        onChange={(e) => setInlineReminderDueDate(e.target.value)}
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        label={t('colNotes')}
-                        placeholder={t('colNotes')}
-                        value={inlineReminderNotes}
-                        onChange={(e) => setInlineReminderNotes(e.target.value)}
-                      />
-                    </Grid>
-                  </Grid>
-                ) : (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <Autocomplete
-                      size="small"
-                      options={availableExistingReminders}
-                      getOptionLabel={(option) => {
-                        const dueDatePart = option.dueDate ? ` [${formatDate(option.dueDate)}]` : '';
-                        const clientPart = option.clientName ? ` (${option.clientName})` : '';
-                        return `${option.title || option.projectName || ''}${dueDatePart}${clientPart}`;
-                      }}
-                      value={availableExistingReminders.find((r) => r.id === selectedExistingReminderId) || null}
-                      onChange={(_, newValue) => {
-                        setSelectedExistingReminderId(newValue ? newValue.id : '');
-                      }}
-                      noOptionsText={t('emptyReminders') || 'Nema dostupnih podsetnika'}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          label={t('tabReminders')}
-                          placeholder={t('phSelectExistingReminder')}
-                        />
-                      )}
-                    />
-                  </Box>
-                )}
-
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 0.5 }}>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    color="inherit"
-                    onClick={() => setIsAddingReminderInline(false)}
-                    sx={{ textTransform: 'none' }}
-                  >
-                    {t('btnCancel')}
-                  </Button>
-                  <Button
-                    size="small"
-                    variant="contained"
-                    color="primary"
-                    disabled={addReminderMode === 'new' ? !inlineReminderTitle.trim() : !selectedExistingReminderId}
-                    onClick={handleAddStagedReminder}
-                    sx={{ textTransform: 'none', fontWeight: 600 }}
-                  >
-                    {addReminderMode === 'new' ? t('btnAddReminder') : t('btnLink')}
-                  </Button>
-                </Box>
-              </Box>
-            )}
-
-            {/* REMINDERS LIST (Staged + Existing) */}
-            {totalRemindersCount === 0 ? (
-              <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
-                {t('noProjectReminders')}
-              </Typography>
-            ) : (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                {/* Staged New Reminders */}
-                {stagedNewReminders.map((rem) => (
-                  <Card
-                    key={rem.id}
-                    variant="outlined"
-                    sx={{
-                      p: 1.2,
-                      borderRadius: 2,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      bgcolor: 'action.hover',
-                      borderStyle: 'dashed',
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: 1 }}>
-                      <NotificationsActiveIcon fontSize="small" color="primary" />
-                      <Box sx={{ minWidth: 0, flex: 1 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {rem.title}
-                        </Typography>
-                        {rem.dueDate && (
-                          <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <CalendarTodayIcon sx={{ fontSize: 13 }} />
-                            {formatDate(rem.dueDate)}
-                          </Typography>
-                        )}
-                      </Box>
-                    </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Chip label={t('statusDraft') || 'Novo'} size="small" color="info" variant="outlined" sx={{ fontWeight: 600 }} />
-                      <Tooltip title={t('btnDelete')}>
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => setStagedNewReminders((prev) => prev.filter((r) => r.id !== rem.id))}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  </Card>
-                ))}
-
-                {/* Staged Linked Reminders */}
-                {stagedLinkReminderIds.map((remId) => {
-                  const rem = reminders.find((r) => r.id === remId);
-                  if (!rem) return null;
-                  return (
-                    <Card
-                      key={rem.id}
-                      variant="outlined"
-                      sx={{
-                        p: 1.2,
-                        borderRadius: 2,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        bgcolor: 'action.hover',
-                        borderStyle: 'dashed',
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: 1 }}>
-                        <LinkIcon fontSize="small" color="secondary" />
-                        <Box sx={{ minWidth: 0, flex: 1 }}>
-                          <Typography variant="body2" sx={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {rem.title || rem.projectName}
-                          </Typography>
-                          {rem.dueDate && (
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                              <CalendarTodayIcon sx={{ fontSize: 13 }} />
-                              {formatDate(rem.dueDate)}
-                            </Typography>
-                          )}
-                        </Box>
-                      </Box>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Chip label="Povezano" size="small" color="secondary" variant="outlined" sx={{ fontWeight: 600 }} />
-                        <Tooltip title={t('btnCancel')}>
-                          <IconButton
-                            size="small"
-                            color="inherit"
-                            onClick={() => setStagedLinkReminderIds((prev) => prev.filter((id) => id !== remId))}
-                          >
-                            <CloseIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                    </Card>
-                  );
-                })}
-
-                {/* Existing linked reminders if editing an existing permit */}
-                {editingPermit &&
-                  (permitRemindersMap.get(editingPermit.id) || []).map((rem) => (
-                    <Card
-                      key={rem.id}
-                      variant="outlined"
-                      sx={{
-                        p: 1.2,
-                        borderRadius: 2,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        bgcolor: 'background.paper',
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: 1 }}>
-                        <NotificationsActiveIcon fontSize="small" color="primary" />
-                        <Box sx={{ minWidth: 0, flex: 1 }}>
-                          <Typography variant="body2" sx={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {rem.title}
-                          </Typography>
-                          {rem.dueDate && (
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                              <CalendarTodayIcon sx={{ fontSize: 13 }} />
-                              {formatDate(rem.dueDate)}
-                            </Typography>
-                          )}
-                        </Box>
-                      </Box>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <Chip
-                          label={rem.status}
-                          size="small"
-                          color={rem.status === 'Completed' ? 'success' : rem.status === 'Overdue' ? 'error' : 'warning'}
-                          sx={{ fontWeight: 600 }}
-                        />
-                        {canEditReminder && (
-                          <Tooltip title={t('btnEdit')}>
-                            <IconButton size="small" color="primary" onClick={() => handleOpenEditReminder(rem)}>
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                        <Tooltip title={t('btnUnlinkReminder')}>
-                          <IconButton size="small" color="warning" onClick={() => handleUnlinkReminder(rem.id)}>
-                            <LinkOffIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        {onDeleteReminder && canDeleteReminder && (
-                          <Tooltip title={t('btnDelete')}>
-                            <IconButton size="small" color="error" onClick={() => onDeleteReminder(rem.id)}>
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </Box>
-                    </Card>
-                  ))}
-              </Box>
-            )}
-          </DialogContent>
-          <DialogActions sx={{ p: 2, flexShrink: 0, bgcolor: 'background.paper', justifyContent: 'flex-end', gap: 1 }}>
-            <Button onClick={() => setIsOpen(false)} color="inherit" sx={{ textTransform: 'none' }}>
-              {t('btnCancel')}
-            </Button>
-            <Button
-              type="submit"
-              variant="contained"
-              color="primary"
-              disabled={isSaving}
-              sx={{ fontWeight: 600, textTransform: 'none', borderRadius: 2 }}
-            >
-              {t('btnSave')}
-            </Button>
-          </DialogActions>
-        </Box>
-      </Dialog>
+        editingPermit={editingPermit}
+        clients={clients}
+        reminders={reminders}
+        canEdit={canEdit}
+        canCreate={canCreate}
+        canDelete={canDelete}
+        canCreateReminder={canCreateReminder}
+        canEditReminder={canEditReminder}
+        canDeleteReminder={canDeleteReminder}
+        onSave={handleSavePermitFromModal}
+        onDelete={onDeletePermit}
+        onOpenEditReminder={handleOpenEditReminder}
+        onUnlinkReminder={handleUnlinkReminder}
+        onDeleteReminder={onDeleteReminder}
+      />
 
       {/* QUICK ADD REMINDER FOR PERMIT DIALOG */}
       <Dialog

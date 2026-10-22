@@ -291,8 +291,8 @@ const ProjectViewModal: React.FC<Props> = ({
           },
         }}
       >
-        <DialogTitle sx={{ display: 'flex', alignItems: { xs: 'flex-start', sm: 'center' }, justifyContent: 'space-between', flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5, pb: 1 }}>
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+        <DialogTitle component="div" sx={{ display: 'flex', alignItems: { xs: 'flex-start', sm: 'center' }, justifyContent: 'space-between', flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5, pb: 1 }}>
+          <Typography variant="h6" component="h2" sx={{ fontWeight: 700 }}>
             {t('modalViewProject')}
           </Typography>
 

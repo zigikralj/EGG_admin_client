@@ -197,8 +197,8 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
         },
       }}
     >
-      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>
+      <DialogTitle component="div" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
+        <Typography variant="h6" component="h2" sx={{ fontWeight: 700 }}>
           {t('userPreferencesTitle')}
         </Typography>
         <IconButton size="small" onClick={onClose}>

@@ -67,7 +67,7 @@ export const LoadingProvider: React.FC<{ children: React.ReactNode }> = ({ child
           .filter((m) => !m.options.meta?.silent && m.options.mutationKey?.[0] !== 'preferences' && m.state.status === 'pending')
           .map((m) => m.options.mutationKey);
         if (fetchingQueries.length > 0 || activeMutations.length > 0 || manualCount > 0) {
-          console.warn('[LoadingMask Triggered]', { manualCount, fetchingQueries, activeMutations });
+          console.debug('[LoadingMask Triggered]', { manualCount, fetchingQueries, activeMutations });
         }
       }
       if (hideTimerRef.current) {

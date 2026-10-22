@@ -313,9 +313,11 @@ export const ProjectUpdatesPanel: React.FC<ProjectUpdatesPanelProps> = ({
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Tooltip title={t('btnRefresh') || 'Osveži'}>
-              <IconButton size="small" onClick={() => refetch()} disabled={isFetching} color="primary">
-                <RefreshIcon fontSize="small" sx={{ animation: isFetching ? 'spin 1s linear infinite' : 'none' }} />
-              </IconButton>
+              <span>
+                <IconButton size="small" onClick={() => refetch()} disabled={isFetching} color="primary">
+                  <RefreshIcon fontSize="small" sx={{ animation: isFetching ? 'spin 1s linear infinite' : 'none' }} />
+                </IconButton>
+              </span>
             </Tooltip>
           </Box>
         </Box>
@@ -553,6 +555,8 @@ export const ProjectUpdatesPanel: React.FC<ProjectUpdatesPanelProps> = ({
                     display: 'flex',
                     flexDirection: 'column',
                     borderRadius: 2.5,
+                    overflow: 'visible',
+                    position: 'relative',
                     borderColor: late
                       ? 'error.main'
                       : nearDeadline
@@ -569,6 +573,7 @@ export const ProjectUpdatesPanel: React.FC<ProjectUpdatesPanelProps> = ({
                       : '#ffffff',
                     transition: 'all 0.2s ease-in-out',
                     '&:hover': {
+                      zIndex: 10,
                       borderColor: 'primary.main',
                       boxShadow: isDark
                         ? '0 6px 24px rgba(0, 0, 0, 0.4)'

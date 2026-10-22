@@ -15,6 +15,12 @@ import { apiFetch } from '../../api';
 import { API_ROUTES } from '../../constants';
 import type { WasteCatalog, WasteCatalogResponse } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
+import {
+  loadCatalogFromDB,
+  syncWasteCatalog,
+  upsertCatalogItemInDB,
+  getMemoryCachedCatalog,
+} from '../../utils/wasteCatalogStorage';
 
 export interface WasteCatalogAutocompleteProps {
   value: WasteCatalog[] | WasteCatalog | string[] | string | null;
@@ -32,7 +38,7 @@ export interface WasteCatalogAutocompleteProps {
 
 const EMPTY_ARRAY: WasteCatalog[] = [];
 
-export const WasteCatalogAutocomplete: React.FC<WasteCatalogAutocompleteProps> = ({
+export const WasteCatalogAutocomplete: React.FC<WasteCatalogAutocompleteProps> = React.memo(({
   value,
   onChange,
   multiple = true,
@@ -47,14 +53,64 @@ export const WasteCatalogAutocomplete: React.FC<WasteCatalogAutocompleteProps> =
 }) => {
   const { t } = useLanguage();
 
-  const [catalogOptions, setCatalogOptions] = useState<WasteCatalog[]>([]);
+  const [cachedCatalog, setCachedCatalog] = useState<WasteCatalog[]>(() => getMemoryCachedCatalog() || []);
+  const [remoteOptions, setRemoteOptions] = useState<WasteCatalog[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogLoadingMore, setCatalogLoadingMore] = useState(false);
   const [catalogPage, setCatalogPage] = useState(1);
-  const [catalogHasMore, setCatalogHasMore] = useState(true);
+  const [remoteHasMore, setRemoteHasMore] = useState(true);
   const [catalogSearchTerm, setCatalogSearchTerm] = useState('');
   const [catalogInputValue, setCatalogInputValue] = useState('');
   const [isOpen, setIsOpen] = useState(false);
+
+  // Load from local IndexedDB & sync in background
+  useEffect(() => {
+    let isMounted = true;
+    loadCatalogFromDB().then(({ items }) => {
+      if (isMounted && items.length > 0) {
+        setCachedCatalog(items);
+      }
+    });
+
+    syncWasteCatalog()
+      .then((items) => {
+        if (isMounted && items.length > 0) {
+          setCachedCatalog(items);
+        }
+      })
+      .catch(() => {});
+
+    const handleUpdated = () => {
+      loadCatalogFromDB().then(({ items }) => {
+        if (isMounted && items.length > 0) {
+          setCachedCatalog(items);
+        }
+      });
+    };
+    window.addEventListener('ekos:waste-catalog-updated', handleUpdated);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('ekos:waste-catalog-updated', handleUpdated);
+    };
+  }, []);
+
+  const isLocalMode = cachedCatalog.length >= 50;
+  const catalogHasMore = isLocalMode ? false : remoteHasMore;
+
+  const catalogOptions = useMemo(() => {
+    if (!isLocalMode) return remoteOptions;
+    const term = catalogSearchTerm.trim().toLowerCase();
+    if (!term) return cachedCatalog.slice(0, 100);
+    return cachedCatalog
+      .filter(
+        (item) =>
+          item.code.toLowerCase().includes(term) ||
+          item.description.toLowerCase().includes(term) ||
+          (item.hazardListMark && item.hazardListMark.toLowerCase().includes(term))
+      )
+      .slice(0, 100);
+  }, [isLocalMode, cachedCatalog, catalogSearchTerm, remoteOptions]);
 
   const fetchCatalogPage = useCallback(
     async (pageToFetch: number, search: string, isAppend = false) => {
@@ -75,14 +131,14 @@ export const WasteCatalogAutocomplete: React.FC<WasteCatalogAutocompleteProps> =
         if (res.ok) {
           const data: WasteCatalogResponse = await res.json();
           const items = data.items || [];
-          setCatalogOptions((prev) => {
+          setRemoteOptions((prev) => {
             if (!isAppend) return items;
             const existingIds = new Set(prev.map((it) => it.id));
             const newItems = items.filter((it) => !existingIds.has(it.id));
             return [...prev, ...newItems];
           });
           setCatalogPage(data.page || pageToFetch);
-          setCatalogHasMore(Boolean(data.hasMore));
+          setRemoteHasMore(Boolean(data.hasMore));
         }
       } catch (err) {
         console.error('Error fetching waste catalog page:', err);
@@ -95,11 +151,12 @@ export const WasteCatalogAutocomplete: React.FC<WasteCatalogAutocompleteProps> =
   );
 
   useEffect(() => {
+    if (isLocalMode) return;
     const timer = setTimeout(() => {
       fetchCatalogPage(1, catalogSearchTerm, false);
     }, 250);
     return () => clearTimeout(timer);
-  }, [catalogSearchTerm, fetchCatalogPage]);
+  }, [isLocalMode, catalogSearchTerm, fetchCatalogPage]);
 
   // Normalize value to WasteCatalog[] for multiple or WasteCatalog | null for single
   const normalizedValue = useMemo(() => {
@@ -172,15 +229,16 @@ export const WasteCatalogAutocomplete: React.FC<WasteCatalogAutocompleteProps> =
     ).length;
   }, [catalogOptions, normalizedValue, multiple]);
 
-  // Auto-fetch next page when dropdown is open and all loaded options have been selected
+  // Auto-fetch next page when dropdown is open and all loaded options have been selected (remote mode only)
   useEffect(() => {
-    if (!isOpen) return;
+    if (isLocalMode || !isOpen) return;
     if (!catalogHasMore || catalogLoading || catalogLoadingMore) return;
 
     if (unselectedOptionsCount === 0 && catalogOptions.length > 0) {
       fetchCatalogPage(catalogPage + 1, catalogSearchTerm, true);
     }
   }, [
+    isLocalMode,
     isOpen,
     catalogHasMore,
     catalogLoading,
@@ -237,9 +295,13 @@ export const WasteCatalogAutocomplete: React.FC<WasteCatalogAutocompleteProps> =
       });
       if (res.ok) {
         const updated: WasteCatalog = await res.json();
-        setCatalogOptions((prev) =>
+        setRemoteOptions((prev) =>
           prev.map((it) => (it.id === updated.id ? updated : it))
         );
+        setCachedCatalog((prev) =>
+          prev.map((it) => (it.id === updated.id ? updated : it))
+        );
+        await upsertCatalogItemInDB(updated);
         if (multiple && Array.isArray(normalizedValue)) {
           if (normalizedValue.some((v) => v.id === updated.id)) {
             onChange(
@@ -328,7 +390,7 @@ export const WasteCatalogAutocomplete: React.FC<WasteCatalogAutocompleteProps> =
               listboxNode.scrollTop + listboxNode.clientHeight >=
               listboxNode.scrollHeight - 40
             ) {
-              if (!catalogLoading && !catalogLoadingMore && catalogHasMore) {
+              if (!isLocalMode && !catalogLoading && !catalogLoadingMore && catalogHasMore) {
                 fetchCatalogPage(catalogPage + 1, catalogSearchTerm, true);
               }
             }
@@ -535,4 +597,6 @@ export const WasteCatalogAutocomplete: React.FC<WasteCatalogAutocompleteProps> =
       }}
     />
   );
-};
+});
+
+WasteCatalogAutocomplete.displayName = 'WasteCatalogAutocomplete';

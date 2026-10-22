@@ -655,33 +655,33 @@ const RemindersPage: React.FC<Props> = ({
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
               {t('remindersAllTitle', { count: sortedReminders.length })}
             </Typography>
-            {true && (
               <Tooltip title={t('btnRefresh')}>
-                <IconButton
-                  size="small"
-                  onClick={handleRefresh}
-                  disabled={isRefreshing}
-                  color="primary"
-                  sx={{
-                    border: 1,
-                    borderColor: 'divider',
-                    borderRadius: 2,
-                    p: 0.7,
-                  }}
-                >
-                  <RefreshIcon
-                    fontSize="small"
+                <span>
+                  <IconButton
+                    size="small"
+                    onClick={handleRefresh}
+                    disabled={isRefreshing}
+                    color="primary"
                     sx={{
-                      animation: isRefreshing ? 'spin 1s linear infinite' : undefined,
-                      '@keyframes spin': {
-                        '0%': { transform: 'rotate(0deg)' },
-                        '100%': { transform: 'rotate(360deg)' },
-                      },
+                      border: 1,
+                      borderColor: 'divider',
+                      borderRadius: 2,
+                      p: 0.7,
                     }}
-                  />
-                </IconButton>
+                  >
+                    <RefreshIcon
+                      fontSize="small"
+                      sx={{
+                        animation: isRefreshing ? 'spin 1s linear infinite' : undefined,
+                        '@keyframes spin': {
+                          '0%': { transform: 'rotate(0deg)' },
+                          '100%': { transform: 'rotate(360deg)' },
+                        },
+                      }}
+                    />
+                  </IconButton>
+                </span>
               </Tooltip>
-            )}
           </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, width: { xs: '100%', sm: 'auto' } }}>
