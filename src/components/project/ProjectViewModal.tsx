@@ -25,6 +25,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { ErrorDialog } from '../dialogs/ErrorDialog';
 import { TipTapEditor } from '../common/tiptap/TipTapEditor';
+import { stripHtmlToText } from '../common/RichTextEditor';
 import { ProjectProgressSlider } from './ProjectProgressSlider';
 import { ProjectReminderSection } from './ProjectReminderSection';
 import { ProjectInvoiceSection } from './ProjectInvoiceSection';
@@ -706,7 +707,7 @@ const ProjectViewModal: React.FC<Props> = ({
                     }}
                   >
                     {updatesDiff?.notesDiff?.diff?.map((token: any, i: number) => {
-                      const text = token.text.replace(/<[^>]*>/g, '');
+                      const text = stripHtmlToText(token.text);
                       if (!text) return null;
                       if (token.op === 'insert') {
                         return (

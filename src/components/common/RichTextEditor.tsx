@@ -90,16 +90,17 @@ export const DOMPURIFY_CONFIG = {
 /**
  * Strips Microsoft Word and Office specific metadata, XML blocks, conditional comments,
  * and style tags to prevent raw XML and style definitions from polluting notes.
+ * Uses a robust HTML parser (DOMPurify) rather than vulnerable regexes.
  */
 export function cleanWordHtml(html: string): string {
   if (!html) return '';
-  return html
-    .replace(/<!--\[if[\s\S]*?<!\[endif\]-->/gi, '')
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/<xml[\s\S]*?<\/xml>/gi, '')
-    .replace(/<style[\s\S]*?<\/style>/gi, '')
-    .replace(/<script[\s\S]*?<\/script>/gi, '')
-    .replace(/<(meta|link|title)[\s\S]*?\/?>/gi, '');
+  return DOMPurify.sanitize(html, {
+    FORBID_TAGS: ['style', 'script', 'xml', 'meta', 'link', 'title'],
+    FORBID_CONTENTS: ['style', 'script', 'xml', 'meta', 'link', 'title'],
+    ADD_TAGS: ['span'],
+    ADD_ATTR: ['contenteditable', 'data-user-id', 'data-user-name', 'target', 'style', 'color'],
+    ALLOW_DATA_ATTR: true,
+  }) as string;
 }
 
 export function sanitizeHtml(html: string): string {
@@ -142,8 +143,12 @@ export function htmlToPlainText(html: string): string {
       .replace(/[\u00a0\u200B\uFEFF]/g, ' ');
     return text.replace(/\n{3,}/g, '\n\n').trim();
   } catch {
-    return sanitizedHtml
-      .replace(/<[^>]*>/g, ' ')
+    const fallbackText = DOMPurify.sanitize(sanitizedHtml, {
+      ALLOWED_TAGS: [],
+      FORBID_TAGS: ['style', 'script', 'xml', 'meta', 'link', 'title'],
+      FORBID_CONTENTS: ['style', 'script', 'xml', 'meta', 'link', 'title'],
+    }) as string;
+    return fallbackText
       .replace(/&(?:nbsp|#160|#xa0);/gi, ' ')
       .replace(/[\u00a0\u200B\uFEFF]/g, ' ')
       .replace(/\s+/g, ' ')
@@ -177,7 +182,11 @@ export function stripHtmlToText(html: string): string {
 
     text = doc.body.textContent || '';
   } catch {
-    text = preCleaned.replace(/<[^>]*>?/gm, ' ');
+    text = DOMPurify.sanitize(preCleaned, {
+      ALLOWED_TAGS: [],
+      FORBID_TAGS: ['style', 'script', 'xml', 'meta', 'link', 'title'],
+      FORBID_CONTENTS: ['style', 'script', 'xml', 'meta', 'link', 'title'],
+    }) as string;
   }
 
   return text

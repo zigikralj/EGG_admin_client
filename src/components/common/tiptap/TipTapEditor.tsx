@@ -13,6 +13,8 @@ import { createMentionExtension } from './mentionExtension';
 import { useLanguage } from '../../../context/LanguageContext';
 import type { User } from '../../../types';
 
+import { cleanWordHtml } from '../RichTextEditor';
+
 export interface TipTapEditorProps {
   value: string;
   onChange?: (html: string) => void;
@@ -79,13 +81,9 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = ({
     ],
     editorProps: {
       transformPastedHTML(html) {
-        // Strip MS Word/Outlook conditional comments, XML, style blocks and invisible non-breaking spaces
-        return html
-          .replace(/<!--\[if[\s\S]*?<!\[endif\]-->/gi, '')
-          .replace(/<!--[\s\S]*?-->/g, '')
-          .replace(/<xml[\s\S]*?<\/xml>/gi, '')
-          .replace(/<style[\s\S]*?<\/style>/gi, '')
-          .replace(/<script[\s\S]*?<\/script>/gi, '')
+        // Strip MS Word/Outlook conditional comments, XML, style blocks and invisible non-breaking spaces via robust parser
+        const cleaned = cleanWordHtml(html);
+        return cleaned
           .replace(/&(?:nbsp|#160|#xa0);/gi, ' ')
           .replace(/[\u00a0\u200B\uFEFF]/g, ' ');
       },
