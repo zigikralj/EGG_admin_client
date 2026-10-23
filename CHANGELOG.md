@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.10.2] - 2026-10-23
+
+- Delta compression (#87) by @zigikralj
+
 ## [Unreleased]
 
 - feat: integrate TipTap 3 rich text editor suite with formatting toolbar, tables extension, team @mentions, and DOMPurify sanitization.
