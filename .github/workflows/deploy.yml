@@ -4,8 +4,6 @@ on:
   push:
     branches: ["main"]
     tags: ["v*"]
-  pull_request:
-    branches: ["main"]
   workflow_dispatch:
     inputs:
       version:
@@ -24,6 +22,14 @@ concurrency:
 
 jobs:
   build:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.ref, 'refs/tags/v') ||
+      (github.event_name == 'push' && (
+        startsWith(github.event.head_commit.message, 'chore') ||
+        contains(github.event.head_commit.message, 'chore(release)') ||
+        contains(github.event.head_commit.message, 'release/v')
+      ))
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -44,13 +50,25 @@ jobs:
         id: pages
         uses: actions/configure-pages@v5
 
+      - name: Determine App Version
+        id: version
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            echo "app_version=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "app_version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          else
+            PKG_VERSION=$(node -p "require('./package.json').version")
+            echo "app_version=v${PKG_VERSION}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Build project
         run: npm run build
         env:
           VITE_BASE_PATH: ${{ steps.pages.outputs.base_path }}
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || secrets.VITE_API_BASE_URL }}
           VITE_COMMIT_SHA: ${{ github.sha }}
-          VITE_APP_VERSION: ${{ inputs.version || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || '' }}
+          VITE_APP_VERSION: ${{ steps.version.outputs.app_version }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

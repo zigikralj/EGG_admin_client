@@ -279,14 +279,3 @@ jobs:
           gh release create "v${{ steps.determine_bump.outputs.release_version }}" \
             --title "v${{ steps.determine_bump.outputs.release_version }}" \
             --generate-notes
-
-      - name: Trigger Deployment
-        if: steps.determine_bump.outputs.is_release_pr == 'true'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TARGET_BRANCH="${{ github.event.pull_request.base.ref || github.ref_name }}"
-          echo "Triggering deployment workflow for v${{ steps.determine_bump.outputs.release_version }} on ${TARGET_BRANCH}..."
-          gh workflow run deploy.yml --ref "${TARGET_BRANCH}" -f version="v${{ steps.determine_bump.outputs.release_version }}" || \
-          gh workflow run deploy.yml --ref "${TARGET_BRANCH}" || \
-          echo "Deployment workflow dispatch completed or skipped."
