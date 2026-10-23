@@ -183,6 +183,10 @@ test.describe('Project Notes & TipTap Editor', () => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
     });
 
+    await page.route('**/api/projects/stats', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+    });
+
     await page.route('**/api/notifications', async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });

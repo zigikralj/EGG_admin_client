@@ -111,6 +111,7 @@ const DashboardView: React.FC<Props> = ({
   const isRemindersRestricted = isRestrictedToOwn('reminders') || isRestrictedToOwn('tracker_reminders');
   const { withLoading } = useLoading();
   const canViewWasteDisposal = hasPermission('wasteDisposal', 'view');
+  const canViewUpdates = hasPermission('tracker_updates', 'view');
 
   const { data: projects = [], refetch: refetchProjects, isRefetching: isRefetchingProjects } = useProjectsQuery();
   const { data: clients = [] } = useClientsQuery();
@@ -696,7 +697,7 @@ const DashboardView: React.FC<Props> = ({
       )}
 
       {/* PROJECT UPDATES SUBTAB VIEW */}
-      {dashboardSubTab === 'updates' && (
+      {dashboardSubTab === 'updates' && canViewUpdates && (
         <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
           <ProjectUpdatesPanel
             onOpenProjectDiff={(proj, r) => {

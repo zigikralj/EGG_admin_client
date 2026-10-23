@@ -56,6 +56,7 @@ const APPS: AppDefinition[] = [
     icon: <DashboardIcon fontSize="small" />,
     resources: [
       { id: 'tracker_projects', label: 'Projects (Dashboard)' },
+      { id: 'tracker_updates', label: 'Project Updates' },
       { id: 'tracker_reminders', label: 'Reminders' },
       { id: 'tracker_invoices', label: 'Invoices' },
       { id: 'wasteDisposal', label: 'Waste Disposal' },
@@ -149,6 +150,7 @@ export const RoleModal: React.FC<RoleModalProps> = ({
   const getResourceLabel = (res: AppResource) => {
     switch (res.id) {
       case 'tracker_projects': return `${t('tabProjects')} (Dashboard)`;
+      case 'tracker_updates': return t('subTabUpdates');
       case 'tracker_reminders': return t('tabReminders');
       case 'tracker_invoices': return t('tabInvoices');
       case 'wasteDisposal': return t('subTabWasteDisposal');

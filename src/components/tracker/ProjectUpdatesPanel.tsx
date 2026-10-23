@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Box,
@@ -24,6 +24,7 @@ import {
 } from '@mui/material';
 import type { Project, ProjectUpdateSummary } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
 import { useProjectUpdatesQuery, useUsersQuery, useAuthHeaders } from '../../queries';
 import { apiFetch } from '../../api';
 import { API_ROUTES } from '../../constants';
@@ -113,6 +114,8 @@ export const ProjectUpdatesPanel: React.FC<ProjectUpdatesPanelProps> = ({
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const { data: users = [] } = useUsersQuery();
+  const { currentUser, isRestrictedToOwn, canEditProject } = useAuth();
+  const isRestricted = isRestrictedToOwn('tracker_updates') || isRestrictedToOwn('tracker_projects') || isRestrictedToOwn('projects');
 
   // Helper date calculations
   const calculatePresetRange = (preset: DatePreset): { dateFrom: string; dateTo: string } => {
@@ -160,7 +163,13 @@ export const ProjectUpdatesPanel: React.FC<ProjectUpdatesPanelProps> = ({
   const [customFrom, setCustomFrom] = useState<string>(() => range.dateFrom.slice(0, 16));
   const [customTo, setCustomTo] = useState<string>(() => range.dateTo.slice(0, 16));
   const [search, setSearch] = useState<string>('');
-  const [responsibleId, setResponsibleId] = useState<string>('');
+  const [responsibleId, setResponsibleId] = useState<string>(() => (isRestricted && currentUser?.id ? currentUser.id : ''));
+
+  useEffect(() => {
+    if (isRestricted && currentUser?.id && !responsibleId) {
+      setResponsibleId(currentUser.id);
+    }
+  }, [isRestricted, currentUser?.id, responsibleId]);
 
   // Fetch updates
   const {
@@ -434,19 +443,22 @@ export const ProjectUpdatesPanel: React.FC<ProjectUpdatesPanelProps> = ({
             sx={{ minWidth: 260, flexGrow: 1 }}
           />
 
-          <FormControl size="small" sx={{ minWidth: 200 }}>
+          <FormControl size="small" sx={{ minWidth: 200 }} disabled={isRestricted}>
             <InputLabel>{t('lblResponsiblePerson') || 'Odgovorno lice'}</InputLabel>
             <Select
-              value={responsibleId}
+              value={isRestricted && currentUser?.id ? currentUser.id : responsibleId}
               label={t('lblResponsiblePerson') || 'Odgovorno lice'}
               onChange={(e) => setResponsibleId(e.target.value)}
+              disabled={isRestricted}
             >
-              <MenuItem value="">{t('allUsers') || 'Svi korisnici'}</MenuItem>
-              {users.map((u) => (
-                <MenuItem key={u.id} value={u.id}>
-                  {u.name}
-                </MenuItem>
-              ))}
+              {!isRestricted && <MenuItem value="">{t('allUsers') || 'Svi korisnici'}</MenuItem>}
+              {users
+                .filter((u) => !isRestricted || u.id === currentUser?.id || (currentUser?.name && u.name === currentUser.name))
+                .map((u) => (
+                  <MenuItem key={u.id} value={u.id}>
+                    {u.name}
+                  </MenuItem>
+                ))}
             </Select>
           </FormControl>
         </Box>
@@ -631,31 +643,34 @@ export const ProjectUpdatesPanel: React.FC<ProjectUpdatesPanelProps> = ({
                           </IconButton>
                         </Tooltip>
                         {onEditProject && (
-                          <Tooltip title={t('btnEdit')}>
-                            <IconButton
-                              size="small"
-                              onClick={() => {
-                                const proj: Project = {
-                                  id: item.id,
-                                  name: item.name,
-                                  clientId: item.clientId,
-                                  clientName: item.clientName || '',
-                                  responsible: item.responsible ?? null,
-                                  type: item.type,
-                                  start: item.start ?? null,
-                                  deadline: item.deadline ?? null,
-                                  progress: item.progress,
-                                  done: item.done,
-                                  notesPreview: item.notesPreview,
-                                };
-                                onEditProject(proj);
-                              }}
-                              color="default"
-                              sx={{ p: 0.5 }}
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
+                          (() => {
+                            const proj: Project = {
+                              id: item.id,
+                              name: item.name,
+                              clientId: item.clientId,
+                              clientName: item.clientName || '',
+                              responsible: item.responsible ?? null,
+                              type: item.type,
+                              start: item.start ?? null,
+                              deadline: item.deadline ?? null,
+                              progress: item.progress,
+                              done: item.done,
+                              notesPreview: item.notesPreview,
+                            };
+                            if (!canEditProject(proj)) return null;
+                            return (
+                              <Tooltip title={t('btnEdit')}>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => onEditProject(proj)}
+                                  color="default"
+                                  sx={{ p: 0.5 }}
+                                >
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            );
+                          })()
                         )}
                       </Box>
                     </Box>
