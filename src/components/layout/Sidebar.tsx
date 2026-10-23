@@ -115,6 +115,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 
                 if (hasPermission('tracker_projects', 'view')) {
                   dashboardItems.push({ id: 'projects', label: t('subTabProjects'), icon: <FolderIcon fontSize="small" />, show: true });
+                }
+                if (hasPermission('tracker_updates', 'view')) {
                   dashboardItems.push({ id: 'updates', label: t('subTabUpdates'), icon: <UpdateIcon fontSize="small" />, show: true });
                 }
                 if (hasPermission('tracker_reminders', 'view')) {

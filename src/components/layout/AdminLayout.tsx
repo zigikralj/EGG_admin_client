@@ -103,7 +103,8 @@ export const AdminLayout: React.FC<Props> = ({
       
       // Map project-tracker pages to their respective role resource IDs
       if (appName === 'project-tracker') {
-        if (page === 'projects' || page === 'updates') resource = 'tracker_projects';
+        if (page === 'projects') resource = 'tracker_projects';
+        if (page === 'updates') resource = 'tracker_updates';
         if (page === 'reminders') resource = 'tracker_reminders';
         if (page === 'invoices') resource = 'tracker_invoices';
         if (page === 'statistic') resource = 'statistics';
@@ -124,7 +125,7 @@ export const AdminLayout: React.FC<Props> = ({
         } else if (appName === 'project-tracker') {
           const trackerSubTabs = [
             { path: '/project-tracker/projects', resource: 'tracker_projects' },
-            { path: '/project-tracker/updates', resource: 'tracker_projects' },
+            { path: '/project-tracker/updates', resource: 'tracker_updates' },
             { path: '/project-tracker/invoices', resource: 'tracker_invoices' },
             { path: '/project-tracker/reminders', resource: 'tracker_reminders' },
             { path: '/project-tracker/waste-disposal', resource: 'wasteDisposal' },

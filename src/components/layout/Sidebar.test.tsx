@@ -73,6 +73,7 @@ describe('Sidebar', () => {
     renderComponent([]);
     
     expect(screen.getAllByText('subTabProjects').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('subTabUpdates').length).toBeGreaterThan(0);
     expect(screen.getAllByText('subTabReminders').length).toBeGreaterThan(0);
     expect(screen.getAllByText('tabInvoices').length).toBeGreaterThan(0);
     expect(screen.getAllByText('subTabWasteDisposal').length).toBeGreaterThan(0);
@@ -82,12 +83,13 @@ describe('Sidebar', () => {
   it('hides sub tabs when permission is lacking', () => {
     (useLocation as any).mockReturnValue({ pathname: '/project-tracker' });
     mockHasPermission.mockImplementation((resource) => {
-      if (resource === 'tracker_invoices') return false;
+      if (resource === 'tracker_invoices' || resource === 'tracker_updates') return false;
       return true;
     });
 
     renderComponent([]);
 
     expect(screen.queryAllByText('tabInvoices').length).toBe(0);
+    expect(screen.queryAllByText('subTabUpdates').length).toBe(0);
   });
 });
