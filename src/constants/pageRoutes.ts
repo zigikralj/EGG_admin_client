@@ -7,6 +7,7 @@ export const PAGE_ROUTES = {
   LOGIN: '/login',
   PROJECT_TRACKER: '/project-tracker',
   PROJECT_TRACKER_PROJECTS: '/project-tracker/projects',
+  PROJECT_TRACKER_UPDATES: '/project-tracker/updates',
   PROJECT_TRACKER_INVOICES: '/project-tracker/invoices',
   PROJECT_TRACKER_REMINDERS: '/project-tracker/reminders',
   PROJECT_TRACKER_WASTE: '/project-tracker/waste-disposal',

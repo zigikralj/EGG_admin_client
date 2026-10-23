@@ -112,18 +112,33 @@ export const CustomDataModelModal: React.FC<Props> = ({
   const serviceTitle = service ? (service.name || getServiceLabel(service.code)) : '';
 
   return (
-    <Dialog open={isOpen} onClose={onClose} maxWidth="md" fullWidth>
-      <form onSubmit={handleSubmit}>
-        <DialogTitle sx={{ pb: 1 }}>
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>
-            {t('modalCustomDataModelTitle')}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {serviceTitle ? `${t('modalCustomDataModelDesc')}: ${serviceTitle}` : t('modalCustomDataModelDesc')}
-          </Typography>
-        </DialogTitle>
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
+      slotProps={{
+        paper: {
+          component: 'form',
+          onSubmit: handleSubmit,
+          sx: {
+            maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
+            display: 'flex',
+            flexDirection: 'column',
+          },
+        },
+      }}
+    >
+      <DialogTitle component="div" sx={{ pb: 1, flexShrink: 0 }}>
+        <Typography variant="h6" sx={{ fontWeight: 700 }}>
+          {t('modalCustomDataModelTitle')}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {serviceTitle ? `${t('modalCustomDataModelDesc')}: ${serviceTitle}` : t('modalCustomDataModelDesc')}
+        </Typography>
+      </DialogTitle>
 
-        <DialogContent dividers sx={{ p: 2.5 }}>
+      <DialogContent dividers sx={{ p: 2.5, flex: 1, overflowY: 'auto' }}>
           {error && (
             <Box sx={{ mb: 2, p: 1.5, bgcolor: 'error.main', color: 'error.contrastText', borderRadius: 1 }}>
               <Typography variant="body2">{error}</Typography>
@@ -343,7 +358,7 @@ export const CustomDataModelModal: React.FC<Props> = ({
           )}
         </DialogContent>
 
-        <DialogActions sx={{ p: 2 }}>
+        <DialogActions sx={{ p: 2, flexShrink: 0 }}>
           <Button onClick={onClose} variant="outlined" disabled={isSaving}>
             {t('btnCancel')}
           </Button>
@@ -351,7 +366,6 @@ export const CustomDataModelModal: React.FC<Props> = ({
             {isSaving ? '...' : t('btnSave')}
           </Button>
         </DialogActions>
-      </form>
     </Dialog>
   );
 };

@@ -10,20 +10,22 @@
 |---|---|---|
 | **Runtime** | React | 19.2.x |
 | **Language** | TypeScript | 6.0.x |
-| **Build Tool** | Vite | 8.2.x |
+| **Build Tool** | Vite | 8.3.x |
 | **UI Framework** | Material UI (MUI) | 9.3.x |
 | **CSS-in-JS** | Emotion | 11.14.x |
 | **Charts** | MUI X Charts | 9.11.x |
+| **Rich Text Editor** | TipTap (`@tiptap/react`, `@tiptap/starter-kit`, `@tiptap/extension-mention`, `@tiptap/extension-table`) | 3.20.x |
+| **HTML Sanitizer** | DOMPurify | 3.3.x |
+| **Offline Storage** | IndexedDB (`ekos_project_tracker_db`) + `BroadcastChannel` | Native Web APIs |
+| **State & Caching** | TanStack React Query + Delta Sync Engine | 5.102.x |
 | **Linting** | oxlint | 1.75.x |
 | **Deployment** | GitHub Pages (gh-pages) | 6.3.x |
-
 | **Routing** | React Router DOM | 7.18.x |
-| **Data Fetching** | TanStack React Query | 5.102.x |
 | **E2E Testing** | Playwright | 1.64.x |
 | **Unit Testing** | Vitest + Testing Library | 5.0.x / 16.3.x |
 | **API Mocking** | MSW (Mock Service Worker) | 2.15.x |
 
-Navigation is managed via **React Router DOM** with dynamic basename support (`getRouterBasename()`) for GitHub Pages and custom domain deployments.
+Navigation is managed via **React Router DOM** with dynamic basename support (`getRouterBasename()`) for GitHub Pages and custom domain deployments. Centralized page routes are defined in [`src/constants/pageRoutes.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/002_EkosGreenGroup/project_tracker/client/src/constants/pageRoutes.ts).
 
 ---
 
@@ -37,7 +39,7 @@ index.html
               └── BrowserRouter (basename={getRouterBasename()})
                     └── <App />
               ├── LanguageProvider        (i18n)
-              │   └── AuthProvider        (auth + RBAC)
+              │   └── AuthProvider        (auth + dynamic RBAC)
               │       └── NotificationProvider (notifications)
               │           └── CustomThemeProvider (MUI theme)
               │               └── <MainApp />   (the actual app)
@@ -56,56 +58,55 @@ index.html
 
 ### 3.1 `MainApp` — The Root Orchestrator
 
-[`App.tsx`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/App.tsx) is the central orchestrator (~640 lines) that:
-- Composes all domain hooks (`useProjects`, `useClients`, etc.)
-- Manages global UI state (active tab, modals, confirm dialogs)
-- Wires data fetching via `useAppData`
-- Renders the active view via React Router `<Routes>` and `<Route>`
+[`App.tsx`](file:///Users/nemanja.stanojevic/Documents/zigicode/002_EkosGreenGroup/project_tracker/client/src/App.tsx) is the central orchestrator that:
+- Coordinates declarative query and mutation hooks from [`src/queries/index.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/002_EkosGreenGroup/project_tracker/client/src/queries/index.ts)
+- Manages global UI state (modals, delete confirmation dialogs, global loading mask)
+- Renders active views via React Router `<Routes>` and `<Route>` using `PAGE_ROUTES`
 - Handles project modal lifecycle (create/edit/view)
 
-### 3.2 Data Flow
+### 3.2 Declarative Data Flow (TanStack React Query)
 
 ```mermaid
 graph TD
-    A["App.tsx<br/>(Root Orchestrator)"] --> B["Domain Hooks<br/>(useProjects, useClients...)"]
-    A --> C["useAppData<br/>(Fetch Orchestration)"]
-    B -->|"expose setters"| C
-    C -->|"populate state"| B
-    A -->|"fetchersRef"| D["Stable Fetcher Proxy<br/>(breaks circular dep)"]
-    D -->|"delegates to"| C
-    B -->|"calls fetchers via"| D
-    A -->|"props"| E["Page Components<br/>(ProjectsPage, ClientsPage...)"]
-    E -->|"CRUD callbacks"| B
+    A["App.tsx & View Pages"] -->|"queries (useProjectsQuery, etc.)"| B["TanStack React Query Cache"]
+    B -->|"cached state & background refetch"| A
+    A -->|"mutations (useProjectMutations, etc.)"| C["API Mutation Handlers"]
+    C -->|"apiFetch()"| D["REST API Server"]
+    D -->|"200/201 response"| C
+    C -->|"invalidateQueries()"| B
+    B -->|"auto-refetches fresh data"| A
 ```
 
-**Key pattern — `fetchersRef`:** Domain hooks need to call `fetchProjects()`, `fetchStats()`, etc. after mutations. But those functions come from `useAppData`, which needs the domain hooks' setters. The `fetchersRef` (a `useRef`) is a stable proxy object created once via `useMemo`, whose methods always delegate to the current ref value. This cleanly breaks the circular dependency.
+- **Query Isolation:** Each entity domain (`projects`, `clients`, `invoices`, `permits`, `reminders`, `preferences`, etc.) has dedicated query and mutation hooks in `src/queries/index.ts`.
+- **Automatic Cache Invalidation:** Mutations trigger query key invalidation (`queryClient.invalidateQueries({ queryKey: [...] })`), ensuring views update automatically without manual state prop-drilling or circular dependency ref patterns.
+- **Optimistic Updates:** User preferences (column visibility, theme mode, language, rows-per-page) are updated optimistically in the React Query cache before server persistence.
 
 ### 3.3 State Management
 
-No external state library — the app uses React's built-in primitives:
-
 | Mechanism | Usage |
 |---|---|
-| `useState` | All domain data, UI state, form state |
-| `useContext` | Auth, Language, Theme, Notifications (4 contexts) |
-| `useRef` | `fetchersRef` (circular dep breaker), dedup guards |
-| `useMemo` | Derived stats, stable objects, expensive computations |
-| `useCallback` | All event handlers and API functions |
-| `localStorage` | Auth session, theme preference, language, admin role view |
+| `TanStack React Query` | Server cache, background polling, entity data & mutations |
+| `useState` | Local UI state, active dialogs, transient form data |
+| `useContext` | Auth, Language, Theme, Notifications, LoadingMask |
+| `useMemo` | Derived statistics, active filter calculations, expensive aggregations |
+| `useCallback` | Event handlers and parameterized callback props |
+| `localStorage` | JWT token (`auth_token`), authenticated user snapshot, theme, language |
 
-### 3.4 View Routing
+### 3.4 View Routing & Navigation
 
-Navigation uses a discriminated `ActiveTab` union type:
+Navigation uses typed routes defined in `src/constants/pageRoutes.ts` (`PAGE_ROUTES`):
 
 ```typescript
 type ActiveTab = 'dashboard' | 'projects' | 'clients' | 'permits' |
-                 'users' | 'services' | 'providedServices' |
-                 'categories' | 'reminders' | 'invoices';
+                 'users' | 'roles' | 'services' | 'providedServices' |
+                 'categories' | 'reminders' | 'invoices' |
+                 'activity-logs' | 'activity-analytics';
 ```
 
 Views are **lazy-loaded** via `React.lazy()` + `<Suspense>`:
 ```typescript
 const TrackerPage = React.lazy(() => import('./pages/tracker/TrackerPage'));
+const ActivityAnalyticsPage = React.lazy(() => import('./pages/management/ActivityAnalyticsPage'));
 ```
 
 Sub-tabs exist for:
@@ -221,7 +222,6 @@ The app uses a custom MUI theme defined in [`theme.ts`](file:///Users/nemanja.st
 | `active` | `#2e7d32` | `#4caf50` | Active projects |
 | `done` | `#16a34a` | `#34d399` | Completed projects |
 | `stale` | `#ed6c02` | `#fb923c` | Stale projects |
-| `sampled` | `#9c27b0` | `#c084fc` | Recently sampled |
 
 **Theme modes:** `light`, `dark`, `system` (auto-detects via `prefers-color-scheme`).
 
@@ -276,6 +276,7 @@ graph TD
         RP[ReminderPanel]
         AIP[ApproachingInvoicesPanel]
         WDP[WasteDisposalPanel]
+        PUP[ProjectUpdatesPanel]
         PSS[WasteDisposalStatistics]
     end
 
@@ -288,15 +289,19 @@ graph TD
         PPS[ProjectProgressSlider]
     end
 
-    subgraph "Shared"
+    subgraph "Shared & Dialogs"
         IC[InvoiceChips]
         IFF[InvoiceFormFields]
         IIL[InvoiceItemsList]
-        RTE[RichTextEditor]
+        TTE[TipTapEditor]
+        NDM[NoteHistoryDiffModal]
+        HTM[HistoryTimelineModal]
+        PeM[PermitModal]
         CS[ColumnSelector]
         DRF[DateRangeFilter]
         TSI[TableSearchInput]
         TFS[TableFilterSelector]
+        WCA[WasteCatalogAutocomplete]
     end
 
     AL --> AH
@@ -305,6 +310,7 @@ graph TD
     DV --> RP
     DV --> AIP
     DV --> WDP
+    DV --> PUP
     PM --> PIS
     PM --> PRS
 ```
@@ -369,7 +375,6 @@ apiFetch(path, init?)
 | `/api/projects` | GET, POST | useAppData, useProjects |
 | `/api/projects/:id` | PUT, DELETE | useProjects (via useCrudOperations) |
 | `/api/projects/:id/toggle-done` | PATCH | useProjects |
-| `/api/projects/:id/sample` | PATCH | useProjects |
 | `/api/projects/stats` | GET | useAppData |
 | `/api/clients` | GET, POST | useAppData, useClients |
 | `/api/clients/:id` | PUT, DELETE | useClients |
@@ -513,6 +518,7 @@ graph TD
 client/
 ├── docs/                          # Documentation (you are here)
 │   ├── AI_CONTEXT.md              # AI quick reference
+│   ├── API_REFERENCE.md           # Client REST API specifications
 │   └── ARCHITECTURE.md            # This file
 ├── e2e/                           # Playwright End-to-End test suites
 │   ├── auth.setup.ts              # Global authentication fixture
@@ -531,27 +537,24 @@ client/
 │   ├── assets/                    # SVG logos
 │   │   ├── logo.svg
 │   │   └── favicon.svg
+│   ├── constants/                 # Centralized route definitions
+│   │   ├── apiRoutes.ts           # API endpoints & URL builders
+│   │   ├── pageRoutes.ts          # Client navigation paths
+│   │   └── index.ts
+│   ├── queries/                   # TanStack React Query hooks
+│   │   └── index.ts               # Declarative queries & mutations for all domains
 │   ├── context/                   # React context providers
-│   │   ├── AuthContext.tsx         # Auth + RBAC
-│   │   ├── LanguageContext.tsx     # i18n
-│   │   ├── ThemeContext.tsx        # MUI theming
-│   │   └── NotificationContext.tsx # @mention notifications
+│   │   ├── AuthContext.tsx        # Auth + dynamic RBAC
+│   │   ├── LanguageContext.tsx    # i18n
+│   │   ├── ThemeContext.tsx       # MUI theming
+│   │   ├── NotificationContext.tsx# @mention notifications
+│   │   └── LoadingContext.tsx     # Global loading mask
 │   ├── hooks/                     # Custom React hooks
-│   │   ├── useAppData.ts          # Data fetching orchestration
-│   │   ├── useCrudOperations.ts   # Generic CRUD factory
 │   │   ├── useTableView.ts        # Shared table infrastructure
-│   │   ├── useProjects.ts         # Project state + operations
-│   │   ├── useClients.ts          # Client state + CRUD
-│   │   ├── useUsers.ts            # User state + admin ops
-│   │   ├── useServices.ts         # Service state + CRUD
-│   │   ├── useProvidedServices.ts # Provided service state + CRUD
-│   │   ├── useCategories.ts       # Category state + CRUD
-│   │   ├── useReminders.ts        # Reminder state + CRUD
-│   │   ├── useInvoices.ts         # Invoice state + CRUD
-│   │   ├── usePermits.ts          # Permit + waste catalog
 │   │   ├── useProjectForm.ts      # Project form state
-│   │   ├── useInvoiceFormState.ts  # Invoice form state
-│   │   ├── useLinkedListOptions.ts # Dynamic options & cascaded dependencies
+│   │   ├── useInvoiceFormState.ts # Invoice form state
+│   │   ├── useActivityTracker.ts  # Session tracking, idle detection, multi-tab sync
+│   │   ├── useLinkedListOptions.ts# Dynamic options & cascaded dependencies
 │   │   ├── useStatusUpdate.ts     # Generic status PATCH
 │   │   ├── useVersionCheck.ts     # Deployment update detection
 │   │   └── useRoleLabels.ts       # Role translation
@@ -568,17 +571,133 @@ client/
 │   │   ├── customFields.ts        # Custom fields & weight extraction
 │   │   ├── router.ts              # Router basename helper
 │   │   └── invoiceUtils.ts        # Invoice note metadata
+│   ├── tests/                     # Test harness & helpers
+│   │   └── test-utils.tsx         # Unified mock providers wrapper
+│   ├── mocks/                     # Mock Service Worker (MSW)
+│   │   ├── handlers.ts            # Simulated API endpoints
+│   │   └── server.ts              # Node test server instance
 │   ├── components/                # Modular UI components
-│   │   ├── icons.ts               # MUI icon barrel (~90 icons)
+---
+
+## 9. Client-Side Delta Synchronization Engine
+
+To minimize bandwidth consumption and eliminate full collection refetches, the client incorporates a transparent delta synchronization layer integrated into TanStack React Query (`src/utils/deltaSync.ts`):
+
+```mermaid
+sequenceDiagram
+    participant UI as React Component
+    participant RQ as TanStack React Query
+    participant DS as deltaSync.ts
+    participant API as Express API Server
+
+    UI->>RQ: useProjectsQuery()
+    RQ->>DS: fetchWithDeltaSync({ queryKey, url })
+    alt First Request (No sync timestamp)
+        DS->>API: GET /api/projects
+        API-->>DS: Project[] (Full snapshot)
+        DS->>RQ: Store items & record syncedAt
+    else Incremental Request
+        DS->>API: GET /api/projects?since=<syncedAt>
+        API-->>DS: DeltaEnvelope { delta: true, items, deletedIds, syncedAt }
+        DS->>DS: mergeDelta(cachedItems, delta)
+        DS->>RQ: Reconciled cache (in-place updates + prepended new items - tombstones)
+    end
+    RQ-->>UI: Fresh Data
+```
+
+### Key Reconciler Behaviors (`mergeDelta`)
+1. **Preserves In-Place Ordering**: Existing records updated in-place retain their list positions without layout shifting.
+2. **Tombstone Purging**: IDs in `deletedIds` are immediately stripped from cache.
+3. **New Item Prepending**: Newly created items not present in previous cache are prepended to match descending order.
+4. **Safety Retention Fallback**: If `syncedAt` exceeds 30 days, server responds with `delta: false`, seamlessly triggering a full snapshot refresh.
+
+---
+
+## 10. Multi-Tier Waste Catalog Persistence (IndexedDB + BroadcastChannel)
+
+The Serbian national waste index contains ~1,000 regulatory waste codes. Transferring and rendering this catalog on every lookup is avoided through a 3-tier persistence strategy (`src/utils/wasteCatalogStorage.ts`):
+
+1. **Tier 1 — In-Memory Cache**: 0ms synchronous read access for active autocomplete components and dropdowns.
+2. **Tier 2 — IndexedDB Persistence (`ekos_project_tracker_db`)**: Durable browser database holding catalog items and sync metadata (`waste_catalog_meta`). Survives full page reloads, tab closes, and browser restarts.
+3. **Tier 3 — Cross-Tab Broadcast Synchronization (`BroadcastChannel`)**: Multiple open browser tabs communicate via `ekos_waste_catalog_sync`. When an item is added, edited, or deleted in one tab, other tabs immediately invalidate their in-memory cache and dispatch `ekos:waste-catalog-updated` window events.
+4. **Automated Delta Polling**: Background delta queries (`GET /api/waste-catalog?since=...`) update local IndexedDB records incrementally with tombstone deletion support.
+
+---
+
+## 11. Rich Text & Note Revision History Architecture
+
+Project notes use a dedicated TipTap editing engine and delta revision subsystem:
+
+1. **TipTap Rich Text Editor Suite (`src/components/common/tiptap/`)**:
+   - Built on TipTap 3 + ProseMirror (`TipTapEditor.tsx`).
+   - Features custom formatting toolbar (`TipTapToolbar.tsx`), table creation/editing extensions, heading levels, blockquotes, and lists.
+   - Mention autocomplete system (`MentionSuggestionList.tsx`, `mentionExtension.ts`) linking project team members directly into notes.
+   - Client-side sanitization via **DOMPurify** preventing stored XSS injection.
+2. **Microsoft Word & XML Sanitizer (`cleanWordHtml.ts`, `stripHtmlToText.ts`)**:
+   - Strips proprietary Microsoft Word XML metadata, Office classes, and mso formatting on paste.
+   - Decodes HTML entities and strips non-breaking space sequences (`&nbsp;`, `\u00A0`).
+3. **Note History & Diff Inspector (`src/components/history/NoteHistoryDiffModal.tsx`)**:
+   - Inspects full revision timeline per project note (`/api/projects/:id/note/history`).
+   - Side-by-side visual diff and unified patch inspection (`/api/projects/:id/note/diff`).
+   - One-click historical version restoration (`POST /api/projects/:id/note/restore/:v`).
+
+---
+
+## 12. Directory Structure
+
+```
+client/
+├── .github/
+│   ├── dependabot.yml              # Automated dependency PR grouping
+│   └── workflows/
+│       ├── bump-version.yml        # PR-driven semver bumping
+│       ├── deploy.yml              # GitHub Pages deployment
+│       └── playwright.yml          # Automated Playwright E2E testing
+├── e2e/                            # Playwright E2E test suites (~3,950 lines)
+│   ├── auth.setup.ts               # Global authenticated session fixture
+│   ├── auth/                       # Login & session tests
+│   ├── tracker/                    # Dashboard & project notes tests
+│   ├── management/                 # Entity management CRUD tests
+│   └── helpers/
+│       └── mockApi.ts              # E2E network mocking helper
+├── src/
+│   ├── main.tsx                    # ReactDOM bootstrap
+│   ├── App.tsx                     # Root orchestrator & route switch
+│   ├── api.ts                      # Centralized fetch client (apiFetch)
+│   ├── types.ts                    # TypeScript domain interfaces
+│   ├── constants/                  # Centralized routes (API_ROUTES, PAGE_ROUTES)
+│   ├── context/                    # Auth, Language, Theme, Notifications, Loading
+│   ├── hooks/                      # Custom hooks (useTableView, useProjectForm, etc.)
+│   ├── queries/                    # TanStack React Query hooks & mutations
+│   ├── utils/
+│   │   ├── deltaSync.ts            # Delta synchronization engine
+│   │   ├── wasteCatalogStorage.ts  # IndexedDB & BroadcastChannel persistence
+│   │   ├── cleanWordHtml.ts        # Word XML & metadata sanitization
+│   │   ├── stripHtmlToText.ts      # HTML tag stripper & text cleaner
+│   │   ├── customFields.ts         # Custom data models & weight extraction
+│   │   ├── invoiceUtils.ts         # Invoice parent/child linking
+│   │   └── router.ts               # Dynamic router basename resolution
+│   ├── components/
+│   │   ├── icons.ts                # MUI icon barrel (~90 icons)
 │   │   ├── common/
 │   │   │   ├── ColumnSelector.tsx
 │   │   │   ├── DateRangeFilter.tsx
 │   │   │   ├── LanguageSelector.tsx
+│   │   │   ├── LoadingMask.tsx
 │   │   │   ├── RichTextEditor.tsx
 │   │   │   ├── TableFilterSelector.tsx
 │   │   │   ├── TableSearchInput.tsx
-│   │   │   └── WasteCatalogAutocomplete.tsx
+│   │   │   ├── WasteCatalogAutocomplete.tsx
+│   │   │   └── tiptap/             # TipTap Rich Text Suite
+│   │   │       ├── TipTapEditor.tsx
+│   │   │       ├── TipTapToolbar.tsx
+│   │   │       ├── MentionSuggestionList.tsx
+│   │   │       └── mentionExtension.ts
+│   │   ├── history/                # Version history & diff review
+│   │   │   ├── NoteHistoryDiffModal.tsx
+│   │   │   └── HistoryTimelineModal.tsx
 │   │   ├── dialogs/
+│   │   │   ├── PermitModal.tsx     # Extracted responsive permit dialog
 │   │   │   ├── CompanyInfoModal.tsx
 │   │   │   ├── ConfirmDeleteDialog.tsx
 │   │   │   ├── ConfirmDialog.tsx
@@ -605,6 +724,23 @@ client/
 │   │   │   └── ProjectViewModal.tsx
 │   │   ├── providedService/
 │   │   │   └── ProvidedServiceInvoiceSection.tsx
+│   │   ├── activityAnalytics/      # Activity Analytics component suite (15 modules)
+│   │   │   ├── ActionsByEntityChart.tsx
+│   │   │   ├── AnalyticsHeader.tsx
+│   │   │   ├── AnalyticsKpiStrip.tsx
+│   │   │   ├── EditedFieldsChart.tsx
+│   │   │   ├── EngagementScatter.tsx
+│   │   │   ├── FeatureAdoptionChart.tsx
+│   │   │   ├── InsightsPanel.tsx
+│   │   │   ├── NavigationFlows.tsx
+│   │   │   ├── PageUsageChart.tsx
+│   │   │   ├── SessionLengthHistogram.tsx
+│   │   │   ├── UsageHeatmap.tsx
+│   │   │   ├── UsageTimelineChart.tsx
+│   │   │   ├── UserPageBreakdownChart.tsx
+│   │   │   ├── UserUsageTable.tsx
+│   │   │   ├── insights.ts
+│   │   │   └── utils.ts
 │   │   └── tracker/
 │   │       ├── statistics/
 │   │       │   ├── ProjectsStatistics.tsx
@@ -612,11 +748,13 @@ client/
 │   │       ├── ApproachingInvoicesPanel.tsx
 │   │       ├── DashboardPanelSkeleton.tsx
 │   │       ├── ReminderPanel.tsx
-│   │       └── WasteDisposalPanel.tsx
-│   ├── pages/                     # Full page views
+│   │       ├── WasteDisposalPanel.tsx
+│   │       └── ProjectUpdatesPanel.tsx
+│   ├── pages/                      # Full page views
 │   │   ├── auth/
 │   │   │   └── LoginPage.tsx
 │   │   ├── management/
+│   │   │   ├── ActivityAnalyticsPage.tsx
 │   │   │   ├── ActivityLogsPage.tsx
 │   │   │   ├── CategoriesPage.tsx
 │   │   │   ├── ClientsPage.tsx
@@ -625,6 +763,7 @@ client/
 │   │   │   ├── ProjectsPage.tsx
 │   │   │   ├── ProvidedServicesPage.tsx
 │   │   │   ├── RemindersPage.tsx
+│   │   │   ├── RolesPage.tsx
 │   │   │   ├── ServicesPage.tsx
 │   │   │   └── UsersPage.tsx
 │   │   └── tracker/

@@ -32,13 +32,14 @@ import { TableOptionsSelector, type ColumnDef } from '../../components/common/Co
 import { TableFilterSelector } from '../../components/common/TableFilterSelector';
 import { TableSearchInput } from '../../components/common/TableSearchInput';
 import { ErrorDialog } from '../../components/dialogs/ErrorDialog';
-import { AddIcon, EditIcon, DeleteIcon, ArrowUpwardIcon, ArrowDownwardIcon, RefreshIcon } from '../../components/icons';
+import { AddIcon, EditIcon, DeleteIcon, ArrowUpwardIcon, ArrowDownwardIcon, RefreshIcon, HistoryIcon } from '../../components/icons';
+import { HistoryTimelineModal } from '../../components/history';
 
 interface Props extends TableViewProps {}
 
 const DEFAULT_COLUMNS = ['name', 'city', 'contactPerson', 'email', 'phone', 'permit', 'projectCount'];
 
-import { useClientsQuery, usePermitsQuery, useClientsMutations } from '../../queries';
+import { useClientsQuery, usePermitsSummaryQuery, useClientsMutations } from '../../queries';
 import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
 
 const ClientsPage: React.FC<Props> = ({
@@ -56,12 +57,14 @@ const ClientsPage: React.FC<Props> = ({
   const canCreate = hasPermission('clients', 'create');
   const canEdit = hasPermission('clients', 'edit');
   const canDelete = hasPermission('clients', 'delete');
-  const hasAnyRowAction = canEdit || canDelete;
+  const canViewHistory = hasPermission('history', 'view');
+  const hasAnyRowAction = canEdit || canDelete || canViewHistory;
   const [isOpen, setIsOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [historyModalState, setHistoryModalState] = useState<{ open: boolean; client: Client | null }>({ open: false, client: null });
 
   const { data: clients = [], refetch: refetchClients, isRefetching } = useClientsQuery();
-  const { data: permits = [] } = usePermitsQuery();
+  const { data: permits = [] } = usePermitsSummaryQuery();
   const { handleSave, handleDelete } = useClientsMutations();
 
   const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
@@ -347,29 +350,31 @@ const ClientsPage: React.FC<Props> = ({
               {t('clientsListTitle')}
             </Typography>
             <Tooltip title={t('btnRefresh')}>
-              <IconButton
-                size="small"
-                onClick={handleRefresh}
-                disabled={isRefetching}
-                color="primary"
-                sx={{
-                  border: 1,
-                  borderColor: 'divider',
-                  borderRadius: 2,
-                  p: 0.7,
-                }}
-              >
-                <RefreshIcon
-                  fontSize="small"
+              <span>
+                <IconButton
+                  size="small"
+                  onClick={handleRefresh}
+                  disabled={isRefetching}
+                  color="primary"
                   sx={{
-                    animation: isRefetching ? 'spin 1s linear infinite' : undefined,
-                    '@keyframes spin': {
-                      '0%': { transform: 'rotate(0deg)' },
-                      '100%': { transform: 'rotate(360deg)' },
-                    },
+                    border: 1,
+                    borderColor: 'divider',
+                    borderRadius: 2,
+                    p: 0.7,
                   }}
-                />
-              </IconButton>
+                >
+                  <RefreshIcon
+                    fontSize="small"
+                    sx={{
+                      animation: isRefetching ? 'spin 1s linear infinite' : undefined,
+                      '@keyframes spin': {
+                        '0%': { transform: 'rotate(0deg)' },
+                        '100%': { transform: 'rotate(360deg)' },
+                      },
+                    }}
+                  />
+                </IconButton>
+              </span>
             </Tooltip>
           </Box>
 
@@ -602,6 +607,17 @@ const ClientsPage: React.FC<Props> = ({
                     {hasAnyRowAction && (
                       <TableCell align="right">
                         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+                          {canViewHistory && (
+                            <Tooltip title={t('historyModalTitle')}>
+                              <IconButton
+                                size="small"
+                                color="secondary"
+                                onClick={() => setHistoryModalState({ open: true, client: c })}
+                              >
+                                <HistoryIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
                           {canEdit && (
                             <IconButton size="small" color="info" onClick={() => openEdit(c)}>
                               <EditIcon fontSize="small" />
@@ -635,28 +651,43 @@ const ClientsPage: React.FC<Props> = ({
       </Card>
 
       {/* CLIENT DIALOG */}
-      <Dialog open={isOpen} onClose={() => setIsOpen(false)} maxWidth="sm" fullWidth>
-        <form onSubmit={handleSubmit}>
-          <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              {editingClient ? t('modalEditClient') : t('modalNewClient')}
-            </Typography>
-            {editingClient && canDelete && (
-              <Button
-                color="error"
-                size="small"
-                variant="outlined"
-                startIcon={<DeleteIcon />}
-                onClick={() => {
-                  onDeleteClient(editingClient.id);
-                  setIsOpen(false);
-                }}
-              >
-                {t('btnDelete')}
-              </Button>
-            )}
-          </DialogTitle>
-          <DialogContent dividers>
+      <Dialog
+        open={isOpen}
+        onClose={() => setIsOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        slotProps={{
+          paper: {
+            component: 'form',
+            onSubmit: handleSubmit,
+            sx: {
+              maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
+              display: 'flex',
+              flexDirection: 'column',
+            },
+          },
+        }}
+      >
+        <DialogTitle component="div" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+            {editingClient ? t('modalEditClient') : t('modalNewClient')}
+          </Typography>
+          {editingClient && canDelete && (
+            <Button
+              color="error"
+              size="small"
+              variant="outlined"
+              startIcon={<DeleteIcon />}
+              onClick={() => {
+                onDeleteClient(editingClient.id);
+                setIsOpen(false);
+              }}
+            >
+              {t('btnDelete')}
+            </Button>
+          )}
+        </DialogTitle>
+        <DialogContent dividers sx={{ flex: 1, overflowY: 'auto' }}>
             <Grid container spacing={2} sx={{ pt: 1 }}>
               <Grid size={{ xs: 12 }}>
                 <TextField
@@ -739,7 +770,7 @@ const ClientsPage: React.FC<Props> = ({
               </Grid>
             </Grid>
           </DialogContent>
-          <DialogActions sx={{ p: 2 }}>
+          <DialogActions sx={{ p: 2, flexShrink: 0 }}>
             <Button onClick={() => setIsOpen(false)} variant="outlined" disabled={isSaving}>
               {t('btnCancel')}
             </Button>
@@ -747,7 +778,6 @@ const ClientsPage: React.FC<Props> = ({
               {isSaving ? '...' : t('btnSave')}
             </Button>
           </DialogActions>
-        </form>
       </Dialog>
 
       <ErrorDialog
@@ -768,6 +798,19 @@ const ClientsPage: React.FC<Props> = ({
         }}
         onClose={() => setDeleteConfirmState(prev => ({ ...prev, open: false }))}
       />
+
+      {historyModalState.client && (
+        <HistoryTimelineModal
+          open={historyModalState.open}
+          onClose={() => setHistoryModalState({ open: false, client: null })}
+          entityType="Client"
+          entityId={historyModalState.client.id}
+          entityTitle={historyModalState.client.name}
+          onRestored={() => {
+            refetchClients();
+          }}
+        />
+      )}
     </Box>
   );
 };

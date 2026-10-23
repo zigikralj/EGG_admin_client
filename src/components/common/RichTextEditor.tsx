@@ -87,17 +87,39 @@ export const DOMPURIFY_CONFIG = {
   ALLOW_DATA_ATTR: true,
 };
 
+/**
+ * Strips Microsoft Word and Office specific metadata, XML blocks, conditional comments,
+ * and style tags to prevent raw XML and style definitions from polluting notes.
+ * Uses a robust HTML parser (DOMPurify) rather than vulnerable regexes.
+ */
+export function cleanWordHtml(html: string): string {
+  if (!html) return '';
+  return DOMPurify.sanitize(html, {
+    FORBID_TAGS: ['style', 'script', 'xml', 'meta', 'link', 'title'],
+    FORBID_CONTENTS: ['style', 'script', 'xml', 'meta', 'link', 'title'],
+    ADD_TAGS: ['span'],
+    ADD_ATTR: ['contenteditable', 'data-user-id', 'data-user-name', 'target', 'style', 'color'],
+    ALLOW_DATA_ATTR: true,
+  }) as string;
+}
+
 export function sanitizeHtml(html: string): string {
   if (!html) return '';
-  return DOMPurify.sanitize(html, DOMPURIFY_CONFIG) as string;
+  const preCleaned = cleanWordHtml(html);
+  return DOMPurify.sanitize(preCleaned, DOMPURIFY_CONFIG) as string;
 }
 
 export function htmlToPlainText(html: string): string {
   if (!html) return '';
-  const sanitizedHtml = DOMPurify.sanitize(html, DOMPURIFY_CONFIG) as string;
+  const preCleaned = cleanWordHtml(html);
+  const sanitizedHtml = DOMPurify.sanitize(preCleaned, DOMPURIFY_CONFIG) as string;
   try {
     const parser = new DOMParser();
     const doc = parser.parseFromString(sanitizedHtml, 'text/html');
+
+    doc.querySelectorAll('style, script, xml, noscript, meta, link').forEach((el) => {
+      el.remove();
+    });
 
     // Replace <br> with newlines
     doc.querySelectorAll('br').forEach((br) => {
@@ -116,11 +138,67 @@ export function htmlToPlainText(html: string): string {
       el.append('\n');
     });
 
-    const text = doc.body.textContent || '';
+    const text = (doc.body.textContent || '')
+      .replace(/&(?:nbsp|#160|#xa0);/gi, ' ')
+      .replace(/[\u00a0\u200B\uFEFF]/g, ' ');
     return text.replace(/\n{3,}/g, '\n\n').trim();
   } catch {
-    return sanitizedHtml.replace(/<[^>]*>/g, ' ').trim();
+    const fallbackText = DOMPurify.sanitize(sanitizedHtml, {
+      ALLOWED_TAGS: [],
+      FORBID_TAGS: ['style', 'script', 'xml', 'meta', 'link', 'title'],
+      FORBID_CONTENTS: ['style', 'script', 'xml', 'meta', 'link', 'title'],
+    }) as string;
+    return fallbackText
+      .replace(/&(?:nbsp|#160|#xa0);/gi, ' ')
+      .replace(/[\u00a0\u200B\uFEFF]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
+}
+
+/**
+ * Strips HTML tags and decodes/normalizes HTML entities (like &nbsp;, &amp;, etc.)
+ * into human-readable plain text suitable for card previews and summaries.
+ */
+export function stripHtmlToText(html: string): string {
+  if (!html) return '';
+  const preCleaned = cleanWordHtml(html);
+  let text = '';
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(preCleaned, 'text/html');
+
+    doc.querySelectorAll('style, script, xml, noscript, meta, link').forEach((el) => {
+      el.remove();
+    });
+
+    // Add spaces for breaks and block elements so words don't stick together
+    doc.querySelectorAll('br').forEach((br) => {
+      br.replaceWith(' ');
+    });
+    doc.querySelectorAll('p, div, h1, h2, h3, h4, h5, h6, blockquote, ul, ol, li').forEach((el) => {
+      el.append(' ');
+    });
+
+    text = doc.body.textContent || '';
+  } catch {
+    text = DOMPurify.sanitize(preCleaned, {
+      ALLOWED_TAGS: [],
+      FORBID_TAGS: ['style', 'script', 'xml', 'meta', 'link', 'title'],
+      FORBID_CONTENTS: ['style', 'script', 'xml', 'meta', 'link', 'title'],
+    }) as string;
+  }
+
+  return text
+    .replace(/&(?:nbsp|#160|#xa0);/gi, ' ')
+    .replace(/&(?:amp|#38);/gi, '&')
+    .replace(/&(?:quot|#34);/gi, '"')
+    .replace(/&(?:apos|#39);/gi, "'")
+    .replace(/&(?:lt|#60);/gi, '<')
+    .replace(/&(?:gt|#62);/gi, '>')
+    .replace(/[\u00a0\u200B\uFEFF]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 export function plainTextToHtml(plain: string, users: User[] = []): string {
@@ -374,7 +452,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
         if (saveTimeoutRef.current) {
           clearTimeout(saveTimeoutRef.current);
         }
-        const delay = autoSaveRef.current.delay ?? 1200;
+        const delay = autoSaveRef.current.delay ?? 3500;
         saveTimeoutRef.current = setTimeout(() => {
           triggerSave(valueRef.current);
         }, delay);
@@ -512,7 +590,7 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
       mentionSpan.style.margin = '0 2px';
       mentionSpan.style.userSelect = 'all';
 
-      const spaceNode = document.createTextNode('\u00A0'); // Non-breaking space
+      const spaceNode = document.createTextNode(' ');
 
       range.insertNode(spaceNode);
       range.insertNode(mentionSpan);
@@ -884,9 +962,17 @@ export const RichTextEditor: React.FC<RichTextEditorProps> = ({
     if (!html) return;
 
     try {
+      const isWordHtml =
+        /<!--\[if/i.test(html) ||
+        /<xml/i.test(html) ||
+        /mso-/i.test(html) ||
+        /MsoNormal/i.test(html) ||
+        /urn:schemas-microsoft-com/i.test(html);
+
+      const cleanedHtml = cleanWordHtml(html);
       const parser = new DOMParser();
-      const doc = parser.parseFromString(html, 'text/html');
-      let modified = false;
+      const doc = parser.parseFromString(cleanedHtml, 'text/html');
+      let modified = isWordHtml;
 
       doc.body.querySelectorAll('*').forEach((el) => {
         const htmlEl = el as HTMLElement;

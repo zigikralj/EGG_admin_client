@@ -186,8 +186,8 @@ export const UserProfileDialog: React.FC<UserProfileDialogProps> = ({ isOpen, on
         },
       }}
     >
-      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>
+      <DialogTitle component="div" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
+        <Typography variant="h6" component="h2" sx={{ fontWeight: 700 }}>
           {t('userProfileTitle')}
         </Typography>
         <IconButton size="small" onClick={onClose}>

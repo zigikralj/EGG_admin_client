@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import type { Project, Client, User, Service, Reminder, Invoice, } from '../types';
 import { enhanceInvoicesWithLinks } from '../utils/invoiceUtils';
 import { useInvoiceFormState } from './useInvoiceFormState';
@@ -57,10 +57,15 @@ export function useProjectForm({
   const invoiceFormState = useInvoiceFormState();
   const { setIsAddingInvoice, setEditingInvoice } = invoiceFormState;
 
+  const prevProjectIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     setStagedReminders([]);
     setStagedInvoices([]);
     if (projectToEdit) {
+      const isDifferentProject = prevProjectIdRef.current !== projectToEdit.id;
+      prevProjectIdRef.current = projectToEdit.id;
+
       setName(projectToEdit.name);
       setClientId(projectToEdit.clientId || '');
       setClientName(projectToEdit.clientName);
@@ -70,12 +75,17 @@ export function useProjectForm({
       setDeadline(projectToEdit.deadline || '');
       setProgress(projectToEdit.progress);
       setDone(projectToEdit.done || false);
-      setNotes(projectToEdit.notes || '');
+      if (projectToEdit.notes !== undefined) {
+        setNotes(projectToEdit.notes || '');
+      } else if (isDifferentProject) {
+        setNotes('');
+      }
       setIsAddingReminder(false);
       setEditingProjectReminder(null);
       setIsAddingInvoice(false);
       setEditingInvoice(null);
     } else {
+      prevProjectIdRef.current = null;
       setName('');
       setClientId('');
       setClientName('');

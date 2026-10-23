@@ -94,19 +94,16 @@ test.describe('Login flow', () => {
     });
 
     await page.route('**/api/auth/me', async (route) => {
-      const headers = route.request().headers();
-      if (!headers['authorization']) {
-        await route.fulfill({
-          status: 401,
-          contentType: 'application/json',
-          body: JSON.stringify({ error: 'UNAUTHORIZED' }),
-        });
-        return;
-      }
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ id: 1, name: 'Test User', email: 'test@example.com', role: 'Admin' }),
+        body: JSON.stringify({
+          id: 1,
+          name: 'Test User',
+          email: 'test@example.com',
+          role: 'Admin',
+          roleEntity: { id: 1, name: 'Admin', isSystemAdmin: true, permissions: {} },
+        }),
       });
     });
 
@@ -126,15 +123,35 @@ test.describe('Login flow', () => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
     });
 
-    await page.route('**/api/projects', async (route) => {
+    await page.route('**/api/projects/stats', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+    });
+
+    await page.route(/\/api\/projects(\?.*)?$/, async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
 
-    await page.route('**/api/reminders', async (route) => {
+    await page.route(/\/api\/clients(\?.*)?$/, async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
 
-    await page.route('**/api/invoices', async (route) => {
+    await page.route(/\/api\/services(\?.*)?$/, async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    });
+
+    await page.route(/\/api\/categories(\?.*)?$/, async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    });
+
+    await page.route(/\/api\/provided-services(\?.*)?$/, async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    });
+
+    await page.route(/\/api\/reminders(\?.*)?$/, async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
+    });
+
+    await page.route(/\/api\/invoices(\?.*)?$/, async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
 
@@ -146,12 +163,34 @@ test.describe('Login flow', () => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
     });
 
+    await page.route('**/api/users', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            id: 1,
+            name: 'Test User',
+            email: 'test@example.com',
+            role: 'Admin',
+            isApproved: true,
+            status: 'ACTIVE',
+            roleEntity: { id: 1, name: 'Admin', isSystemAdmin: true, permissions: {} },
+          },
+        ]),
+      });
+    });
+
     await page.goto('/login');
 
     // Log in first
     await page.locator('input[type="text"]').first().fill('test@example.com');
     await page.locator('input[type="password"]').fill('password123');
     await page.locator('button[type="submit"]').click();
+
+    // Verify redirect away from login
+    await page.waitForURL('**/project-tracker/**', { timeout: 10000 });
+    await expect(page.getByRole('alert')).toBeHidden({ timeout: 10000 });
 
     // Open user avatar dropdown menu in header by clicking the user name/avatar box
     const userHeading = page.locator('header').getByRole('heading', { name: 'Test User' });
@@ -161,7 +200,7 @@ test.describe('Login flow', () => {
     // Wait for the menu to open and click the logout menu item
     const logoutMenuItem = page.getByRole('menuitem', { name: /Odjavi se|Log Out/i });
     await expect(logoutMenuItem).toBeVisible();
-    await logoutMenuItem.click();
+    await logoutMenuItem.dispatchEvent('click');
 
     // Verify login page is rendered
     await expect(page.locator('input[type="password"]')).toBeVisible();

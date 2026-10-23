@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useIsFetching, useIsMutating } from '@tanstack/react-query';
+import { useIsFetching, useIsMutating, useQueryClient } from '@tanstack/react-query';
 import { useLanguage } from './LanguageContext';
 
 export interface LoadingContextType {
@@ -20,6 +20,7 @@ const MIN_DISPLAY_TIME_MS = 500;
 
 export const LoadingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { t } = useLanguage();
+  const queryClient = useQueryClient();
 
   const [manualCount, setManualCount] = useState<number>(0);
   const [manualMessage, setManualMessage] = useState<string | null>(null);
@@ -33,6 +34,8 @@ export const LoadingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const fetchingCount = useIsFetching({
     predicate: (query) => {
       if (query.meta?.silent === true) return false;
+      // Do not count unobserved background queries (e.g. prefetching or background cache warming)
+      if (query.getObserversCount() === 0) return false;
       // Only count queries that are actively fetching and do not yet have cached data
       return query.state.fetchStatus === 'fetching' && query.state.data === undefined;
     },
@@ -52,6 +55,21 @@ export const LoadingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Manage smooth display time and avoid quick flicker
   useEffect(() => {
     if (rawIsLoading) {
+      if (import.meta.env?.DEV) {
+        const fetchingQueries = queryClient
+          .getQueryCache()
+          .getAll()
+          .filter((q) => !q.meta?.silent && q.getObserversCount() > 0 && q.state.fetchStatus === 'fetching' && q.state.data === undefined)
+          .map((q) => q.queryKey);
+        const activeMutations = queryClient
+          .getMutationCache()
+          .getAll()
+          .filter((m) => !m.options.meta?.silent && m.options.mutationKey?.[0] !== 'preferences' && m.state.status === 'pending')
+          .map((m) => m.options.mutationKey);
+        if (fetchingQueries.length > 0 || activeMutations.length > 0 || manualCount > 0) {
+          console.debug('[LoadingMask Triggered]', { manualCount, fetchingQueries, activeMutations });
+        }
+      }
       if (hideTimerRef.current) {
         clearTimeout(hideTimerRef.current);
         hideTimerRef.current = null;

@@ -254,33 +254,33 @@ const CategoriesPage: React.FC<Props> = ({
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
               {t('categoriesListTitle', { count: sortedCategories.length })}
             </Typography>
-            {true && (
               <Tooltip title={t('btnRefresh')}>
-                <IconButton
-                  size="small"
-                  onClick={handleRefresh}
-                  disabled={isRefreshing}
-                  color="primary"
-                  sx={{
-                    border: 1,
-                    borderColor: 'divider',
-                    borderRadius: 2,
-                    p: 0.7,
-                  }}
-                >
-                  <RefreshIcon
-                    fontSize="small"
+                <span>
+                  <IconButton
+                    size="small"
+                    onClick={handleRefresh}
+                    disabled={isRefreshing}
+                    color="primary"
                     sx={{
-                      animation: isRefreshing ? 'spin 1s linear infinite' : undefined,
-                      '@keyframes spin': {
-                        '0%': { transform: 'rotate(0deg)' },
-                        '100%': { transform: 'rotate(360deg)' },
-                      },
+                      border: 1,
+                      borderColor: 'divider',
+                      borderRadius: 2,
+                      p: 0.7,
                     }}
-                  />
-                </IconButton>
+                  >
+                    <RefreshIcon
+                      fontSize="small"
+                      sx={{
+                        animation: isRefreshing ? 'spin 1s linear infinite' : undefined,
+                        '@keyframes spin': {
+                          '0%': { transform: 'rotate(0deg)' },
+                          '100%': { transform: 'rotate(360deg)' },
+                        },
+                      }}
+                    />
+                  </IconButton>
+                </span>
               </Tooltip>
-            )}
           </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, width: { xs: '100%', sm: 'auto' } }}>
@@ -426,28 +426,43 @@ const CategoriesPage: React.FC<Props> = ({
       </Card>
 
       {/* CATEGORY DIALOG */}
-      <Dialog open={isOpen} onClose={() => setIsOpen(false)} maxWidth="sm" fullWidth>
-        <form onSubmit={handleSubmit}>
-          <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              {editingCategory ? t('modalEditCategory') : t('modalNewCategory')}
-            </Typography>
-            {editingCategory && canDelete && (
-              <Button
-                color="error"
-                size="small"
-                variant="outlined"
-                startIcon={<DeleteIcon />}
-                onClick={() => {
-                  onDeleteCategory(editingCategory.id);
-                  setIsOpen(false);
-                }}
-              >
-                {t('btnDelete')}
-              </Button>
-            )}
-          </DialogTitle>
-          <DialogContent dividers>
+      <Dialog
+        open={isOpen}
+        onClose={() => setIsOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        slotProps={{
+          paper: {
+            component: 'form',
+            onSubmit: handleSubmit,
+            sx: {
+              maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
+              display: 'flex',
+              flexDirection: 'column',
+            },
+          },
+        }}
+      >
+        <DialogTitle component="div" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+            {editingCategory ? t('modalEditCategory') : t('modalNewCategory')}
+          </Typography>
+          {editingCategory && canDelete && (
+            <Button
+              color="error"
+              size="small"
+              variant="outlined"
+              startIcon={<DeleteIcon />}
+              onClick={() => {
+                onDeleteCategory(editingCategory.id);
+                setIsOpen(false);
+              }}
+            >
+              {t('btnDelete')}
+            </Button>
+          )}
+        </DialogTitle>
+        <DialogContent dividers sx={{ flex: 1, overflowY: 'auto' }}>
             <Grid container spacing={2} sx={{ pt: 1 }}>
               <Grid size={{ xs: 12 }}>
                 <TextField
@@ -486,7 +501,7 @@ const CategoriesPage: React.FC<Props> = ({
               </Grid>
             </Grid>
           </DialogContent>
-          <DialogActions sx={{ p: 2 }}>
+          <DialogActions sx={{ p: 2, flexShrink: 0 }}>
             <Button onClick={() => setIsOpen(false)} variant="outlined" disabled={isSaving}>
               {t('btnCancel')}
             </Button>
@@ -494,7 +509,6 @@ const CategoriesPage: React.FC<Props> = ({
               {isSaving ? '...' : t('btnSave')}
             </Button>
           </DialogActions>
-        </form>
       </Dialog>
 
       <ErrorDialog

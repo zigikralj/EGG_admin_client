@@ -13,6 +13,7 @@
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
+    "test:e2e:fail-fast": "playwright test -x",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:debug": "playwright test --debug",
     "preview": "vite preview",
@@ -30,10 +31,22 @@
     "@mui/x-charts": "^9.11.1",
     "@tanstack/react-query": "^5.102.8",
     "@tanstack/react-query-devtools": "^5.102.8",
+    "@tiptap/extension-link": "^3.32.0",
+    "@tiptap/extension-mention": "^3.32.0",
+    "@tiptap/extension-placeholder": "^3.32.0",
+    "@tiptap/extension-table": "^3.32.0",
+    "@tiptap/extension-table-cell": "^3.32.0",
+    "@tiptap/extension-table-header": "^3.32.0",
+    "@tiptap/extension-table-row": "^3.32.0",
+    "@tiptap/pm": "^3.32.0",
+    "@tiptap/react": "^3.32.0",
+    "@tiptap/starter-kit": "^3.32.0",
+    "clean": "^4.0.2",
     "dompurify": "^3.4.17",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "react-router-dom": "^7.18.3"
+    "react-router-dom": "^7.18.3",
+    "tippy.js": "^6.3.7"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.0",
@@ -46,7 +59,7 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.4",
-    "@vitest/ui": "^5.0.3",
+    "@vitest/ui": "^5.0.5",
     "gh-pages": "^6.1.1",
     "jsdom": "^29.1.1",
     "msw": "^2.15.0",
@@ -54,7 +67,7 @@
     "playwright": "^1.64.0",
     "rollup-plugin-visualizer": "^7.1.1",
     "typescript": "~6.0.2",
-    "vite": "^8.2.0",
-    "vitest": "^5.0.3"
+    "vite": "^8.3.4",
+    "vitest": "^5.0.5"
   }
 }

@@ -71,7 +71,7 @@ describe('useActivityLogsData hook', () => {
       useActivityLogsData({
         logs: [],
         users: mockUsers,
-        timeRangeFilter: 'ALL',
+        timeRangeFilter: 'MONTH',
         selectedUserFilter: 'ALL',
         searchQuery: '',
         t: (k: string) => k,
@@ -90,7 +90,7 @@ describe('useActivityLogsData hook', () => {
       useActivityLogsData({
         logs: mockLogs,
         users: mockUsers,
-        timeRangeFilter: 'ALL',
+        timeRangeFilter: 'MONTH',
         selectedUserFilter: 'ALL',
         searchQuery: '',
         t: (k: string) => k,
@@ -116,7 +116,7 @@ describe('useActivityLogsData hook', () => {
       useActivityLogsData({
         logs: mockLogs,
         users: mockUsers,
-        timeRangeFilter: 'ALL',
+        timeRangeFilter: 'MONTH',
         selectedUserFilter: 'ALL',
         searchQuery: '',
         t: (k: string) => k,
@@ -136,7 +136,7 @@ describe('useActivityLogsData hook', () => {
       useActivityLogsData({
         logs: mockLogs,
         users: mockUsers,
-        timeRangeFilter: 'ALL',
+        timeRangeFilter: 'MONTH',
         selectedUserFilter: 'u2',
         searchQuery: '',
         t: (k: string) => k,
@@ -153,7 +153,7 @@ describe('useActivityLogsData hook', () => {
       useActivityLogsData({
         logs: mockLogs,
         users: mockUsers,
-        timeRangeFilter: 'ALL',
+        timeRangeFilter: 'MONTH',
         selectedUserFilter: 'ALL',
         searchQuery: 'alice',
         t: (k: string) => k,
@@ -167,7 +167,7 @@ describe('useActivityLogsData hook', () => {
       useActivityLogsData({
         logs: mockLogs,
         users: mockUsers,
-        timeRangeFilter: 'ALL',
+        timeRangeFilter: 'MONTH',
         selectedUserFilter: 'ALL',
         searchQuery: 'clients',
         t: (k: string) => k,
@@ -221,7 +221,7 @@ describe('useActivityLogsData hook', () => {
       useActivityLogsData({
         logs: multiSessionLogs,
         users: mockUsers,
-        timeRangeFilter: 'ALL',
+        timeRangeFilter: 'MONTH',
         selectedUserFilter: 'u1',
         searchQuery: '',
         t: (k: string) => k,
@@ -285,7 +285,7 @@ describe('useActivityLogsData hook', () => {
       useActivityLogsData({
         logs: twoSessionsWithLogout,
         users: mockUsers,
-        timeRangeFilter: 'ALL',
+        timeRangeFilter: 'MONTH',
         selectedUserFilter: 'u1',
         searchQuery: '',
         t: (k: string) => k,
@@ -311,7 +311,7 @@ describe('useActivityLogsData hook', () => {
         sessionId: 'sess_short_lifecycle',
         type: 'LOGIN',
         durationSeconds: 0,
-        timestamp: '2026-10-15T10:00:00.000Z'
+        timestamp: new Date(Date.now() - 3600 * 1000).toISOString()
       },
       {
         id: 'short-2',
@@ -320,7 +320,7 @@ describe('useActivityLogsData hook', () => {
         sessionId: 'sess_short_lifecycle',
         type: 'LOGOUT',
         durationSeconds: 0,
-        timestamp: '2026-10-15T10:00:02.000Z'
+        timestamp: new Date(Date.now() - 3598 * 1000).toISOString()
       }
     ];
 
@@ -328,7 +328,7 @@ describe('useActivityLogsData hook', () => {
       useActivityLogsData({
         logs: shortSessionLogs,
         users: mockUsers,
-        timeRangeFilter: 'ALL',
+        timeRangeFilter: 'MONTH',
         selectedUserFilter: 'ALL',
         searchQuery: '',
         t: (k: string) => k,

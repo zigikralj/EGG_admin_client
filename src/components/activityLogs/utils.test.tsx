@@ -48,6 +48,18 @@ describe('Activity Logs Utils', () => {
       } as ActivityLog;
       expect(isEmptyUpdateLog(log)).toBe(true);
     });
+
+    it('returns false when diff old and new values are truncated strings ending with ellipsis', () => {
+      const log = {
+        type: 'UPDATE',
+        details: JSON.stringify({
+          diff: {
+            notesPreview: { old: 'Long text…', new: 'Long text…' }
+          }
+        })
+      } as ActivityLog;
+      expect(isEmptyUpdateLog(log)).toBe(false);
+    });
   });
 
   describe('formatDuration', () => {

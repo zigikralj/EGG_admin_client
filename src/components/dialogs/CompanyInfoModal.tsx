@@ -238,6 +238,9 @@ export const CompanyInfoModal: React.FC<CompanyInfoModalProps> = ({ open, onClos
         slotProps={{
           paper: {
             sx: {
+              maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
+              display: 'flex',
+              flexDirection: 'column',
               borderRadius: 3,
               backgroundImage: 'none',
               boxShadow: isDark
@@ -252,6 +255,7 @@ export const CompanyInfoModal: React.FC<CompanyInfoModalProps> = ({ open, onClos
         {/* MODAL HEADER */}
         <DialogTitle
           sx={{
+            flexShrink: 0,
             py: 1.5,
             px: { xs: 2, sm: 2.5 },
             bgcolor: 'background.paper',
@@ -298,7 +302,7 @@ export const CompanyInfoModal: React.FC<CompanyInfoModalProps> = ({ open, onClos
         </DialogTitle>
 
         {/* MODAL CONTENT */}
-        <DialogContent sx={{ p: { xs: 2, sm: 3 }, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+        <DialogContent sx={{ p: { xs: 2, sm: 3 }, display: 'flex', flexDirection: 'column', gap: 2.5, flex: 1, overflowY: 'auto' }}>
           {isLoading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
               <CircularProgress size={36} />
@@ -845,10 +849,10 @@ export const CompanyInfoModal: React.FC<CompanyInfoModalProps> = ({ open, onClos
           )}
         </DialogContent>
 
-        <Divider />
+        <Divider sx={{ flexShrink: 0 }} />
 
         {/* MODAL ACTIONS */}
-        <DialogActions sx={{ p: 2, px: 3, justifyContent: 'space-between' }}>
+        <DialogActions sx={{ p: 2, px: 3, justifyContent: 'space-between', flexShrink: 0 }}>
           {isEditing ? (
             <>
               <Button

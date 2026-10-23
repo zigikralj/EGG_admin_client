@@ -108,16 +108,89 @@ Check current auth status (periodic polling for blocked user detection).
 
 ### `GET /api/projects`
 
-List all projects. Supports search.
+List all projects. Supports search, status, and delta sync.
+Returns lightweight rows containing `notesPreview` (plain text up to 300 characters) for high list performance.
 
 **Query Parameters:**
 | Param | Type | Description |
 |---|---|---|
 | `search` | string | Filter by name, client, responsible (case-insensitive contains) |
+| `done` | boolean | Filter active vs completed projects |
+| `clientId` | string | Filter projects for a specific client |
+| `since` | string | ISO timestamp for incremental delta synchronization |
+| `page` / `limit` | number | Optional pagination parameters |
 
-**Response:** `Project[]`
+**Response (standard):** `Project[]`
+**Response (delta):** `DeltaEnvelope<Project>` `{ delta: true, items: Project[], deletedIds: string[], syncedAt: string }`
 
-**Used by:** [`useAppData.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/hooks/useAppData.ts)
+**Used by:** `useProjectsQuery` in [`src/queries/index.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/002_EkosGreenGroup/project_tracker/client/src/queries/index.ts) via `fetchWithDeltaSync`
+
+---
+
+### `GET /api/projects/updates`
+
+Retrieve real-time project updates and audit activity stream across the organization.
+
+**Query Parameters:**
+| Param | Type | Description |
+|---|---|---|
+| `limit` | number | Max events to return (default: 50) |
+| `offset` | number | Pagination offset |
+| `projectId`| string | Optional filter for a specific project |
+
+**Response (200):** Array of project update items with author, target entity, timestamp, and diff summary.
+
+**Used by:** `useProjectUpdatesQuery` / `ProjectUpdatesPanel.tsx`
+
+---
+
+### `GET /api/projects/:id`
+
+Get complete details of a single project, including full rich-text HTML `notes`.
+
+**Response (200):** `Project` object.
+
+**Used by:** `ProjectViewModal.tsx`, `useProjectsQuery`
+
+---
+
+### `GET /api/projects/:id/note`
+
+Fetch current rich-text note content directly from `ProjectNote`.
+
+**Response (200):** `{ projectId: string, content: string, version: number, updatedAt: string }`
+
+---
+
+### `GET /api/projects/:id/note/history`
+
+Get version revision timeline for a project's notes.
+
+**Response (200):** Array of `ProjectNoteVersion` items `{ version, kind, charDelta, authorName, createdAt }`
+
+**Used by:** `NoteHistoryDiffModal.tsx`
+
+---
+
+### `GET /api/projects/:id/note/diff`
+
+Get unified diff or field diff between two note versions or dates.
+
+**Query Parameters:** `?from=1&to=3` OR `?dateFrom=YYYY-MM-DD&dateTo=YYYY-MM-DD`
+
+**Response (200):** `{ fromVersion, toVersion, diff, addedCount, removedCount }`
+
+**Used by:** `NoteHistoryDiffModal.tsx`
+
+---
+
+### `POST /api/projects/:id/note/restore/:v`
+
+Restore a project note to historical version `:v`.
+
+**Response (200):** `{ success: true, version: number, content: string }`
+
+**Used by:** `NoteHistoryDiffModal.tsx`
 
 ---
 
@@ -129,29 +202,29 @@ Create a new project.
 
 **Response (201):** Created `Project` object with `id`
 
-**Used by:** [`useProjects.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/hooks/useProjects.ts) via `useCrudOperations`
+**Used by:** `useProjectMutations` in `src/queries/index.ts`
 
 ---
 
 ### `PUT /api/projects/:id`
 
-Update an existing project.
+Update an existing project. Automatically records delta revisions in `ProjectNote` and `EntityVersion`.
 
-**Request Body:** Full `Project` object (merged with existing data client-side)
+**Request Body:** Full or partial `Project` object
 
 **Response (200):** Updated `Project`
 
-**Used by:** [`useProjects.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/hooks/useProjects.ts) via `useCrudOperations`
+**Used by:** `useProjectMutations` in `src/queries/index.ts`
 
 ---
 
 ### `DELETE /api/projects/:id`
 
-Delete a project.
+Delete a project. Creates an `EntityVersion` tombstone (`op: 'D'`) to communicate deletion to delta sync clients.
 
-**Response (200):** `{ "message": "Deleted" }`
+**Response (200):** `{ "message": "Project deleted successfully" }`
 
-**Used by:** [`useProjects.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/hooks/useProjects.ts) via `useCrudOperations`
+**Used by:** `useProjectMutations` in `src/queries/index.ts`
 
 ---
 
@@ -161,23 +234,13 @@ Toggle project completion status.
 
 **Response (200):** Updated `Project`
 
-**Used by:** [`useProjects.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/hooks/useProjects.ts) — `handleToggleDone`
-
----
-
-### `PATCH /api/projects/:id/sample`
-
-Advance the project's next sampling date.
-
-**Response (200):** Updated `Project`
-
-**Used by:** [`useProjects.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/hooks/useProjects.ts) — `handleMarkSampled`
+**Used by:** `useProjectMutations` in `src/queries/index.ts`
 
 ---
 
 ### `GET /api/projects/stats`
 
-Dashboard aggregate statistics.
+Dashboard aggregate statistics (cached in server memory).
 
 **Response:**
 ```json
@@ -196,9 +259,7 @@ Dashboard aggregate statistics.
 }
 ```
 
-**Note:** This endpoint has **no authentication** on the server.
-
-**Used by:** [`useAppData.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/hooks/useAppData.ts)
+**Used by:** `useDashboardStatsQuery` in `src/queries/index.ts`
 
 ---
 
@@ -681,64 +742,137 @@ Update a single preference.
 { "value": "any" }
 ```
 
-**Used by:** [`useAppData.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/hooks/useAppData.ts) — `updatePreference(key, value)` with optimistic updates
+**Used by:** [`usePreferencesMutations`](file:///Users/nemanja.stanojevic/Documents/zigicode/002_EkosGreenGroup/project_tracker/client/src/queries/index.ts) — with optimistic UI updates
 
 ---
 
-## Activity Logs
+## Activity Logs & Analytics
 
-> **Base Path:** `/api/activity-logs`
+> **Base Path:** `/api/activity-logs` (centralized in `src/constants/apiRoutes.ts`)
 
 ### `GET /api/activity-logs/status`
 Check if activity logging is enabled globally.
 - **Roles:** Any authenticated user.
-- **Returns:** `{ enabled: boolean }`
+- **Returns:** `{ enabled: boolean, retentionDays: number }`
 
 ### `PATCH /api/activity-logs/status`
-Toggle activity logging globally.
+Toggle activity logging globally or adjust retention.
 - **Roles:** Administrator
-- **Body:** `{ enabled: boolean }`
-- **Returns:** `{ enabled: boolean }`
+- **Body:** `{ enabled?: boolean, retentionDays?: number }`
+- **Returns:** `{ enabled: boolean, retentionDays: number }`
 
 ### `GET /api/activity-logs`
 Fetch paginated list of activity logs.
 - **Roles:** Administrator
 - **Query Params:**
-  - `userId` (optional): Filter by user
-  - `sessionId` (optional): Filter by session
+  - `userId` (optional): Filter by user UUID
+  - `sessionId` (optional): Filter by session ID
   - `from` (optional): ISO date string to fetch logs after
-  - `limit` (optional): Max number of logs (default: 1000)
+  - `limit` (optional): Max number of logs (default: 1000, max: 5000)
   - `includeDetails` (optional): Set to 'true' to load the full diff payload
 - **Returns:** Array of `ActivityLog` objects.
 
+### `GET /api/activity-logs/analytics`
+Compute comprehensive activity metrics, usage trends, and KPI statistics across the organization.
+- **Roles:** Administrator
+- **Query Params:**
+  - `from` (optional): ISO date string start range
+  - `to` (optional): ISO date string end range
+  - `tz` (optional): User IANA timezone (e.g. `'Europe/Belgrade'`, default `'UTC'`)
+  - `granularity` (optional): `'day' | 'week' | 'month'` (auto-calculated if omitted)
+  - `userIds` (optional): Comma-separated user UUIDs
+  - `roles` (optional): Comma-separated role names
+  - `excludeAdminPages` (optional): `'false'` to include administrative routes (default: `'true'`)
+  - `compare` (optional): `'false'` to skip previous period delta calculations (default: `'true'`)
+- **Returns:** `{ kpis, timeline, topPages, actionsByEntity, userUsage, userPageBreakdown, heatmap, sessionDurationDistribution, transitions, featureAdoption, editedFields }`
+- **Used by:** [`ActivityAnalyticsPage.tsx`](file:///Users/nemanja.stanojevic/Documents/zigicode/002_EkosGreenGroup/project_tracker/client/src/pages/management/ActivityAnalyticsPage.tsx)
+
 ### `GET /api/activity-logs/:id`
-Fetch a single activity log with its full details payload.
+Fetch a single activity log with its full details payload (lazy loaded for diff viewing).
 - **Roles:** Administrator
 - **Returns:** `ActivityLog` object.
 
 ### `POST /api/activity-logs`
-Ingest client activity events (e.g. navigation, user interaction). Buffered on the server.
+Ingest client activity events (page navigation, session duration, user actions). Buffered in memory on the server.
 - **Roles:** Any authenticated user
 - **Body:** `ActivityLog | ActivityLog[]`
 - **Returns:** HTTP 202 Accepted.
+- **Used by:** [`useActivityTracker.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/002_EkosGreenGroup/project_tracker/client/src/hooks/useActivityTracker.ts)
 
 ### `DELETE /api/activity-logs/clear-all`
-Clear all activity logs from the database.
+Clear all activity logs from the database. Invalidates analytics cache.
 - **Roles:** Administrator
 - **Returns:** `{ count: number }`
 
 ### `POST /api/activity-logs/bulk-delete`
-Delete selected activity logs by ID.
+Delete selected activity logs by ID array. Invalidates analytics cache.
 - **Roles:** Administrator
 - **Body:** `{ ids: string[] }`
 - **Returns:** `{ count: number }`
 
 ### `DELETE /api/activity-logs/session/:sessionId`
-Delete all logs matching a specific session ID.
+Delete all logs matching a specific session ID. Invalidates analytics cache.
 - **Roles:** Administrator
 - **Returns:** `{ count: number }`
 
 ### `DELETE /api/activity-logs/:id`
-Delete a specific activity log.
+Delete a specific activity log. Invalidates analytics cache.
 - **Roles:** Administrator
 - **Returns:** `{ success: boolean }`
+
+---
+
+## History & Data Versioning (`/api/history`)
+
+Comprehensive entity versioning and point-in-time diff inspection.
+
+### `GET /api/history/:entityType/:id`
+Fetch historical version timeline for an entity.
+- **Params:** `entityType` (e.g. `Project`, `Invoice`, `Client`), `id` (entity UUID)
+- **Query Params:** `?limit=50&offset=0&includeChildren=true`
+- **Returns:** `{ entityType, entityId, currentVersion, versions: [...] }`
+- **Used by:** `HistoryTimelineModal.tsx`, `useEntityHistoryQuery`
+
+### `GET /api/history/:entityType/:id/diff`
+Compute field diffs between two versions or date ranges.
+- **Query Params:** `?from=1&to=4` OR `?dateFrom=YYYY-MM-DD&dateTo=YYYY-MM-DD`
+- **Returns:** `{ entityType, entityId, fromVersion, toVersion, changes: [...], dateFrom, dateTo }`
+- **Used by:** `HistoryTimelineModal.tsx`
+
+### `GET /api/history/:entityType/:id/versions/:v`
+Reconstruct full entity snapshot at version `:v`.
+- **Returns:** Reconstructed entity data at historical version `:v`.
+
+### `GET /api/history/changesets/:id`
+Inspect multi-entity transaction changeset details.
+- **Returns:** `ChangeSet` details with all touched entity versions.
+
+### `POST /api/history/:entityType/:id/restore/:v`
+Restore entity state to version `:v`.
+- **Roles:** User with `history:restore` permission
+- **Returns:** `{ success: true, restoredVersion, newVersion, entity }`
+- **Used by:** `HistoryTimelineModal.tsx`
+
+---
+
+## Delta Synchronization Engine (`src/utils/deltaSync.ts`)
+
+The client features transparent incremental delta synchronization built on top of TanStack React Query:
+
+- **`fetchWithDeltaSync<T>({ url, queryKey, queryClient })`**:
+  - Checks if valid cached data and a `syncedAt` timestamp exist for `queryKey`.
+  - Appends `?since=<syncedAt>` to the outgoing request.
+  - Receives either a raw array (initial full load) or a `DeltaEnvelope<T>` `{ delta: true, items, deletedIds, syncedAt }`.
+  - Reconciles updates using `mergeDelta()`: updates modified items in-place, appends new records, and purges deleted tombstone IDs.
+  - Updates the `syncedAt` map for the query key.
+
+---
+
+## Multi-Tier Waste Catalog Storage (`src/utils/wasteCatalogStorage.ts`)
+
+To avoid network latency and large payload transfers for the Serbian national waste index (~1,000+ entries):
+
+- **In-Memory Cache (Tier 1):** 0ms synchronous read access.
+- **IndexedDB (`ekos_project_tracker_db`, Tier 2):** Persistent browser storage surviving page refreshes and browser restarts.
+- **Cross-Tab `BroadcastChannel` (`ekos_waste_catalog_sync`):** Synchronizes additions, edits, or deletes across all open application tabs in real time.
+- **Delta Sync:** Checks `syncedAt` against `/api/waste-catalog?since=...` to fetch only catalog updates and purge deleted codes.

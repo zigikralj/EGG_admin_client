@@ -43,7 +43,6 @@ interface Props {
   reminders?: Reminder[];
   clients?: Client[];
   users?: User[];
-  onMarkSampled?: (id: string) => void;
   onSaveReminder?: (reminder: Partial<Reminder>) => Promise<SaveResult | void> | void;
   onDeleteReminder?: (id: string) => void;
   onStatusChangeReminder?: (id: string, status: string) => void;
@@ -270,23 +269,8 @@ export const ReminderPanel: React.FC<Props> = ({
         createdAt: r.createdAt,
       }));
     }
-    return projects
-      .filter((p) => p.nextSample && !p.done)
-      .map((p) => ({
-        id: p.id,
-        title: p.name,
-        projectName: p.name,
-        clientName: p.clientName,
-        responsible: p.responsible || '—',
-        dueDate: p.nextSample,
-        status: 'Pending',
-        notes: null,
-        projectId: p.id,
-        clientId: p.clientId || null,
-        responsibleId: (p as any).responsibleId || null,
-        createdAt: p.createdAt,
-      }));
-  }, [reminders, projects]);
+    return [];
+  }, [reminders, projects, clients, users]);
 
   const uniqueClients = useMemo(() => {
     const set = new Set<string>();

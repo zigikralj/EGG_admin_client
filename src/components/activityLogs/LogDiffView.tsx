@@ -26,10 +26,13 @@ export const LogDiffView: React.FC<LogDiffViewProps> = ({ detailsStr, isDark, la
   const diff = detailsObj.diff;
   if (!diff || typeof diff !== 'object') return null;
 
-  // Filter diff entries: for update, only show fields where old !== new
+  // Filter diff entries: for update, only show fields where old !== new or truncated diffs that match
   const entries = Object.entries(diff).filter(([_, val]: [string, any]) => {
     if (val && typeof val === 'object' && ('old' in val || 'new' in val)) {
-      return JSON.stringify(val.old) !== JSON.stringify(val.new);
+      if (JSON.stringify(val.old) === JSON.stringify(val.new)) {
+        return typeof val.old === 'string' && val.old.endsWith('…');
+      }
+      return true;
     }
     return true;
   });
@@ -57,14 +60,16 @@ export const LogDiffView: React.FC<LogDiffViewProps> = ({ detailsStr, isDark, la
       width: '100%',
       maxWidth: { xs: '100%', sm: 600, md: 750 }
     }}>
-      {entries.map(([key, val]: [string, any]) => {
+      {entries.map(([rawKey, val]: [string, any]) => {
+        const key = rawKey === 'notesPreview' ? 'notes' : rawKey;
         const isOldNew = val && typeof val === 'object' && ('old' in val || 'new' in val);
         const hasOld = isOldNew && val.old !== undefined && val.old !== null;
         const hasNew = isOldNew && val.new !== undefined && val.new !== null;
+        const isTruncatedMatch = isOldNew && JSON.stringify(val.old) === JSON.stringify(val.new);
 
         return (
           <Box
-            key={key}
+            key={rawKey}
             sx={{
               display: 'flex',
               alignItems: 'baseline',
@@ -88,7 +93,27 @@ export const LogDiffView: React.FC<LogDiffViewProps> = ({ detailsStr, isDark, la
               {key}:
             </Typography>
 
-            {isOldNew ? (
+            {isTruncatedMatch ? (
+              <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.6, flexWrap: 'wrap' }}>
+                <Typography
+                  component="span"
+                  sx={{
+                    color: '#10b981',
+                    fontWeight: 600,
+                    fontFamily: 'monospace',
+                    fontSize: '0.73rem'
+                  }}
+                >
+                  {formatDiffValue(val.new)}
+                </Typography>
+                <Typography
+                  component="span"
+                  sx={{ fontStyle: 'italic', color: 'text.secondary', fontSize: '0.7rem' }}
+                >
+                  ({language === 'en' ? 'modified' : 'izmenjeno'})
+                </Typography>
+              </Box>
+            ) : isOldNew ? (
               <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.6, flexWrap: 'wrap' }}>
                 {hasOld && (
                   <Typography

@@ -42,8 +42,28 @@ export interface KpiStats {
   activeToday: number;
   totalSessions: number;
   totalTrackedSeconds: number;
-  topModule: string;
+  topModule: string | null;
   topModulePercent: number;
+}
+
+export interface UserSummary {
+  userId: string;
+  userName: string;
+  totalDurationSeconds: number;
+  totalSessionsCount: number;
+  totalActivitiesCount: number;
+  lastActive: string;
+  hasActiveSession: boolean;
+  topModules: Array<{
+    path: string;
+    seconds: number;
+    percentage: number;
+  }>;
+}
+
+export interface ActivityLogsSummaryResponse {
+  kpiStats: KpiStats;
+  userSummaries: UserSummary[];
 }
 
 export interface DeleteDialogState {
@@ -54,4 +74,4 @@ export interface DeleteDialogState {
   label?: string;
 }
 
-export type TimeRangeFilter = 'ALL' | 'TODAY' | 'WEEK' | 'MONTH';
+export type TimeRangeFilter = 'TODAY' | 'WEEK' | 'MONTH';

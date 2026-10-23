@@ -9,8 +9,8 @@ export interface Project {
   deadline: string | null;
   progress: number;
   done: boolean;
-  nextSample: string | null;
   notes?: string | null;
+  notesPreview?: string | null;
   reminders?: Reminder[];
   invoices?: Invoice[];
   createdAt?: string;
@@ -27,6 +27,19 @@ export interface ActivityLog {
   durationSeconds?: number;
   sessionId?: string | null;
   timestamp: string;
+}
+
+export interface ActivityLogMonthlyStats {
+  id: string;
+  userId: string;
+  userName?: string;
+  yearMonth: string;
+  totalDurationSeconds: number;
+  sessionCount: number;
+  actionCount: number;
+  moduleBreakdown?: Record<string, number> | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface AnalyticsTotals {
@@ -332,7 +345,64 @@ export type ActiveTab = 'dashboard' | 'projects' | 'clients' | 'permits' | 'user
 
 export type AppSection = 'project-tracker' | 'data-management';
 
-export type DashboardSubTab = 'projects' | 'reminders' | 'invoices' | 'waste-disposal' | 'waste-management' | 'statistic' | 'statistic-waste-management' | 'statistic-waste-disposal';
+export type DashboardSubTab = 'projects' | 'updates' | 'reminders' | 'invoices' | 'waste-disposal' | 'waste-management' | 'statistic' | 'statistic-waste-management' | 'statistic-waste-disposal';
+
+export interface ProjectUpdateSummary {
+  id: string;
+  name: string;
+  clientId?: string | null;
+  clientName?: string | null;
+  responsible?: string | null;
+  responsibleId?: string | null;
+  type: string;
+  start?: string | null;
+  deadline?: string | null;
+  progress: number;
+  done: boolean;
+  notesPreview?: string | null;
+  client?: { id: string; name: string; city?: string | null } | null;
+  lastModifiedAt: string;
+  lastModifiedBy: string;
+  revisionCount: number;
+  changedFields: string[];
+  noteCharDelta: number;
+  addedRemindersCount: number;
+  updatedRemindersCount: number;
+  addedInvoicesCount: number;
+  updatedInvoicesCount: number;
+}
+
+export interface ProjectUpdatesDiffResult {
+  projectId: string;
+  projectName: string;
+  dateFrom: string;
+  dateTo: string;
+  fieldDiffs: Record<string, { old: any; new: any }>;
+  notesDiff?: {
+    vFrom: number;
+    vTo: number;
+    fromCreatedAt?: string;
+    toCreatedAt?: string;
+    oldContent?: string;
+    newContent?: string;
+    diff: Array<{ op: 'insert' | 'delete' | 'equal'; text: string }>;
+  } | null;
+  reminders: Array<{
+    id: string;
+    title: string;
+    dueDate?: string | null;
+    status: string;
+    isNew: boolean;
+  }>;
+  invoices: Array<{
+    id: string;
+    invoiceNumber: string;
+    status: string;
+    total?: number | null;
+    currency?: string | null;
+    isNew: boolean;
+  }>;
+}
 
 export type ProvidedServicesSubTab = 'summary' | 'statistics';
 
@@ -463,3 +533,64 @@ export interface Role {
   updatedAt?: string;
   _count?: { users: number };
 }
+
+export interface EntityVersionSummary {
+  id: string;
+  changeSetId: string;
+  entityType: string;
+  entityId: string;
+  version: number;
+  op: 'I' | 'U' | 'D' | 'B' | string;
+  kind: 'S' | 'D' | string;
+  changedFields: string[];
+  parentType?: string | null;
+  parentId?: string | null;
+  createdAt: string;
+  changeSet: {
+    id: string;
+    userId: string | null;
+    userName: string | null;
+    source: string;
+    reason: string | null;
+    route: string | null;
+    method: string | null;
+    createdAt: string;
+  };
+}
+
+export interface EntityTimelineResponse {
+  total: number;
+  limit: number;
+  offset: number;
+  versions: EntityVersionSummary[];
+}
+
+export interface VersionDiffResponse {
+  entityType: string;
+  entityId: string;
+  vFrom: number;
+  vTo: number;
+  fromCreatedAt: string;
+  toCreatedAt: string;
+  changedFields: string[];
+  diff: Record<string, { old: any; new: any }>;
+}
+
+export interface RebuiltVersionResponse {
+  entityType: string;
+  entityId: string;
+  version: number;
+  op: string;
+  kind: string;
+  createdAt: string;
+  state: Record<string, any>;
+}
+
+export interface RestoreVersionResponse {
+  restored: boolean;
+  entityType: string;
+  entityId: string;
+  restoredToVersion: number;
+  record: any;
+}
+

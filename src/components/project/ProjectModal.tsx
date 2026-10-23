@@ -13,20 +13,31 @@ import {
   Paper,
   Autocomplete,
   IconButton,
+  Tabs,
+  Tab,
+  Chip,
+  useTheme,
 } from '@mui/material';
 
 import type { Project } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { ErrorDialog } from '../dialogs/ErrorDialog';
-import { RichTextEditor } from '../common/RichTextEditor';
+import { TipTapEditor } from '../common/tiptap/TipTapEditor';
 import { ProjectProgressSlider } from './ProjectProgressSlider';
 import { ProjectReminderSection } from './ProjectReminderSection';
 import { ProjectInvoiceSection } from './ProjectInvoiceSection';
 import { useProjectForm } from '../../hooks/useProjectForm';
-import { DeleteIcon, SaveIcon, CloseIcon, NotesIcon } from '../icons';
+import {
+  DeleteIcon,
+  SaveIcon,
+  CloseIcon,
+  NotesIcon,
+  ReceiptLongIcon,
+  NotificationsActiveIcon,
+} from '../icons';
 import { ConfirmDialog } from '../dialogs/ConfirmDialog';
-import { useClientsQuery, useUsersQuery, useServicesQuery, useRemindersQuery, useInvoicesQuery, useProjectsMutations, useRemindersMutations, useInvoicesMutations } from '../../queries';
+import { useClientsQuery, useUsersQuery, useServicesQuery, useRemindersQuery, useInvoicesQuery, useProjectsMutations, useRemindersMutations, useInvoicesMutations, useProjectDetailsQuery } from '../../queries';
 
 interface Props {
   isOpen: boolean;
@@ -47,6 +58,16 @@ const ProjectModal: React.FC<Props> = ({
   const { handleSave: onSave, handleDelete: onDelete } = useProjectsMutations();
   const { handleSave: onSaveReminder, handleDelete: onDeleteReminder, handleStatusChangeReminder: onStatusChangeReminder } = useRemindersMutations();
   const { handleSave: onSaveInvoice, handleDelete: onDeleteInvoice, handleUpdateInvoiceStatus: _onStatusChangeInvoice } = useInvoicesMutations();
+
+  const { data: projectDetails } = useProjectDetailsQuery(
+    projectToEdit?.id,
+    isOpen && Boolean(projectToEdit?.id)
+  );
+
+  const effectiveProjectToEdit = React.useMemo(() => {
+    if (!projectToEdit) return null;
+    return projectDetails ? { ...projectToEdit, ...projectDetails } : projectToEdit;
+  }, [projectToEdit, projectDetails]);
 
   const onStatusChangeInvoice = async (id: string, status: string, paymentDate?: string) => {
     await _onStatusChangeInvoice(id, status, paymentDate);
@@ -71,7 +92,7 @@ const ProjectModal: React.FC<Props> = ({
   const wrappedOnDeleteInvoice = wrapDelete(onDeleteInvoice);
 
   const { formState, reminderState, invoiceState, handleClientSelectChange } = useProjectForm({
-    projectToEdit,
+    projectToEdit: effectiveProjectToEdit,
     clients,
     users,
     services,
@@ -79,6 +100,19 @@ const ProjectModal: React.FC<Props> = ({
     invoices,
     currentUser,
   });
+
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
+  const [activeTab, setActiveTab] = useState<'notes' | 'invoices' | 'reminders'>('notes');
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setActiveTab('notes');
+    }
+  }, [isOpen, projectToEdit?.id]);
+
+  const invoiceCount = invoiceState.projectInvoices?.length || 0;
+  const reminderCount = reminderState.projectReminders?.length || 0;
 
   const {
     name, setName,
@@ -128,7 +162,7 @@ const ProjectModal: React.FC<Props> = ({
         progress: finalProgress,
         done,
         notes: notes.trim() || null,
-      });
+      }, { silent: true });
 
       if (res && typeof res === 'object' && 'success' in res) {
         if (res.success) {
@@ -161,7 +195,7 @@ const ProjectModal: React.FC<Props> = ({
                         clientId: clientId || rem.clientId || null,
                         clientName: clientName.trim() || rem.clientName,
                       };
-                  await onSaveReminder(savePayload);
+                  await onSaveReminder(savePayload, { silent: true });
                 } catch (e) {
                   console.error('Error saving staged reminder:', e);
                 }
@@ -196,7 +230,7 @@ const ProjectModal: React.FC<Props> = ({
                         clientId: clientId || inv.clientId || null,
                         clientName: clientName.trim() || inv.clientName,
                       };
-                  await onSaveInvoice(invPayload);
+                  await onSaveInvoice(invPayload, { silent: true });
                 } catch (e) {
                   console.error('Error saving staged invoice:', e);
                 }
@@ -241,15 +275,16 @@ const ProjectModal: React.FC<Props> = ({
             component: 'form',
             onSubmit: handleSubmit,
             sx: {
-              maxHeight: 'calc(100% - 64px)',
+              height: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
+              maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
               display: 'flex',
               flexDirection: 'column',
             },
           },
         }}
       >
-        <DialogTitle sx={{ display: 'flex', alignItems: { xs: 'flex-start', sm: 'center' }, justifyContent: 'space-between', flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5, pb: 1 }}>
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+        <DialogTitle component="div" sx={{ display: 'flex', alignItems: { xs: 'flex-start', sm: 'center' }, justifyContent: 'space-between', flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5, pb: 1, flexShrink: 0 }}>
+          <Typography variant="h6" component="h2" sx={{ fontWeight: 700 }}>
             {projectToEdit ? t('modalEditProject') : t('modalNewProject')}
           </Typography>
 
@@ -320,7 +355,7 @@ const ProjectModal: React.FC<Props> = ({
           </Box>
         </DialogTitle>
 
-          <DialogContent dividers sx={{ pt: 2 }}>
+          <DialogContent dividers sx={{ pt: 2, flex: 1, overflowY: 'auto' }}>
             <Grid container spacing={2}>
               {/* PROJECT NAME */}
               <Grid size={{ xs: 12 }}>
@@ -444,7 +479,7 @@ const ProjectModal: React.FC<Props> = ({
               </Grid>
 
               {/* DATES */}
-              <Grid size={{ xs: 12, sm: 4 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   type="date"
@@ -455,7 +490,7 @@ const ProjectModal: React.FC<Props> = ({
                   size="small"
                 />
               </Grid>
-              <Grid size={{ xs: 12, sm: 4 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   type="date"
@@ -467,21 +502,158 @@ const ProjectModal: React.FC<Props> = ({
                 />
               </Grid>
 
-              {/* PROGRESS (100% WIDTH SLIDER) */}
+              {/* PROGRESS (COMPACT SLIDER) */}
               <Grid size={{ xs: 12 }}>
-                <ProjectProgressSlider
-                  value={progress}
-                  label={t('progress')}
-                  onChangeCommitted={(val) => {
-                    setProgress(val);
-                    if (val >= 100) setDone(true);
-                    else if (val < 100 && done) setDone(false);
+                <Box
+                  sx={{
+                    py: 0.6,
+                    px: 1.25,
+                    bgcolor: 'background.default',
+                    borderRadius: 1,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    display: 'flex',
+                    alignItems: 'center',
+                    minHeight: 38,
                   }}
+                >
+                  <ProjectProgressSlider
+                    value={progress}
+                    label={t('progress')}
+                    onChangeCommitted={(val) => {
+                      setProgress(val);
+                      if (val >= 100) setDone(true);
+                      else if (val < 100 && done) setDone(false);
+                    }}
+                    compact
+                  />
+                </Box>
+              </Grid>
+
+              {/* TABS NAVIGATION FOR NOTES, INVOICES, REMINDERS */}
+              <Grid size={{ xs: 12 }} sx={{ mt: 0.5 }}>
+                <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                  <Tabs
+                    value={activeTab}
+                    onChange={(_, val) => setActiveTab(val)}
+                    variant="scrollable"
+                    scrollButtons="auto"
+                    sx={{
+                      minHeight: 40,
+                      '& .MuiTabs-indicator': {
+                        height: 3,
+                        borderRadius: '3px 3px 0 0',
+                      },
+                      '& .MuiTab-root': {
+                        minHeight: 40,
+                        py: 0.75,
+                        px: 2,
+                        textTransform: 'none',
+                        fontWeight: 600,
+                        fontSize: '0.85rem',
+                        color: 'text.secondary',
+                        '&.Mui-selected': {
+                          fontWeight: 700,
+                          color: 'primary.main',
+                        },
+                      },
+                    }}
+                  >
+                    <Tab
+                      value="notes"
+                      icon={<NotesIcon sx={{ fontSize: 18 }} />}
+                      iconPosition="start"
+                      label={t('lblProjectNotes')}
+                    />
+                    <Tab
+                      value="invoices"
+                      icon={<ReceiptLongIcon sx={{ fontSize: 18 }} />}
+                      iconPosition="start"
+                      label={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                          <span>{t('tabInvoices')}</span>
+                          {invoiceCount > 0 && (
+                            <Chip
+                              label={invoiceCount}
+                              size="small"
+                              sx={{
+                                height: 18,
+                                fontSize: '0.7rem',
+                                fontWeight: 700,
+                                bgcolor: activeTab === 'invoices' ? 'primary.main' : (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'),
+                                color: activeTab === 'invoices' ? 'primary.contrastText' : 'text.secondary',
+                              }}
+                            />
+                          )}
+                        </Box>
+                      }
+                    />
+                    <Tab
+                      value="reminders"
+                      icon={<NotificationsActiveIcon sx={{ fontSize: 18 }} />}
+                      iconPosition="start"
+                      label={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                          <span>{t('tabReminders')}</span>
+                          {reminderCount > 0 && (
+                            <Chip
+                              label={reminderCount}
+                              size="small"
+                              sx={{
+                                height: 18,
+                                fontSize: '0.7rem',
+                                fontWeight: 700,
+                                bgcolor: activeTab === 'reminders' ? 'primary.main' : (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'),
+                                color: activeTab === 'reminders' ? 'primary.contrastText' : 'text.secondary',
+                              }}
+                            />
+                          )}
+                        </Box>
+                      }
+                    />
+                  </Tabs>
+                </Box>
+              </Grid>
+
+              {/* TAB PANELS */}
+              {/* TAB 1: NOTES */}
+              <Grid size={{ xs: 12 }} sx={{ display: activeTab === 'notes' ? 'block' : 'none' }}>
+                <Paper variant="outlined" sx={{ p: 2, bgcolor: 'background.default', borderRadius: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                    <NotesIcon color="primary" fontSize="small" />
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                      {t('lblProjectNotes')}
+                    </Typography>
+                  </Box>
+                  <TipTapEditor
+                    value={notes}
+                    onChange={setNotes}
+                    users={users}
+                    placeholder={t('phProjectNotes')}
+                    autoSaveEnabled={false}
+                    minHeight={150}
+                  />
+                </Paper>
+              </Grid>
+
+              {/* TAB 2: INVOICES */}
+              <Grid size={{ xs: 12 }} sx={{ display: activeTab === 'invoices' ? 'block' : 'none' }}>
+                <ProjectInvoiceSection
+                  projectToEdit={projectToEdit}
+                  projectName={name}
+                  clientId={clientId}
+                  clientName={clientName}
+                  invoices={invoices}
+                  onSaveInvoice={onSaveInvoice}
+                  onDeleteInvoice={wrappedOnDeleteInvoice}
+                  onStatusChangeInvoice={onStatusChangeInvoice}
+                  setErrorDialogState={setErrorDialogState}
+                  invoiceState={invoiceState}
                 />
               </Grid>
 
-              {/* REMINDERS SECTION */}
-              <Grid size={{ xs: 12 }}>
+              {/* TAB 3: REMINDERS */}
+              <Grid size={{ xs: 12 }} sx={{ display: activeTab === 'reminders' ? 'block' : 'none' }}>
                 <ProjectReminderSection
                   projectToEdit={projectToEdit}
                   projectName={name}
@@ -497,45 +669,10 @@ const ProjectModal: React.FC<Props> = ({
                   reminderState={reminderState}
                 />
               </Grid>
-
-              {/* INVOICES SECTION */}
-              <Grid size={{ xs: 12 }}>
-                <ProjectInvoiceSection
-                  projectToEdit={projectToEdit}
-                  projectName={name}
-                  clientId={clientId}
-                  clientName={clientName}
-                  invoices={invoices}
-                  onSaveInvoice={onSaveInvoice}
-                  onDeleteInvoice={wrappedOnDeleteInvoice}
-                  onStatusChangeInvoice={onStatusChangeInvoice}
-                  setErrorDialogState={setErrorDialogState}
-                  invoiceState={invoiceState}
-                />
-              </Grid>
-
-              {/* PROJECT NOTES RICH TEXT EDITOR */}
-              <Grid size={{ xs: 12 }}>
-                <Paper variant="outlined" sx={{ p: 2, bgcolor: 'background.default', borderRadius: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                    <NotesIcon color="primary" fontSize="small" />
-                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                      {t('lblProjectNotes')}
-                    </Typography>
-                  </Box>
-                  <RichTextEditor
-                    value={notes}
-                    onChange={setNotes}
-                    users={users}
-                    placeholder={t('phProjectNotes')}
-                    minHeight={150}
-                  />
-                </Paper>
-              </Grid>
             </Grid>
           </DialogContent>
 
-          <DialogActions sx={{ p: 2 }}>
+          <DialogActions sx={{ p: 2, flexShrink: 0 }}>
             <Button onClick={onClose} variant="outlined" color="inherit" disabled={isSaving}>
               {t('btnCancel')}
             </Button>

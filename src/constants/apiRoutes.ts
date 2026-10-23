@@ -27,9 +27,15 @@ export const API_ROUTES = {
   PROJECTS: {
     BASE: '/api/projects',
     STATS: '/api/projects/stats',
+    UPDATES: '/api/projects/updates',
+    UPDATES_DIFF: (id: string) => `/api/projects/${encodeURIComponent(id)}/updates-diff`,
     BY_ID: (id: string) => `/api/projects/${encodeURIComponent(id)}`,
     TOGGLE_DONE: (id: string) => `/api/projects/${encodeURIComponent(id)}/toggle-done`,
-    SAMPLE: (id: string) => `/api/projects/${encodeURIComponent(id)}/sample`,
+    UPDATE_NOTES: (id: string) => `/api/projects/${encodeURIComponent(id)}/notes`,
+    NOTE: (id: string) => `/api/projects/${encodeURIComponent(id)}/note`,
+    NOTE_HISTORY: (id: string) => `/api/projects/${encodeURIComponent(id)}/note/history`,
+    NOTE_DIFF: (id: string) => `/api/projects/${encodeURIComponent(id)}/note/diff`,
+    NOTE_RESTORE: (id: string, v: number) => `/api/projects/${encodeURIComponent(id)}/note/restore/${v}`,
   },
   CLIENTS: {
     BASE: '/api/clients',
@@ -67,6 +73,8 @@ export const API_ROUTES = {
   },
   ACTIVITY_LOGS: {
     BASE: '/api/activity-logs',
+    SUMMARY: '/api/activity-logs/summary',
+    MONTHLY_STATS: '/api/activity-logs/monthly-stats',
     ANALYTICS: '/api/activity-logs/analytics',
     STATUS: '/api/activity-logs/status',
     CLEAR_ALL: '/api/activity-logs/clear-all',
@@ -87,6 +95,20 @@ export const API_ROUTES = {
   },
   COMPANY_INFO: {
     BASE: '/api/company-info',
+  },
+  HISTORY: {
+    BASE: '/api/history',
+    TIMELINE: (entityType: string, id: string) => `/api/history/${encodeURIComponent(entityType)}/${encodeURIComponent(id)}`,
+    DIFF: (entityType: string, id: string, from: number, to: number) => `/api/history/${encodeURIComponent(entityType)}/${encodeURIComponent(id)}/diff?from=${from}&to=${to}`,
+    DIFF_BY_DATE: (entityType: string, id: string, dateFrom?: string, dateTo?: string) => {
+      const params = new URLSearchParams();
+      if (dateFrom) params.append('dateFrom', dateFrom);
+      if (dateTo) params.append('dateTo', dateTo);
+      return `/api/history/${encodeURIComponent(entityType)}/${encodeURIComponent(id)}/diff?${params.toString()}`;
+    },
+    VERSION: (entityType: string, id: string, version: number) => `/api/history/${encodeURIComponent(entityType)}/${encodeURIComponent(id)}/versions/${version}`,
+    RESTORE: (entityType: string, id: string, version: number) => `/api/history/${encodeURIComponent(entityType)}/${encodeURIComponent(id)}/restore/${version}`,
+    CHANGESET: (id: string) => `/api/history/changesets/${encodeURIComponent(id)}`,
   },
   IMPORT: {
     BASE: '/api/import',

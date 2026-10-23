@@ -1,47 +1,46 @@
-import { test as setup, expect } from '@playwright/test';
+import { test as setup } from '@playwright/test';
+import fs from 'fs';
+import path from 'path';
 
 const authFile = 'playwright/.auth/user.json';
 
-setup('authenticate', async ({ page }) => {
-  // Mock the login APIs similar to login.spec.ts to perform the login
-  await page.route('**/api/auth/login', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        user: { id: 1, name: 'Test User', email: 'test@example.com', role: 'Admin' },
-        token: 'fake-jwt-token',
-        expiresIn: 3600
-      }),
-    });
-  });
+setup('authenticate', async ({ baseURL }) => {
+  const testUser = {
+    id: '1',
+    name: 'Test User',
+    email: 'test@example.com',
+    role: 'Admin',
+    isApproved: true,
+    status: 'ACTIVE',
+    roleEntity: {
+      id: 1,
+      name: 'Admin',
+      isSystemAdmin: true,
+      permissions: {},
+    },
+  };
+  const token = 'fake-jwt-token';
+  const expiresAt = (Date.now() + 24 * 3600 * 1000).toString();
 
-  await page.route('**/api/auth/me', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ id: 1, name: 'Test User', email: 'test@example.com', role: 'Admin' }),
-    });
-  });
+  const authDir = path.dirname(authFile);
+  if (!fs.existsSync(authDir)) {
+    fs.mkdirSync(authDir, { recursive: true });
+  }
 
-  await page.route('**/api/roles', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify([{ id: 1, name: 'Admin', isSystemAdmin: true, permissions: {} }]),
-    });
-  });
+  const origin = baseURL || 'http://localhost:3000';
+  const storageState = {
+    cookies: [],
+    origins: [
+      {
+        origin,
+        localStorage: [
+          { name: 'auth_user', value: JSON.stringify(testUser) },
+          { name: 'auth_token', value: token },
+          { name: 'auth_session_expires_at', value: expiresAt },
+        ],
+      },
+    ],
+  };
 
-  await page.goto('/login');
-  
-  await page.locator('input[type="text"]').first().fill('test@example.com');
-  await page.locator('input[type="password"]').fill('password123');
-  await page.locator('button[type="submit"]').click();
-
-  // Wait until the page receives the cookies/local storage
-  await page.waitForURL('**/project-tracker/**');
-  
-  // End of authentication steps.
-  // Save storage state into the file.
-  await page.context().storageState({ path: authFile });
+  fs.writeFileSync(authFile, JSON.stringify(storageState, null, 2));
 });

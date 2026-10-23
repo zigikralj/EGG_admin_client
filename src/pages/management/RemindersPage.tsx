@@ -15,15 +15,6 @@ import {
   Chip,
   Box,
   Typography,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Grid,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
   Tooltip,
   Autocomplete,
 } from '@mui/material';
@@ -43,6 +34,7 @@ import { DateRangeFilter } from '../../components/common/DateRangeFilter';
 import { TableSearchInput } from '../../components/common/TableSearchInput';
 import { TableQuickFilters, type QuickFilterItem } from '../../components/common/TableQuickFilters';
 import { ErrorDialog } from '../../components/dialogs/ErrorDialog';
+import { ReminderModal } from '../../components/dialogs/ReminderModal';
 import { useTableView } from '../../hooks/useTableView';
 import { AddIcon, EditIcon, DeleteIcon, CheckIcon, ArrowUpwardIcon, ArrowDownwardIcon, RefreshIcon } from '../../components/icons';
 
@@ -79,7 +71,7 @@ const RemindersPage: React.FC<Props> = ({
   quickFilter: quickFilterProp,
   onQuickFilterChange,
 }) => {
-  const { t, getResponsibleLabel } = useLanguage();
+  const { t } = useLanguage();
   const { hasPermission, currentUser, isRestrictedToOwn } = useAuth();
   const isRemindersRestricted = isRestrictedToOwn('reminders') || isRestrictedToOwn('tracker_reminders');
   const canCreate = hasPermission('reminders', 'create');
@@ -278,20 +270,6 @@ const RemindersPage: React.FC<Props> = ({
     resetSort();
   };
 
-  // Form states
-  const [title, setTitle] = useState<string>('');
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
-  const [projectName, setProjectName] = useState<string>('');
-  const [selectedClientId, setSelectedClientId] = useState<string>('');
-  const [clientName, setClientName] = useState<string>('');
-  const [selectedResponsibleId, setSelectedResponsibleId] = useState<string>('');
-  const [responsible, setResponsible] = useState<string>('');
-  const [status, setStatus] = useState<string>('Pending');
-  const [notes, setNotes] = useState<string>('');
-  const [dueDate, setDueDate] = useState<string>('');
-
-
-
   const columnDefs: ColumnDef[] = [
     { id: 'title', label: t('colTitle') },
     { id: 'project', label: t('colProject') },
@@ -302,94 +280,22 @@ const RemindersPage: React.FC<Props> = ({
     { id: 'notes', label: t('colNotes') },
   ];
 
-  const [selectedPermitId, setSelectedPermitId] = useState('');
-  const [permitNumber, setPermitNumber] = useState('');
-
   const handleOpenNew = () => {
     if (!canCreate) return;
     setEditingReminder(null);
-    setTitle('');
-    setSelectedProjectId('');
-    setProjectName('');
-    setSelectedClientId('');
-    setClientName('');
-    setSelectedPermitId('');
-    setPermitNumber('');
-    if (isRemindersRestricted && currentUser) {
-      setSelectedResponsibleId(currentUser.id || '');
-      setResponsible(currentUser.name || '');
-    } else {
-      setSelectedResponsibleId('');
-      setResponsible('');
-    }
-    setStatus('Pending');
-    setNotes('');
-    setDueDate('');
     setIsOpen(true);
   };
 
   const handleOpenEdit = (rem: Reminder) => {
     if (!getItemPermissions(rem).canEdit) return;
     setEditingReminder(rem);
-    setTitle(rem.title || rem.projectName || '');
-    setSelectedProjectId(rem.projectId || '');
-    setProjectName(rem.projectName || '');
-    setSelectedClientId(rem.clientId || '');
-    setClientName(rem.clientName || '');
-    setSelectedPermitId(rem.permitId || '');
-    setPermitNumber(rem.permitNumber || '');
-    setSelectedResponsibleId(rem.responsibleId || '');
-    setResponsible(rem.responsible || '');
-    setStatus(rem.status || 'Pending');
-    setNotes(rem.notes || '');
-    setDueDate(rem.dueDate || '');
     setIsOpen(true);
   };
 
-  const handleProjectSelect = (projId: string) => {
-    setSelectedProjectId(projId);
-    if (!projId) return;
-    const proj = projects.find((p) => p.id === projId);
-    if (proj) {
-      if (!title) {
-        setTitle(proj.name);
-      }
-      setProjectName(proj.name);
-      if (proj.clientId) {
-        setSelectedClientId(proj.clientId);
-        setClientName(proj.clientName);
-      } else {
-        setClientName(proj.clientName || '');
-      }
-      if (proj.responsible) {
-        setResponsible(proj.responsible);
-        const usr = users.find((u) => u.name === proj.responsible);
-        if (usr) setSelectedResponsibleId(usr.id);
-      }
-    }
-  };
-
-  const handleClientSelect = (cId: string) => {
-    setSelectedClientId(cId);
-    const cli = clients.find((c) => c.id === cId);
-    if (cli) {
-      setClientName(cli.name);
-    }
-  };
-
-  const handleResponsibleSelect = (uId: string) => {
-    setSelectedResponsibleId(uId);
-    const usr = users.find((u) => u.id === uId);
-    if (usr) {
-      setResponsible(usr.name);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveReminder = async (reminderData: Partial<Reminder>) => {
     if (editingReminder && !getItemPermissions(editingReminder).canEdit) return;
     if (!editingReminder && !canCreate) return;
-    const finalTitle = title.trim() || projectName.trim();
+    const finalTitle = reminderData.title?.trim() || reminderData.projectName?.trim();
     if (!finalTitle) {
       setErrorDialogState({
         open: true,
@@ -401,19 +307,8 @@ const RemindersPage: React.FC<Props> = ({
     setIsSaving(true);
     try {
       const res = await handleSave({
-        id: editingReminder?.id,
+        ...reminderData,
         title: finalTitle,
-        projectId: selectedProjectId || null,
-        projectName: projectName.trim() || null,
-        clientId: selectedClientId || null,
-        clientName: clientName.trim() || null,
-        permitId: selectedPermitId || null,
-        permitNumber: permitNumber.trim() || null,
-        responsibleId: selectedResponsibleId || null,
-        responsible: responsible || null,
-        status,
-        notes: notes || null,
-        dueDate: dueDate || null,
       });
 
       if (res && typeof res === 'object' && 'success' in res) {
@@ -655,33 +550,33 @@ const RemindersPage: React.FC<Props> = ({
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
               {t('remindersAllTitle', { count: sortedReminders.length })}
             </Typography>
-            {true && (
               <Tooltip title={t('btnRefresh')}>
-                <IconButton
-                  size="small"
-                  onClick={handleRefresh}
-                  disabled={isRefreshing}
-                  color="primary"
-                  sx={{
-                    border: 1,
-                    borderColor: 'divider',
-                    borderRadius: 2,
-                    p: 0.7,
-                  }}
-                >
-                  <RefreshIcon
-                    fontSize="small"
+                <span>
+                  <IconButton
+                    size="small"
+                    onClick={handleRefresh}
+                    disabled={isRefreshing}
+                    color="primary"
                     sx={{
-                      animation: isRefreshing ? 'spin 1s linear infinite' : undefined,
-                      '@keyframes spin': {
-                        '0%': { transform: 'rotate(0deg)' },
-                        '100%': { transform: 'rotate(360deg)' },
-                      },
+                      border: 1,
+                      borderColor: 'divider',
+                      borderRadius: 2,
+                      p: 0.7,
                     }}
-                  />
-                </IconButton>
+                  >
+                    <RefreshIcon
+                      fontSize="small"
+                      sx={{
+                        animation: isRefreshing ? 'spin 1s linear infinite' : undefined,
+                        '@keyframes spin': {
+                          '0%': { transform: 'rotate(0deg)' },
+                          '100%': { transform: 'rotate(360deg)' },
+                        },
+                      }}
+                    />
+                  </IconButton>
+                </span>
               </Tooltip>
-            )}
           </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, width: { xs: '100%', sm: 'auto' } }}>
@@ -977,264 +872,21 @@ const RemindersPage: React.FC<Props> = ({
       </Card>
 
       {/* CREATE / EDIT DIALOG */}
-      <Dialog open={isOpen} onClose={() => setIsOpen(false)} maxWidth="sm" fullWidth>
-        <form onSubmit={handleSubmit}>
-          <DialogTitle>{editingReminder ? t('modalEditReminder') : t('modalNewReminder')}</DialogTitle>
-          <DialogContent dividers>
-            <Grid container spacing={2} sx={{ pt: 1 }}>
-              {/* Reminder Title */}
-              <Grid size={{ xs: 12 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label={t('lblReminderTitle')}
-                  placeholder={t('phReminderTitle')}
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  required
-                  autoFocus
-                />
-              </Grid>
-
-              {/* Project Selection / Custom Name */}
-              <Grid size={{ xs: 12 }}>
-                <Autocomplete
-                  freeSolo
-                  size="small"
-                  options={projects}
-                  getOptionLabel={(option) => {
-                    if (typeof option === 'string') return option;
-                    return `${option.name} (${option.clientName})`;
-                  }}
-                  value={
-                    selectedProjectId
-                      ? projects.find((p) => p.id === selectedProjectId) || projectName
-                      : projectName
-                  }
-                  onChange={(_, newValue) => {
-                    if (typeof newValue === 'string') {
-                      setSelectedProjectId('');
-                      setProjectName(newValue);
-                    } else if (newValue) {
-                      handleProjectSelect(newValue.id);
-                    } else {
-                      setSelectedProjectId('');
-                      setProjectName('');
-                    }
-                  }}
-                  onInputChange={(_, newInputValue, reason) => {
-                    if (reason === 'input') {
-                      setSelectedProjectId('');
-                      setProjectName(newInputValue);
-                    }
-                  }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label={t('colProject')}
-                    />
-                  )}
-                />
-              </Grid>
-
-              {/* Client Selection / Custom Name */}
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Autocomplete
-                  freeSolo
-                  size="small"
-                  options={clients}
-                  getOptionLabel={(option) => {
-                    if (typeof option === 'string') return option;
-                    return option.name;
-                  }}
-                  value={
-                    selectedClientId
-                      ? clients.find((c) => c.id === selectedClientId) || clientName
-                      : clientName
-                  }
-                  onChange={(_, newValue) => {
-                    if (typeof newValue === 'string') {
-                      setSelectedClientId('');
-                      setClientName(newValue);
-                    } else if (newValue) {
-                      handleClientSelect(newValue.id);
-                    } else {
-                      setSelectedClientId('');
-                      setClientName('');
-                    }
-                  }}
-                  onInputChange={(_, newInputValue, reason) => {
-                    if (reason === 'input') {
-                      setSelectedClientId('');
-                      setClientName(newInputValue);
-                    }
-                  }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label={t('colClient')}
-                    />
-                  )}
-                />
-              </Grid>
-
-              {/* Permit Selection (Optional) */}
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Autocomplete
-                  freeSolo
-                  size="small"
-                  options={selectedClientId ? permits.filter((p) => p.clientId === selectedClientId) : permits}
-                  getOptionLabel={(option) => {
-                    if (typeof option === 'string') return option;
-                    return `${option.permitNumber} (${option.indexNumber})`;
-                  }}
-                  value={
-                    selectedPermitId
-                      ? permits.find((p) => p.id === selectedPermitId) || permitNumber
-                      : permitNumber
-                  }
-                  onChange={(_, newValue) => {
-                    if (typeof newValue === 'string') {
-                      setSelectedPermitId('');
-                      setPermitNumber(newValue);
-                    } else if (newValue) {
-                      setSelectedPermitId(newValue.id);
-                      setPermitNumber(newValue.permitNumber);
-                      if (newValue.clientId && !selectedClientId) {
-                        setSelectedClientId(newValue.clientId);
-                        const c = clients.find((cli) => cli.id === newValue.clientId);
-                        if (c) setClientName(c.name);
-                      }
-                    } else {
-                      setSelectedPermitId('');
-                      setPermitNumber('');
-                    }
-                  }}
-                  onInputChange={(_, newInputValue, reason) => {
-                    if (reason === 'input') {
-                      setSelectedPermitId('');
-                      setPermitNumber(newInputValue);
-                    }
-                  }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label={t('lblPermit')}
-                      placeholder={t('phSelectPermit')}
-                    />
-                  )}
-                />
-              </Grid>
-
-              {/* Responsible Selection / Custom Name */}
-              {(() => {
-                const respLabel = getResponsibleLabel(selectedResponsibleId || responsible, users);
-                const selectableUsers = users.filter((u) => {
-                  const isMe = Boolean(currentUser?.name) && u.name.trim().toLowerCase() === currentUser?.name?.trim().toLowerCase();
-                  if (isRemindersRestricted) return isMe;
-                  const isSelected =
-                    (Boolean(selectedResponsibleId) && u.id === selectedResponsibleId) ||
-                    (Boolean(responsible) && u.name.trim().toLowerCase() === responsible.trim().toLowerCase());
-                  if (isSelected) return true;
-                  const isBlocked = u.status === 'BLOCKED' || u.status?.toLowerCase() === 'blocked' || (u.isApproved === false && u.status !== 'PENDING');
-                  if (isBlocked) return false;
-                  if (u.role === 'Administrator' || u.roleEntity?.isSystemAdmin) return false;
-                  return true;
-                });
-                return (
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <Autocomplete
-                      key={respLabel}
-                      freeSolo
-                      size="small"
-                      disabled={isRemindersRestricted || (!editingReminder ? !canCreate : !getItemPermissions(editingReminder).canEdit)}
-                      options={selectableUsers}
-                      getOptionLabel={(option) => {
-                        if (typeof option === 'string') return option;
-                        return option.name;
-                      }}
-                      value={
-                        selectedResponsibleId
-                          ? selectableUsers.find((u) => u.id === selectedResponsibleId) || responsible
-                          : responsible
-                      }
-                      onChange={(_, newValue) => {
-                        if (typeof newValue === 'string') {
-                          setSelectedResponsibleId('');
-                          setResponsible(newValue);
-                        } else if (newValue) {
-                          handleResponsibleSelect(newValue.id);
-                        } else {
-                          setSelectedResponsibleId('');
-                          setResponsible('');
-                        }
-                      }}
-                      onInputChange={(_, newInputValue, reason) => {
-                        if (reason === 'input') {
-                          setSelectedResponsibleId('');
-                          setResponsible(newInputValue);
-                        }
-                      }}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          label={respLabel}
-                        />
-                      )}
-                    />
-                  </Grid>
-                );
-              })()}
-
-              {/* Status & Due Date */}
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>{t('lblStatus')}</InputLabel>
-                  <Select value={status} label={t('lblStatus')} onChange={(e) => setStatus(e.target.value)}>
-                    <MenuItem value="Pending">{t('statusPending')}</MenuItem>
-                    <MenuItem value="In Progress">{t('statusInProgress')}</MenuItem>
-                    <MenuItem value="Completed">{t('statusCompleted')}</MenuItem>
-                    <MenuItem value="Overdue">{t('statusOverdue')}</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="date"
-                  label={t('lblDueDate')}
-                  slotProps={{ inputLabel: { shrink: true } }}
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                />
-              </Grid>
-
-              {/* Notes */}
-              <Grid size={{ xs: 12 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  multiline
-                  rows={3}
-                  label={t('lblNotes')}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                />
-              </Grid>
-            </Grid>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setIsOpen(false)} color="inherit" disabled={isSaving}>
-              {t('btnCancel')}
-            </Button>
-            <Button type="submit" variant="contained" color="primary" disabled={isSaving}>
-              {isSaving ? '...' : t('btnSave')}
-            </Button>
-          </DialogActions>
-        </form>
-      </Dialog>
+      <ReminderModal
+        open={isOpen}
+        onClose={() => setIsOpen(false)}
+        editingReminder={editingReminder}
+        projects={projects}
+        clients={clients}
+        permits={permits}
+        users={users}
+        canCreate={canCreate}
+        canEdit={editingReminder ? getItemPermissions(editingReminder).canEdit : canCreate}
+        isRestricted={isRemindersRestricted}
+        currentUser={currentUser}
+        onSave={handleSaveReminder}
+        isSaving={isSaving}
+      />
 
       <ErrorDialog
         open={errorDialogState.open}

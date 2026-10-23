@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+- feat: integrate TipTap 3 rich text editor suite with formatting toolbar, tables extension, team @mentions, and DOMPurify sanitization.
+- feat: add project note revision history diff modal (`NoteHistoryDiffModal`) and entity version timeline (`HistoryTimelineModal`) with one-click rollback.
+- feat: add organization-wide Project Updates Panel (`ProjectUpdatesPanel`) and project progress slider (`ProjectProgressSlider`) with localized activity feeds.
+- feat: implement multi-tier waste catalog storage (`wasteCatalogStorage.ts`) featuring IndexedDB persistence, 0ms in-memory reads, and cross-tab `BroadcastChannel` synchronization.
+- feat: implement client-side incremental delta synchronization engine (`deltaSync.ts`) integrated into TanStack React Query hooks with automatic cache reconciliation.
+- feat: add `PermitModal` extracted dialog with standardized responsive layout and explicit scrolling flex constraints.
+- feat: add Microsoft Word metadata and XML cleaners (`cleanWordHtml.ts`, `stripHtmlToText.ts`).
+- test: add comprehensive Playwright E2E test suites for TipTap notes and add `mockApi.ts` test helper for deterministic CI executions.
+- perf: optimize Playwright configuration for CI and refine reminder modal state reset logic.
+
 ## [v1.10.1] - 2026-10-20
 
 - perf: increase polling and flush intervals to 60 seconds to reduce ne… (#84) by @zigikralj
@@ -37,11 +49,6 @@ All notable changes to this project will be documented in this file.
 ## [v1.7.3] - 2026-10-10
 
 - Testing (#68) by @zigikralj
-
-## [Unreleased]
-
-- feat: comprehensive automated Playwright E2E testing suite and GitHub Actions workflow
-- docs: update architectural, AI orientation, and root documentation for testing and CI/CD
 
 ## [v1.7.2] - 2026-10-07
 

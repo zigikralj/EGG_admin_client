@@ -37,11 +37,12 @@ import { ArrowUpwardIcon, ArrowDownwardIcon, AddIcon, RefreshIcon } from '../../
 
 const ProjectsStatistics = React.lazy(() => import('../../components/tracker/statistics/ProjectsStatistics'));
 const WasteDisposalStatistics = React.lazy(() => import('../../components/tracker/statistics/WasteDisposalStatistics'));
-
+const ProjectUpdatesPanel = React.lazy(() => import('../../components/tracker/ProjectUpdatesPanel'));
 
 interface Props {
   dashboardSubTab?: DashboardSubTab;
-  onViewProject?: (project: Project) => void;
+  onViewProject?: (project: Project, diffRange?: { dateFrom: string; dateTo: string } | null) => void;
+  onOpenProjectDiff?: (project: Project, diffRange: { dateFrom: string; dateTo: string }) => void;
   onEditProject?: (project: Project) => void;
   onNavigateToProjects?: () => void;
   onNavigateToInvoices?: () => void;
@@ -82,6 +83,7 @@ import {
 const DashboardView: React.FC<Props> = ({
   dashboardSubTab = 'projects',
   onViewProject,
+  onOpenProjectDiff,
   onEditProject,
   onNavigateToProjects: _onNavigateToProjects,
   onNavigateToInvoices,
@@ -131,8 +133,7 @@ const DashboardView: React.FC<Props> = ({
     });
   }, [reminders, isRemindersRestricted, currentUser]);
 
-  const { markSampledMutation, toggleDoneMutation } = useProjectsMutations();
-  const handleMarkSampled = async (id: string) => await markSampledMutation.mutateAsync(id);
+  const { toggleDoneMutation } = useProjectsMutations();
 
   const { handleSave: onSaveReminder, handleDelete: _onDeleteReminder, handleStatusChangeReminder: onStatusChangeReminder } = useRemindersMutations();
   const { handleSave: onSaveProvidedService, handleDelete: _onDeleteProvidedService } = useProvidedServicesMutations();
@@ -493,7 +494,6 @@ const DashboardView: React.FC<Props> = ({
       reminders={displayReminders}
       clients={clients}
       users={users}
-      onMarkSampled={handleMarkSampled}
       onSaveReminder={onSaveReminder}
       onDeleteReminder={onDeleteReminder}
       onStatusChangeReminder={onStatusChangeReminder}
@@ -695,6 +695,23 @@ const DashboardView: React.FC<Props> = ({
         </Box>
       )}
 
+      {/* PROJECT UPDATES SUBTAB VIEW */}
+      {dashboardSubTab === 'updates' && (
+        <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+          <ProjectUpdatesPanel
+            onOpenProjectDiff={(proj, r) => {
+              if (onOpenProjectDiff) {
+                onOpenProjectDiff(proj, r);
+              } else if (onViewProject) {
+                onViewProject(proj, r);
+              }
+            }}
+            onEditProject={onEditProject}
+            onViewProject={onViewProject}
+          />
+        </Suspense>
+      )}
+
       {/* PROJECTS SUBTAB VIEW */}
       {dashboardSubTab === 'projects' && (
         <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 2.5 }}>
@@ -881,7 +898,6 @@ const DashboardView: React.FC<Props> = ({
                     services={services}
                     reminders={reminders}
                     invoices={invoices}
-                    onMarkSampled={handleMarkSampled}
                     onView={() => onViewProject?.(p)}
                     onEdit={() => onEditProject?.(p)}
                     onDelete={() => wrappedOnDelete(p.id)}

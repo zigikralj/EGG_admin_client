@@ -78,6 +78,7 @@ const APPS: AppDefinition[] = [
       { id: 'invoices', label: 'Invoices' },
       { id: 'roles', label: 'Roles' },
       { id: 'companyInfo', label: 'Company Information' },
+      { id: 'history', label: 'Version History' },
     ],
   },
 ];
@@ -257,9 +258,23 @@ export const RoleModal: React.FC<RoleModalProps> = ({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>{isEdit ? 'Edit Role' : 'Create Role'}</DialogTitle>
-      <DialogContent dividers>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
+      slotProps={{
+        paper: {
+          sx: {
+            maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
+            display: 'flex',
+            flexDirection: 'column',
+          },
+        },
+      }}
+    >
+      <DialogTitle sx={{ flexShrink: 0 }}>{isEdit ? 'Edit Role' : 'Create Role'}</DialogTitle>
+      <DialogContent dividers sx={{ flex: 1, overflowY: 'auto' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           <TextField
             label="Role Name"
@@ -426,7 +441,7 @@ export const RoleModal: React.FC<RoleModalProps> = ({
           )}
         </Box>
       </DialogContent>
-      <DialogActions>
+      <DialogActions sx={{ p: 2, flexShrink: 0 }}>
         <Button onClick={onClose}>Cancel</Button>
         <Button onClick={handleSave} variant="contained" disabled={!name}>
           Save

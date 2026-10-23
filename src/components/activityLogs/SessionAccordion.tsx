@@ -171,7 +171,7 @@ export const SessionAccordion: React.FC<SessionAccordionProps> = ({
       </Box>
 
       {/* Session Details / Content */}
-      <Collapse in={isExpanded}>
+      <Collapse in={isExpanded} unmountOnExit>
         <Box sx={{ p: 2, pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
           <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1.5 }}>
             <Table size="small">

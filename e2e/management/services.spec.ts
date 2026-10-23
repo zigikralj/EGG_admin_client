@@ -60,7 +60,7 @@ test.describe('Services & Provided Services Management', () => {
       },
     ];
 
-    await page.route('**/api/services', async (route) => {
+    await page.route(/\/api\/services(\?.*)?$/, async (route) => {
       if (route.request().method() === 'GET') {
         await route.fulfill({
           status: 200,
@@ -110,7 +110,7 @@ test.describe('Services & Provided Services Management', () => {
       }
     });
 
-    await page.route('**/api/provided-services', async (route) => {
+    await page.route(/\/api\/provided-services(\?.*)?$/, async (route) => {
       if (route.request().method() === 'GET') {
         await route.fulfill({
           status: 200,
@@ -122,7 +122,7 @@ test.describe('Services & Provided Services Management', () => {
       }
     });
 
-    await page.route('**/api/categories', async (route) => {
+    await page.route(/\/api\/categories(\?.*)?$/, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -133,7 +133,7 @@ test.describe('Services & Provided Services Management', () => {
       });
     });
 
-    await page.route('**/api/clients', async (route) => {
+    await page.route(/\/api\/clients(\?.*)?$/, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -141,7 +141,7 @@ test.describe('Services & Provided Services Management', () => {
       });
     });
 
-    await page.route('**/api/projects', async (route) => {
+    await page.route(/\/api\/projects(\?.*)?$/, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -149,7 +149,7 @@ test.describe('Services & Provided Services Management', () => {
       });
     });
 
-    await page.route('**/api/invoices', async (route) => {
+    await page.route(/\/api\/invoices(\?.*)?$/, async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
 
@@ -157,7 +157,7 @@ test.describe('Services & Provided Services Management', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ id: 1, name: 'Test User', email: 'test@example.com', role: 'Admin' }),
+        body: JSON.stringify({ id: '1', name: 'Test User', email: 'test@example.com', role: 'Admin' }),
       });
     });
 
@@ -181,7 +181,7 @@ test.describe('Services & Provided Services Management', () => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
     });
 
-    await page.route('**/api/reminders', async (route) => {
+    await page.route(/\/api\/reminders(\?.*)?$/, async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
 
@@ -193,20 +193,24 @@ test.describe('Services & Provided Services Management', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify([{ id: 1, name: 'Test User', email: 'test@example.com', role: 'Admin' }]),
+        body: JSON.stringify([{ id: '1', name: 'Test User', email: 'test@example.com', role: 'Admin' }]),
       });
     });
 
-    await page.route('**/api/permits', async (route) => {
+    await page.route(/\/api\/permits(\?.*)?$/, async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
 
-    await page.route('**/api/activity-logs', async (route) => {
+    await page.route(/\/api\/activity-logs(\?.*)?$/, async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
 
     await page.route('**/api/activity-logs/status', async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+    });
+
+    await page.route(/\/api\/waste-catalog(\?.*)?$/, async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
   });
 
@@ -219,7 +223,7 @@ test.describe('Services & Provided Services Management', () => {
 
   test('should add a new service', async ({ page }) => {
     let createdPayload: any = null;
-    await page.route('**/api/services', async (route) => {
+    await page.route(/\/api\/services(\?.*)?$/, async (route) => {
       if (route.request().method() === 'POST') {
         createdPayload = route.request().postDataJSON();
         const created = { id: 'srv-2', ...createdPayload };
@@ -337,7 +341,7 @@ test.describe('Services & Provided Services Management', () => {
     await page.goto('/data-management/provided-services');
 
     await expect(page.locator('td', { hasText: 'Revizija tokova otpada' })).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('td', { hasText: 'Eko Metal d.o.o.' })).toBeVisible();
-    await expect(page.locator('td', { hasText: 'Otpad 2024' })).toBeVisible();
+    await expect(page.locator('td', { hasText: 'Eko Metal d.o.o.' })).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('td', { hasText: 'Otpad 2024' })).toBeVisible({ timeout: 10000 });
   });
 });

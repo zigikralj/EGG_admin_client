@@ -636,7 +636,6 @@ section.col-title .count {
 
 .card-actions button:hover { border-color: var(--ink); }
 .card-actions button.danger:hover { border-color: var(--danger); color: var(--danger); }
-.card-actions button.sample-done { border-color: var(--teal); color: var(--teal); }
 
 .empty {
   grid-column: 1 / -1;

@@ -12,6 +12,7 @@ interface ProjectProgressSliderProps {
   label: string;
   disabled?: boolean;
   onChangeCommitted: (val: number) => void;
+  compact?: boolean;
 }
 
 export const ProjectProgressSlider: React.FC<ProjectProgressSliderProps> = React.memo(({
@@ -19,6 +20,7 @@ export const ProjectProgressSlider: React.FC<ProjectProgressSliderProps> = React
   label,
   disabled = false,
   onChangeCommitted,
+  compact = false,
 }) => {
   const [localVal, setLocalVal] = useState(value);
   const [colorVal, setColorVal] = useState(value);
@@ -29,6 +31,83 @@ export const ProjectProgressSlider: React.FC<ProjectProgressSliderProps> = React
   }, [value]);
 
   const progressColor = getProgressColor(colorVal);
+
+  if (compact) {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '100%', px: 0.5 }}>
+        <Typography
+          variant="caption"
+          sx={{
+            fontWeight: 600,
+            color: 'text.secondary',
+            whiteSpace: 'nowrap',
+            minWidth: 'fit-content',
+            fontSize: '0.8125rem',
+          }}
+        >
+          {label} ({localVal}%)
+        </Typography>
+        <Slider
+          value={localVal}
+          min={0}
+          max={100}
+          step={1}
+          disabled={disabled}
+          valueLabelDisplay="auto"
+          valueLabelFormat={(val) => `${val}%`}
+          onChange={(_, val) => {
+            const num = Array.isArray(val) ? val[0] : val;
+            setLocalVal(num);
+          }}
+          onChangeCommitted={(_, val) => {
+            const num = Array.isArray(val) ? val[0] : val;
+            setLocalVal(num);
+            setColorVal(num);
+            onChangeCommitted(num);
+          }}
+          sx={{
+            flex: 1,
+            color: progressColor,
+            py: 0.5,
+            m: 0,
+            '& .MuiSlider-rail': {
+              opacity: 0.25,
+              backgroundColor: (theme) =>
+                theme.palette.mode === 'dark' ? '#ffffff' : '#000000',
+              height: 4,
+              borderRadius: 2,
+            },
+            '& .MuiSlider-track': {
+              backgroundColor: progressColor,
+              borderColor: progressColor,
+              height: 4,
+              borderRadius: 2,
+              transition: 'none',
+            },
+            '& .MuiSlider-thumb': {
+              width: 14,
+              height: 14,
+              backgroundColor: progressColor,
+              boxShadow: `0 0 0 2px ${progressColor}26`,
+              transition: 'none',
+              '&:hover, &.Mui-focusVisible': {
+                boxShadow: `0 0 0 5px ${progressColor}33`,
+              },
+              '&.Mui-active': {
+                boxShadow: `0 0 0 7px ${progressColor}44`,
+              },
+            },
+            '& .MuiSlider-valueLabel': {
+              backgroundColor: progressColor,
+              fontWeight: 700,
+              borderRadius: 1,
+              fontSize: '0.75rem',
+            },
+          }}
+        />
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ px: 1, pt: 0.5 }}>

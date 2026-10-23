@@ -94,7 +94,8 @@ describe('CustomDataModelModal', () => {
     ];
     renderComponent(fields);
     
-    const form = screen.getByRole('dialog').querySelector('form');
+    const dialog = screen.getByRole('dialog');
+    const form = dialog.tagName === 'FORM' ? dialog : dialog.querySelector('form');
     fireEvent.submit(form!);
     
     expect(mockOnSave).not.toHaveBeenCalled();

@@ -1,5 +1,7 @@
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
 import { apiFetch } from '../api';
+import { fetchWithDeltaSync } from '../utils/deltaSync';
+import { syncWasteCatalog, sortWasteCatalog, upsertCatalogItemInDB, getMemoryCachedCatalog } from '../utils/wasteCatalogStorage';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { API_ROUTES } from '../constants';
@@ -19,8 +21,16 @@ import type {
   SaveResult,
   Role,
   ActivityLog,
+  ActivityLogMonthlyStats,
   ActivityAnalytics,
+  EntityTimelineResponse,
+  VersionDiffResponse,
+  RebuiltVersionResponse,
+  RestoreVersionResponse,
+  ProjectUpdateSummary,
+  ProjectUpdatesDiffResult,
 } from '../types';
+import type { ActivityLogsSummaryResponse } from '../components/activityLogs/types';
 
 export function useAuthHeaders() {
   const { currentUser } = useAuth();
@@ -41,29 +51,154 @@ export function useAuthHeaders() {
 
 // --- Queries ---
 
-export function useProjectsQuery(searchQuery: string = '') {
+export function useProjectsQuery(searchQuery: string = '', options?: { done?: boolean }) {
   const { currentUser } = useAuth();
   const getAuthHeaders = useAuthHeaders();
+  const queryClient = useQueryClient();
+  const queryKey = ['projects', currentUser?.id, searchQuery, options?.done] as const;
+
   return useQuery<Project[]>({
-    queryKey: ['projects', currentUser?.id, searchQuery],
+    queryKey,
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (searchQuery) params.set('search', searchQuery);
+      if (options?.done !== undefined) params.set('done', String(options.done));
+      const q = params.toString() ? `?${params.toString()}` : '';
+      return fetchWithDeltaSync<Project>({
+        url: `${API_ROUTES.PROJECTS.BASE}${q}`,
+        queryKey,
+        queryClient,
+        headers: getAuthHeaders(),
+      });
+    },
+  });
+}
+
+/**
+ * Fetches full project details by ID, including complete rich-text HTML notes.
+ * Used on-demand for modals, popovers, and expanded project cards.
+ */
+export function useProjectDetailsQuery(id: string | undefined, enabled: boolean = true) {
+  const getAuthHeaders = useAuthHeaders();
+  return useQuery<Project>({
+    queryKey: ['projects', 'details', id],
     queryFn: async () => {
-      const q = searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : '';
-      const res = await apiFetch(`${API_ROUTES.PROJECTS.BASE}${q}`, { headers: getAuthHeaders() });
-      if (!res.ok) throw new Error('Failed to fetch projects');
+      const res = await apiFetch(`${API_ROUTES.PROJECTS.BASE}/${id}`, { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error('Failed to fetch project details');
       return res.json();
-    }
+    },
+    enabled: Boolean(id) && enabled,
+    meta: { silent: true },
+    staleTime: 5 * 60_000,
+    gcTime: 15 * 60_000,
+  });
+}
+
+export interface ProjectNoteData {
+  id: string | null;
+  projectId: string;
+  content: string;
+  version: number;
+  updatedAt: string | null;
+}
+
+export function useProjectNoteQuery(projectId: string | undefined, enabled: boolean = true) {
+  const getAuthHeaders = useAuthHeaders();
+  return useQuery<ProjectNoteData>({
+    queryKey: ['projects', 'note', projectId],
+    queryFn: async () => {
+      const res = await apiFetch(API_ROUTES.PROJECTS.NOTE(projectId!), { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error('Failed to fetch project note');
+      return res.json();
+    },
+    enabled: Boolean(projectId) && enabled,
+    meta: { silent: true },
+    staleTime: 5 * 60_000,
+    gcTime: 15 * 60_000,
+  });
+}
+
+export interface ProjectUpdatesResponse {
+  total: number;
+  dateFrom: string;
+  dateTo: string;
+  limit: number;
+  offset: number;
+  updates: ProjectUpdateSummary[];
+}
+
+export function useProjectUpdatesQuery(params: {
+  dateFrom?: string;
+  dateTo?: string;
+  responsibleId?: string;
+  search?: string;
+  limit?: number;
+  offset?: number;
+}, enabled: boolean = true) {
+  const getAuthHeaders = useAuthHeaders();
+  return useQuery<ProjectUpdatesResponse>({
+    queryKey: ['projects', 'updates', params],
+    queryFn: async () => {
+      const q = new URLSearchParams();
+      if (params.dateFrom) q.set('dateFrom', params.dateFrom);
+      if (params.dateTo) q.set('dateTo', params.dateTo);
+      if (params.responsibleId) q.set('responsibleId', params.responsibleId);
+      if (params.search) q.set('search', params.search);
+      if (params.limit !== undefined) q.set('limit', String(params.limit));
+      if (params.offset !== undefined) q.set('offset', String(params.offset));
+
+      const queryStr = q.toString() ? `?${q.toString()}` : '';
+      const res = await apiFetch(`${API_ROUTES.PROJECTS.UPDATES}${queryStr}`, { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error('Failed to fetch project updates');
+      return res.json();
+    },
+    enabled,
+    meta: { silent: true },
+    staleTime: 2 * 60_000,
+    gcTime: 10 * 60_000,
+  });
+}
+
+export function useProjectUpdatesDiffQuery(
+  projectId: string | undefined,
+  dateFrom: string | undefined,
+  dateTo: string | undefined,
+  enabled: boolean = true
+) {
+  const getAuthHeaders = useAuthHeaders();
+  return useQuery<ProjectUpdatesDiffResult>({
+    queryKey: ['projects', 'updates-diff', projectId, dateFrom, dateTo],
+    queryFn: async () => {
+      const q = new URLSearchParams();
+      if (dateFrom) q.set('dateFrom', dateFrom);
+      if (dateTo) q.set('dateTo', dateTo);
+
+      const queryStr = q.toString() ? `?${q.toString()}` : '';
+      const res = await apiFetch(`${API_ROUTES.PROJECTS.UPDATES_DIFF(projectId!)}${queryStr}`, { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error('Failed to fetch project updates diff');
+      return res.json();
+    },
+    enabled: Boolean(projectId && dateFrom) && enabled,
+    meta: { silent: true },
+    staleTime: 5 * 60_000,
+    gcTime: 15 * 60_000,
   });
 }
 
 export function useClientsQuery() {
   const getAuthHeaders = useAuthHeaders();
+  const queryClient = useQueryClient();
+  const queryKey = ['clients'] as const;
+
   return useQuery<Client[]>({
-    queryKey: ['clients'],
-    queryFn: async () => {
-      const res = await apiFetch(API_ROUTES.CLIENTS.BASE, { headers: getAuthHeaders() });
-      if (!res.ok) throw new Error('Failed to fetch clients');
-      return res.json();
-    }
+    queryKey,
+    queryFn: () =>
+      fetchWithDeltaSync<Client>({
+        url: API_ROUTES.CLIENTS.BASE,
+        queryKey,
+        queryClient,
+        headers: getAuthHeaders(),
+      }),
   });
 }
 
@@ -93,13 +228,18 @@ export function useServicesQuery() {
 
 export function useProvidedServicesQuery() {
   const getAuthHeaders = useAuthHeaders();
+  const queryClient = useQueryClient();
+  const queryKey = ['provided-services'] as const;
+
   return useQuery<ProvidedService[]>({
-    queryKey: ['provided-services'],
-    queryFn: async () => {
-      const res = await apiFetch(API_ROUTES.PROVIDED_SERVICES.BASE, { headers: getAuthHeaders() });
-      if (!res.ok) throw new Error('Failed to fetch provided services');
-      return res.json();
-    }
+    queryKey,
+    queryFn: () =>
+      fetchWithDeltaSync<ProvidedService>({
+        url: API_ROUTES.PROVIDED_SERVICES.BASE,
+        queryKey,
+        queryClient,
+        headers: getAuthHeaders(),
+      }),
   });
 }
 
@@ -162,37 +302,70 @@ export function usePreferencesMutations() {
 export function useRemindersQuery() {
   const { currentUser } = useAuth();
   const getAuthHeaders = useAuthHeaders();
+  const queryClient = useQueryClient();
+  const queryKey = ['reminders', currentUser?.id] as const;
+
   return useQuery<Reminder[]>({
-    queryKey: ['reminders', currentUser?.id],
-    queryFn: async () => {
-      const res = await apiFetch(API_ROUTES.REMINDERS.BASE, { headers: getAuthHeaders() });
-      if (!res.ok) throw new Error('Failed to fetch reminders');
-      return res.json();
-    }
+    queryKey,
+    queryFn: () =>
+      fetchWithDeltaSync<Reminder>({
+        url: API_ROUTES.REMINDERS.BASE,
+        queryKey,
+        queryClient,
+        headers: getAuthHeaders(),
+      }),
   });
 }
 
 export function useInvoicesQuery() {
   const getAuthHeaders = useAuthHeaders();
+  const queryClient = useQueryClient();
+  const queryKey = ['invoices'] as const;
+
   return useQuery<Invoice[]>({
-    queryKey: ['invoices'],
-    queryFn: async () => {
-      const res = await apiFetch(API_ROUTES.INVOICES.BASE, { headers: getAuthHeaders() });
-      if (!res.ok) throw new Error('Failed to fetch invoices');
-      return res.json();
-    }
+    queryKey,
+    queryFn: () =>
+      fetchWithDeltaSync<Invoice>({
+        url: API_ROUTES.INVOICES.BASE,
+        queryKey,
+        queryClient,
+        headers: getAuthHeaders(),
+      }),
   });
 }
 
 export function usePermitsQuery() {
   const getAuthHeaders = useAuthHeaders();
+  const queryClient = useQueryClient();
+  const queryKey = ['permits'] as const;
+
   return useQuery<Permit[]>({
-    queryKey: ['permits'],
-    queryFn: async () => {
-      const res = await apiFetch(API_ROUTES.PERMITS.BASE, { headers: getAuthHeaders() });
-      if (!res.ok) throw new Error('Failed to fetch permits');
-      return res.json();
-    }
+    queryKey,
+    queryFn: () =>
+      fetchWithDeltaSync<Permit>({
+        url: API_ROUTES.PERMITS.BASE,
+        queryKey,
+        queryClient,
+        headers: getAuthHeaders(),
+      }),
+  });
+}
+
+/** Lightweight permits query without nested relations (waste catalogs, reminders, etc.) for linking and dropdowns. */
+export function usePermitsSummaryQuery() {
+  const getAuthHeaders = useAuthHeaders();
+  const queryClient = useQueryClient();
+  const queryKey = ['permits', 'summary'] as const;
+
+  return useQuery<Permit[]>({
+    queryKey,
+    queryFn: () =>
+      fetchWithDeltaSync<Permit>({
+        url: `${API_ROUTES.PERMITS.BASE}?fields=summary`,
+        queryKey,
+        queryClient,
+        headers: getAuthHeaders(),
+      }),
   });
 }
 
@@ -201,11 +374,42 @@ export function useWasteCatalogQuery() {
   return useQuery<WasteCatalog[]>({
     queryKey: ['waste-catalog'],
     queryFn: async () => {
-      const res = await apiFetch(API_ROUTES.WASTE_CATALOG.BASE, { headers: getAuthHeaders() });
-      if (!res.ok) throw new Error('Failed to fetch waste catalog');
-      return res.json();
-    }
+      return syncWasteCatalog(getAuthHeaders());
+    },
+    initialData: () => getMemoryCachedCatalog() ?? undefined,
+    staleTime: 1000 * 60 * 60, // 1 hour stale time since catalog updates rarely
+    gcTime: 1000 * 60 * 60 * 24, // 24 hours in memory
   });
+}
+
+export function useWasteCatalogMutations() {
+  const queryClient = useQueryClient();
+  const getAuthHeaders = useAuthHeaders();
+
+  const toggleFrequent = useMutation({
+    mutationFn: async ({ id, frequent }: { id: string; frequent?: number | boolean | null }) => {
+      const res = await apiFetch(API_ROUTES.WASTE_CATALOG.FREQUENT(id), {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({ frequent }),
+      });
+      if (!res.ok) throw new Error('Failed to toggle frequent status');
+      const updated: WasteCatalog = await res.json();
+      await upsertCatalogItemInDB(updated);
+      return updated;
+    },
+    onSuccess: (updated) => {
+      queryClient.setQueryData<WasteCatalog[]>(['waste-catalog'], (old) => {
+        if (!old) return [updated];
+        return sortWasteCatalog(old.map((it) => (it.id === updated.id ? updated : it)));
+      });
+    },
+  });
+
+  return { toggleFrequent };
 }
 
 export function useStatsQuery() {
@@ -236,13 +440,88 @@ export function useActivityLogsQuery(from?: string) {
       if (!res.ok) throw new Error('Failed to fetch activity logs');
       return res.json();
     },
-    staleTime: 10_000,
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: 'always',
-    // Background refresh only while the tab is visible (React Query pauses in background by default).
-    refetchInterval: 60_000,
-    refetchIntervalInBackground: false,
+    staleTime: 600_000,
+    refetchOnWindowFocus: false,
     placeholderData: (prev) => prev,
+  });
+}
+
+/**
+ * Postgres-aggregated summary query for KPI stats and per-user summaries.
+ * Zero raw logs transferred.
+ */
+export function useActivityLogsSummaryQuery(from?: string) {
+  const getAuthHeaders = useAuthHeaders();
+  return useQuery<ActivityLogsSummaryResponse>({
+    queryKey: ['activity-logs', 'summary', from ?? 'all'],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (from) params.set('from', from);
+      const q = params.toString() ? `?${params.toString()}` : '';
+      const res = await apiFetch(`${API_ROUTES.ACTIVITY_LOGS.SUMMARY}${q}`, { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error('Failed to fetch activity logs summary');
+      return res.json();
+    },
+    staleTime: 600_000,
+    refetchOnWindowFocus: false,
+    placeholderData: (prev) => prev,
+  });
+}
+
+/**
+ * Infinite query for fetching an individual user's activity logs on demand.
+ * Uses cursor pagination (before, beforeId) with 50 logs per page.
+ */
+export function useUserActivityLogsQuery(userId: string | undefined, from?: string, enabled: boolean = true) {
+  const getAuthHeaders = useAuthHeaders();
+  return useInfiniteQuery<ActivityLog[], Error, { pages: ActivityLog[][]; pageParams: Array<{ before?: string; beforeId?: string } | undefined> }, [string, string, string | undefined, string | undefined], { before?: string; beforeId?: string } | undefined>({
+    queryKey: ['activity-logs', 'user', userId, from],
+    queryFn: async ({ pageParam }) => {
+      const params = new URLSearchParams({
+        userId: userId!,
+        limit: '50',
+        includeDetails: 'false',
+      });
+      if (from) params.set('from', from);
+      if (pageParam?.before) params.set('before', pageParam.before);
+      if (pageParam?.beforeId) params.set('beforeId', pageParam.beforeId);
+
+      const res = await apiFetch(`${API_ROUTES.ACTIVITY_LOGS.BASE}?${params.toString()}`, { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error('Failed to fetch user activity logs');
+      return res.json();
+    },
+    initialPageParam: undefined,
+    getNextPageParam: (lastPage) => {
+      if (!lastPage || lastPage.length < 50) return undefined;
+      const last = lastPage[lastPage.length - 1];
+      return { before: last.timestamp, beforeId: last.id };
+    },
+    enabled: Boolean(userId) && enabled,
+    staleTime: 600_000,
+    refetchOnWindowFocus: false,
+    maxPages: 10,
+  });
+}
+
+/**
+ * Historical pre-aggregated monthly stats query.
+ */
+export function useActivityMonthlyStatsQuery(filters?: { userId?: string; fromYearMonth?: string; toYearMonth?: string }) {
+  const getAuthHeaders = useAuthHeaders();
+  return useQuery<ActivityLogMonthlyStats[]>({
+    queryKey: ['activity-logs', 'monthly-stats', filters?.userId, filters?.fromYearMonth, filters?.toYearMonth],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (filters?.userId) params.set('userId', filters.userId);
+      if (filters?.fromYearMonth) params.set('fromYearMonth', filters.fromYearMonth);
+      if (filters?.toYearMonth) params.set('toYearMonth', filters.toYearMonth);
+      const q = params.toString() ? `?${params.toString()}` : '';
+      const res = await apiFetch(`${API_ROUTES.ACTIVITY_LOGS.MONTHLY_STATS}${q}`, { headers: getAuthHeaders() });
+      if (!res.ok) throw new Error('Failed to fetch activity monthly stats');
+      return res.json();
+    },
+    staleTime: 600_000,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -464,6 +743,9 @@ export function useGenericMutations<T extends { id?: string }>(config: MutationC
     if (config.additionalInvalidates) {
       config.additionalInvalidates.forEach(key => queryClient.invalidateQueries({ queryKey: key }));
     }
+    queryClient.invalidateQueries({ queryKey: ['history'] });
+    queryClient.invalidateQueries({ queryKey: ['history-diff'] });
+    queryClient.invalidateQueries({ queryKey: ['history-version'] });
   };
 
   const saveMutationFn = async (data: Partial<T>) => {
@@ -614,6 +896,9 @@ export function useGenericActionMutation() {
     },
     onSuccess: (data) => {
       data.queryKeysToInvalidate.forEach(key => queryClient.invalidateQueries({ queryKey: key }));
+      queryClient.invalidateQueries({ queryKey: ['history'] });
+      queryClient.invalidateQueries({ queryKey: ['history-diff'] });
+      queryClient.invalidateQueries({ queryKey: ['history-version'] });
     }
   });
 }
@@ -633,6 +918,7 @@ export function useProjectsMutations() {
   const { t } = useLanguage();
 
   const toggleDoneMutation = useMutation({
+    meta: { silent: true },
     mutationFn: async ({ id, isCompleting: _ }: { id: string, isCompleting: boolean }) => {
       const res = await apiFetch(API_ROUTES.PROJECTS.TOGGLE_DONE(id), {
         method: 'PATCH',
@@ -646,30 +932,112 @@ export function useProjectsMutations() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['stats'] });
+      queryClient.invalidateQueries({ queryKey: ['history'] });
+      queryClient.invalidateQueries({ queryKey: ['history-diff'] });
+      queryClient.invalidateQueries({ queryKey: ['history-version'] });
     }
   });
 
-  const markSampledMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await apiFetch(API_ROUTES.PROJECTS.SAMPLE(id), {
+  const updateNotesMutation = useMutation({
+    meta: { silent: true },
+    mutationFn: async ({ id, notes }: { id: string; notes: string | null }) => {
+      const res = await apiFetch(API_ROUTES.PROJECTS.UPDATE_NOTES(id), {
         method: 'PATCH',
-        headers: getAuthHeaders(),
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({ notes }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || t('permissionDeniedOnlyOwnProjects'));
+        throw new Error(err.error || t('errorSavingProject'));
       }
+      return await res.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
-      queryClient.invalidateQueries({ queryKey: ['stats'] });
-    }
+    onSuccess: (data: { id: string; notes: string | null; notesPreview: string | null }) => {
+      // Direct optimistic cache update to avoid refetching entire project list from Neon
+      queryClient.setQueryData(['projects', 'details', data.id], (old: any) => {
+        if (!old) return old;
+        return { ...old, notes: data.notes, notesPreview: data.notesPreview };
+      });
+
+      queryClient.setQueriesData({ queryKey: ['projects'] }, (old: any) => {
+        if (!old) return old;
+        if (Array.isArray(old)) {
+          return old.map((p: any) =>
+            p.id === data.id ? { ...p, notesPreview: data.notesPreview } : p
+          );
+        }
+        return old;
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['history'] });
+      queryClient.invalidateQueries({ queryKey: ['history-diff'] });
+      queryClient.invalidateQueries({ queryKey: ['history-version'] });
+    },
+  });
+
+  const updateNoteMutation = useMutation({
+    meta: { silent: true },
+    mutationFn: async ({ id, content, reason }: { id: string; content: string; reason?: string }) => {
+      const res = await apiFetch(API_ROUTES.PROJECTS.NOTE(id), {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({ content, reason }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || t('errorSavingProject'));
+      }
+      return await res.json();
+    },
+    onSuccess: (data: { id: string; content: string; notesPreview: string | null; version: number }) => {
+      queryClient.setQueryData(['projects', 'note', data.id], data);
+
+      queryClient.setQueryData(['projects', 'details', data.id], (old: any) => {
+        if (!old) return old;
+        return { ...old, notes: data.content, notesPreview: data.notesPreview };
+      });
+
+      queryClient.setQueriesData({ queryKey: ['projects'] }, (old: any) => {
+        if (!old) return old;
+        if (Array.isArray(old)) {
+          return old.map((p: any) =>
+            p.id === data.id ? { ...p, notesPreview: data.notesPreview } : p
+          );
+        }
+        return old;
+      });
+
+      queryClient.invalidateQueries({ queryKey: ['projects', 'note', 'revisions', data.id] });
+    },
   });
 
   return {
     ...generic,
     toggleDoneMutation,
-    markSampledMutation,
+    updateNotesMutation,
+    updateNoteMutation,
+    handleSaveNotes: async (id: string, notes: string | null): Promise<SaveResult> => {
+      try {
+        const data = await updateNotesMutation.mutateAsync({ id, notes });
+        return { success: true, id: data.id, data };
+      } catch (e: any) {
+        return { success: false, error: e.message };
+      }
+    },
+    handleSaveNote: async (id: string, content: string, reason?: string): Promise<SaveResult> => {
+      try {
+        const data = await updateNoteMutation.mutateAsync({ id, content, reason });
+        return { success: true, id: data.id, data };
+      } catch (e: any) {
+        return { success: false, error: e.message };
+      }
+    },
   };
 }
 
@@ -892,3 +1260,183 @@ export function useRoleMutations() {
 
   return { createMutation, updateMutation, deleteMutation };
 }
+
+// --- History & Versioning Queries & Mutations ---
+
+export function useEntityTimelineQuery(
+  entityType: string | null | undefined,
+  entityId: string | null | undefined,
+  options?: { limit?: number; offset?: number; includeChildren?: boolean; enabled?: boolean }
+) {
+  const getAuthHeaders = useAuthHeaders();
+  const enabled = Boolean(entityType && entityId && (options?.enabled ?? true));
+  const limit = options?.limit ?? 50;
+  const offset = options?.offset ?? 0;
+  const includeChildren = Boolean(options?.includeChildren);
+
+  return useQuery<EntityTimelineResponse>({
+    queryKey: ['history', entityType, entityId, limit, offset, includeChildren],
+    queryFn: async () => {
+      const q = `?limit=${limit}&offset=${offset}&includeChildren=${includeChildren}`;
+      const url = `${API_ROUTES.HISTORY.TIMELINE(entityType!, entityId!)}${q}`;
+      const res = await apiFetch(url, { headers: getAuthHeaders() });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to fetch entity timeline');
+      }
+      return res.json();
+    },
+    enabled,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+  });
+}
+
+export function useVersionDiffQuery(
+  entityType: string | null | undefined,
+  entityId: string | null | undefined,
+  vFrom: number | null | undefined,
+  vTo: number | null | undefined,
+  enabled: boolean = true
+) {
+  const getAuthHeaders = useAuthHeaders();
+  const canFetch = Boolean(
+    entityType &&
+    entityId &&
+    typeof vFrom === 'number' &&
+    typeof vTo === 'number' &&
+    vFrom >= 1 &&
+    vTo >= 1 &&
+    enabled
+  );
+
+  return useQuery<VersionDiffResponse>({
+    queryKey: ['history-diff', entityType, entityId, vFrom, vTo],
+    queryFn: async () => {
+      const url = API_ROUTES.HISTORY.DIFF(entityType!, entityId!, vFrom!, vTo!);
+      const res = await apiFetch(url, { headers: getAuthHeaders() });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to fetch version diff');
+      }
+      return res.json();
+    },
+    enabled: canFetch,
+    staleTime: 0,
+    refetchOnMount: 'always',
+  });
+}
+
+export function useDateRangeDiffQuery(
+  entityType: string | null | undefined,
+  entityId: string | null | undefined,
+  dateFrom: string | null | undefined,
+  dateTo: string | null | undefined,
+  enabled: boolean = true
+) {
+  const getAuthHeaders = useAuthHeaders();
+  const canFetch = Boolean(
+    entityType &&
+    entityId &&
+    (dateFrom || dateTo) &&
+    enabled
+  );
+
+  return useQuery<VersionDiffResponse & { dateFrom?: string; dateTo?: string }>({
+    queryKey: ['history-diff-date', entityType, entityId, dateFrom, dateTo],
+    queryFn: async () => {
+      const url = API_ROUTES.HISTORY.DIFF_BY_DATE(entityType!, entityId!, dateFrom || undefined, dateTo || undefined);
+      const res = await apiFetch(url, { headers: getAuthHeaders() });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to fetch date diff');
+      }
+      return res.json();
+    },
+    enabled: canFetch,
+    staleTime: 0,
+    refetchOnMount: 'always',
+  });
+}
+
+export function useRebuiltVersionQuery(
+  entityType: string | null | undefined,
+  entityId: string | null | undefined,
+  version: number | null | undefined,
+  enabled: boolean = true
+) {
+  const getAuthHeaders = useAuthHeaders();
+  const canFetch = Boolean(
+    entityType &&
+    entityId &&
+    typeof version === 'number' &&
+    version >= 1 &&
+    enabled
+  );
+
+  return useQuery<RebuiltVersionResponse>({
+    queryKey: ['history-version', entityType, entityId, version],
+    queryFn: async () => {
+      const url = API_ROUTES.HISTORY.VERSION(entityType!, entityId!, version!);
+      const res = await apiFetch(url, { headers: getAuthHeaders() });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to fetch version data');
+      }
+      return res.json();
+    },
+    enabled: canFetch,
+    staleTime: 0,
+    refetchOnMount: 'always',
+  });
+}
+
+export function useRestoreVersionMutation() {
+  const queryClient = useQueryClient();
+  const getAuthHeaders = useAuthHeaders();
+
+  return useMutation<
+    RestoreVersionResponse,
+    Error,
+    { entityType: string; entityId: string; version: number }
+  >({
+    mutationFn: async ({ entityType, entityId, version }) => {
+      const url = API_ROUTES.HISTORY.RESTORE(entityType, entityId, version);
+      const res = await apiFetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to restore version');
+      }
+      return res.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['history', variables.entityType, variables.entityId] });
+      const lower = variables.entityType.toLowerCase();
+      queryClient.invalidateQueries({ queryKey: [lower + 's'] });
+      queryClient.invalidateQueries({ queryKey: [lower] });
+      if (lower === 'project') {
+        queryClient.invalidateQueries({ queryKey: ['projects'] });
+      } else if (lower === 'client') {
+        queryClient.invalidateQueries({ queryKey: ['clients'] });
+      } else if (lower === 'invoice') {
+        queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      } else if (lower === 'permit') {
+        queryClient.invalidateQueries({ queryKey: ['permits'] });
+      } else if (lower === 'service') {
+        queryClient.invalidateQueries({ queryKey: ['services'] });
+      } else if (lower === 'reminder') {
+        queryClient.invalidateQueries({ queryKey: ['reminders'] });
+      } else if (lower === 'providedservice') {
+        queryClient.invalidateQueries({ queryKey: ['providedServices'] });
+      }
+    },
+  });
+}
+
