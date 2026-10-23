@@ -8,6 +8,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 2 : 0,
+  maxFailures: isCI ? 1 : (process.env.MAX_FAILURES ? parseInt(process.env.MAX_FAILURES, 10) : undefined),
   // Use 2 workers on CI runners instead of restricting to 1, halving CI test time
   workers: isCI ? 2 : undefined,
   reporter: [['list'], ['html', { open: 'never' }]],

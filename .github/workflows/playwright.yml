@@ -13,7 +13,7 @@ jobs:
       !startsWith(github.head_ref, 'release/') &&
       !startsWith(github.event.pull_request.title, 'chore(release)') &&
       !contains(github.event.pull_request.labels.*.name, 'release')
-    timeout-minutes: 60
+    timeout-minutes: 15
     runs-on: ubuntu-latest
 
     steps:
@@ -23,13 +23,29 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '20'
+        cache: 'npm'
         
     - name: Install dependencies
       run: npm ci
       working-directory: ./
       
-    - name: Install Playwright Browsers
+    - name: Cache Playwright Browsers
+      uses: actions/cache@v4
+      id: playwright-cache
+      with:
+        path: ~/.cache/ms-playwright
+        key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-playwright-
+      
+    - name: Install Playwright Browsers & OS Dependencies
+      if: steps.playwright-cache.outputs.cache-hit != 'true'
       run: npx playwright install --with-deps chromium
+      working-directory: ./
+
+    - name: Install OS Dependencies on Cache Hit
+      if: steps.playwright-cache.outputs.cache-hit == 'true'
+      run: npx playwright install-deps chromium
       working-directory: ./
       
     - name: Run Playwright tests
