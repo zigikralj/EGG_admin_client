@@ -12,6 +12,12 @@ setup('authenticate', async ({ baseURL }) => {
     role: 'Admin',
     isApproved: true,
     status: 'ACTIVE',
+    roleEntity: {
+      id: 1,
+      name: 'Admin',
+      isSystemAdmin: true,
+      permissions: {},
+    },
   };
   const token = 'fake-jwt-token';
   const expiresAt = (Date.now() + 24 * 3600 * 1000).toString();

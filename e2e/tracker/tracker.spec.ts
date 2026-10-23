@@ -72,7 +72,15 @@ test.describe('Tracker Dashboard', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify([{ id: 1, name: 'Test User', email: 'test@example.com', role: 'Admin' }]),
+        body: JSON.stringify([
+          {
+            id: 1,
+            name: 'Test User',
+            email: 'test@example.com',
+            role: 'Admin',
+            roleEntity: { id: 1, name: 'Admin', isSystemAdmin: true, permissions: {} },
+          },
+        ]),
       });
     });
 
@@ -80,7 +88,13 @@ test.describe('Tracker Dashboard', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ id: 1, name: 'Test User', email: 'test@example.com', role: 'Admin' }),
+        body: JSON.stringify({
+          id: 1,
+          name: 'Test User',
+          email: 'test@example.com',
+          role: 'Admin',
+          roleEntity: { id: 1, name: 'Admin', isSystemAdmin: true, permissions: {} },
+        }),
       });
     });
 
@@ -176,7 +190,13 @@ test.describe('Tracker Dashboard', () => {
 
     // Toggle completion checkbox on the project card
     const doneCheckbox = firstCard.locator('input[type="checkbox"]').first();
+    await expect(doneCheckbox).toBeVisible();
+
+    const togglePromise = page.waitForResponse(
+      (resp) => resp.url().includes('/api/projects/1/toggle-done') && resp.status() === 200
+    );
     await doneCheckbox.click();
+    await togglePromise;
 
     // Verify PATCH request was dispatched
     expect(toggleRequested).toBe(true);
