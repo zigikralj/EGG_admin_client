@@ -30,8 +30,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    // In CI, build and serve optimized production preview bundle to eliminate on-the-fly bundling overhead
-    command: isCI ? 'VITE_BASE_PATH=/ npm run build && npx vite preview --port 3000' : 'npm run dev',
+    command: 'npm run dev',
     url: baseURL,
     reuseExistingServer: !isCI,
     timeout: 120_000,
