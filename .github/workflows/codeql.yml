@@ -1,8 +1,6 @@
 name: "CodeQL Analysis"
 
 on:
-  push:
-    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
   schedule:
@@ -23,9 +21,11 @@ jobs:
       actions: read
 
     if: |
-      !startsWith(github.head_ref, 'release/') &&
-      !startsWith(github.event.pull_request.title, 'chore(release)') &&
-      !contains(github.event.pull_request.labels.*.name, 'release')
+      github.event_name == 'schedule' || (
+        !startsWith(github.head_ref, 'release/') &&
+        !startsWith(github.event.pull_request.title, 'chore(release)') &&
+        !contains(github.event.pull_request.labels.*.name, 'release')
+      )
 
     strategy:
       fail-fast: false
