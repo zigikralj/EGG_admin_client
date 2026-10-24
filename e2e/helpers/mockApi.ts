@@ -29,6 +29,8 @@ export async function mockCommonApi(page: Page, options: MockApiOptions = {}) {
     role: 'Admin',
     isApproved: true,
     status: 'ACTIVE',
+    isSystemAdmin: true,
+    permissions: {},
     roleEntity: { id: 1, name: 'Admin', isSystemAdmin: true, permissions: {} },
   };
 

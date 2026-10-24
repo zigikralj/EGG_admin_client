@@ -63,12 +63,15 @@ interface Props {
   onWasteManagementRowsPerPageOptionsChange?: (options: number[]) => void;
   wasteManagementRowsPerPage?: number;
   onWasteManagementRowsPerPageChange?: (rowsPerPage: number) => void;
+  sortDashboardProjects?: { field: string; direction: 'asc' | 'desc' };
+  onSortDashboardProjectsChange?: (sort: { field: string; direction: 'asc' | 'desc' }) => void;
 }
 
 import {
   useProjectsQuery,
-  useClientsQuery,
-  useUsersQuery,
+  useInfiniteProjectsQuery,
+  useClientsSummaryQuery,
+  useUsersSummaryQuery,
   useCategoriesQuery,
   useServicesQuery,
   useProvidedServicesQuery,
@@ -79,6 +82,7 @@ import {
   useProvidedServicesMutations,
   useInvoicesMutations,
 } from '../../queries';
+import { useDebounce } from '../../hooks/useDebounce';
 
 const DashboardView: React.FC<Props> = ({
   dashboardSubTab = 'projects',
@@ -104,6 +108,8 @@ const DashboardView: React.FC<Props> = ({
   onWasteManagementRowsPerPageOptionsChange,
   wasteManagementRowsPerPage,
   onWasteManagementRowsPerPageChange,
+  sortDashboardProjects,
+  onSortDashboardProjectsChange,
 }) => {
   const { t, getServiceLabel } = useLanguage();
   const { currentUser, isRestrictedToOwn, hasPermission } = useAuth();
@@ -113,14 +119,42 @@ const DashboardView: React.FC<Props> = ({
   const canViewWasteDisposal = hasPermission('wasteDisposal', 'view');
   const canViewUpdates = hasPermission('tracker_updates', 'view');
 
-  const { data: projects = [], refetch: refetchProjects, isRefetching: isRefetchingProjects } = useProjectsQuery();
-  const { data: clients = [] } = useClientsQuery();
-  const { data: users = [] } = useUsersQuery();
-  const { data: categories = [] } = useCategoriesQuery();
-  const { data: services = [] } = useServicesQuery();
-  const { data: providedServices = [], refetch: refetchProvidedServices, isRefetching: isRefetchingProvidedServices } = useProvidedServicesQuery();
-  const { data: reminders = [], refetch: refetchReminders, isRefetching: isRefetchingReminders } = useRemindersQuery();
-  const { data: invoices = [], refetch: refetchInvoices, isRefetching: isRefetchingInvoices } = useInvoicesQuery();
+  const [isProjectsFilterOpen, setIsProjectsFilterOpen] = useState(false);
+
+  const isStatisticSubTab =
+    dashboardSubTab === 'statistic' ||
+    dashboardSubTab === 'statistic-waste-disposal' ||
+    dashboardSubTab === 'statistic-waste-management' ||
+    dashboardSubTab === 'waste-management';
+  const shouldFetchProjects = isStatisticSubTab;
+  const shouldFetchInvoices = dashboardSubTab === 'invoices' || isStatisticSubTab;
+  const shouldFetchReminders = dashboardSubTab === 'reminders';
+  const shouldFetchProvidedServices = dashboardSubTab === 'waste-disposal' || isStatisticSubTab;
+  const shouldFetchClients =
+    (dashboardSubTab === 'projects' && isProjectsFilterOpen) ||
+    dashboardSubTab === 'reminders' ||
+    dashboardSubTab === 'waste-disposal' ||
+    isStatisticSubTab;
+  const shouldFetchUsers =
+    (dashboardSubTab === 'projects' && isProjectsFilterOpen) ||
+    dashboardSubTab === 'reminders' ||
+    isStatisticSubTab;
+  const shouldFetchCategories =
+    (dashboardSubTab === 'projects' && isProjectsFilterOpen) ||
+    isStatisticSubTab;
+  const shouldFetchServices =
+    (dashboardSubTab === 'projects' && isProjectsFilterOpen) ||
+    dashboardSubTab === 'waste-disposal' ||
+    isStatisticSubTab;
+
+  const { data: projects = [], refetch: refetchProjects, isRefetching: isRefetchingProjects } = useProjectsQuery('', { enabled: shouldFetchProjects });
+  const { data: clients = [] } = useClientsSummaryQuery({ enabled: shouldFetchClients });
+  const { data: users = [] } = useUsersSummaryQuery({ enabled: shouldFetchUsers });
+  const { data: categories = [] } = useCategoriesQuery({ enabled: shouldFetchCategories });
+  const { data: services = [] } = useServicesQuery({ enabled: shouldFetchServices });
+  const { data: providedServices = [], refetch: refetchProvidedServices, isRefetching: isRefetchingProvidedServices } = useProvidedServicesQuery({ enabled: shouldFetchProvidedServices });
+  const { data: reminders = [], refetch: refetchReminders, isRefetching: isRefetchingReminders } = useRemindersQuery({ enabled: shouldFetchReminders });
+  const { data: invoices = [], refetch: refetchInvoices, isRefetching: isRefetchingInvoices } = useInvoicesQuery({ enabled: shouldFetchInvoices });
 
   const displayReminders = useMemo(() => {
     if (!isRemindersRestricted || !currentUser) return reminders;
@@ -157,6 +191,7 @@ const DashboardView: React.FC<Props> = ({
 
   // Projects subtab state & filtering
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 500);
   const [quickFilters, setQuickFilters] = useState<string[]>(() => {
     const defaultFilters = isProjectsRestricted ? ['active'] : ['my', 'active'];
     if (quickFiltersProp !== undefined) {
@@ -201,8 +236,106 @@ const DashboardView: React.FC<Props> = ({
   const [filterDateFrom, setFilterDateFrom] = useState<string>('');
   const [filterDateTo, setFilterDateTo] = useState<string>('');
   const [filterDateField, setFilterDateField] = useState<string>('deadline');
-  const [sortOption, setSortOption] = useState<'deadline' | 'name' | 'start' | 'progress' | 'createdAt'>('deadline');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [sortOption, setSortOption] = useState<'deadline' | 'name' | 'start' | 'progress' | 'createdAt'>(() => {
+    return (sortDashboardProjects?.field as any) || 'deadline';
+  });
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(() => {
+    return sortDashboardProjects?.direction || 'asc';
+  });
+
+  useEffect(() => {
+    if (sortDashboardProjects?.field) {
+      setSortOption(sortDashboardProjects.field as any);
+    }
+    if (sortDashboardProjects?.direction) {
+      setSortDirection(sortDashboardProjects.direction);
+    }
+  }, [sortDashboardProjects?.field, sortDashboardProjects?.direction]);
+
+  const handleSortOptionChange = (newField: 'deadline' | 'name' | 'start' | 'progress' | 'createdAt') => {
+    setSortOption(newField);
+    onSortDashboardProjectsChange?.({ field: newField, direction: sortDirection });
+  };
+
+  const handleSortDirectionToggle = () => {
+    const nextDir = sortDirection === 'asc' ? 'desc' : 'asc';
+    setSortDirection(nextDir);
+    onSortDashboardProjectsChange?.({ field: sortOption, direction: nextDir });
+  };
+
+  const infiniteProjectsQuery = useInfiniteProjectsQuery(
+    {
+      limit: 12,
+      sortBy: sortOption,
+      sortOrder: sortDirection,
+      search: debouncedSearch,
+      type: filterCategory !== 'all' ? filterCategory : undefined,
+      clientId: filterClient !== 'all' ? filterClient : undefined,
+      responsible: isProjectsRestricted
+        ? (currentUser?.name || undefined)
+        : (quickFilters.includes('my') && currentUser?.name ? currentUser.name : (filterResponsible !== 'all' ? filterResponsible : undefined)),
+      status: quickFilters.includes('overdue')
+        ? 'overdue'
+        : quickFilters.includes('stale')
+        ? 'stale'
+        : quickFilters.includes('done')
+        ? 'done'
+        : (filterStatus !== 'all' ? filterStatus : undefined),
+      done: quickFilters.includes('active') ? false : undefined,
+      dateFrom: filterDateFrom || undefined,
+      dateTo: filterDateTo || undefined,
+      dateField: filterDateField,
+    },
+    dashboardSubTab === 'projects'
+  );
+
+  const {
+    data: infiniteData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading: isInfiniteLoading,
+    refetch: refetchInfiniteProjects,
+  } = infiniteProjectsQuery;
+
+  const infiniteProjects = useMemo(() => {
+    if (!infiniteData?.pages) return [];
+    return infiniteData.pages.flatMap((page) => page.items);
+  }, [infiniteData?.pages]);
+
+  const totalCardsCount = infiniteData?.pages?.[0]?.total ?? infiniteProjects.length;
+
+  const observerRef = React.useRef<IntersectionObserver | null>(null);
+  const observerSentinelCallback = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+        observerRef.current = null;
+      }
+      if (!node || !hasNextPage || isFetchingNextPage) return;
+
+      observerRef.current = new IntersectionObserver(
+        (entries) => {
+          if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+            fetchNextPage();
+          }
+        },
+        { threshold: 0, rootMargin: '300px' }
+      );
+
+      observerRef.current.observe(node);
+    },
+    [hasNextPage, isFetchingNextPage, fetchNextPage]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, []);
+
   const [newInvoiceTrigger, setNewInvoiceTrigger] = useState(0);
   const [newReminderTrigger, setNewReminderTrigger] = useState(0);
   const [newWasteServiceTrigger, setNewWasteServiceTrigger] = useState(0);
@@ -300,20 +433,23 @@ const DashboardView: React.FC<Props> = ({
   };
 
   const uniqueCategories = useMemo(() => {
+    if (categories.length > 0) return categories.map((c) => c.name);
     return Array.from(new Set(projects.map((p) => p.type).filter(Boolean)));
-  }, [projects]);
+  }, [categories, projects]);
 
   const uniqueClients = useMemo(() => {
+    if (clients.length > 0) return Array.from(new Set(clients.map((c) => c.name).filter(Boolean))).sort((a, b) => a.localeCompare(b));
     return Array.from(new Set(projects.map((p) => p.clientName).filter(Boolean))).sort((a, b) => a.localeCompare(b));
-  }, [projects]);
+  }, [clients, projects]);
 
   const otherResponsibles = useMemo(() => {
     const currentName = currentUser?.name?.trim().toLowerCase();
-    const setOfNames = new Set(projects.map((p) => p.responsible).filter(Boolean) as string[]);
+    const source = users.length > 0 ? users.map((u) => u.name) : projects.map((p) => p.responsible);
+    const setOfNames = new Set(source.filter(Boolean) as string[]);
     return Array.from(setOfNames)
       .filter((r) => !currentName || r.trim().toLowerCase() !== currentName)
       .sort((a, b) => a.localeCompare(b));
-  }, [projects, currentUser]);
+  }, [users, projects, currentUser]);
 
   const responsibleOptions = useMemo(() => {
     if (isProjectsRestricted) {
@@ -340,142 +476,7 @@ const DashboardView: React.FC<Props> = ({
     { value: 'done', label: t('statDone') },
   ], [t]);
 
-  const filteredDashboardProjects = useMemo(() => {
-    const isStaleProject = (p: Project): boolean => {
-      if (p.done || !p.start) return false;
-      const start = new Date(p.start);
-      const cutoff = new Date();
-      cutoff.setMonth(cutoff.getMonth() - 2);
-      return start < cutoff;
-    };
 
-    const isLateProject = (p: Project): boolean => {
-      if (p.done || !p.deadline) return false;
-      return new Date(p.deadline) < new Date(new Date().toDateString());
-    };
-
-    const hasInvoices = (p: Project): boolean => {
-      if (invoices && invoices.length > 0) {
-        const has = invoices.some(
-          (inv) =>
-            (inv.projectId && inv.projectId === p.id) ||
-            (!inv.projectId && inv.projectName && inv.projectName.trim().toLowerCase() === p.name.trim().toLowerCase())
-        );
-        if (has) return true;
-      }
-      if (p.invoices && p.invoices.length > 0) return true;
-      return false;
-    };
-
-    return projects
-      .filter((p) => {
-        if (isProjectsRestricted) {
-          const isMyName =
-            p.responsible &&
-            currentUser?.name &&
-            p.responsible.trim().toLowerCase() === currentUser.name.trim().toLowerCase();
-          const isMyId = (p as any).responsibleId && (p as any).responsibleId === currentUser?.id;
-          if (!isMyName && !isMyId) return false;
-        }
-
-        if (quickFilters.includes('my') && currentUser) {
-          const isMyName =
-            p.responsible &&
-            currentUser.name &&
-            p.responsible.trim().toLowerCase() === currentUser.name.trim().toLowerCase();
-          const isMyId = (p as any).responsibleId && (p as any).responsibleId === currentUser.id;
-          if (!isMyName && !isMyId) return false;
-        }
-        if (quickFilters.includes('active') && p.done) return false;
-        if (quickFilters.includes('missing_invoice') && hasInvoices(p)) return false;
-        if (quickFilters.includes('stale') && (!isStaleProject(p) || p.done)) return false;
-        if (quickFilters.includes('overdue') && (!isLateProject(p) || p.done)) return false;
-        if (quickFilters.includes('done') && !p.done) return false;
-
-        if (filterCategory !== 'all' && p.type !== filterCategory) return false;
-        if (filterClient !== 'all' && p.clientName !== filterClient) return false;
-        if (filterResponsible !== 'all') {
-          const isMyName =
-            currentUser?.name &&
-            filterResponsible === currentUser.name &&
-            ((p.responsible &&
-              currentUser.name &&
-              p.responsible.trim().toLowerCase() === currentUser.name.trim().toLowerCase()) ||
-              ((p as any).responsibleId && (p as any).responsibleId === currentUser.id));
-          if (!isMyName && p.responsible !== filterResponsible) return false;
-        }
-        if (filterStatus !== 'all') {
-          const stale = isStaleProject(p);
-          const late = isLateProject(p);
-          if (filterStatus === 'done' && !p.done) return false;
-          if (filterStatus === 'overdue' && (!late || p.done)) return false;
-          if (filterStatus === 'stale' && (!stale || p.done)) return false;
-          if (filterStatus === 'creation' && (p.done || stale || late)) return false;
-        }
-
-        // Date range filter
-        if (filterDateFrom || filterDateTo) {
-          let rawDate: string | null | undefined = null;
-          if (filterDateField === 'start') {
-            rawDate = p.start;
-          } else if (filterDateField === 'createdAt') {
-            rawDate = p.createdAt;
-          } else {
-            rawDate = p.deadline;
-          }
-          const dateVal = rawDate ? rawDate.slice(0, 10) : '';
-          if (dateVal) {
-            if (filterDateFrom && dateVal < filterDateFrom) return false;
-            if (filterDateTo && dateVal > filterDateTo) return false;
-          } else {
-            return false;
-          }
-        }
-
-        if (searchQuery.trim()) {
-          const q = searchQuery.toLowerCase();
-          const matchesName = p.name.toLowerCase().includes(q);
-          const matchesClient = p.clientName && p.clientName.toLowerCase().includes(q);
-          const matchesResp = p.responsible && p.responsible.toLowerCase().includes(q);
-          const matchesCat = getServiceLabel(p.type, services).toLowerCase().includes(q);
-          if (!matchesName && !matchesClient && !matchesResp && !matchesCat) return false;
-        }
-
-        return true;
-      })
-      .sort((a, b) => {
-        let res = 0;
-        switch (sortOption) {
-          case 'name':
-            res = a.name.localeCompare(b.name);
-            break;
-          case 'deadline': {
-            const aTime = a.deadline ? new Date(a.deadline).getTime() : Infinity;
-            const bTime = b.deadline ? new Date(b.deadline).getTime() : Infinity;
-            res = aTime - bTime;
-            break;
-          }
-          case 'start': {
-            const aStart = a.start ? new Date(a.start).getTime() : 0;
-            const bStart = b.start ? new Date(b.start).getTime() : 0;
-            res = aStart - bStart;
-            break;
-          }
-          case 'progress':
-            res = a.progress - b.progress;
-            break;
-          case 'createdAt': {
-            const aCreated = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-            const bCreated = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-            res = aCreated - bCreated;
-            break;
-          }
-          default:
-            res = 0;
-        }
-        return sortDirection === 'asc' ? res : -res;
-      });
-  }, [projects, invoices, quickFilters, currentUser, filterCategory, filterClient, filterResponsible, filterStatus, filterDateFrom, filterDateTo, filterDateField, searchQuery, getServiceLabel, sortOption, sortDirection, isProjectsRestricted]);
 
   const activeFilterCount =
     (filterCategory !== 'all' ? 1 : 0) +
@@ -722,7 +723,12 @@ const DashboardView: React.FC<Props> = ({
               <Typography variant="h6" sx={{ fontWeight: 700 }}>
                 {t('subTabProjects')}
               </Typography>
-              <Chip label={filteredDashboardProjects.length} size="small" color="primary" sx={{ fontWeight: 700 }} />
+              <Chip
+                label={totalCardsCount > 0 ? `${infiniteProjects.length} / ${totalCardsCount}` : '0'}
+                size="small"
+                color="primary"
+                sx={{ fontWeight: 700 }}
+              />
             </Box>
             {onOpenNewProject && (
               <Button
@@ -760,7 +766,9 @@ const DashboardView: React.FC<Props> = ({
                 <Tooltip title={t('btnRefresh') || 'Refresh'}>
                   <span>
                     <IconButton
-                      onClick={() => withLoading(() => refetchProjects(), t('loadingRefreshing') || 'Refreshing data...')}
+                      onClick={() => withLoading(async () => {
+                        await Promise.all([refetchProjects(), refetchInfiniteProjects()]);
+                      }, t('loadingRefreshing') || 'Refreshing data...')}
                       disabled={isRefetchingProjects}
                       color="primary"
                       size="small"
@@ -789,6 +797,7 @@ const DashboardView: React.FC<Props> = ({
                 <TableFilterSelector
                   activeCount={activeFilterCount}
                   onClear={clearFilters}
+                  onOpen={() => setIsProjectsFilterOpen(true)}
                   sortingContent={
                     <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                       <Autocomplete
@@ -801,13 +810,13 @@ const DashboardView: React.FC<Props> = ({
                         isOptionEqualToValue={(option, val) => option.value === val.value}
                         value={sortOptions.find((o) => o.value === sortOption) || sortOptions[0]}
                         onChange={(_, newValue) => {
-                          if (newValue) setSortOption(newValue.value as any);
+                          if (newValue) handleSortOptionChange(newValue.value as any);
                         }}
                         renderInput={(params) => <TextField {...params} label={t('lblSortBy')} size="small" />}
                       />
                       <IconButton
                         size="small"
-                        onClick={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+                        onClick={handleSortDirectionToggle}
                         title={sortDirection === 'asc' ? t('sortAscending') : t('sortDescending')}
                         sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0.75 }}
                       >
@@ -890,23 +899,47 @@ const DashboardView: React.FC<Props> = ({
           </Card>
 
           {/* ALL PROJECTS BELOW THAT */}
-          {filteredDashboardProjects.length > 0 ? (
-            <Grid container spacing={2}>
-              {filteredDashboardProjects.map((p) => (
-                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={p.id}>
-                  <ProjectCard
-                    project={p}
-                    services={services}
-                    reminders={reminders}
-                    invoices={invoices}
-                    onView={() => onViewProject?.(p)}
-                    onEdit={() => onEditProject?.(p)}
-                    onDelete={() => wrappedOnDelete(p.id)}
-                    onToggleDone={() => toggleDoneMutation.mutate({ id: p.id, isCompleting: !p.done })}
-                  />
-                </Grid>
-              ))}
-            </Grid>
+          {infiniteProjects.length > 0 ? (
+            <>
+              <Grid container spacing={2}>
+                {infiniteProjects.map((p) => (
+                  <Grid size={{ xs: 12, sm: 6, md: 4 }} key={p.id}>
+                    <ProjectCard
+                      project={p}
+                      services={services}
+                      reminders={reminders}
+                      invoices={invoices}
+                      onView={() => onViewProject?.(p)}
+                      onEdit={() => onEditProject?.(p)}
+                      onDelete={() => wrappedOnDelete(p.id)}
+                      onToggleDone={() => toggleDoneMutation.mutate({ id: p.id, isCompleting: !p.done })}
+                    />
+                  </Grid>
+                ))}
+              </Grid>
+
+              {/* Sentinel for infinite scroll */}
+              <Box ref={observerSentinelCallback} sx={{ height: 20, width: '100%', mt: 2 }} />
+
+              {/* Loading indicator or fallback load more button */}
+              {isFetchingNextPage && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+                  <CircularProgress size={24} />
+                </Box>
+              )}
+
+              {hasNextPage && !isFetchingNextPage && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+                  <Button variant="outlined" size="small" onClick={() => fetchNextPage()}>
+                    {t('btnLoadMore') || 'Load More'}
+                  </Button>
+                </Box>
+              )}
+            </>
+          ) : isInfiniteLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+              <CircularProgress />
+            </Box>
           ) : (
             <Paper variant="outlined" sx={{ p: 4, textAlign: 'center' }}>
               <Typography color="text.secondary">{t('emptyProjects')}</Typography>

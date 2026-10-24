@@ -12,7 +12,7 @@ import {
 } from '@mui/material';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import { useUsersQuery, useActivityAnalyticsQuery } from '../../queries';
+import { useUsersSummaryQuery, useActivityAnalyticsQuery } from '../../queries';
 import { PAGE_ROUTES } from '../../constants';
 import {
   AnalyticsHeader,
@@ -84,7 +84,7 @@ export const ActivityAnalyticsPage: React.FC = () => {
   }, [preset, customStartDate, customEndDate]);
 
   // 3. React Query hooks
-  const { data: usersData } = useUsersQuery();
+  const { data: usersData = [] } = useUsersSummaryQuery();
   const {
     data: analytics,
     isLoading,
@@ -180,7 +180,7 @@ export const ActivityAnalyticsPage: React.FC = () => {
         onExcludeAdminPagesChange={handleExcludeAdminChange}
         onRefresh={() => refetch()}
         isFetching={isFetching}
-        users={usersData}
+        users={usersData as any}
         t={t}
         language={language}
       />

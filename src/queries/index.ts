@@ -17,7 +17,6 @@ import type {
   Invoice,
   Permit,
   WasteCatalog,
-  ProjectStats,
   SaveResult,
   Role,
   ActivityLog,
@@ -29,6 +28,7 @@ import type {
   RestoreVersionResponse,
   ProjectUpdateSummary,
   ProjectUpdatesDiffResult,
+  PaginatedResponse,
 } from '../types';
 import type { ActivityLogsSummaryResponse } from '../components/activityLogs/types';
 
@@ -49,9 +49,43 @@ export function useAuthHeaders() {
   };
 }
 
+// --- Pagination Helpers ---
+
+export interface BasePaginationParams {
+  page: number; // 0-indexed from MUI
+  rowsPerPage: number;
+  sortColumn?: string;
+  sortDirection?: 'asc' | 'desc';
+  searchQuery?: string;
+}
+
+export function buildPaginationQueryParams(
+  params: BasePaginationParams,
+  extraFilters: Record<string, any> = {}
+): URLSearchParams {
+  const q = new URLSearchParams();
+  q.set('page', String(params.page + 1)); // Convert 0-indexed to 1-indexed for backend
+  q.set('limit', String(params.rowsPerPage));
+  if (params.sortColumn) q.set('sortBy', params.sortColumn);
+  if (params.sortDirection) q.set('sortOrder', params.sortDirection);
+  if (params.searchQuery?.trim()) q.set('search', params.searchQuery.trim());
+
+  Object.entries(extraFilters).forEach(([key, val]) => {
+    if (val !== undefined && val !== null && val !== '' && val !== 'all') {
+      if (Array.isArray(val)) {
+        if (val.length > 0) q.set(key, val.join(','));
+      } else {
+        q.set(key, String(val));
+      }
+    }
+  });
+
+  return q;
+}
+
 // --- Queries ---
 
-export function useProjectsQuery(searchQuery: string = '', options?: { done?: boolean }) {
+export function useProjectsQuery(searchQuery: string = '', options?: { done?: boolean; enabled?: boolean }) {
   const { currentUser } = useAuth();
   const getAuthHeaders = useAuthHeaders();
   const queryClient = useQueryClient();
@@ -59,6 +93,7 @@ export function useProjectsQuery(searchQuery: string = '', options?: { done?: bo
 
   return useQuery<Project[]>({
     queryKey,
+    enabled: options?.enabled ?? true,
     queryFn: () => {
       const params = new URLSearchParams();
       if (searchQuery) params.set('search', searchQuery);
@@ -73,6 +108,171 @@ export function useProjectsQuery(searchQuery: string = '', options?: { done?: bo
     },
   });
 }
+
+export interface PaginatedProjectsParams {
+  page: number; // 0-indexed from MUI
+  rowsPerPage: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  search?: string;
+  status?: string;
+  type?: string;
+  clientId?: string;
+  responsible?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  dateField?: string;
+  done?: boolean;
+}
+
+export function usePaginatedProjectsQuery(params: PaginatedProjectsParams, enabled: boolean = true) {
+  const { currentUser } = useAuth();
+  const getAuthHeaders = useAuthHeaders();
+  const queryKey = [
+    'projects',
+    'paginated',
+    currentUser?.id,
+    params.page,
+    params.rowsPerPage,
+    params.sortBy,
+    params.sortOrder,
+    params.search,
+    params.status,
+    params.type,
+    params.clientId,
+    params.responsible,
+    params.dateFrom,
+    params.dateTo,
+    params.dateField,
+    params.done,
+  ] as const;
+
+  return useQuery<PaginatedResponse<Project>>({
+    queryKey,
+    queryFn: async () => {
+      const q = buildPaginationQueryParams(
+        {
+          page: params.page,
+          rowsPerPage: params.rowsPerPage,
+          sortColumn: params.sortBy,
+          sortDirection: params.sortOrder,
+          searchQuery: params.search,
+        },
+        {
+          status: params.status,
+          type: params.type,
+          clientId: params.clientId,
+          responsible: params.responsible,
+          dateFrom: params.dateFrom,
+          dateTo: params.dateTo,
+          dateField: params.dateField,
+          done: params.done,
+        }
+      );
+
+      const res = await apiFetch(`${API_ROUTES.PROJECTS.BASE}?${q.toString()}`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error('Failed to fetch paginated projects');
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        return {
+          items: data,
+          total: data.length,
+          page: params.page + 1,
+          limit: params.rowsPerPage,
+          totalPages: Math.ceil(data.length / (params.rowsPerPage || 1)) || 1,
+          hasMore: false,
+        };
+      }
+      return data;
+    },
+    placeholderData: keepPreviousData,
+    enabled,
+    staleTime: 30_000,
+  });
+}
+
+export interface InfiniteProjectsParams {
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  search?: string;
+  status?: string;
+  type?: string;
+  clientId?: string;
+  responsible?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  dateField?: string;
+  done?: boolean;
+}
+
+export function useInfiniteProjectsQuery(params: InfiniteProjectsParams = {}, enabled: boolean = true) {
+  const { currentUser } = useAuth();
+  const getAuthHeaders = useAuthHeaders();
+  const limit = params.limit || 12;
+  const queryKey = [
+    'projects',
+    'infinite',
+    currentUser?.id,
+    limit,
+    params.sortBy,
+    params.sortOrder,
+    params.search,
+    params.status,
+    params.type,
+    params.clientId,
+    params.responsible,
+    params.dateFrom,
+    params.dateTo,
+    params.dateField,
+    params.done,
+  ] as const;
+
+  return useInfiniteQuery<PaginatedResponse<Project>>({
+    queryKey,
+    initialPageParam: 1,
+    queryFn: async ({ pageParam = 1 }) => {
+      const q = new URLSearchParams();
+      q.set('page', String(pageParam));
+      q.set('limit', String(limit));
+      if (params.sortBy) q.set('sortBy', params.sortBy);
+      if (params.sortOrder) q.set('sortOrder', params.sortOrder);
+      if (params.search?.trim()) q.set('search', params.search.trim());
+      if (params.status && params.status !== 'all') q.set('status', params.status);
+      if (params.type && params.type !== 'all') q.set('type', params.type);
+      if (params.clientId && params.clientId !== 'all') q.set('clientId', params.clientId);
+      if (params.responsible && params.responsible !== 'all') q.set('responsible', params.responsible);
+      if (params.dateFrom) q.set('dateFrom', params.dateFrom);
+      if (params.dateTo) q.set('dateTo', params.dateTo);
+      if (params.dateField) q.set('dateField', params.dateField);
+      if (params.done !== undefined) q.set('done', String(params.done));
+
+      const res = await apiFetch(`${API_ROUTES.PROJECTS.BASE}?${q.toString()}`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error('Failed to fetch projects');
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        const pageNum = typeof pageParam === 'number' ? pageParam : 1;
+        return {
+          items: data,
+          total: data.length,
+          page: pageNum,
+          limit,
+          totalPages: Math.ceil(data.length / limit) || 1,
+          hasMore: false,
+        };
+      }
+      return data;
+    },
+    getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.page + 1 : undefined),
+    enabled,
+    staleTime: 30_000,
+  });
+}
+
 
 /**
  * Fetches full project details by ID, including complete rich-text HTML notes.
@@ -185,13 +385,14 @@ export function useProjectUpdatesDiffQuery(
   });
 }
 
-export function useClientsQuery() {
+export function useClientsQuery(options?: { enabled?: boolean }) {
   const getAuthHeaders = useAuthHeaders();
   const queryClient = useQueryClient();
   const queryKey = ['clients'] as const;
 
   return useQuery<Client[]>({
     queryKey,
+    enabled: options?.enabled ?? true,
     queryFn: () =>
       fetchWithDeltaSync<Client>({
         url: API_ROUTES.CLIENTS.BASE,
@@ -202,10 +403,91 @@ export function useClientsQuery() {
   });
 }
 
-export function useUsersQuery() {
+export function useClientsSummaryQuery(options?: { enabled?: boolean }) {
+  const getAuthHeaders = useAuthHeaders();
+  return useQuery<Array<{ id: string; name: string; city?: string }>>({
+    queryKey: ['clients', 'summary'],
+    enabled: options?.enabled ?? true,
+    queryFn: async () => {
+      const res = await apiFetch(`${API_ROUTES.CLIENTS.BASE}?fields=summary`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error('Failed to fetch clients summary');
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
+}
+
+export interface PaginatedClientsParams {
+  page: number; // 0-indexed from MUI
+  rowsPerPage: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  search?: string;
+  city?: string;
+  hasPermit?: string;
+}
+
+export function usePaginatedClientsQuery(params: PaginatedClientsParams, enabled: boolean = true) {
+  const getAuthHeaders = useAuthHeaders();
+  const queryKey = [
+    'clients',
+    'paginated',
+    params.page,
+    params.rowsPerPage,
+    params.sortBy,
+    params.sortOrder,
+    params.search,
+    params.city,
+    params.hasPermit,
+  ] as const;
+
+  return useQuery<PaginatedResponse<Client>>({
+    queryKey,
+    queryFn: async () => {
+      const q = buildPaginationQueryParams(
+        {
+          page: params.page,
+          rowsPerPage: params.rowsPerPage,
+          sortColumn: params.sortBy,
+          sortDirection: params.sortOrder,
+          searchQuery: params.search,
+        },
+        {
+          city: params.city,
+          hasPermit: params.hasPermit,
+        }
+      );
+
+      const res = await apiFetch(`${API_ROUTES.CLIENTS.BASE}?${q.toString()}`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error('Failed to fetch paginated clients');
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        return {
+          items: data,
+          total: data.length,
+          page: params.page + 1,
+          limit: params.rowsPerPage,
+          totalPages: Math.ceil(data.length / (params.rowsPerPage || 1)) || 1,
+          hasMore: false,
+        };
+      }
+      return data;
+    },
+    placeholderData: keepPreviousData,
+    enabled,
+    staleTime: 30_000,
+  });
+}
+
+export function useUsersQuery(options?: { enabled?: boolean }) {
   const getAuthHeaders = useAuthHeaders();
   return useQuery<User[]>({
     queryKey: ['users'],
+    enabled: options?.enabled ?? true,
     queryFn: async () => {
       const res = await apiFetch(API_ROUTES.USERS.BASE, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch users');
@@ -214,10 +496,89 @@ export function useUsersQuery() {
   });
 }
 
-export function useServicesQuery() {
+export function useUsersSummaryQuery(options?: { enabled?: boolean }) {
+  const getAuthHeaders = useAuthHeaders();
+  return useQuery<Array<{ id: string; name: string; email: string | null; role: string }>>({
+    queryKey: ['users', 'summary'],
+    enabled: options?.enabled ?? true,
+    queryFn: async () => {
+      const res = await apiFetch(`${API_ROUTES.USERS.BASE}?fields=summary`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error('Failed to fetch users summary');
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
+}
+
+export interface PaginatedUsersParams {
+  page: number;
+  rowsPerPage: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  search?: string;
+  role?: string;
+  status?: string;
+}
+
+export function usePaginatedUsersQuery(params: PaginatedUsersParams, enabled: boolean = true) {
+  const getAuthHeaders = useAuthHeaders();
+  const queryKey = [
+    'users',
+    'paginated',
+    params.page,
+    params.rowsPerPage,
+    params.sortBy,
+    params.sortOrder,
+    params.search,
+    params.role,
+    params.status,
+  ] as const;
+
+  return useQuery<PaginatedResponse<User>>({
+    queryKey,
+    queryFn: async () => {
+      const q = buildPaginationQueryParams(
+        {
+          page: params.page,
+          rowsPerPage: params.rowsPerPage,
+          sortColumn: params.sortBy,
+          sortDirection: params.sortOrder,
+          searchQuery: params.search,
+        },
+        {
+          role: params.role && params.role !== 'all' ? params.role : undefined,
+          status: params.status && params.status !== 'all' ? params.status : undefined,
+        }
+      );
+      const res = await apiFetch(`${API_ROUTES.USERS.BASE}?${q.toString()}`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error('Failed to fetch paginated users');
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        return {
+          items: data,
+          total: data.length,
+          page: 1,
+          limit: data.length,
+          totalPages: 1,
+          hasMore: false,
+        };
+      }
+      return data;
+    },
+    enabled,
+    staleTime: 30000,
+  });
+}
+
+export function useServicesQuery(options?: { enabled?: boolean }) {
   const getAuthHeaders = useAuthHeaders();
   return useQuery<Service[]>({
     queryKey: ['services'],
+    enabled: options?.enabled ?? true,
     queryFn: async () => {
       const res = await apiFetch(API_ROUTES.SERVICES.BASE, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch services');
@@ -226,13 +587,14 @@ export function useServicesQuery() {
   });
 }
 
-export function useProvidedServicesQuery() {
+export function useProvidedServicesQuery(options?: { enabled?: boolean }) {
   const getAuthHeaders = useAuthHeaders();
   const queryClient = useQueryClient();
   const queryKey = ['provided-services'] as const;
 
   return useQuery<ProvidedService[]>({
     queryKey,
+    enabled: options?.enabled ?? true,
     queryFn: () =>
       fetchWithDeltaSync<ProvidedService>({
         url: API_ROUTES.PROVIDED_SERVICES.BASE,
@@ -243,10 +605,91 @@ export function useProvidedServicesQuery() {
   });
 }
 
-export function useCategoriesQuery() {
+export interface PaginatedProvidedServicesParams {
+  page: number;
+  rowsPerPage: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  search?: string;
+  status?: string;
+  serviceId?: string;
+  clientId?: string;
+  projectId?: string;
+  invoiceId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  dateField?: string;
+}
+
+export function usePaginatedProvidedServicesQuery(params: PaginatedProvidedServicesParams, enabled: boolean = true) {
+  const getAuthHeaders = useAuthHeaders();
+  const queryKey = [
+    'provided-services',
+    'paginated',
+    params.page,
+    params.rowsPerPage,
+    params.sortBy,
+    params.sortOrder,
+    params.search,
+    params.status,
+    params.serviceId,
+    params.clientId,
+    params.projectId,
+    params.invoiceId,
+    params.dateFrom,
+    params.dateTo,
+    params.dateField,
+  ] as const;
+
+  return useQuery<PaginatedResponse<ProvidedService>>({
+    queryKey,
+    queryFn: async () => {
+      const q = buildPaginationQueryParams(
+        {
+          page: params.page,
+          rowsPerPage: params.rowsPerPage,
+          sortColumn: params.sortBy,
+          sortDirection: params.sortOrder,
+          searchQuery: params.search,
+        },
+        {
+          status: params.status && params.status !== 'all' ? params.status : undefined,
+          serviceId: params.serviceId && params.serviceId !== 'all' ? params.serviceId : undefined,
+          clientId: params.clientId && params.clientId !== 'all' ? params.clientId : undefined,
+          projectId: params.projectId && params.projectId !== 'all' ? params.projectId : undefined,
+          invoiceId: params.invoiceId && params.invoiceId !== 'all' ? params.invoiceId : undefined,
+          dateFrom: params.dateFrom || undefined,
+          dateTo: params.dateTo || undefined,
+          dateField: params.dateField || undefined,
+        }
+      );
+      const res = await apiFetch(`${API_ROUTES.PROVIDED_SERVICES.BASE}?${q.toString()}`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error('Failed to fetch paginated provided services');
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        return {
+          items: data,
+          total: data.length,
+          page: 1,
+          limit: data.length,
+          totalPages: 1,
+          hasMore: false,
+        };
+      }
+      return data;
+    },
+    enabled,
+    staleTime: 30000,
+  });
+}
+
+export function useCategoriesQuery(options?: { enabled?: boolean }) {
   const getAuthHeaders = useAuthHeaders();
   return useQuery<Category[]>({
     queryKey: ['categories'],
+    enabled: options?.enabled ?? true,
     queryFn: async () => {
       const res = await apiFetch(API_ROUTES.CATEGORIES.BASE, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch categories');
@@ -257,11 +700,12 @@ export function useCategoriesQuery() {
 
 
 export function usePreferencesMutations() {
+  const { currentUser } = useAuth();
   const queryClient = useQueryClient();
   const getAuthHeaders = useAuthHeaders();
 
   const updatePreferenceMutation = useMutation({
-    mutationKey: ['preferences'],
+    mutationKey: ['preferences', currentUser?.id],
     meta: { silent: true },
     mutationFn: async ({ key, value }: { key: string; value: any }) => {
       const res = await apiFetch(API_ROUTES.PREFERENCES.BY_KEY(key), {
@@ -276,30 +720,41 @@ export function usePreferencesMutations() {
       return res.json();
     },
     onMutate: async ({ key, value }) => {
-      await queryClient.cancelQueries({ queryKey: ['preferences'] });
-      const previousPreferences = queryClient.getQueryData<Record<string, any>>(['preferences']);
-      if (previousPreferences) {
-        queryClient.setQueryData<Record<string, any>>(['preferences'], {
-          ...previousPreferences,
-          [key]: value,
-        });
+      const qKey = ['preferences', currentUser?.id];
+      await queryClient.cancelQueries({ queryKey: qKey });
+      const previousPreferences = queryClient.getQueryData<Record<string, any>>(qKey);
+      const updated = {
+        ...(previousPreferences || {}),
+        [key]: value,
+      };
+      queryClient.setQueryData<Record<string, any>>(qKey, updated);
+      if (currentUser?.id && typeof localStorage !== 'undefined') {
+        try {
+          localStorage.setItem(`ekos_user_preferences_${currentUser.id}`, JSON.stringify(updated));
+        } catch {}
       }
       return { previousPreferences };
     },
     onError: (_err, _variables, context) => {
+      const qKey = ['preferences', currentUser?.id];
       if (context?.previousPreferences) {
-        queryClient.setQueryData(['preferences'], context.previousPreferences);
+        queryClient.setQueryData(qKey, context.previousPreferences);
+        if (currentUser?.id && typeof localStorage !== 'undefined') {
+          try {
+            localStorage.setItem(`ekos_user_preferences_${currentUser.id}`, JSON.stringify(context.previousPreferences));
+          } catch {}
+        }
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['preferences'] });
+      queryClient.invalidateQueries({ queryKey: ['preferences', currentUser?.id] });
     },
   });
 
   return { updatePreferenceMutation };
 }
 
-export function useRemindersQuery() {
+export function useRemindersQuery(options?: { enabled?: boolean }) {
   const { currentUser } = useAuth();
   const getAuthHeaders = useAuthHeaders();
   const queryClient = useQueryClient();
@@ -307,6 +762,7 @@ export function useRemindersQuery() {
 
   return useQuery<Reminder[]>({
     queryKey,
+    enabled: options?.enabled ?? true,
     queryFn: () =>
       fetchWithDeltaSync<Reminder>({
         url: API_ROUTES.REMINDERS.BASE,
@@ -317,13 +773,98 @@ export function useRemindersQuery() {
   });
 }
 
-export function useInvoicesQuery() {
+export interface PaginatedRemindersParams {
+  page: number; // 0-indexed from MUI
+  rowsPerPage: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  search?: string;
+  status?: string;
+  clientId?: string;
+  projectId?: string;
+  permitId?: string;
+  responsible?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  dateField?: string;
+}
+
+export function usePaginatedRemindersQuery(params: PaginatedRemindersParams, enabled: boolean = true) {
+  const { currentUser } = useAuth();
+  const getAuthHeaders = useAuthHeaders();
+  const queryKey = [
+    'reminders',
+    'paginated',
+    currentUser?.id,
+    params.page,
+    params.rowsPerPage,
+    params.sortBy,
+    params.sortOrder,
+    params.search,
+    params.status,
+    params.clientId,
+    params.projectId,
+    params.permitId,
+    params.responsible,
+    params.dateFrom,
+    params.dateTo,
+    params.dateField,
+  ] as const;
+
+  return useQuery<PaginatedResponse<Reminder>>({
+    queryKey,
+    queryFn: async () => {
+      const q = buildPaginationQueryParams(
+        {
+          page: params.page,
+          rowsPerPage: params.rowsPerPage,
+          sortColumn: params.sortBy,
+          sortDirection: params.sortOrder,
+          searchQuery: params.search,
+        },
+        {
+          status: params.status,
+          clientId: params.clientId,
+          projectId: params.projectId,
+          permitId: params.permitId,
+          responsible: params.responsible,
+          dateFrom: params.dateFrom,
+          dateTo: params.dateTo,
+          dateField: params.dateField,
+        }
+      );
+
+      const res = await apiFetch(`${API_ROUTES.REMINDERS.BASE}?${q.toString()}`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error('Failed to fetch paginated reminders');
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        return {
+          items: data,
+          total: data.length,
+          page: params.page + 1,
+          limit: params.rowsPerPage,
+          totalPages: Math.ceil(data.length / (params.rowsPerPage || 1)) || 1,
+          hasMore: false,
+        };
+      }
+      return data;
+    },
+    placeholderData: keepPreviousData,
+    enabled,
+    staleTime: 30_000,
+  });
+}
+
+export function useInvoicesQuery(options?: { enabled?: boolean }) {
   const getAuthHeaders = useAuthHeaders();
   const queryClient = useQueryClient();
   const queryKey = ['invoices'] as const;
 
   return useQuery<Invoice[]>({
     queryKey,
+    enabled: options?.enabled ?? true,
     queryFn: () =>
       fetchWithDeltaSync<Invoice>({
         url: API_ROUTES.INVOICES.BASE,
@@ -331,6 +872,91 @@ export function useInvoicesQuery() {
         queryClient,
         headers: getAuthHeaders(),
       }),
+  });
+}
+
+export interface PaginatedInvoicesParams {
+  page: number; // 0-indexed from MUI
+  rowsPerPage: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  search?: string;
+  status?: string;
+  clientId?: string;
+  projectId?: string;
+  currency?: string;
+  invoiceType?: string;
+  linkedStatus?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  dateField?: string;
+}
+
+export function usePaginatedInvoicesQuery(params: PaginatedInvoicesParams, enabled: boolean = true) {
+  const getAuthHeaders = useAuthHeaders();
+  const queryKey = [
+    'invoices',
+    'paginated',
+    params.page,
+    params.rowsPerPage,
+    params.sortBy,
+    params.sortOrder,
+    params.search,
+    params.status,
+    params.clientId,
+    params.projectId,
+    params.currency,
+    params.invoiceType,
+    params.linkedStatus,
+    params.dateFrom,
+    params.dateTo,
+    params.dateField,
+  ] as const;
+
+  return useQuery<PaginatedResponse<Invoice>>({
+    queryKey,
+    queryFn: async () => {
+      const q = buildPaginationQueryParams(
+        {
+          page: params.page,
+          rowsPerPage: params.rowsPerPage,
+          sortColumn: params.sortBy,
+          sortDirection: params.sortOrder,
+          searchQuery: params.search,
+        },
+        {
+          status: params.status,
+          clientId: params.clientId,
+          projectId: params.projectId,
+          currency: params.currency,
+          invoiceType: params.invoiceType,
+          linkedStatus: params.linkedStatus,
+          dateFrom: params.dateFrom,
+          dateTo: params.dateTo,
+          dateField: params.dateField,
+        }
+      );
+
+      const res = await apiFetch(`${API_ROUTES.INVOICES.BASE}?${q.toString()}`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error('Failed to fetch paginated invoices');
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        return {
+          items: data,
+          total: data.length,
+          page: params.page + 1,
+          limit: params.rowsPerPage,
+          totalPages: Math.ceil(data.length / (params.rowsPerPage || 1)) || 1,
+          hasMore: false,
+        };
+      }
+      return data;
+    },
+    placeholderData: keepPreviousData,
+    enabled,
+    staleTime: 30_000,
   });
 }
 
@@ -352,13 +978,14 @@ export function usePermitsQuery() {
 }
 
 /** Lightweight permits query without nested relations (waste catalogs, reminders, etc.) for linking and dropdowns. */
-export function usePermitsSummaryQuery() {
+export function usePermitsSummaryQuery(options?: { enabled?: boolean }) {
   const getAuthHeaders = useAuthHeaders();
   const queryClient = useQueryClient();
   const queryKey = ['permits', 'summary'] as const;
 
   return useQuery<Permit[]>({
     queryKey,
+    enabled: options?.enabled ?? true,
     queryFn: () =>
       fetchWithDeltaSync<Permit>({
         url: `${API_ROUTES.PERMITS.BASE}?fields=summary`,
@@ -366,6 +993,82 @@ export function usePermitsSummaryQuery() {
         queryClient,
         headers: getAuthHeaders(),
       }),
+  });
+}
+
+export interface PaginatedPermitsParams {
+  page: number; // 0-indexed from MUI
+  rowsPerPage: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  search?: string;
+  status?: string;
+  permitType?: string;
+  clientId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  dateField?: string;
+}
+
+export function usePaginatedPermitsQuery(params: PaginatedPermitsParams, enabled: boolean = true) {
+  const getAuthHeaders = useAuthHeaders();
+  const queryKey = [
+    'permits',
+    'paginated',
+    params.page,
+    params.rowsPerPage,
+    params.sortBy,
+    params.sortOrder,
+    params.search,
+    params.status,
+    params.permitType,
+    params.clientId,
+    params.dateFrom,
+    params.dateTo,
+    params.dateField,
+  ] as const;
+
+  return useQuery<PaginatedResponse<Permit>>({
+    queryKey,
+    queryFn: async () => {
+      const q = buildPaginationQueryParams(
+        {
+          page: params.page,
+          rowsPerPage: params.rowsPerPage,
+          sortColumn: params.sortBy,
+          sortDirection: params.sortOrder,
+          searchQuery: params.search,
+        },
+        {
+          status: params.status,
+          permitType: params.permitType,
+          clientId: params.clientId,
+          dateFrom: params.dateFrom,
+          dateTo: params.dateTo,
+          dateField: params.dateField,
+        }
+      );
+
+      const res = await apiFetch(`${API_ROUTES.PERMITS.BASE}?${q.toString()}`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error('Failed to fetch paginated permits');
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        return {
+          items: data,
+          total: data.length,
+          page: params.page + 1,
+          limit: params.rowsPerPage,
+          totalPages: Math.ceil(data.length / (params.rowsPerPage || 1)) || 1,
+          hasMore: false,
+        };
+      }
+      return data;
+    },
+    placeholderData: keepPreviousData,
+    enabled,
+    staleTime: 30_000,
   });
 }
 
@@ -410,19 +1113,6 @@ export function useWasteCatalogMutations() {
   });
 
   return { toggleFrequent };
-}
-
-export function useStatsQuery() {
-  const { currentUser } = useAuth();
-  const getAuthHeaders = useAuthHeaders();
-  return useQuery<ProjectStats>({
-    queryKey: ['stats', currentUser?.id],
-    queryFn: async () => {
-      const res = await apiFetch(API_ROUTES.PROJECTS.STATS, { headers: getAuthHeaders() });
-      if (!res.ok) throw new Error('Failed to fetch stats');
-      return res.json();
-    }
-  });
 }
 
 /**
@@ -506,10 +1196,14 @@ export function useUserActivityLogsQuery(userId: string | undefined, from?: stri
 /**
  * Historical pre-aggregated monthly stats query.
  */
-export function useActivityMonthlyStatsQuery(filters?: { userId?: string; fromYearMonth?: string; toYearMonth?: string }) {
+export function useActivityMonthlyStatsQuery(
+  filters?: { userId?: string; fromYearMonth?: string; toYearMonth?: string },
+  options?: { enabled?: boolean }
+) {
   const getAuthHeaders = useAuthHeaders();
   return useQuery<ActivityLogMonthlyStats[]>({
     queryKey: ['activity-logs', 'monthly-stats', filters?.userId, filters?.fromYearMonth, filters?.toYearMonth],
+    enabled: options?.enabled ?? true,
     queryFn: async () => {
       const params = new URLSearchParams();
       if (filters?.userId) params.set('userId', filters.userId);
@@ -662,9 +1356,8 @@ export function useActivityLogStatusQuery() {
       if (!res.ok) throw new Error('Failed to fetch activity log status');
       return res.json();
     },
-    staleTime: 30_000,
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: 'always',
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -693,6 +1386,9 @@ export function useActivityLogUpdateSettingsMutation() {
       queryClient.setQueryData(['activity-logs-status'], data);
       queryClient.invalidateQueries({ queryKey: ['activity-logs-status'] });
       queryClient.invalidateQueries({ queryKey: ['activity-logs'] });
+      if (typeof window !== 'undefined' && typeof data.enabled === 'boolean') {
+        window.dispatchEvent(new CustomEvent('activity-logging:changed', { detail: data.enabled }));
+      }
     },
   });
 }
@@ -715,7 +1411,22 @@ export function usePreferencesQuery() {
     queryFn: async () => {
       const res = await apiFetch(API_ROUTES.PREFERENCES.BASE, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch preferences');
-      return res.json();
+      const data = await res.json();
+      if (currentUser?.id && typeof localStorage !== 'undefined') {
+        try {
+          localStorage.setItem(`ekos_user_preferences_${currentUser.id}`, JSON.stringify(data));
+        } catch {}
+      }
+      return data;
+    },
+    initialData: () => {
+      if (currentUser?.id && typeof localStorage !== 'undefined') {
+        try {
+          const cached = localStorage.getItem(`ekos_user_preferences_${currentUser.id}`);
+          if (cached) return JSON.parse(cached);
+        } catch {}
+      }
+      return undefined;
     },
     // Don't refetch preferences often as it interrupts UI state
     staleTime: 60 * 60 * 1000,
@@ -907,7 +1618,6 @@ export function useProjectsMutations() {
   const generic = useGenericMutations<Project>({
     basePath: API_ROUTES.PROJECTS.BASE,
     queryKeyToInvalidate: ['projects'],
-    additionalInvalidates: [['stats']],
     errorSaveMessageKey: 'errorSavingProject',
     deleteConfirmMessageKey: 'confirmDeleteProject',
     permissionDeniedMessageKey: 'permissionDeniedOnlyOwnProjects',
@@ -931,7 +1641,6 @@ export function useProjectsMutations() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
-      queryClient.invalidateQueries({ queryKey: ['stats'] });
       queryClient.invalidateQueries({ queryKey: ['history'] });
       queryClient.invalidateQueries({ queryKey: ['history-diff'] });
       queryClient.invalidateQueries({ queryKey: ['history-version'] });
@@ -1045,7 +1754,7 @@ export function useClientsMutations() {
   return useGenericMutations<Client>({
     basePath: API_ROUTES.CLIENTS.BASE,
     queryKeyToInvalidate: ['clients'],
-    additionalInvalidates: [['stats'], ['permits']],
+    additionalInvalidates: [['permits']],
     errorSaveMessageKey: 'errorSavingClient',
     deleteConfirmMessageKey: 'confirmDeleteClient',
     permissionDeniedMessageKey: 'permissionDeniedClients',
@@ -1056,7 +1765,6 @@ export function useUsersMutations() {
   const generic = useGenericMutations<User>({
     basePath: API_ROUTES.USERS.BASE,
     queryKeyToInvalidate: ['users'],
-    additionalInvalidates: [['stats']],
     errorSaveMessageKey: 'errorSavingUser',
     deleteConfirmMessageKey: 'confirmDeleteUser',
     permissionDeniedMessageKey: 'permissionDeniedUsers',
@@ -1064,25 +1772,29 @@ export function useUsersMutations() {
   
   const actionMutation = useGenericActionMutation();
   
-  const handleApproveUser = (userId: string, role: string) => {
-    return actionMutation.mutateAsync({
+  const handleApproveUser = async (userId: string, role: string) => {
+    const res = await actionMutation.mutateAsync({
       path: API_ROUTES.USERS.APPROVE(userId),
       body: { role },
-      queryKeysToInvalidate: [['users'], ['stats']],
+      queryKeysToInvalidate: [['users']],
     });
+    window.dispatchEvent(new CustomEvent('notifications:refresh'));
+    return res;
   };
   
-  const handleRejectUser = (userId: string) => {
-    return actionMutation.mutateAsync({
+  const handleRejectUser = async (userId: string) => {
+    const res = await actionMutation.mutateAsync({
       path: API_ROUTES.USERS.REJECT(userId),
-      queryKeysToInvalidate: [['users'], ['stats']],
+      queryKeysToInvalidate: [['users']],
     });
+    window.dispatchEvent(new CustomEvent('notifications:refresh'));
+    return res;
   };
   
   const handleForceLogoutUser = (userId: string) => {
     return actionMutation.mutateAsync({
       path: API_ROUTES.USERS.FORCE_LOGOUT(userId),
-      queryKeysToInvalidate: [['users'], ['stats']],
+      queryKeysToInvalidate: [['users']],
     });
   };
 
@@ -1098,7 +1810,6 @@ export function useServicesMutations() {
   return useGenericMutations<Service>({
     basePath: API_ROUTES.SERVICES.BASE,
     queryKeyToInvalidate: ['services'],
-    additionalInvalidates: [['stats']],
     errorSaveMessageKey: 'errorSavingService',
     deleteConfirmMessageKey: 'confirmDeleteService',
   });
@@ -1176,7 +1887,7 @@ export function usePermitsMutations() {
   return useGenericMutations<Permit>({
     basePath: API_ROUTES.PERMITS.BASE,
     queryKeyToInvalidate: ['permits'],
-    additionalInvalidates: [['clients'], ['stats']],
+    additionalInvalidates: [['clients']],
     errorSaveMessageKey: 'errorSavingService',
     deleteConfirmMessageKey: 'confirmDeletePermit' as any,
   });
@@ -1186,10 +1897,11 @@ export function usePermitsMutations() {
 // Roles
 // ---------------------------------------------------------------------------
 
-export function useRolesQuery() {
+export function useRolesQuery(options?: { enabled?: boolean }) {
   const getAuthHeaders = useAuthHeaders();
   return useQuery<Role[]>({
     queryKey: ['roles'],
+    enabled: options?.enabled ?? true,
     queryFn: async () => {
       const res = await apiFetch(API_ROUTES.ROLES.BASE, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch roles');

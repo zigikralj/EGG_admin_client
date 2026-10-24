@@ -12,6 +12,8 @@ setup('authenticate', async ({ baseURL }) => {
     role: 'Admin',
     isApproved: true,
     status: 'ACTIVE',
+    isSystemAdmin: true,
+    permissions: {},
     roleEntity: {
       id: 1,
       name: 'Admin',

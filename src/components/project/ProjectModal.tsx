@@ -37,7 +37,7 @@ import {
   NotificationsActiveIcon,
 } from '../icons';
 import { ConfirmDialog } from '../dialogs/ConfirmDialog';
-import { useClientsQuery, useUsersQuery, useServicesQuery, useRemindersQuery, useInvoicesQuery, useProjectsMutations, useRemindersMutations, useInvoicesMutations, useProjectDetailsQuery } from '../../queries';
+import { useClientsSummaryQuery, useUsersQuery, useServicesQuery, useRemindersQuery, useInvoicesQuery, useProjectsMutations, useRemindersMutations, useInvoicesMutations, useProjectDetailsQuery } from '../../queries';
 
 interface Props {
   isOpen: boolean;
@@ -50,11 +50,11 @@ const ProjectModal: React.FC<Props> = ({
   projectToEdit,
   onClose,
 }) => {
-  const { data: clients = [] } = useClientsQuery();
-  const { data: users = [] } = useUsersQuery();
-  const { data: services = [] } = useServicesQuery();
-  const { data: reminders = [] } = useRemindersQuery();
-  const { data: invoices = [] } = useInvoicesQuery();
+  const { data: clients = [] } = useClientsSummaryQuery({ enabled: isOpen });
+  const { data: users = [] } = useUsersQuery({ enabled: isOpen });
+  const { data: services = [] } = useServicesQuery({ enabled: isOpen });
+  const { data: reminders = [] } = useRemindersQuery({ enabled: isOpen });
+  const { data: invoices = [] } = useInvoicesQuery({ enabled: isOpen });
   const { handleSave: onSave, handleDelete: onDelete } = useProjectsMutations();
   const { handleSave: onSaveReminder, handleDelete: onDeleteReminder, handleStatusChangeReminder: onStatusChangeReminder } = useRemindersMutations();
   const { handleSave: onSaveInvoice, handleDelete: onDeleteInvoice, handleUpdateInvoiceStatus: _onStatusChangeInvoice } = useInvoicesMutations();

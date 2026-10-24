@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Toolbar } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-import type { ProjectStats } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 
@@ -14,7 +13,6 @@ import { CompanyInfoModal } from '../dialogs/CompanyInfoModal';
 import { DashboardIcon, FolderIcon, BusinessIcon, AssignmentTurnedInIcon, PeopleIcon, BuildIcon, HandymanIcon, CategoryIcon, NotificationsActiveIcon, ReceiptLongIcon, SecurityIcon, AccessTimeIcon } from '../icons';
 
 interface Props {
-  stats: ProjectStats;
   userPreferences?: Record<string, any>;
   onPreferenceChange?: (key: string, value: any) => void;
   onOpenProject?: (projectId: string) => void;
@@ -22,7 +20,6 @@ interface Props {
 }
 
 export const AdminLayout: React.FC<Props> = ({
-  stats,
   userPreferences,
   onPreferenceChange,
   onOpenProject,
@@ -32,7 +29,6 @@ export const AdminLayout: React.FC<Props> = ({
   const {
     role,
     isRolesLoading,
-    pendingUsersCount,
     hasPermission,
     logout,
   } = useAuth();
@@ -49,26 +45,19 @@ export const AdminLayout: React.FC<Props> = ({
   const navigate = useNavigate();
 
   const navItems = useMemo(() => [
-    { path: '/project-tracker', label: t('tabDashboard'), icon: <DashboardIcon />, count: 0, show: true },
-    { path: '/data-management/projects', label: t('tabProjects'), icon: <FolderIcon />, count: stats.active, show: hasPermission('projects', 'view') },
-    { path: '/data-management/clients', label: t('tabClients'), icon: <BusinessIcon />, count: stats.clientsCount, show: hasPermission('clients', 'view') },
-    { path: '/data-management/permits', label: t('tabPermits'), icon: <AssignmentTurnedInIcon />, count: 0, show: hasPermission('permits', 'view') },
-    {
-      path: '/data-management/users',
-      label: t('tabUsers'),
-      icon: <PeopleIcon />,
-      count: hasPermission('users', 'view') && pendingUsersCount > 0 ? pendingUsersCount : stats.usersCount,
-      color: hasPermission('users', 'view') && pendingUsersCount > 0 ? ('warning' as const) : undefined,
-      show: hasPermission('users', 'view'),
-    },
-    { path: '/data-management/services', label: t('tabServices'), icon: <BuildIcon />, count: 0, show: hasPermission('services', 'view') },
-    { path: '/data-management/provided-services', label: t('tabProvidedServices'), icon: <HandymanIcon />, count: 0, show: hasPermission('providedServices', 'view') },
-    { path: '/data-management/categories', label: t('tabCategories'), icon: <CategoryIcon />, count: stats.categoriesCount || 0, show: hasPermission('categories', 'view') },
-    { path: '/data-management/reminders', label: t('tabReminders'), icon: <NotificationsActiveIcon />, count: stats.monitor, show: hasPermission('reminders', 'view'), color: 'error' as const },
-    { path: '/data-management/invoices', label: t('tabInvoices'), icon: <ReceiptLongIcon />, count: stats.invoicesCount || 0, show: hasPermission('invoices', 'view') },
-    { path: '/data-management/roles', label: 'Roles', icon: <SecurityIcon />, count: 0, show: hasPermission('roles', 'view') },
-    { path: '/data-management/activity-logs', label: t('tabActivityLogs'), icon: <AccessTimeIcon />, count: 0, show: hasPermission('activityLogs', 'view') },
-  ], [t, stats, pendingUsersCount, hasPermission]);
+    { path: '/project-tracker', label: t('tabDashboard'), icon: <DashboardIcon />, show: true },
+    { path: '/data-management/projects', label: t('tabProjects'), icon: <FolderIcon />, show: hasPermission('projects', 'view') },
+    { path: '/data-management/clients', label: t('tabClients'), icon: <BusinessIcon />, show: hasPermission('clients', 'view') },
+    { path: '/data-management/permits', label: t('tabPermits'), icon: <AssignmentTurnedInIcon />, show: hasPermission('permits', 'view') },
+    { path: '/data-management/users', label: t('tabUsers'), icon: <PeopleIcon />, show: hasPermission('users', 'view') },
+    { path: '/data-management/services', label: t('tabServices'), icon: <BuildIcon />, show: hasPermission('services', 'view') },
+    { path: '/data-management/provided-services', label: t('tabProvidedServices'), icon: <HandymanIcon />, show: hasPermission('providedServices', 'view') },
+    { path: '/data-management/categories', label: t('tabCategories'), icon: <CategoryIcon />, show: hasPermission('categories', 'view') },
+    { path: '/data-management/reminders', label: t('tabReminders'), icon: <NotificationsActiveIcon />, show: hasPermission('reminders', 'view') },
+    { path: '/data-management/invoices', label: t('tabInvoices'), icon: <ReceiptLongIcon />, show: hasPermission('invoices', 'view') },
+    { path: '/data-management/roles', label: 'Roles', icon: <SecurityIcon />, show: hasPermission('roles', 'view') },
+    { path: '/data-management/activity-logs', label: t('tabActivityLogs'), icon: <AccessTimeIcon />, show: hasPermission('activityLogs', 'view') },
+  ], [t, hasPermission]);
 
   useEffect(() => {
     if (isRolesLoading) return;

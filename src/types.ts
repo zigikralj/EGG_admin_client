@@ -201,6 +201,9 @@ export interface User {
   email?: string | null;
   role: UserRole;
   roleEntity?: Role | null;
+  permissions?: Record<string, any>;
+  isSystemAdmin?: boolean;
+  activityLoggingEnabled?: boolean;
   phone?: string | null;
   avatarUrl?: string | null;
   gender?: string | null;
@@ -323,21 +326,6 @@ export interface ProvidedService {
   invoice?: Invoice | null;
   createdAt?: string;
   updatedAt?: string;
-}
-
-export interface ProjectStats {
-  active: number;
-  done: number;
-  stale: number;
-  monitor: number;
-  overdue?: number;
-  clientsCount: number;
-  usersCount: number;
-  servicesCount: number;
-  categoriesCount?: number;
-  invoicesCount?: number;
-  providedServicesCount?: number;
-  permitsCount?: number;
 }
 
 export type ActiveTab = 'dashboard' | 'projects' | 'clients' | 'permits' | 'users' | 'services' | 'providedServices' | 'categories' | 'reminders' | 'invoices'
@@ -593,4 +581,14 @@ export interface RestoreVersionResponse {
   restoredToVersion: number;
   record: any;
 }
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  hasMore: boolean;
+}
+
 

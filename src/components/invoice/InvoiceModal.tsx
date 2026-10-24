@@ -32,6 +32,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { parseInvoiceNotes, serializeInvoiceNotes } from '../../utils/invoiceUtils';
 import { AddIcon, DeleteIcon, EditIcon, LinkIcon, ReceiptLongIcon } from '../icons';
+import { useClientsSummaryQuery } from '../../queries';
 
 export interface InvoiceModalProps {
   open: boolean;
@@ -67,6 +68,11 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   const { t } = useLanguage();
   const { hasPermission } = useAuth();
   const canEdit = hasPermission('invoices', 'edit');
+
+  const { data: fetchedClients = [] } = useClientsSummaryQuery({
+    enabled: open && (!clients || clients.length === 0),
+  });
+  const effectiveClients = clients && clients.length > 0 ? clients : (fetchedClients as any);
 
   const [formData, setFormData] = useState({
     invoiceNumber: '',
@@ -730,9 +736,9 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
               {/* Client Selection */}
               <Grid size={{ xs: 12, sm: 6 }}>
                 <Autocomplete
-                  options={clients}
+                  options={effectiveClients}
                   getOptionLabel={(option) => option.name || ''}
-                  value={clients.find((c) => c.id === formData.clientId) || null}
+                  value={effectiveClients.find((c: any) => c.id === formData.clientId) || null}
                   onChange={(_, val) => {
                     setFormData({
                       ...formData,

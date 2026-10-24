@@ -39,7 +39,8 @@ interface Props extends TableViewProps {}
 
 const DEFAULT_COLUMNS = ['name', 'city', 'contactPerson', 'email', 'phone', 'permit', 'projectCount'];
 
-import { useClientsQuery, usePermitsSummaryQuery, useClientsMutations } from '../../queries';
+import { useClientsSummaryQuery, usePaginatedClientsQuery, usePermitsSummaryQuery, useClientsMutations } from '../../queries';
+import { useDebounce } from '../../hooks/useDebounce';
 import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
 
 const ClientsPage: React.FC<Props> = ({
@@ -62,11 +63,19 @@ const ClientsPage: React.FC<Props> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [historyModalState, setHistoryModalState] = useState<{ open: boolean; client: Client | null }>({ open: false, client: null });
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-  const { data: clients = [], refetch: refetchClients, isRefetching } = useClientsQuery();
-  const { data: permits = [] } = usePermitsSummaryQuery();
+  // Search and filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 500);
+  const [filterCity, setFilterCity] = useState<string>('all');
+  const [filterProjectCountOp, setFilterProjectCountOp] = useState<string>('all');
+  const [filterProjectCountVal, setFilterProjectCountVal] = useState<string>('');
+
+  const shouldFetchClientsSummary = isFilterOpen || filterCity !== 'all';
+  const { data: clientsSummary = [] } = useClientsSummaryQuery({ enabled: shouldFetchClientsSummary });
+  const { data: permits = [] } = usePermitsSummaryQuery({ enabled: isOpen });
   const { handleSave, handleDelete } = useClientsMutations();
-
   const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
   const onDeleteClient = (id: string) => handleDelete(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
 
@@ -86,6 +95,7 @@ const ClientsPage: React.FC<Props> = ({
     handleToggleSortDirection,
     resetSort,
     handleRefresh,
+    isRefreshing,
     isSaving,
     setIsSaving,
     errorDialogState,
@@ -100,13 +110,25 @@ const ClientsPage: React.FC<Props> = ({
     onRowsPerPageOptionsChange,
     sortState,
     onSortChange,
-    onRefresh: () => { refetchClients(); },
+    onRefresh: () => {
+      refetchPaginatedClients();
+    },
   });
 
-  // Filter states
-  const [filterCity, setFilterCity] = useState<string>('all');
-  const [filterProjectCountOp, setFilterProjectCountOp] = useState<string>('all');
-  const [filterProjectCountVal, setFilterProjectCountVal] = useState<string>('');
+  const {
+    data: paginatedData,
+    refetch: refetchPaginatedClients,
+  } = usePaginatedClientsQuery({
+    page,
+    rowsPerPage: activeRowsPerPage,
+    sortBy: sortColumn,
+    sortOrder: sortDirection,
+    search: debouncedSearchQuery,
+    city: filterCity,
+  });
+
+  const rawClients = (paginatedData as any)?.items || (Array.isArray(paginatedData) ? paginatedData : []);
+  const totalClients = paginatedData?.total ?? rawClients.length;
 
   const isProjectCountActive = filterProjectCountOp !== 'all' && filterProjectCountVal.trim() !== '';
   const activeFilterCount =
@@ -137,7 +159,6 @@ const ClientsPage: React.FC<Props> = ({
   const [phone, setPhone] = useState('');
   const [city, setCity] = useState('');
   const [selectedPermitIds, setSelectedPermitIds] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
 
   const getClientPermits = useCallback((c: Client): Permit[] => {
     if (c.permits && c.permits.length > 0) return c.permits;
@@ -214,13 +235,11 @@ const ClientsPage: React.FC<Props> = ({
   };
 
   const uniqueCities = Array.from(
-    new Set(clients.map((c) => c.city).filter(Boolean))
+    new Set((clientsSummary.length > 0 ? clientsSummary : rawClients).map((c: any) => c.city).filter(Boolean))
   ) as string[];
 
-  // 1. Apply Filter
-  const filteredClients = clients.filter((c) => {
-    if (filterCity !== 'all' && c.city !== filterCity) return false;
-
+  // Apply project count filter if specified
+  const displayedClients = rawClients.filter((c: Client) => {
     if (filterProjectCountOp !== 'all' && filterProjectCountVal.trim() !== '') {
       const count = c.projects ? c.projects.length : 0;
       const target = Number(filterProjectCountVal);
@@ -234,66 +253,7 @@ const ClientsPage: React.FC<Props> = ({
         }
       }
     }
-
     return true;
-  });
-
-  // 2. Search among filtered items
-  const searchedClients = filteredClients.filter((c) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      c.name.toLowerCase().includes(q) ||
-      (c.city && c.city.toLowerCase().includes(q)) ||
-      (c.contactPerson && c.contactPerson.toLowerCase().includes(q)) ||
-      (c.email && c.email.toLowerCase().includes(q)) ||
-      (c.phone && c.phone.toLowerCase().includes(q)) ||
-      Boolean(
-        getClientPermits(c).some((p) =>
-          p.permitNumber.toLowerCase().includes(q) ||
-          Boolean(p.indexNumber && p.indexNumber.toLowerCase().includes(q))
-        )
-      )
-    );
-  });
-
-  // 3. Sort final dataset
-  const sortedClients = [...searchedClients].sort((a, b) => {
-    let res = 0;
-    switch (sortColumn) {
-      case 'name':
-        res = a.name.localeCompare(b.name);
-        break;
-      case 'city':
-        res = (a.city || '').localeCompare(b.city || '');
-        break;
-      case 'contactPerson':
-        res = (a.contactPerson || '').localeCompare(b.contactPerson || '');
-        break;
-      case 'email':
-        res = (a.email || '').localeCompare(b.email || '');
-        break;
-      case 'phone':
-        res = (a.phone || '').localeCompare(b.phone || '');
-        break;
-      case 'permit': {
-        const pListA = getClientPermits(a);
-        const pListB = getClientPermits(b);
-        const pA = pListA.map((p) => `${p.permitNumber} ${p.indexNumber || ''}`).join(', ');
-        const pB = pListB.map((p) => `${p.permitNumber} ${p.indexNumber || ''}`).join(', ');
-        res = pA.localeCompare(pB);
-        break;
-      }
-      case 'projectCount':
-        res = (a.projects ? a.projects.length : 0) - (b.projects ? b.projects.length : 0);
-        break;
-      case 'createdAt':
-        res = (a.createdAt ? new Date(a.createdAt).getTime() : 0) - (b.createdAt ? new Date(b.createdAt).getTime() : 0);
-        break;
-      default:
-        res = 0;
-    }
-    return sortDirection === 'asc' ? res : -res;
   });
 
   useEffect(() => {
@@ -309,8 +269,6 @@ const ClientsPage: React.FC<Props> = ({
     setRowsPerPageValue(val);
     setPage(0);
   };
-
-  const paginatedClients = sortedClients.slice(page * activeRowsPerPage, page * activeRowsPerPage + activeRowsPerPage);
 
   const sortOptions = useMemo(() => [
     { value: 'name', label: t('colClientName') },
@@ -354,7 +312,7 @@ const ClientsPage: React.FC<Props> = ({
                 <IconButton
                   size="small"
                   onClick={handleRefresh}
-                  disabled={isRefetching}
+                  disabled={isRefreshing}
                   color="primary"
                   sx={{
                     border: 1,
@@ -366,7 +324,7 @@ const ClientsPage: React.FC<Props> = ({
                   <RefreshIcon
                     fontSize="small"
                     sx={{
-                      animation: isRefetching ? 'spin 1s linear infinite' : undefined,
+                      animation: isRefreshing ? 'spin 1s linear infinite' : undefined,
                       '@keyframes spin': {
                         '0%': { transform: 'rotate(0deg)' },
                         '100%': { transform: 'rotate(360deg)' },
@@ -389,6 +347,7 @@ const ClientsPage: React.FC<Props> = ({
             <TableFilterSelector
               activeCount={activeFilterCount}
               onClear={clearFilters}
+              onOpen={() => setIsFilterOpen(true)}
               sortingContent={
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                   <Autocomplete
@@ -553,14 +512,14 @@ const ClientsPage: React.FC<Props> = ({
               </TableRow>
             </TableHead>
             <TableBody>
-              {sortedClients.length === 0 ? (
+              {displayedClients.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={activeCols.length + (hasAnyRowAction ? 1 : 0)} align="center" sx={{ py: 3, color: 'text.secondary' }}>
                     {t('emptyClients')}
                   </TableCell>
                 </TableRow>
               ) : (
-                paginatedClients.map((c) => (
+                displayedClients.map((c: Client) => (
                   <TableRow key={c.id} hover>
                     {activeCols.includes('name') && (
                       <TableCell>
@@ -641,7 +600,7 @@ const ClientsPage: React.FC<Props> = ({
         <TablePagination
           rowsPerPageOptions={activeRowsPerPageOptions}
           component="div"
-          count={sortedClients.length}
+          count={totalClients}
           rowsPerPage={activeRowsPerPage}
           page={page}
           onPageChange={handleChangePage}
@@ -807,7 +766,7 @@ const ClientsPage: React.FC<Props> = ({
           entityId={historyModalState.client.id}
           entityTitle={historyModalState.client.name}
           onRestored={() => {
-            refetchClients();
+            refetchPaginatedClients();
           }}
         />
       )}

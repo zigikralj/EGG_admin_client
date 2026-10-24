@@ -1,8 +1,11 @@
 import { http, HttpResponse } from 'msw';
 
 export const handlers = [
-  http.get('/api/projects', () => {
-    return HttpResponse.json([
+  http.get('/api/projects', ({ request }) => {
+    const url = new URL(request.url);
+    const page = url.searchParams.get('page');
+    const limit = url.searchParams.get('limit');
+    const items = [
       { 
         id: '1', 
         name: 'Test Project', 
@@ -15,25 +18,55 @@ export const handlers = [
         done: false,
         status: 'ACTIVE' 
       },
-    ]);
+    ];
+    if (page || limit) {
+      return HttpResponse.json({
+        items,
+        total: items.length,
+        page: Number(page) || 1,
+        limit: Number(limit) || 25,
+        totalPages: 1,
+        hasMore: false,
+      });
+    }
+    return HttpResponse.json(items);
   }),
   http.get('/api/services', () => {
     return HttpResponse.json([
       { id: '1', name: 'Test Service', isActive: true },
     ]);
   }),
-  http.get('/api/invoices', () => {
+  http.get('/api/invoices', ({ request }) => {
+    const url = new URL(request.url);
+    if (url.searchParams.get('page') || url.searchParams.get('limit')) {
+      return HttpResponse.json({ items: [], total: 0, page: 1, limit: 25, totalPages: 1, hasMore: false });
+    }
     return HttpResponse.json([]);
   }),
-  http.get('/api/clients', () => {
-    return HttpResponse.json([
+  http.get('/api/clients', ({ request }) => {
+    const url = new URL(request.url);
+    const items = [
       { id: '1', name: 'Mock Client', email: 'client@example.com', pib: '123456789', mb: '98765432' },
-    ]);
+    ];
+    if (url.searchParams.get('page') || url.searchParams.get('limit')) {
+      return HttpResponse.json({ items, total: items.length, page: 1, limit: 25, totalPages: 1, hasMore: false });
+    }
+    return HttpResponse.json(items);
   }),
-  http.get('/api/permits', () => {
+  http.get('/api/permits', ({ request }) => {
+    const url = new URL(request.url);
+    if (url.searchParams.get('page') || url.searchParams.get('limit')) {
+      return HttpResponse.json({ items: [], total: 0, page: 1, limit: 25, totalPages: 1, hasMore: false });
+    }
     return HttpResponse.json([]);
   }),
-  http.get('/api/provided-services', () => HttpResponse.json([])),
+  http.get('/api/provided-services', ({ request }) => {
+    const url = new URL(request.url);
+    if (url.searchParams.get('page') || url.searchParams.get('limit')) {
+      return HttpResponse.json({ items: [], total: 0, page: 1, limit: 25, totalPages: 1, hasMore: false });
+    }
+    return HttpResponse.json([]);
+  }),
   http.get('/api/waste-catalog', () => HttpResponse.json({ items: [], total: 0 })),
   http.get('/api/activity-logs', () => HttpResponse.json([])),
   http.get('/api/activity-logs/analytics', () => HttpResponse.json({
@@ -113,9 +146,21 @@ export const handlers = [
   })),
   http.get('/api/activity-logs/status', () => HttpResponse.json({ hasUpdates: false })),
   http.get('/api/categories', () => HttpResponse.json([])),
-  http.get('/api/reminders', () => HttpResponse.json([])),
+  http.get('/api/reminders', ({ request }) => {
+    const url = new URL(request.url);
+    if (url.searchParams.get('page') || url.searchParams.get('limit')) {
+      return HttpResponse.json({ items: [], total: 0, page: 1, limit: 25, totalPages: 1, hasMore: false });
+    }
+    return HttpResponse.json([]);
+  }),
   http.get('/api/roles', () => HttpResponse.json([])),
-  http.get('/api/users', () => HttpResponse.json([])),
+  http.get('/api/users', ({ request }) => {
+    const url = new URL(request.url);
+    if (url.searchParams.get('page') || url.searchParams.get('limit')) {
+      return HttpResponse.json({ items: [], total: 0, page: 1, limit: 25, totalPages: 1, hasMore: false });
+    }
+    return HttpResponse.json([]);
+  }),
   http.post('/api/auth/login', () => HttpResponse.json({ success: true, token: 'mock-token', user: { id: '1', name: 'Test User', role: 'ADMIN' } })),
   http.post('/api/auth/register', () => HttpResponse.json({ success: true })),
 ];
