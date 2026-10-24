@@ -113,8 +113,19 @@ const PermitsPage: React.FC<Props> = ({
     open: false,
     permit: null,
   });
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-  const { data: clients = [] } = useClientsSummaryQuery();
+  // Popover filter states
+  const [filterClient, setFilterClient] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterPermitType, setFilterPermitType] = useState<string>('all');
+  const [filterDateFrom, setFilterDateFrom] = useState<string>('');
+  const [filterDateTo, setFilterDateTo] = useState<string>('');
+  const [filterDateField, setFilterDateField] = useState<string>('endDate');
+  const [permitTypeHeaderAnchor, setPermitTypeHeaderAnchor] = useState<null | HTMLElement>(null);
+
+  const shouldFetchClients = isFilterOpen || isOpen || filterClient !== 'all';
+  const { data: clients = [] } = useClientsSummaryQuery({ enabled: shouldFetchClients });
   const { data: reminders = [] } = useRemindersQuery({ enabled: isOpen });
   const { handleSave: handleSavePermit, handleDelete: handleDeletePermit } = usePermitsMutations();
   const { handleSave: handleSaveReminder, handleDelete: handleDeleteReminder } = useRemindersMutations();
@@ -223,15 +234,6 @@ const PermitsPage: React.FC<Props> = ({
     onQuickFiltersChange?.(newKeys);
     onQuickFilterChange?.((newKeys[0] as any) || 'all');
   };
-
-  // Popover filter states
-  const [filterClient, setFilterClient] = useState<string>('all');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [filterPermitType, setFilterPermitType] = useState<string>('all');
-  const [filterDateFrom, setFilterDateFrom] = useState<string>('');
-  const [filterDateTo, setFilterDateTo] = useState<string>('');
-  const [filterDateField, setFilterDateField] = useState<string>('endDate');
-  const [permitTypeHeaderAnchor, setPermitTypeHeaderAnchor] = useState<null | HTMLElement>(null);
 
   const activeFilterCount =
     quickFilters.length +
@@ -591,6 +593,7 @@ const PermitsPage: React.FC<Props> = ({
             <TableFilterSelector
               activeCount={activeFilterCount}
               onClear={clearFilters}
+              onOpen={() => setIsFilterOpen(true)}
               sortingContent={
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                   <Autocomplete

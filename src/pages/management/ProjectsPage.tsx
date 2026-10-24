@@ -210,9 +210,19 @@ const ProjectsPage: React.FC<Props> = ({
   const canCreateProject = hasPermission('projects', 'create') || hasPermission('tracker_projects', 'create');
   const canViewHistory = hasPermission('history', 'view');
 
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [filterClient, setFilterClient] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterResponsible, setFilterResponsible] = useState<string>('all');
+  const [filterDateFrom, setFilterDateFrom] = useState<string>('');
+  const [filterDateTo, setFilterDateTo] = useState<string>('');
+  const [filterDateField, setFilterDateField] = useState<string>('deadline');
+
+  const shouldFetchFilterLookups = isFilterOpen || filterClient !== 'all' || filterResponsible !== 'all';
   const { data: services = [] } = useServicesQuery();
-  const { data: clients = [] } = useClientsSummaryQuery();
-  const { data: users = [] } = useUsersSummaryQuery();
+  const { data: clients = [] } = useClientsSummaryQuery({ enabled: shouldFetchFilterLookups });
+  const { data: users = [] } = useUsersSummaryQuery({ enabled: shouldFetchFilterLookups });
   const { handleDelete } = useProjectsMutations();
   const [completeConfirmState, setCompleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
   const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
@@ -260,14 +270,6 @@ const ProjectsPage: React.FC<Props> = ({
     else if (typeof quickFilterProp === 'string' && quickFilterProp !== 'all') initial = [quickFilterProp];
     return isProjectsRestricted ? initial.filter((k) => k !== 'my') : initial;
   });
-  // Popover Filter states
-  const [filterCategory, setFilterCategory] = useState<string>('all');
-  const [filterClient, setFilterClient] = useState<string>('all');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [filterResponsible, setFilterResponsible] = useState<string>('all');
-  const [filterDateFrom, setFilterDateFrom] = useState<string>('');
-  const [filterDateTo, setFilterDateTo] = useState<string>('');
-  const [filterDateField, setFilterDateField] = useState<string>('deadline');
 
 
 
@@ -566,6 +568,7 @@ const ProjectsPage: React.FC<Props> = ({
             <TableFilterSelector
               activeCount={activeFilterCount}
               onClear={clearFilters}
+              onOpen={() => setIsFilterOpen(true)}
               sortingContent={
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                   <Autocomplete

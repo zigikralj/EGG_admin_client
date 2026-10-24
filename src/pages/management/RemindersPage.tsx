@@ -135,10 +135,19 @@ const RemindersPage: React.FC<Props> = ({
     defaultSortDirection: 'asc',
   });
 
-  const { data: clients = [] } = useClientsSummaryQuery();
-  const { data: users = [] } = useUsersSummaryQuery();
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterClient, setFilterClient] = useState<string>('all');
+  const [filterResponsible, setFilterResponsible] = useState<string>('all');
+  const [filterDateFrom, setFilterDateFrom] = useState<string>('');
+  const [filterDateTo, setFilterDateTo] = useState<string>('');
+  const [filterDateField, setFilterDateField] = useState<string>('dueDate');
+
+  const shouldFetchFilterLookups = isFilterOpen || isOpen || filterClient !== 'all' || filterResponsible !== 'all';
+  const { data: clients = [] } = useClientsSummaryQuery({ enabled: shouldFetchFilterLookups });
+  const { data: users = [] } = useUsersSummaryQuery({ enabled: shouldFetchFilterLookups });
   const { data: projects = [] } = useProjectsQuery('', { enabled: isOpen });
-  const { data: permits = [] } = usePermitsSummaryQuery();
+  const { data: permits = [] } = usePermitsSummaryQuery({ enabled: isOpen });
 
   const { handleSave, handleDelete, handleStatusChangeReminder: handleStatusChange } = useRemindersMutations();
 
@@ -158,14 +167,6 @@ const RemindersPage: React.FC<Props> = ({
     else if (typeof quickFilterProp === 'string' && quickFilterProp !== 'all') initial = [quickFilterProp];
     return isRemindersRestricted ? initial.filter((k) => k !== 'my') : initial;
   });
-
-  // Popover Filter states
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [filterClient, setFilterClient] = useState<string>('all');
-  const [filterResponsible, setFilterResponsible] = useState<string>('all');
-  const [filterDateFrom, setFilterDateFrom] = useState<string>('');
-  const [filterDateTo, setFilterDateTo] = useState<string>('');
-  const [filterDateField, setFilterDateField] = useState<string>('dueDate');
 
   const {
     data: paginatedData,
@@ -529,6 +530,7 @@ const RemindersPage: React.FC<Props> = ({
             <TableFilterSelector
               activeCount={activeFilterCount}
               onClear={clearFilters}
+              onOpen={() => setIsFilterOpen(true)}
               sortingContent={
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                   <Autocomplete

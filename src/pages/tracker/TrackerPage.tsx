@@ -133,7 +133,6 @@ const DashboardView: React.FC<Props> = ({
   const shouldFetchClients =
     (dashboardSubTab === 'projects' && isProjectsFilterOpen) ||
     dashboardSubTab === 'reminders' ||
-    dashboardSubTab === 'invoices' ||
     dashboardSubTab === 'waste-disposal' ||
     isStatisticSubTab;
   const shouldFetchUsers =

@@ -126,19 +126,7 @@ const InvoicesPage: React.FC<Props> = ({
     defaultSortDirection: 'desc',
   });
 
-  const { data: clients = [] } = useClientsSummaryQuery();
-  const { data: projects = [] } = useProjectsQuery('', { enabled: isOpen });
-  const { data: providedServices = [] } = useProvidedServicesQuery({ enabled: isOpen });
-
-  const { handleSave: handleSaveInvoice, handleDelete, handleUpdateInvoiceStatus } = useInvoicesMutations();
-  const { handleSave: handleSaveProvidedService } = useProvidedServicesMutations();
-
-  const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
-  const onDeleteInvoice = (id: string) => handleDelete(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
-
-  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
-
-
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   // Filter states
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -149,6 +137,19 @@ const InvoicesPage: React.FC<Props> = ({
   const [filterDateFrom, setFilterDateFrom] = useState<string>('');
   const [filterDateTo, setFilterDateTo] = useState<string>('');
   const [filterDateField, setFilterDateField] = useState<string>('dateCreated');
+
+  const shouldFetchClients = isFilterOpen || isOpen || filterClient !== 'all';
+  const { data: clients = [] } = useClientsSummaryQuery({ enabled: shouldFetchClients });
+  const { data: projects = [] } = useProjectsQuery('', { enabled: isOpen });
+  const { data: providedServices = [] } = useProvidedServicesQuery({ enabled: isOpen });
+
+  const { handleSave: handleSaveInvoice, handleDelete, handleUpdateInvoiceStatus } = useInvoicesMutations();
+  const { handleSave: handleSaveProvidedService } = useProvidedServicesMutations();
+
+  const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
+  const onDeleteInvoice = (id: string) => handleDelete(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
+
+  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
 
   const activeFilterCount =
     (filterStatus !== 'all' ? 1 : 0) +
@@ -480,6 +481,7 @@ const InvoicesPage: React.FC<Props> = ({
             <TableFilterSelector
               activeCount={activeFilterCount}
               onClear={clearFilters}
+              onOpen={() => setIsFilterOpen(true)}
               sortingContent={
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                   <Autocomplete

@@ -978,13 +978,14 @@ export function usePermitsQuery() {
 }
 
 /** Lightweight permits query without nested relations (waste catalogs, reminders, etc.) for linking and dropdowns. */
-export function usePermitsSummaryQuery() {
+export function usePermitsSummaryQuery(options?: { enabled?: boolean }) {
   const getAuthHeaders = useAuthHeaders();
   const queryClient = useQueryClient();
   const queryKey = ['permits', 'summary'] as const;
 
   return useQuery<Permit[]>({
     queryKey,
+    enabled: options?.enabled ?? true,
     queryFn: () =>
       fetchWithDeltaSync<Permit>({
         url: `${API_ROUTES.PERMITS.BASE}?fields=summary`,
@@ -1195,10 +1196,14 @@ export function useUserActivityLogsQuery(userId: string | undefined, from?: stri
 /**
  * Historical pre-aggregated monthly stats query.
  */
-export function useActivityMonthlyStatsQuery(filters?: { userId?: string; fromYearMonth?: string; toYearMonth?: string }) {
+export function useActivityMonthlyStatsQuery(
+  filters?: { userId?: string; fromYearMonth?: string; toYearMonth?: string },
+  options?: { enabled?: boolean }
+) {
   const getAuthHeaders = useAuthHeaders();
   return useQuery<ActivityLogMonthlyStats[]>({
     queryKey: ['activity-logs', 'monthly-stats', filters?.userId, filters?.fromYearMonth, filters?.toYearMonth],
+    enabled: options?.enabled ?? true,
     queryFn: async () => {
       const params = new URLSearchParams();
       if (filters?.userId) params.set('userId', filters.userId);
@@ -1351,9 +1356,8 @@ export function useActivityLogStatusQuery() {
       if (!res.ok) throw new Error('Failed to fetch activity log status');
       return res.json();
     },
-    staleTime: 30_000,
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: 'always',
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 }
 
@@ -1893,10 +1897,11 @@ export function usePermitsMutations() {
 // Roles
 // ---------------------------------------------------------------------------
 
-export function useRolesQuery() {
+export function useRolesQuery(options?: { enabled?: boolean }) {
   const getAuthHeaders = useAuthHeaders();
   return useQuery<Role[]>({
     queryKey: ['roles'],
+    enabled: options?.enabled ?? true,
     queryFn: async () => {
       const res = await apiFetch(API_ROUTES.ROLES.BASE, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch roles');

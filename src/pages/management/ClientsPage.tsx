@@ -63,13 +63,7 @@ const ClientsPage: React.FC<Props> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [historyModalState, setHistoryModalState] = useState<{ open: boolean; client: Client | null }>({ open: false, client: null });
-
-  const { data: clientsSummary = [] } = useClientsSummaryQuery();
-  const { data: permits = [] } = usePermitsSummaryQuery();
-  const { handleSave, handleDelete } = useClientsMutations();
-
-  const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
-  const onDeleteClient = (id: string) => handleDelete(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -77,6 +71,13 @@ const ClientsPage: React.FC<Props> = ({
   const [filterCity, setFilterCity] = useState<string>('all');
   const [filterProjectCountOp, setFilterProjectCountOp] = useState<string>('all');
   const [filterProjectCountVal, setFilterProjectCountVal] = useState<string>('');
+
+  const shouldFetchClientsSummary = isFilterOpen || filterCity !== 'all';
+  const { data: clientsSummary = [] } = useClientsSummaryQuery({ enabled: shouldFetchClientsSummary });
+  const { data: permits = [] } = usePermitsSummaryQuery({ enabled: isOpen });
+  const { handleSave, handleDelete } = useClientsMutations();
+  const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
+  const onDeleteClient = (id: string) => handleDelete(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
 
   const {
     activeCols,
@@ -346,6 +347,7 @@ const ClientsPage: React.FC<Props> = ({
             <TableFilterSelector
               activeCount={activeFilterCount}
               onClear={clearFilters}
+              onOpen={() => setIsFilterOpen(true)}
               sortingContent={
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                   <Autocomplete

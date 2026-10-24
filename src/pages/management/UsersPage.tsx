@@ -78,8 +78,8 @@ const UsersPage: React.FC<Props> = ({
   const hasAnyRowAction = canEditAny || canDeleteAny;
   const [isOpen, setIsOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   
-  const { data: rolesList = [] } = useRolesQuery();
   const { handleSave, handleDelete, handleApproveUser, handleRejectUser, handleForceLogoutUser } = useUsersMutations();
 
   const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
@@ -154,6 +154,9 @@ const UsersPage: React.FC<Props> = ({
   const [approveUserTarget, setApproveUserTarget] = useState<User | null>(null);
   const [approveRole, setApproveRole] = useState<string>('User');
   const [isSubmittingApprove, setIsSubmittingApprove] = useState(false);
+
+  const shouldFetchRoles = isFilterOpen || isOpen || Boolean(approveUserTarget) || filterRole !== 'all';
+  const { data: rolesList = [] } = useRolesQuery({ enabled: shouldFetchRoles });
 
   // Force logout dialog state
   const [forceLogoutTarget, setForceLogoutTarget] = useState<User | null>(null);
@@ -459,6 +462,7 @@ const UsersPage: React.FC<Props> = ({
             <TableFilterSelector
               activeCount={activeFilterCount}
               onClear={clearFilters}
+              onOpen={() => setIsFilterOpen(true)}
               sortingContent={
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                   <Autocomplete

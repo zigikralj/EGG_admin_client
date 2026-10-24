@@ -118,6 +118,7 @@ const ProvidedServicesPage: React.FC<Props> = ({
   const hasAnyRowAction = canEditAny || canDeleteAny;
   const [isOpen, setIsOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ProvidedService | null>(null);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -171,12 +172,13 @@ const ProvidedServicesPage: React.FC<Props> = ({
   });
 
   const isStatsTab = subTab === 'statistics';
+  const shouldFetchClients = isStatsTab || isOpen || isFilterOpen || filterClient !== 'all';
   const { data: providedServices = [] } = useProvidedServicesQuery({ enabled: isStatsTab || isOpen });
   const { data: services = [] } = useServicesQuery();
-  const { data: clients = [] } = useClientsSummaryQuery();
+  const { data: clients = [] } = useClientsSummaryQuery({ enabled: shouldFetchClients });
   const { data: projects = [] } = useProjectsQuery('', { enabled: isStatsTab || isOpen });
   const { data: invoices = [] } = useInvoicesQuery({ enabled: isStatsTab || isOpen });
-  const { data: categories = [] } = useCategoriesQuery();
+  const { data: categories = [] } = useCategoriesQuery({ enabled: isStatsTab });
 
   const {
     data: paginatedData,
@@ -646,6 +648,7 @@ const ProvidedServicesPage: React.FC<Props> = ({
             <TableFilterSelector
               activeCount={activeFilterCount}
               onClear={clearFilters}
+              onOpen={() => setIsFilterOpen(true)}
               sortingContent={
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                   <Autocomplete
