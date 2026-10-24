@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.11.1] - 2026-10-24
+
+- ci: run CodeQL only on pull requests and schedule (#91) by @zigikralj
+
 ## [v1.11.0] - 2026-10-23
 
 - feat: add GitHub Actions workflow for CodeQL security analysis (#89) by @zigikralj
