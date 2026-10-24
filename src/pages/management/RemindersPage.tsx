@@ -48,13 +48,14 @@ interface Props extends TableViewProps {
 const DEFAULT_COLUMNS = ['title', 'project', 'client', 'responsible', 'status', 'notes'];
 
 import {
-  useRemindersQuery,
+  usePaginatedRemindersQuery,
   useProjectsQuery,
-  useClientsQuery,
-  useUsersQuery,
-  usePermitsQuery,
+  useClientsSummaryQuery,
+  useUsersSummaryQuery,
+  usePermitsSummaryQuery,
   useRemindersMutations,
 } from '../../queries';
+import { useDebounce } from '../../hooks/useDebounce';
 import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
 
 const RemindersPage: React.FC<Props> = ({
@@ -127,16 +128,17 @@ const RemindersPage: React.FC<Props> = ({
     onRowsPerPageOptionsChange,
     sortState,
     onSortChange,
-    onRefresh: () => { refetchReminders(); },
+    onRefresh: () => {
+      refetchPaginatedReminders();
+    },
     defaultSortField: 'title',
     defaultSortDirection: 'asc',
   });
 
-  const { data: reminders = [], refetch: refetchReminders } = useRemindersQuery();
-  const { data: projects = [] } = useProjectsQuery();
-  const { data: clients = [] } = useClientsQuery();
-  const { data: users = [] } = useUsersQuery();
-  const { data: permits = [] } = usePermitsQuery();
+  const { data: clients = [] } = useClientsSummaryQuery();
+  const { data: users = [] } = useUsersSummaryQuery();
+  const { data: projects = [] } = useProjectsQuery('', { enabled: isOpen });
+  const { data: permits = [] } = usePermitsSummaryQuery();
 
   const { handleSave, handleDelete, handleStatusChangeReminder: handleStatusChange } = useRemindersMutations();
 
@@ -147,6 +149,7 @@ const RemindersPage: React.FC<Props> = ({
   };
 
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 500);
 
   // Quick Filter state
   const [quickFilters, setQuickFilters] = useState<string[]>(() => {
@@ -163,6 +166,37 @@ const RemindersPage: React.FC<Props> = ({
   const [filterDateFrom, setFilterDateFrom] = useState<string>('');
   const [filterDateTo, setFilterDateTo] = useState<string>('');
   const [filterDateField, setFilterDateField] = useState<string>('dueDate');
+
+  const {
+    data: paginatedData,
+    refetch: refetchPaginatedReminders,
+  } = usePaginatedRemindersQuery({
+    page,
+    rowsPerPage: activeRowsPerPage,
+    sortBy: sortColumn,
+    sortOrder: sortDirection,
+    search: debouncedSearchQuery,
+    status: quickFilters.includes('overdue')
+      ? 'overdue'
+      : quickFilters.includes('approaching')
+      ? 'approaching'
+      : quickFilters.includes('pending')
+      ? 'pending'
+      : quickFilters.includes('completed')
+      ? 'completed'
+      : (filterStatus !== 'all' ? filterStatus : undefined),
+    clientId: filterClient !== 'all' ? filterClient : undefined,
+    responsible: isRemindersRestricted
+      ? (currentUser?.name || undefined)
+      : (quickFilters.includes('my') && currentUser?.name ? currentUser.name : (filterResponsible !== 'all' ? filterResponsible : undefined)),
+    dateFrom: filterDateFrom || undefined,
+    dateTo: filterDateTo || undefined,
+    dateField: filterDateField,
+  });
+
+  const rawReminders = paginatedData?.items || [];
+  const totalReminders = paginatedData?.total ?? rawReminders.length;
+  const displayedReminders = rawReminders;
 
   useEffect(() => {
     if (Array.isArray(quickFiltersProp)) {
@@ -333,122 +367,22 @@ const RemindersPage: React.FC<Props> = ({
     }
   };
 
-  const uniqueClients = Array.from(
-    new Set(reminders.map((r) => r.clientName).filter(Boolean) as string[])
-  ).sort((a, b) => a.localeCompare(b));
+  const uniqueClients = useMemo(() => {
+    if (clients.length > 0) return Array.from(new Set(clients.map((c) => c.name).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+    return Array.from(new Set(rawReminders.map((r) => r.clientName).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b));
+  }, [clients, rawReminders]);
 
-  const otherResponsibles = (isRemindersRestricted)
-    ? []
-    : Array.from(
-        new Set(reminders.map((r) => r.responsible).filter(Boolean) as string[])
-      )
-        .filter((r) => !currentUser?.name || r.trim().toLowerCase() !== currentUser.name.trim().toLowerCase())
-        .sort((a, b) => a.localeCompare(b));
-
-  // 1. Apply Quick & Popover Filters
-  const filteredReminders = reminders.filter((rem) => {
-    // 0) Enforce reminder restriction to own immediately
-    if (isRemindersRestricted && currentUser) {
-      const isMyName =
-        rem.responsible &&
-        currentUser.name &&
-        rem.responsible.trim().toLowerCase() === currentUser.name.trim().toLowerCase();
-      const isMyId = rem.responsibleId && rem.responsibleId === currentUser.id;
-      if (!isMyName && !isMyId) return false;
-    }
-
-    if (!isRemindersRestricted && quickFilters.includes('my') && currentUser) {
-      const isMyName =
-        rem.responsible &&
-        currentUser.name &&
-        rem.responsible.trim().toLowerCase() === currentUser.name.trim().toLowerCase();
-      const isMyId = rem.responsibleId && rem.responsibleId === currentUser.id;
-      if (!isMyName && !isMyId) return false;
-    }
-    if (quickFilters.includes('pending') && rem.status.toLowerCase() === 'completed') return false;
-
-    if (filterStatus !== 'all' && rem.status !== filterStatus) return false;
-    if (filterClient !== 'all' && rem.clientName !== filterClient) return false;
-    if (filterResponsible !== 'all') {
-      const isMyName =
-        currentUser?.name &&
-        filterResponsible === currentUser.name &&
-        ((rem.responsible && rem.responsible.trim().toLowerCase() === currentUser.name.trim().toLowerCase()) ||
-          (rem.responsibleId && rem.responsibleId === currentUser.id));
-      if (!isMyName && rem.responsible !== filterResponsible) return false;
-    }
-
-    // Date range filter
-    if (filterDateFrom || filterDateTo) {
-      let rawDate: string | null | undefined = null;
-      if (filterDateField === 'createdAt') {
-        rawDate = rem.createdAt;
-      } else {
-        rawDate = rem.dueDate;
-      }
-      const dateVal = rawDate ? rawDate.slice(0, 10) : '';
-      if (dateVal) {
-        if (filterDateFrom && dateVal < filterDateFrom) return false;
-        if (filterDateTo && dateVal > filterDateTo) return false;
-      } else {
-        return false;
-      }
-    }
-
-    return true;
-  });
-
-  // 2. Search among filtered items
-  const searchedReminders = filteredReminders.filter((rem) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      (rem.title && rem.title.toLowerCase().includes(q)) ||
-      (rem.projectName && rem.projectName.toLowerCase().includes(q)) ||
-      (rem.clientName && rem.clientName.toLowerCase().includes(q)) ||
-      (rem.responsible && rem.responsible.toLowerCase().includes(q)) ||
-      (rem.status && rem.status.toLowerCase().includes(q)) ||
-      (rem.notes && rem.notes.toLowerCase().includes(q))
-    );
-  });
-
-  // 3. Sort final dataset
-  const sortedReminders = [...searchedReminders].sort((a, b) => {
-    let res = 0;
-    switch (sortColumn) {
-      case 'title':
-        res = (a.title || a.projectName || '').localeCompare(b.title || b.projectName || '');
-        break;
-      case 'project':
-        res = (a.projectName || '').localeCompare(b.projectName || '');
-        break;
-      case 'client':
-        res = (a.clientName || '').localeCompare(b.clientName || '');
-        break;
-      case 'responsible':
-        res = (a.responsible || '').localeCompare(b.responsible || '');
-        break;
-      case 'status':
-        res = (a.status || '').localeCompare(b.status || '');
-        break;
-      case 'notes':
-        res = (a.notes || '').localeCompare(b.notes || '');
-        break;
-      case 'dueDate':
-        res = (a.dueDate ? new Date(a.dueDate).getTime() : 0) - (b.dueDate ? new Date(b.dueDate).getTime() : 0);
-        break;
-      case 'createdAt':
-        res = (a.createdAt ? new Date(a.createdAt).getTime() : 0) - (b.createdAt ? new Date(b.createdAt).getTime() : 0);
-        break;
-      default:
-        res = 0;
-    }
-    return sortDirection === 'asc' ? res : -res;
-  });
+  const otherResponsibles = useMemo(() => {
+    if (isRemindersRestricted) return [];
+    const source = users.length > 0 ? users.map((u) => u.name) : rawReminders.map((r) => r.responsible);
+    return Array.from(new Set(source.filter(Boolean) as string[]))
+      .filter((r) => !currentUser?.name || r.trim().toLowerCase() !== currentUser.name.trim().toLowerCase())
+      .sort((a, b) => a.localeCompare(b));
+  }, [isRemindersRestricted, users, rawReminders, currentUser]);
 
   useEffect(() => {
     setPage(0);
-  }, [searchQuery, quickFilters, filterStatus, filterClient, filterResponsible, setPage]);
+  }, [debouncedSearchQuery, quickFilters, filterStatus, filterClient, filterResponsible, filterDateFrom, filterDateTo, setPage]);
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
@@ -459,8 +393,6 @@ const RemindersPage: React.FC<Props> = ({
     setRowsPerPageValue(val);
     setPage(0);
   };
-
-  const paginatedReminders = sortedReminders.slice(page * activeRowsPerPage, page * activeRowsPerPage + activeRowsPerPage);
 
   const getStatusChip = (st: string) => {
     switch (st.toLowerCase()) {
@@ -548,7 +480,7 @@ const RemindersPage: React.FC<Props> = ({
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              {t('remindersAllTitle', { count: sortedReminders.length })}
+              {t('remindersAllTitle', { count: totalReminders })}
             </Typography>
               <Tooltip title={t('btnRefresh')}>
                 <span>
@@ -769,14 +701,14 @@ const RemindersPage: React.FC<Props> = ({
               </TableRow>
             </TableHead>
             <TableBody>
-              {sortedReminders.length === 0 ? (
+              {displayedReminders.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={activeCols.length + (hasAnyRowAction ? 1 : 0)} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                     {t('emptyReminders')}
                   </TableCell>
                 </TableRow>
               ) : (
-                paginatedReminders.map((rem) => {
+                displayedReminders.map((rem) => {
                   const { canEdit: itemCanEdit, canDelete: itemCanDelete } = getItemPermissions(rem);
                   return (
                     <TableRow key={rem.id} hover>
@@ -862,7 +794,7 @@ const RemindersPage: React.FC<Props> = ({
         <TablePagination
           rowsPerPageOptions={activeRowsPerPageOptions}
           component="div"
-          count={sortedReminders.length}
+          count={totalReminders}
           rowsPerPage={activeRowsPerPage}
           page={page}
           onPageChange={handleChangePage}

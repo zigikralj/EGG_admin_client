@@ -51,7 +51,8 @@ interface Props extends TableViewProps {
 
 const DEFAULT_COLUMNS = ['name', 'role', 'status', 'email', 'phone', 'gender'];
 
-import { useUsersQuery, useUsersMutations, useRolesQuery } from '../../queries';
+import { usePaginatedUsersQuery, useUsersMutations, useRolesQuery } from '../../queries';
+import { useDebounce } from '../../hooks/useDebounce';
 import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
 
 const UsersPage: React.FC<Props> = ({
@@ -70,7 +71,7 @@ const UsersPage: React.FC<Props> = ({
   onQuickFilterChange,
 }) => {
   const { t } = useLanguage();
-  const { canEditUser, canDeleteUser, hasPermission, currentUser } = useAuth();
+  const { canEditUser, canDeleteUser, hasPermission, currentUser, pendingUsersCount = 0 } = useAuth();
   const canCreate = hasPermission('users', 'create');
   const canEditAny = hasPermission('users', 'edit');
   const canDeleteAny = hasPermission('users', 'delete');
@@ -78,12 +79,23 @@ const UsersPage: React.FC<Props> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   
-  const { data: users = [], refetch: refetchUsers } = useUsersQuery();
   const { data: rolesList = [] } = useRolesQuery();
   const { handleSave, handleDelete, handleApproveUser, handleRejectUser, handleForceLogoutUser } = useUsersMutations();
 
   const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
   const onDeleteUser = (id: string) => handleDelete(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
+
+  // Search and filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 500);
+  const [filterRole, setFilterRole] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [quickFilters, setQuickFilters] = useState<string[]>(() => {
+    if (Array.isArray(quickFiltersProp)) return quickFiltersProp;
+    if (typeof quickFilterProp === 'string' && quickFilterProp !== 'all') return [quickFilterProp];
+    if (initialFilterStatus === 'pending') return [initialFilterStatus];
+    return [];
+  });
 
   const {
     activeCols,
@@ -116,8 +128,27 @@ const UsersPage: React.FC<Props> = ({
     onRowsPerPageOptionsChange,
     sortState,
     onSortChange,
-    onRefresh: () => { refetchUsers(); },
+    onRefresh: () => {
+      refetchPaginatedUsers();
+    },
   });
+
+  const effectiveStatus = quickFilters.includes('pending') ? 'pending' : filterStatus;
+  const {
+    data: paginatedData,
+    refetch: refetchPaginatedUsers,
+  } = usePaginatedUsersQuery({
+    page,
+    rowsPerPage: activeRowsPerPage,
+    sortBy: sortColumn,
+    sortOrder: sortDirection,
+    search: debouncedSearchQuery,
+    role: filterRole,
+    status: effectiveStatus,
+  });
+
+  const rawUsers = (paginatedData as any)?.items || (Array.isArray(paginatedData) ? paginatedData : []);
+  const totalUsers = paginatedData?.total ?? rawUsers.length;
 
   // Approve dialog state
   const [approveUserTarget, setApproveUserTarget] = useState<User | null>(null);
@@ -127,16 +158,6 @@ const UsersPage: React.FC<Props> = ({
   // Force logout dialog state
   const [forceLogoutTarget, setForceLogoutTarget] = useState<User | null>(null);
   const [isSubmittingForceLogout, setIsSubmittingForceLogout] = useState(false);
-
-  // Filter state
-  const [filterRole, setFilterRole] = useState<string>('all');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [quickFilters, setQuickFilters] = useState<string[]>(() => {
-    if (Array.isArray(quickFiltersProp)) return quickFiltersProp;
-    if (typeof quickFilterProp === 'string' && quickFilterProp !== 'all') return [quickFilterProp];
-    if (initialFilterStatus === 'pending') return [initialFilterStatus];
-    return [];
-  });
 
   useEffect(() => {
     if (Array.isArray(quickFiltersProp)) {
@@ -200,7 +221,6 @@ const UsersPage: React.FC<Props> = ({
   const [status, setStatus] = useState<string>('APPROVED');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
 
   const getRoleLabel = (r: string) => {
     switch (r) {
@@ -334,75 +354,20 @@ const UsersPage: React.FC<Props> = ({
     }
   };
 
-  const pendingUsers = users.filter((u) => u.status === 'PENDING');
-
   const uniqueRoles = useMemo(() => rolesList.map((r) => r.name), [rolesList]);
-
-  // 1. Apply Filter
-  const filteredUsers = users.filter((u) => {
-    if (filterRole !== 'all' && u.role !== filterRole) return false;
-    if (quickFilters.includes('pending') && u.status !== 'PENDING') return false;
-    if (filterStatus === 'pending' && u.status !== 'PENDING') return false;
-    if (filterStatus === 'approved' && u.status !== 'APPROVED') return false;
-    if (filterStatus === 'blocked' && u.status !== 'BLOCKED') return false;
-    return true;
-  });
 
   const userQuickFilterOptions: QuickFilterItem[] = useMemo(() => [
     {
       key: 'pending',
-      label: `${t('statusPending')}${pendingUsers.length > 0 ? ` (${pendingUsers.length})` : ''}`,
+      label: `${t('statusPending')}${pendingUsersCount > 0 ? ` (${pendingUsersCount})` : ''}`,
       color: 'warning',
       labelColor: 'warning.main',
     },
-  ], [t, pendingUsers.length]);
-
-  // 2. Search among filtered items
-  const searchedUsers = filteredUsers.filter((u) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      u.name.toLowerCase().includes(q) ||
-      (u.email && u.email.toLowerCase().includes(q)) ||
-      (u.role && u.role.toLowerCase().includes(q)) ||
-      (u.phone && u.phone.toLowerCase().includes(q))
-    );
-  });
-
-  // 3. Sort final dataset
-  const sortedUsers = [...searchedUsers].sort((a, b) => {
-    let res = 0;
-    switch (sortColumn) {
-      case 'name':
-        res = a.name.localeCompare(b.name);
-        break;
-      case 'role': {
-        const roleA = getRoleLabel(a.role);
-        const roleB = getRoleLabel(b.role);
-        res = roleA.localeCompare(roleB);
-        break;
-      }
-      case 'status':
-        res = (a.status || '').localeCompare(b.status || '');
-        break;
-      case 'email':
-        res = (a.email || '').localeCompare(b.email || '');
-        break;
-      case 'phone':
-        res = (a.phone || '').localeCompare(b.phone || '');
-        break;
-      case 'createdAt':
-        res = (a.createdAt ? new Date(a.createdAt).getTime() : 0) - (b.createdAt ? new Date(b.createdAt).getTime() : 0);
-        break;
-      default:
-        res = 0;
-    }
-    return sortDirection === 'asc' ? res : -res;
-  });
+  ], [t, pendingUsersCount]);
 
   useEffect(() => {
     setPage(0);
-  }, [searchQuery, filterRole, filterStatus, setPage]);
+  }, [searchQuery, filterRole, filterStatus, quickFilters, setPage]);
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
@@ -414,7 +379,7 @@ const UsersPage: React.FC<Props> = ({
     setPage(0);
   };
 
-  const paginatedUsers = sortedUsers.slice(page * activeRowsPerPage, page * activeRowsPerPage + activeRowsPerPage);
+  const paginatedUsers = rawUsers;
 
   const sortOptions = useMemo(() => [
     { value: 'name', label: t('colFullName') },
@@ -447,7 +412,7 @@ const UsersPage: React.FC<Props> = ({
         <Box sx={{ p: { xs: 1.5, sm: 2 }, display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              {t('usersListTitle', { count: sortedUsers.length })}
+              {t('usersListTitle', { count: totalUsers })}
             </Typography>
               <Tooltip title={t('btnRefresh')}>
                 <span>
@@ -635,14 +600,14 @@ const UsersPage: React.FC<Props> = ({
               </TableRow>
             </TableHead>
             <TableBody>
-              {sortedUsers.length === 0 ? (
+              {rawUsers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={activeCols.length + (hasAnyRowAction ? 1 : 0)} align="center" sx={{ py: 3, color: 'text.secondary' }}>
                     {t('emptyUsers')}
                   </TableCell>
                 </TableRow>
               ) : (
-                paginatedUsers.map((u) => {
+                paginatedUsers.map((u: any) => {
                   const editable = canEditUser(u);
                   const deletable = canDeleteUser(u);
                   const isPending = u.status === 'PENDING';
@@ -765,7 +730,7 @@ const UsersPage: React.FC<Props> = ({
         <TablePagination
           rowsPerPageOptions={activeRowsPerPageOptions}
           component="div"
-          count={sortedUsers.length}
+          count={totalUsers}
           rowsPerPage={activeRowsPerPage}
           page={page}
           onPageChange={handleChangePage}

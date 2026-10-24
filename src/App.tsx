@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, Suspense } from 'react';
+import React, { useState, useCallback, Suspense } from 'react';
 import { CircularProgress, Box } from '@mui/material';
 import type {
   Project,
@@ -17,7 +17,7 @@ import { ConfirmDialog } from './components/dialogs/ConfirmDialog';
 import { ConfirmDeleteDialog } from './components/dialogs/ConfirmDeleteDialog';
 import { VersionUpdatePrompt } from './components/dialogs/VersionUpdatePrompt';
 import { LoginPage } from './pages/auth/LoginPage';
-import { useProjectsQuery, useRemindersQuery, useStatsQuery, usePreferencesQuery, usePreferencesMutations } from './queries';
+import { usePreferencesQuery, usePreferencesMutations } from './queries';
 import { useActivityTracker } from './hooks/useActivityTracker';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { API_ROUTES, PAGE_ROUTES } from './constants';
@@ -42,9 +42,7 @@ const ActivityAnalyticsPage = React.lazy(() => import('./pages/management/Activi
 function MainApp() {
   useActivityTracker();
   const { t } = useLanguage();
-  const { currentUser, hasPermission, isRestrictedToOwn } = useAuth();
-  const isProjectsRestricted = isRestrictedToOwn('projects') || isRestrictedToOwn('tracker_projects');
-  const isRemindersRestricted = isRestrictedToOwn('reminders') || isRestrictedToOwn('tracker_reminders');
+  const { currentUser, hasPermission } = useAuth();
 
   // ── UI State ────────────────────────────────────────────────────────────────
   const location = useLocation();
@@ -77,55 +75,6 @@ function MainApp() {
   const { updatePreferenceMutation } = usePreferencesMutations();
   const updatePreference = (key: string, value: any) => updatePreferenceMutation.mutate({ key, value });
 
-  const { data: stats = { active: 0, done: 0, stale: 0, monitor: 0, clientsCount: 0, usersCount: 0, servicesCount: 0 } } = useStatsQuery();
-  const { data: projects = [] } = useProjectsQuery();
-  const { data: reminders = [] } = useRemindersQuery();
-
-  // ── Derived State ─────────────────────────────────────────────────────────────
-  const derivedStats = useMemo(() => {
-    const today = new Date(new Date().toDateString());
-
-    const userReminders = (isRemindersRestricted && currentUser)
-      ? reminders.filter((r) => {
-          const isMyName = r.responsible && currentUser.name && r.responsible.trim().toLowerCase() === currentUser.name.trim().toLowerCase();
-          const isMyId = r.responsibleId && r.responsibleId === currentUser.id;
-          return isMyName || isMyId;
-        })
-      : reminders;
-
-    const userProjects = (isProjectsRestricted && currentUser)
-      ? projects.filter((p) => {
-          const isMyName = p.responsible && currentUser.name && p.responsible.trim().toLowerCase() === currentUser.name.trim().toLowerCase();
-          const isMyId = (p as any).responsibleId && (p as any).responsibleId === currentUser.id;
-          return isMyName || isMyId;
-        })
-      : projects;
-
-    const approachingCount = userReminders.filter((r) => {
-      const s = (r.status || '').toLowerCase();
-      if (s === 'completed' || s === 'završeno' || s === 'завршено') return false;
-      if (!r.dueDate) return false;
-      const due = new Date(r.dueDate.split('T')[0]);
-      const diffDays = (due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
-      return diffDays >= 0 && diffDays <= 10;
-    }).length;
-
-    const overdueCount = userProjects.filter(
-      (p) => !p.done && p.deadline && new Date(p.deadline) < today
-    ).length;
-
-    return {
-      ...stats,
-      monitor: approachingCount,
-      overdue: overdueCount,
-    };
-  }, [stats, reminders, projects, isProjectsRestricted, isRemindersRestricted, currentUser]);
-
-  const currentViewingProject = useMemo(() => {
-    if (!viewingProject) return null;
-    return projects.find((p) => p.id === viewingProject.id) || viewingProject;
-  }, [projects, viewingProject]);
-
   // ── Project Modal Helpers ─────────────────────────────────────────────────────
   const handleViewProject = (p: Project, diffRange?: { dateFrom: string; dateTo: string } | null) => {
     setViewingProject(p);
@@ -134,23 +83,17 @@ function MainApp() {
   };
 
   const handleOpenProjectById = useCallback(async (projectId: string) => {
-    let target = projects.find((p) => p.id === projectId);
-    if (!target) {
-      try {
-        const res = await apiFetch(API_ROUTES.PROJECTS.BASE);
-        if (res.ok) {
-          const allProjects: Project[] = await res.json();
-          target = allProjects.find((p) => p.id === projectId);
-        }
-      } catch (e) {
-        console.error('Error fetching project for notification:', e);
+    try {
+      const res = await apiFetch(`${API_ROUTES.PROJECTS.BASE}/${projectId}`);
+      if (res.ok) {
+        const target: Project = await res.json();
+        setViewingProject(target);
+        setIsProjectViewModalOpen(true);
       }
+    } catch (e) {
+      console.error('Error fetching project for notification:', e);
     }
-    if (target) {
-      setViewingProject(target);
-      setIsProjectViewModalOpen(true);
-    }
-  }, [projects]);
+  }, []);
 
   const handleEditProject = (p: Project | null) => {
     setIsProjectViewModalOpen(false);
@@ -178,7 +121,6 @@ function MainApp() {
       onThemeChange={(mode) => updatePreference('theme', mode)}
     >
       <AdminLayout
-        stats={derivedStats}
         userPreferences={userPreferences}
         onPreferenceChange={updatePreference}
         onOpenProject={handleOpenProjectById}
@@ -218,6 +160,8 @@ function MainApp() {
                 onWasteManagementRowsPerPageOptionsChange={(opts) => updatePreference('rowsPerPageOptions_dashboard_waste_management', opts)}
                 wasteManagementRowsPerPage={userPreferences.rowsPerPage_dashboard_waste_management}
                 onWasteManagementRowsPerPageChange={(rpp) => updatePreference('rowsPerPage_dashboard_waste_management', rpp)}
+                sortDashboardProjects={userPreferences.sort_dashboard_projects}
+                onSortDashboardProjectsChange={(sort) => updatePreference('sort_dashboard_projects', sort)}
               />
             } />
             <Route path={PAGE_ROUTES.PROJECTS} element={
@@ -352,11 +296,11 @@ function MainApp() {
           </Routes>
         </Suspense>
 
-        {isProjectViewModalOpen && currentViewingProject && (
+        {isProjectViewModalOpen && viewingProject && (
           <Suspense fallback={null}>
             <ProjectViewModal
               isOpen={isProjectViewModalOpen}
-              project={currentViewingProject}
+              project={viewingProject}
               diffRange={projectDiffRange}
               onClose={() => {
                 setIsProjectViewModalOpen(false);

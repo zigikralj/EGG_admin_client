@@ -16,6 +16,7 @@ import { FilterListIcon, FilterListOffIcon } from '../icons';
 interface Props {
   activeCount: number;
   onClear: () => void;
+  onOpen?: () => void;
   sortingContent?: React.ReactNode;
   dateRangeContent?: React.ReactNode;
   filteringContent?: React.ReactNode;
@@ -25,6 +26,7 @@ interface Props {
 export const TableFilterSelector: React.FC<Props> = ({
   activeCount,
   onClear,
+  onOpen,
   sortingContent,
   dateRangeContent,
   filteringContent,
@@ -35,6 +37,7 @@ export const TableFilterSelector: React.FC<Props> = ({
 
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     setAnchorEl(event.currentTarget);
+    onOpen?.();
   };
 
   const handleClose = () => {

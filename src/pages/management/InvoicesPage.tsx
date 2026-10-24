@@ -58,13 +58,14 @@ interface Props extends TableViewProps {}
 const DEFAULT_COLUMNS = ['invoiceNumber', 'invoiceType', 'linkedInvoices', 'client', 'project', 'dateCreated', 'dueDate', 'totalAmount', 'status'];
 
 import {
-  useInvoicesQuery,
-  useClientsQuery,
+  usePaginatedInvoicesQuery,
+  useClientsSummaryQuery,
   useProjectsQuery,
   useProvidedServicesQuery,
   useInvoicesMutations,
   useProvidedServicesMutations,
 } from '../../queries';
+import { useDebounce } from '../../hooks/useDebounce';
 import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
 
 const InvoicesPage: React.FC<Props> = ({
@@ -118,15 +119,16 @@ const InvoicesPage: React.FC<Props> = ({
     onRowsPerPageOptionsChange,
     sortState,
     onSortChange,
-    onRefresh: () => { refetchInvoices(); },
+    onRefresh: () => {
+      refetchPaginatedInvoices();
+    },
     defaultSortField: 'dateCreated',
     defaultSortDirection: 'desc',
   });
 
-  const { data: invoices = [], refetch: refetchInvoices } = useInvoicesQuery();
-  const { data: clients = [] } = useClientsQuery();
-  const { data: projects = [] } = useProjectsQuery();
-  const { data: providedServices = [] } = useProvidedServicesQuery();
+  const { data: clients = [] } = useClientsSummaryQuery();
+  const { data: projects = [] } = useProjectsQuery('', { enabled: isOpen });
+  const { data: providedServices = [] } = useProvidedServicesQuery({ enabled: isOpen });
 
   const { handleSave: handleSaveInvoice, handleDelete, handleUpdateInvoiceStatus } = useInvoicesMutations();
   const { handleSave: handleSaveProvidedService } = useProvidedServicesMutations();
@@ -196,15 +198,38 @@ const InvoicesPage: React.FC<Props> = ({
   ];
 
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 500);
+
+  const {
+    data: paginatedData,
+    refetch: refetchPaginatedInvoices,
+  } = usePaginatedInvoicesQuery({
+    page,
+    rowsPerPage: activeRowsPerPage,
+    sortBy: sortColumn,
+    sortOrder: sortDirection,
+    search: debouncedSearch,
+    status: filterStatus,
+    clientId: filterClient,
+    currency: filterCurrency,
+    invoiceType: filterInvoiceType,
+    linkedStatus: filterLinkedStatus,
+    dateFrom: filterDateFrom,
+    dateTo: filterDateTo,
+    dateField: filterDateField,
+  });
+
+  const rawInvoices = paginatedData?.items || [];
+  const totalInvoices = paginatedData?.total ?? rawInvoices.length;
 
   useEffect(() => {
     setPage(0);
-  }, [search, filterStatus, filterClient, filterCurrency, filterInvoiceType, filterLinkedStatus, filterDateFrom, filterDateTo, filterDateField, setPage]);
+  }, [debouncedSearch, filterStatus, filterClient, filterCurrency, filterInvoiceType, filterLinkedStatus, filterDateFrom, filterDateTo, filterDateField, setPage]);
 
   // Enhance invoices with normalized link relations
   const enhancedInvoices = useMemo(() => {
-    return enhanceInvoicesWithLinks(invoices);
-  }, [invoices]);
+    return enhanceInvoicesWithLinks(rawInvoices);
+  }, [rawInvoices]);
 
   const formatAmount = (amount?: number | null, currency?: string | null) => {
     const val = amount || 0;
@@ -376,141 +401,7 @@ const InvoicesPage: React.FC<Props> = ({
       await handleUpdateInvoiceStatus(inv.id, 'Paid', new Date().toISOString().slice(0, 10));
   };
 
-  // Filter & Sort Invoices
-  const filteredInvoices = useMemo(() => {
-    return enhancedInvoices.filter((inv) => {
-      // Search
-      const s = search.toLowerCase().trim();
-      const numMatch = (inv.invoiceNumber || '').toLowerCase().includes(s);
-      const clientMatch = (inv.clientName || inv.client?.name || '').toLowerCase().includes(s);
-      const projMatch = (inv.projectName || inv.project?.name || '').toLowerCase().includes(s);
-      const notesMatch = (inv.notes || '').toLowerCase().includes(s);
-      const itemsMatch = (inv.items || []).some((it) => it.description.toLowerCase().includes(s));
-      const statusMatch = (inv.status || '').toLowerCase().includes(s);
-      const typeMatch = (inv.invoiceType || '').toLowerCase().includes(s);
-      const parentMatch = Boolean(inv.parentInvoice && inv.parentInvoice.invoiceNumber?.toLowerCase().includes(s));
-      const childMatch = Boolean(inv.childInvoices && inv.childInvoices.some((c) => c.invoiceNumber?.toLowerCase().includes(s)));
-
-      const matchesSearch =
-        !s ||
-        numMatch ||
-        clientMatch ||
-        projMatch ||
-        notesMatch ||
-        itemsMatch ||
-        statusMatch ||
-        typeMatch ||
-        parentMatch ||
-        childMatch;
-
-      // Status filter
-      let matchesStatus = filterStatus === 'all';
-      if (filterStatus === 'unpaid') {
-        matchesStatus = inv.status !== 'Paid' && inv.status !== 'Cancelled';
-      } else if (filterStatus !== 'all') {
-        matchesStatus = inv.status === filterStatus;
-      }
-
-      // Client filter
-      const matchesClient = filterClient === 'all' || inv.clientId === filterClient || (inv.client && inv.client.id === filterClient);
-
-      // Currency filter
-      const matchesCurrency = filterCurrency === 'all' || inv.currency === filterCurrency;
-
-      // Invoice Type filter
-      const matchesType =
-        filterInvoiceType === 'all' ||
-        (filterInvoiceType === 'Standard' && (!inv.invoiceType || inv.invoiceType === 'Standard')) ||
-        inv.invoiceType === filterInvoiceType;
-
-      // Linked Status filter
-      const isLinked = Boolean(inv.parentInvoiceId || (inv.childInvoices && inv.childInvoices.length > 0));
-      const matchesLinked =
-        filterLinkedStatus === 'all' ||
-        (filterLinkedStatus === 'linked' && isLinked) ||
-        (filterLinkedStatus === 'independent' && !isLinked);
-
-      // Date Range filter
-      let matchesDate = true;
-      if (filterDateFrom || filterDateTo) {
-        let rawDate: string | null | undefined = null;
-        if (filterDateField === 'dueDate') {
-          rawDate = inv.dueDate;
-        } else if (filterDateField === 'paymentDate') {
-          rawDate = inv.paymentDate;
-        } else {
-          rawDate = inv.dateCreated || inv.createdAt;
-        }
-        const dateVal = rawDate ? rawDate.slice(0, 10) : '';
-        if (dateVal) {
-          if (filterDateFrom && dateVal < filterDateFrom) matchesDate = false;
-          if (filterDateTo && dateVal > filterDateTo) matchesDate = false;
-        } else {
-          matchesDate = false;
-        }
-      }
-
-      return matchesSearch && matchesStatus && matchesClient && matchesCurrency && matchesType && matchesLinked && matchesDate;
-    });
-  }, [enhancedInvoices, search, filterStatus, filterClient, filterCurrency, filterInvoiceType, filterLinkedStatus, filterDateFrom, filterDateTo, filterDateField]);
-
-  const sortedInvoices = useMemo(() => {
-    return [...filteredInvoices].sort((a, b) => {
-      let aVal: any = '';
-      let bVal: any = '';
-
-      switch (sortColumn) {
-        case 'invoiceNumber':
-          aVal = a.invoiceNumber || '';
-          bVal = b.invoiceNumber || '';
-          break;
-        case 'invoiceType':
-          aVal = a.invoiceType || 'Standard';
-          bVal = b.invoiceType || 'Standard';
-          break;
-        case 'client':
-          aVal = a.clientName || a.client?.name || '';
-          bVal = b.clientName || b.client?.name || '';
-          break;
-        case 'project':
-          aVal = a.projectName || a.project?.name || '';
-          bVal = b.projectName || b.project?.name || '';
-          break;
-        case 'dateCreated':
-          aVal = a.dateCreated || a.createdAt || '';
-          bVal = b.dateCreated || b.createdAt || '';
-          break;
-        case 'dueDate':
-          aVal = a.dueDate || '';
-          bVal = b.dueDate || '';
-          break;
-        case 'paymentDate':
-          aVal = a.paymentDate || '';
-          bVal = b.paymentDate || '';
-          break;
-        case 'totalAmount':
-          aVal = a.totalAmount || 0;
-          bVal = b.totalAmount || 0;
-          break;
-        case 'status':
-          aVal = a.status || '';
-          bVal = b.status || '';
-          break;
-        default:
-          aVal = a.createdAt || '';
-          bVal = b.createdAt || '';
-      }
-
-      if (typeof aVal === 'number' && typeof bVal === 'number') {
-        return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
-      }
-      return sortDirection === 'asc'
-        ? String(aVal).localeCompare(String(bVal))
-        : String(bVal).localeCompare(String(aVal));
-    });
-  }, [filteredInvoices, sortColumn, sortDirection]);
-
-
+  const displayedInvoices = enhancedInvoices;
 
   return (
     <Box sx={{ width: '100%', py: 2 }}>
@@ -521,7 +412,7 @@ const InvoicesPage: React.FC<Props> = ({
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
             {t('invoicesListTitle')}
           </Typography>
-          <Chip label={filteredInvoices.length} size="small" color="primary" sx={{ fontWeight: 700 }} />
+          <Chip label={totalInvoices} size="small" color="primary" sx={{ fontWeight: 700 }} />
             <Tooltip title={t('btnRefresh')}>
               <span>
                 <IconButton
@@ -871,7 +762,7 @@ const InvoicesPage: React.FC<Props> = ({
             </TableHead>
 
             <TableBody>
-              {sortedInvoices.length === 0 ? (
+              {displayedInvoices.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={activeCols.length + 1 + (hasAnyRowAction ? 1 : 0)} align="center" sx={{ py: 6 }}>
                     <Typography variant="body1" color="text.secondary">
@@ -880,8 +771,7 @@ const InvoicesPage: React.FC<Props> = ({
                   </TableCell>
                 </TableRow>
               ) : (
-                sortedInvoices
-                  .slice(page * activeRowsPerPage, page * activeRowsPerPage + activeRowsPerPage)
+                displayedInvoices
                   .map((inv) => {
                     const isExpanded = !!expandedRows[inv.id];
                     const itemsCount = inv.items ? inv.items.length : 0;
@@ -1122,7 +1012,7 @@ const InvoicesPage: React.FC<Props> = ({
         <TablePagination
           rowsPerPageOptions={activeRowsPerPageOptions}
           component="div"
-          count={sortedInvoices.length}
+          count={totalInvoices}
           rowsPerPage={activeRowsPerPage}
           page={page}
           onPageChange={(_, newPage) => setPage(newPage)}
@@ -1142,7 +1032,7 @@ const InvoicesPage: React.FC<Props> = ({
         clients={clients}
         projects={projects}
         providedServices={providedServices}
-        invoices={invoices}
+        invoices={rawInvoices}
         onSave={handleSaveInvoiceFromModal}
         isSaving={isSaving}
       />

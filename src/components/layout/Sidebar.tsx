@@ -43,7 +43,7 @@ interface NavItem {
   path: string;
   label: string;
   icon: React.ReactNode;
-  count: number;
+  count?: number;
   show: boolean;
   color?: 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' | 'default';
 }

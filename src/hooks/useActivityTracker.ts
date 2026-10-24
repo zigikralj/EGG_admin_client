@@ -4,7 +4,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../api';
 import { API_ROUTES, PAGE_ROUTES } from '../constants';
-import { useActivityLogStatusQuery } from '../queries';
 
 /**
  * Lightweight, batched page-activity tracker.
@@ -117,8 +116,7 @@ export function useActivityTracker() {
   const { currentUser } = useAuth();
   const location = useLocation();
   const queryClient = useQueryClient();
-  const { data: statusData } = useActivityLogStatusQuery();
-  const isEnabled = statusData?.enabled ?? true;
+  const isEnabled = currentUser?.activityLoggingEnabled ?? true;
 
   const queueRef = useRef<TrackerEvent[]>([]);
   const sessionStartTimeRef = useRef<number>(Date.now());

@@ -84,8 +84,9 @@ const DEFAULT_COLUMNS = [
 
 import {
   useProvidedServicesQuery,
+  usePaginatedProvidedServicesQuery,
   useServicesQuery,
-  useClientsQuery,
+  useClientsSummaryQuery,
   useProjectsQuery,
   useInvoicesQuery,
   useCategoriesQuery,
@@ -93,6 +94,7 @@ import {
   useServicesMutations,
   useInvoicesMutations,
 } from '../../queries';
+import { useDebounce } from '../../hooks/useDebounce';
 import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
 
 const ProvidedServicesPage: React.FC<Props> = ({
@@ -116,6 +118,20 @@ const ProvidedServicesPage: React.FC<Props> = ({
   const hasAnyRowAction = canEditAny || canDeleteAny;
   const [isOpen, setIsOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ProvidedService | null>(null);
+
+  // Search and filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 500);
+  const [quickFilter, setQuickFilter] = useState<string>(quickFilterProp || 'all');
+  const [filterService, setFilterService] = useState<string>('all');
+  const [filterClient, setFilterClient] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterProject, setFilterProject] = useState<string>('all');
+  const [filterInvoice, setFilterInvoice] = useState<string>('all');
+  const [filterDateFrom, setFilterDateFrom] = useState<string>('');
+  const [filterDateTo, setFilterDateTo] = useState<string>('');
+  const [filterDateField, setFilterDateField] = useState<string>('scheduledDate');
+
   const {
     activeCols,
     setCols,
@@ -147,17 +163,42 @@ const ProvidedServicesPage: React.FC<Props> = ({
     onRowsPerPageOptionsChange,
     sortState,
     onSortChange,
-    onRefresh: () => { refetchProvidedServices(); },
+    onRefresh: () => {
+      refetchPaginatedProvidedServices();
+    },
     defaultSortField: 'scheduledDate',
     defaultSortDirection: 'desc',
   });
 
-  const { data: providedServices = [], refetch: refetchProvidedServices } = useProvidedServicesQuery();
+  const isStatsTab = subTab === 'statistics';
+  const { data: providedServices = [] } = useProvidedServicesQuery({ enabled: isStatsTab || isOpen });
   const { data: services = [] } = useServicesQuery();
-  const { data: clients = [] } = useClientsQuery();
-  const { data: projects = [] } = useProjectsQuery();
-  const { data: invoices = [] } = useInvoicesQuery();
+  const { data: clients = [] } = useClientsSummaryQuery();
+  const { data: projects = [] } = useProjectsQuery('', { enabled: isStatsTab || isOpen });
+  const { data: invoices = [] } = useInvoicesQuery({ enabled: isStatsTab || isOpen });
   const { data: categories = [] } = useCategoriesQuery();
+
+  const {
+    data: paginatedData,
+    refetch: refetchPaginatedProvidedServices,
+  } = usePaginatedProvidedServicesQuery({
+    page,
+    rowsPerPage: activeRowsPerPage,
+    sortBy: sortColumn,
+    sortOrder: sortDirection,
+    search: debouncedSearchQuery,
+    status: filterStatus,
+    serviceId: filterService,
+    clientId: filterClient,
+    projectId: filterProject,
+    invoiceId: filterInvoice,
+    dateFrom: filterDateFrom,
+    dateTo: filterDateTo,
+    dateField: filterDateField,
+  });
+
+  const rawItems = (paginatedData as any)?.items || (Array.isArray(paginatedData) ? paginatedData : []);
+  const totalProvidedServices = paginatedData?.total ?? rawItems.length;
   const { resolveListOptions } = useLinkedListOptions();
 
   const { handleSave, handleDelete } = useProvidedServicesMutations();
@@ -187,9 +228,6 @@ const ProvidedServicesPage: React.FC<Props> = ({
 
 
 
-  // Quick Filter: 'all' | 'waste-management'
-  const [quickFilter, setQuickFilter] = useState<string>(quickFilterProp || 'all');
-
   useEffect(() => {
     if (quickFilterProp !== undefined) {
       setQuickFilter(quickFilterProp);
@@ -200,16 +238,6 @@ const ProvidedServicesPage: React.FC<Props> = ({
     setQuickFilter(val);
     onQuickFilterChange?.(val);
   };
-
-  // Filter states
-  const [filterService, setFilterService] = useState<string>('all');
-  const [filterClient, setFilterClient] = useState<string>('all');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [filterProject, setFilterProject] = useState<string>('all');
-  const [filterInvoice, setFilterInvoice] = useState<string>('all');
-  const [filterDateFrom, setFilterDateFrom] = useState<string>('');
-  const [filterDateTo, setFilterDateTo] = useState<string>('');
-  const [filterDateField, setFilterDateField] = useState<string>('scheduledDate');
 
   const activeFilterCount =
     (quickFilter !== 'all' ? 1 : 0) +
@@ -261,7 +289,6 @@ const ProvidedServicesPage: React.FC<Props> = ({
   const [completionDate, setCompletionDate] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [customData, setCustomData] = useState<Record<string, any>>({});
-  const [searchQuery, setSearchQuery] = useState('');
 
   const currentCustomFields = useMemo(() => {
     return getCustomModelForService(selectedServiceId);
@@ -425,134 +452,16 @@ const ProvidedServicesPage: React.FC<Props> = ({
     );
   };
 
-  // 1. Apply Quick & Popover Filters
-  const filteredItems = providedServices.filter((item) => {
-    const srv = item.service || services.find((s) => s.id === item.serviceId);
-
-    // Quick filter check
-    if (quickFilter === 'waste-management' && !isWasteManagementService(srv)) {
-      return false;
-    }
-
-    if (filterService !== 'all' && item.serviceId !== filterService) return false;
-    if (filterClient !== 'all' && item.clientId !== filterClient) return false;
-    if (filterStatus !== 'all' && item.status !== filterStatus) return false;
-    if (filterProject !== 'all' && item.projectId !== filterProject) return false;
-    if (filterInvoice !== 'all' && item.invoiceId !== filterInvoice) return false;
-
-    // Date range filter
-    if (filterDateFrom || filterDateTo) {
-      let rawDate: string | null | undefined = null;
-      if (filterDateField === 'completionDate') {
-        rawDate = item.completionDate;
-      } else if (filterDateField === 'createdAt') {
-        rawDate = item.createdAt;
-      } else {
-        rawDate = item.scheduledDate;
-      }
-      const dateVal = rawDate ? rawDate.slice(0, 10) : '';
-      if (dateVal) {
-        if (filterDateFrom && dateVal < filterDateFrom) return false;
-        if (filterDateTo && dateVal > filterDateTo) return false;
-      } else {
-        return false;
-      }
-    }
-
-    return true;
-  });
-
-  // 2. Search
-  const searchedItems = filteredItems.filter((item) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    const srv = item.service || services.find((s) => s.id === item.serviceId);
-    const cli = item.client || clients.find((c) => c.id === item.clientId);
-    const prj = item.project || projects.find((p) => p.id === item.projectId);
-    const inv = item.invoice || invoices.find((i) => i.id === item.invoiceId);
-
-    const sName = (srv?.name || (srv ? getServiceLabel(srv.code) : '')).toLowerCase();
-    const cName = (cli?.name || '').toLowerCase();
-    const pName = (prj?.name || '').toLowerCase();
-    const invNum = (inv?.invoiceNumber || '').toLowerCase();
-    const loc = (item.location || '').toLowerCase();
-    const st = (item.status || '').toLowerCase();
-    const n = (item.notes || '').toLowerCase();
-    const customDataStr = item.customData ? JSON.stringify(item.customData).toLowerCase() : '';
-
-    return (
-      sName.includes(q) ||
-      cName.includes(q) ||
-      pName.includes(q) ||
-      invNum.includes(q) ||
-      loc.includes(q) ||
-      st.includes(q) ||
-      n.includes(q) ||
-      customDataStr.includes(q)
-    );
-  });
-
-  // 3. Sort
-  const sortedItems = [...searchedItems].sort((a, b) => {
-    let res = 0;
-    const srvA = a.service || services.find((s) => s.id === a.serviceId);
-    const srvB = b.service || services.find((s) => s.id === b.serviceId);
-    const cliA = a.client || clients.find((c) => c.id === a.clientId);
-    const cliB = b.client || clients.find((c) => c.id === b.clientId);
-    const prjA = a.project || projects.find((p) => p.id === a.projectId);
-    const prjB = b.project || projects.find((p) => p.id === b.projectId);
-    const invA = a.invoice || invoices.find((i) => i.id === a.invoiceId);
-    const invB = b.invoice || invoices.find((i) => i.id === b.invoiceId);
-
-    switch (sortColumn) {
-      case 'service': {
-        const nameA = srvA?.name || (srvA ? getServiceLabel(srvA.code) : '');
-        const nameB = srvB?.name || (srvB ? getServiceLabel(srvB.code) : '');
-        res = nameA.localeCompare(nameB);
-        break;
-      }
-      case 'client': {
-        const nameA = cliA?.name || '';
-        const nameB = cliB?.name || '';
-        res = nameA.localeCompare(nameB);
-        break;
-      }
-      case 'project': {
-        const nameA = prjA?.name || '';
-        const nameB = prjB?.name || '';
-        res = nameA.localeCompare(nameB);
-        break;
-      }
-      case 'invoice': {
-        const nameA = invA?.invoiceNumber || '';
-        const nameB = invB?.invoiceNumber || '';
-        res = nameA.localeCompare(nameB);
-        break;
-      }
-      case 'status':
-        res = (a.status || '').localeCompare(b.status || '');
-        break;
-      case 'scheduledDate':
-        res = (a.scheduledDate || '').localeCompare(b.scheduledDate || '');
-        break;
-      case 'completionDate':
-        res = (a.completionDate || '').localeCompare(b.completionDate || '');
-        break;
-      case 'location':
-        res = (a.location || '').localeCompare(b.location || '');
-        break;
-      case 'createdAt':
-        res = (a.createdAt ? new Date(a.createdAt).getTime() : 0) - (b.createdAt ? new Date(b.createdAt).getTime() : 0);
-        break;
-      default:
-        res = 0;
-    }
-    return sortDirection === 'asc' ? res : -res;
-  });
+  const displayedItems = quickFilter === 'waste-management'
+    ? rawItems.filter((item: ProvidedService) => {
+        const srv = item.service || services.find((s) => s.id === item.serviceId);
+        return isWasteManagementService(srv);
+      })
+    : rawItems;
 
   useEffect(() => {
     setPage(0);
-  }, [searchQuery, quickFilter, filterService, filterClient, filterStatus, filterProject, filterInvoice, setPage]);
+  }, [searchQuery, quickFilter, filterService, filterClient, filterStatus, filterProject, filterInvoice, filterDateFrom, filterDateTo, setPage]);
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
@@ -564,7 +473,7 @@ const ProvidedServicesPage: React.FC<Props> = ({
     setPage(0);
   };
 
-  const paginatedItems = sortedItems.slice(page * activeRowsPerPage, page * activeRowsPerPage + activeRowsPerPage);
+  const paginatedItems = displayedItems;
 
   const sortOptions = useMemo(
     () => [
@@ -932,7 +841,7 @@ const ProvidedServicesPage: React.FC<Props> = ({
               </TableRow>
             </TableHead>
             <TableBody>
-              {sortedItems.length === 0 ? (
+              {displayedItems.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={activeCols.length + (hasAnyRowAction ? 1 : 0)}
@@ -943,7 +852,7 @@ const ProvidedServicesPage: React.FC<Props> = ({
                   </TableCell>
                 </TableRow>
               ) : (
-                paginatedItems.map((item) => {
+                paginatedItems.map((item: any) => {
                   const srv = item.service || services.find((s) => s.id === item.serviceId);
                   const cli = item.client || clients.find((c) => c.id === item.clientId);
                   const prj = item.project || projects.find((p) => p.id === item.projectId);
@@ -1080,7 +989,7 @@ const ProvidedServicesPage: React.FC<Props> = ({
         <TablePagination
           rowsPerPageOptions={activeRowsPerPageOptions}
           component="div"
-          count={sortedItems.length}
+          count={totalProvidedServices}
           rowsPerPage={activeRowsPerPage}
           page={page}
           onPageChange={handleChangePage}

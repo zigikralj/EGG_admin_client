@@ -19,7 +19,6 @@ import {
 
 import {
   PERMIT_TYPE_OPTIONS,
-  type Client,
   type Permit,
   type Reminder,
   type TableViewProps,
@@ -43,12 +42,13 @@ import {
   RefreshIcon,
 } from '../../components/icons';
 import {
-  usePermitsQuery,
-  useClientsQuery,
+  usePaginatedPermitsQuery,
+  useClientsSummaryQuery,
   useRemindersQuery,
   usePermitsMutations,
   useRemindersMutations,
 } from '../../queries';
+import { useDebounce } from '../../hooks/useDebounce';
 import {
   PermitStatusBadge,
   getPermitStatus,
@@ -114,9 +114,8 @@ const PermitsPage: React.FC<Props> = ({
     permit: null,
   });
 
-  const { data: permits = [], refetch: refetchPermits } = usePermitsQuery();
-  const { data: clients = [] } = useClientsQuery();
-  const { data: reminders = [] } = useRemindersQuery();
+  const { data: clients = [] } = useClientsSummaryQuery();
+  const { data: reminders = [] } = useRemindersQuery({ enabled: isOpen });
   const { handleSave: handleSavePermit, handleDelete: handleDeletePermit } = usePermitsMutations();
   const { handleSave: handleSaveReminder, handleDelete: handleDeleteReminder } = useRemindersMutations();
 
@@ -132,7 +131,7 @@ const PermitsPage: React.FC<Props> = ({
     handleDeleteReminder(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
 
   const getLinkedClient = useCallback(
-    (p: Permit | null | undefined): Client | null => {
+    (p: Permit | null | undefined): any => {
       if (!p) return null;
       if (p.client) return p.client;
       if (p.clientId) {
@@ -140,9 +139,9 @@ const PermitsPage: React.FC<Props> = ({
         if (found) return found;
       }
       if (p.clients && p.clients.length > 0) return p.clients[0];
-      const foundInClients = clients.find(
+      const foundInClients = (clients as any[]).find(
         (c) =>
-          c.permits?.some((cp) => cp.id === p.id) ||
+          c.permits?.some((cp: any) => cp.id === p.id) ||
           c.permitId === p.id ||
           c.extraData?.permitId === p.id
       );
@@ -297,6 +296,34 @@ const PermitsPage: React.FC<Props> = ({
   ];
 
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 500);
+
+  const statusParam = quickFilters.length > 0 ? quickFilters[0] : (filterStatus !== 'all' ? filterStatus : undefined);
+
+  // Reset page to 0 when filters or search change
+  useEffect(() => {
+    setPage(0);
+  }, [debouncedSearch, quickFilters, filterClient, filterStatus, filterPermitType, filterDateFrom, filterDateTo, filterDateField, setPage]);
+
+  const {
+    data: paginatedData,
+    refetch: refetchPermits,
+  } = usePaginatedPermitsQuery({
+    page,
+    rowsPerPage: activeRowsPerPage,
+    sortBy: sortColumn,
+    sortOrder: sortDirection,
+    search: debouncedSearch,
+    status: statusParam,
+    permitType: filterPermitType !== 'all' ? filterPermitType : undefined,
+    clientId: filterClient !== 'all' ? filterClient : undefined,
+    dateFrom: filterDateFrom || undefined,
+    dateTo: filterDateTo || undefined,
+    dateField: filterDateField,
+  });
+
+  const permits = paginatedData?.items || [];
+  const totalPermits = paginatedData?.total || 0;
 
   const openNew = () => {
     if (!canCreate) return;
@@ -462,147 +489,7 @@ const PermitsPage: React.FC<Props> = ({
     return map;
   }, [reminders]);
 
-  // Filter permits
-  const filteredPermits = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
 
-    return permits.filter((permit) => {
-      // Search
-      if (query) {
-        const pClient = getLinkedClient(permit);
-        const clientNames =
-          pClient?.name ||
-          (permit.clients?.length ? permit.clients.map((c) => c.name).join(' ') : '') ||
-          permit.clientName ||
-          '';
-        const matchIndex =
-          (permit.indexNumber || '').toLowerCase().includes(query) ||
-          (permit.wasteCatalogs || []).some(
-            (w) =>
-              w.code.toLowerCase().includes(query) ||
-              w.description.toLowerCase().includes(query)
-          );
-        const matchPermit = (permit.permitNumber || '').toLowerCase().includes(query);
-        const matchClient = clientNames.toLowerCase().includes(query);
-        const matchNotes = (permit.notes || '').toLowerCase().includes(query);
-        const matchPermitTypes = (permit.permitTypes || []).some(
-          (pt) =>
-            pt.toLowerCase().includes(query) ||
-            getPermitTypeLabel(pt).toLowerCase().includes(query)
-        );
-
-        if (!matchIndex && !matchPermit && !matchClient && !matchNotes && !matchPermitTypes) {
-          return false;
-        }
-      }
-
-      // Expiration status
-      const statusObj = getPermitStatus(permit.endDate);
-
-      // Quick filter
-      if (quickFilters.length > 0) {
-        const matchesAnyQuickFilter = quickFilters.some((qf) => {
-          if (qf === 'expiring') return statusObj.status === 'expiring';
-          if (qf === 'expired') return statusObj.status === 'expired';
-          if (qf === 'active') return statusObj.status === 'active';
-          return false;
-        });
-        if (!matchesAnyQuickFilter) return false;
-      }
-
-      // Popover Status Filter
-      if (filterStatus !== 'all' && statusObj.status !== filterStatus) {
-        return false;
-      }
-
-      // Permit Type filter
-      if (filterPermitType !== 'all') {
-        const types = (permit.permitTypes || []).map((typeItem) => String(typeItem).trim().toLowerCase());
-        if (!types.includes(filterPermitType.trim().toLowerCase())) {
-          return false;
-        }
-      }
-
-      // Client filter
-      if (filterClient !== 'all') {
-        const pClient = getLinkedClient(permit);
-        const isMatch =
-          permit.clientId === filterClient ||
-          pClient?.id === filterClient ||
-          (permit.clients && permit.clients.some((c) => c.id === filterClient));
-        if (!isMatch) return false;
-      }
-
-      // Date range filter
-      if (filterDateFrom || filterDateTo) {
-        const targetDateVal =
-          filterDateField === 'startDate' ? permit.startDate : permit.endDate;
-        if (!targetDateVal) return false;
-
-        const d = targetDateVal.split('T')[0];
-        if (filterDateFrom && d < filterDateFrom) return false;
-        if (filterDateTo && d > filterDateTo) return false;
-      }
-
-      return true;
-    });
-  }, [
-    permits,
-    getLinkedClient,
-    searchQuery,
-    quickFilters,
-    filterStatus,
-    filterClient,
-    filterPermitType,
-    filterDateFrom,
-    filterDateTo,
-    filterDateField,
-    getPermitTypeLabel,
-  ]);
-
-  const sortedPermits = useMemo(() => {
-    const result = [...filteredPermits];
-    result.sort((a, b) => {
-      let valA: string = '';
-      let valB: string = '';
-
-      if (sortColumn === 'indexNumber') {
-        valA = a.indexNumber || a.wasteCatalogs?.map((w) => w.code).join(', ') || '';
-        valB = b.indexNumber || b.wasteCatalogs?.map((w) => w.code).join(', ') || '';
-      } else if (sortColumn === 'permitNumber') {
-        valA = a.permitNumber || '';
-        valB = b.permitNumber || '';
-      } else if (sortColumn === 'client') {
-        const cliA = getLinkedClient(a);
-        const cliB = getLinkedClient(b);
-        valA = cliA?.name || a.clientName || '';
-        valB = cliB?.name || b.clientName || '';
-      } else if (sortColumn === 'permitTypes') {
-        valA = (a.permitTypes || []).map((pt) => getPermitTypeLabel(pt)).join(', ');
-        valB = (b.permitTypes || []).map((pt) => getPermitTypeLabel(pt)).join(', ');
-      } else if (sortColumn === 'startDate') {
-        valA = a.startDate || '';
-        valB = b.startDate || '';
-      } else if (sortColumn === 'endDate') {
-        valA = a.endDate || '';
-        valB = b.endDate || '';
-      }
-
-      if (valA === valB) return 0;
-      if (!valA) return 1;
-      if (!valB) return -1;
-
-      const comp = valA.localeCompare(valB, undefined, { numeric: true });
-      return sortDirection === 'asc' ? comp : -comp;
-    });
-    return result;
-  }, [filteredPermits, getLinkedClient, sortColumn, sortDirection, getPermitTypeLabel]);
-
-  // Pagination
-  const paginatedPermits = useMemo(() => {
-    const start = page * activeRowsPerPage;
-    return sortedPermits.slice(start, start + activeRowsPerPage);
-  }, [sortedPermits, page, activeRowsPerPage]);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%', flex: 1, minHeight: 0 }}>
@@ -837,7 +724,7 @@ const PermitsPage: React.FC<Props> = ({
 
         {/* PERMITS TABLE */}
         <PermitsTable
-          permits={paginatedPermits}
+          permits={permits}
           activeCols={activeCols}
           sortColumn={sortColumn}
           sortDirection={sortDirection}
@@ -865,7 +752,7 @@ const PermitsPage: React.FC<Props> = ({
 
         <TablePagination
           component="div"
-          count={filteredPermits.length}
+          count={totalPermits}
           page={page}
           onPageChange={(_, newPage) => setPage(newPage)}
           rowsPerPage={activeRowsPerPage}
