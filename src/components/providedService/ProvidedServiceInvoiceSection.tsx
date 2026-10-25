@@ -8,8 +8,6 @@ import {
   ToggleButton,
   Grid,
   TextField,
-  Autocomplete,
-  Chip,
   Tooltip,
   IconButton,
   Dialog,
@@ -24,6 +22,7 @@ import { useInvoiceFormState } from '../../hooks/useInvoiceFormState';
 import { InvoiceStatusChip, InvoiceTypeChip, LinkedInvoiceChip } from '../invoice/InvoiceChips';
 import { InvoiceFormFields } from '../invoice/InvoiceFormFields';
 import { InvoiceItemsList } from '../invoice/InvoiceItemsList';
+import { InvoiceAutocomplete } from '../common/autocomplete';
 import { serializeInvoiceNotes, enhanceInvoicesWithLinks } from '../../utils/invoiceUtils';
 import {
   ReceiptLongIcon,
@@ -395,86 +394,15 @@ export const ProvidedServiceInvoiceSection: React.FC<ProvidedServiceInvoiceSecti
               </Grid>
             ) : (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                <Autocomplete
+                <InvoiceAutocomplete
                   size="small"
-                  options={availableExistingInvoices}
-                  groupBy={(inv: Invoice) => {
-                    const targetClientId = clientId;
-                    const targetClientName = (clientName || '').trim().toLowerCase();
-                    const isMatch =
-                      Boolean(targetClientId && inv.clientId === targetClientId) ||
-                      Boolean(
-                        targetClientName &&
-                          inv.clientName &&
-                          inv.clientName.trim().toLowerCase() === targetClientName
-                      );
-                    return isMatch ? `${t('colClient')}: ${clientName || ''}` : t('other');
-                  }}
-                  getOptionLabel={(inv: Invoice) =>
-                    `${inv.invoiceNumber}${inv.invoiceType && inv.invoiceType !== 'Standard' ? ` [${inv.invoiceType}]` : ''}${
-                      inv.totalAmount ? ` (${formatInvoiceAmount(inv.totalAmount, inv.currency)})` : ''
-                    }${inv.clientName ? ` - ${inv.clientName}` : ''}`
-                  }
-                  value={
-                    availableExistingInvoices.find((inv: Invoice) => inv.id === selectedExistingInvoiceId) || null
-                  }
-                  onChange={(_, val) => setSelectedExistingInvoiceId(val ? val.id : '')}
-                  renderOption={(props, inv) => {
-                    const { key, ...otherProps } = props as any;
-                    const targetClientId = clientId;
-                    const targetClientName = (clientName || '').trim().toLowerCase();
-                    const isMatch =
-                      Boolean(targetClientId && inv.clientId === targetClientId) ||
-                      Boolean(
-                        targetClientName &&
-                          inv.clientName &&
-                          inv.clientName.trim().toLowerCase() === targetClientName
-                      );
-
-                    return (
-                      <li key={key || inv.id} {...otherProps}>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%', py: 0.5 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                              <Typography variant="body2" sx={{ fontWeight: isMatch ? 700 : 500 }}>
-                                {inv.invoiceNumber}
-                              </Typography>
-                              <InvoiceTypeChip type={inv.invoiceType} />
-                            </Box>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                              <InvoiceStatusChip status={inv.status} />
-                              {isMatch && (
-                                <Chip
-                                  label={t('colClient')}
-                                  size="small"
-                                  color="primary"
-                                  variant="outlined"
-                                  sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600 }}
-                                />
-                              )}
-                            </Box>
-                          </Box>
-                          <Box
-                            sx={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 1,
-                              color: 'text.secondary',
-                              fontSize: '0.75rem',
-                              mt: 0.25,
-                            }}
-                          >
-                            {inv.clientName && <span>{inv.clientName}</span>}
-                            <span>• {formatInvoiceAmount(inv.totalAmount, inv.currency)}</span>
-                            {inv.dueDate && <span>• {inv.dueDate}</span>}
-                          </Box>
-                        </Box>
-                      </li>
-                    );
-                  }}
-                  renderInput={(params) => (
-                    <TextField {...params} placeholder={t('phSelectExistingInvoice')} label={t('tabInvoices')} />
-                  )}
+                  value={selectedExistingInvoiceId}
+                  onChange={(val) => setSelectedExistingInvoiceId(val || '')}
+                  prioritizeClientId={clientId}
+                  prioritizeClientName={clientName}
+                  excludeIds={linkedInvoice ? [linkedInvoice.id] : undefined}
+                  placeholder={t('phSelectExistingInvoice')}
+                  label={t('tabInvoices')}
                 />
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                   <Button size="small" variant="outlined" color="inherit" onClick={() => setIsAddingInvoice(false)}>

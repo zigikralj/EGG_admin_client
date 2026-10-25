@@ -5,7 +5,7 @@ import { useInvoiceFormState } from './useInvoiceFormState';
 
 export function useProjectForm({
   projectToEdit,
-  clients,
+  clients = [],
   users: _users,
   services: _services,
   reminders = [],
@@ -13,7 +13,7 @@ export function useProjectForm({
   currentUser,
 }: {
   projectToEdit?: Project | null;
-  clients: Client[];
+  clients?: Client[];
   users?: User[];
   services?: Service[];
   reminders?: Reminder[];
@@ -103,10 +103,14 @@ export function useProjectForm({
     }
   }, [projectToEdit]);
 
-  const handleClientSelectChange = (id: string) => {
+  const handleClientSelectChange = (id: string, clientOption?: Client | null) => {
     setClientId(id);
-    const found = clients.find((c) => c.id === id);
-    setClientName(found ? found.name : '');
+    if (clientOption && clientOption.name) {
+      setClientName(clientOption.name);
+    } else if (clients && clients.length > 0) {
+      const found = clients.find((c) => c.id === id);
+      setClientName(found ? found.name : '');
+    }
   };
 
   const addStagedReminder = (reminder: Reminder) => {
@@ -145,6 +149,9 @@ export function useProjectForm({
 
   const projectReminders = useMemo(() => {
     if (!projectToEdit) return stagedReminders;
+    if (projectToEdit.reminders && Array.isArray(projectToEdit.reminders)) {
+      return projectToEdit.reminders;
+    }
     if (!reminders) return [];
     return reminders.filter((r) => {
       if (r.projectId && r.projectId === projectToEdit.id) return true;
@@ -192,6 +199,9 @@ export function useProjectForm({
 
   const projectInvoices = useMemo(() => {
     if (!projectToEdit) return stagedInvoices;
+    if (projectToEdit.invoices && Array.isArray(projectToEdit.invoices)) {
+      return enhanceInvoicesWithLinks(projectToEdit.invoices);
+    }
     if (!linkedInvoices) return [];
     return linkedInvoices.filter((inv) => {
       if (inv.projectId && inv.projectId === projectToEdit.id) return true;

@@ -11,7 +11,6 @@ import {
   Typography,
   Box,
   Paper,
-  Autocomplete,
   IconButton,
   Tabs,
   Tab,
@@ -37,7 +36,8 @@ import {
   NotificationsActiveIcon,
 } from '../icons';
 import { ConfirmDialog } from '../dialogs/ConfirmDialog';
-import { useClientsSummaryQuery, useUsersSummaryQuery, useServicesQuery, useRemindersQuery, useInvoicesQuery, useProjectsMutations, useRemindersMutations, useInvoicesMutations, useProjectDetailsQuery } from '../../queries';
+import { useProjectsMutations, useRemindersMutations, useInvoicesMutations, useProjectDetailsQuery } from '../../queries';
+import { ClientAutocomplete, UserAutocomplete, ServiceAutocomplete } from '../common/autocomplete';
 
 interface Props {
   isOpen: boolean;
@@ -50,11 +50,6 @@ const ProjectModal: React.FC<Props> = ({
   projectToEdit,
   onClose,
 }) => {
-  const { data: clients = [] } = useClientsSummaryQuery({ enabled: isOpen });
-  const { data: users = [] } = useUsersSummaryQuery({ enabled: isOpen });
-  const { data: services = [] } = useServicesQuery({ enabled: isOpen });
-  const { data: reminders = [] } = useRemindersQuery({ enabled: isOpen });
-  const { data: invoices = [] } = useInvoicesQuery({ enabled: isOpen });
   const { handleSave: onSave, handleDelete: onDelete } = useProjectsMutations();
   const { handleSave: onSaveReminder, handleDelete: onDeleteReminder, handleStatusChangeReminder: onStatusChangeReminder } = useRemindersMutations();
   const { handleSave: onSaveInvoice, handleDelete: onDeleteInvoice, handleUpdateInvoiceStatus: _onStatusChangeInvoice } = useInvoicesMutations();
@@ -73,8 +68,8 @@ const ProjectModal: React.FC<Props> = ({
     await _onStatusChangeInvoice(id, status, paymentDate);
   };
 
-  const { t, getServiceLabel, getResponsibleLabel } = useLanguage();
-  const { currentUser, canEditProject, canDeleteProject, isRestrictedToOwn } = useAuth();
+  const { t, getServiceLabel } = useLanguage();
+  const { currentUser, canEditProject, canDeleteProject } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
   const [errorDialogState, setErrorDialogState] = useState<{ open: boolean; message: string }>({
     open: false,
@@ -93,9 +88,6 @@ const ProjectModal: React.FC<Props> = ({
 
   const { formState, reminderState, invoiceState, handleClientSelectChange } = useProjectForm({
     projectToEdit: effectiveProjectToEdit,
-    clients,
-    reminders,
-    invoices,
     currentUser,
   });
 
@@ -115,7 +107,7 @@ const ProjectModal: React.FC<Props> = ({
   const {
     name, setName,
     clientId,
-    clientName, setClientName,
+    clientName,
     responsible, setResponsible,
     type, setType,
     start, setStart,
@@ -371,108 +363,43 @@ const ProjectModal: React.FC<Props> = ({
 
               {/* CLIENT */}
               <Grid size={{ xs: 12, sm: 6 }}>
-                {clients.length > 0 ? (
-                  <Autocomplete
-                    size="small"
-                    options={clients}
-                    getOptionLabel={(option) => `${option.name}${option.city ? ` (${option.city})` : ''}`}
-                    value={clients.find((c) => c.id === clientId) || null}
-                    onChange={(_, newValue) => {
-                      handleClientSelectChange(newValue ? newValue.id : '');
-                    }}
-                    isOptionEqualToValue={(option, value) => option.id === value.id}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        label={t('lblClient')}
-                        placeholder={t('phClient')}
-                        required
-                      />
-                    )}
-                  />
-                ) : (
-                  <TextField
-                    fullWidth
-                    label={t('lblClient')}
-                    placeholder={t('phClient')}
-                    value={clientName}
-                    onChange={(e) => setClientName(e.target.value)}
-                    required
-                    size="small"
-                  />
-                )}
+                <ClientAutocomplete
+                  value={clientId}
+                  initialOption={
+                    effectiveProjectToEdit?.client ||
+                    (clientId ? ({ id: clientId, name: clientName } as any) : null)
+                  }
+                  onChange={(id, opt) => handleClientSelectChange(id || '', opt)}
+                  required
+                  showCity
+                />
               </Grid>
 
               {/* RESPONSIBLE */}
               <Grid size={{ xs: 12, sm: 6 }}>
-                {(() => {
-                  const respLabel = getResponsibleLabel(responsible || currentUser?.name || '', users);
-                  const isUserProjectRestricted = isRestrictedToOwn('projects') || isRestrictedToOwn('tracker_projects');
-                  const selectableUsers = users.filter((u) => {
-                    const isMe = Boolean(currentUser?.name) && u.name.trim().toLowerCase() === currentUser?.name?.trim().toLowerCase();
-                    if (isUserProjectRestricted) return isMe;
-                    const isSelected = Boolean(responsible) && u.name.trim().toLowerCase() === responsible.trim().toLowerCase();
-                    if (isSelected || isMe) return true;
-                    const isBlocked = u.status === 'BLOCKED' || u.status?.toLowerCase() === 'blocked' || (u.isApproved === false && u.status !== 'PENDING');
-                    if (isBlocked) return false;
-                    if (u.role === 'Administrator' || u.roleEntity?.isSystemAdmin) return false;
-                    return true;
-                  });
-                  return users.length > 0 ? (
-                    <Autocomplete
-                      key={respLabel}
-                      size="small"
-                      disabled={isUserProjectRestricted}
-                      options={selectableUsers}
-                      getOptionLabel={(u) => {
-                        const isMe = currentUser?.name && u.name.trim().toLowerCase() === currentUser.name.trim().toLowerCase();
-                        return `${isMe ? `${t('lblMe')} (${u.name})` : u.name} (${u.role})`;
-                      }}
-                      value={selectableUsers.find((u) => u.name === responsible) || (isUserProjectRestricted && currentUser ? selectableUsers.find((u) => u.name === currentUser.name) || null : null)}
-                      onChange={(_, newValue) => {
-                        setResponsible(newValue ? newValue.name : '');
-                      }}
-                      isOptionEqualToValue={(option, value) => option.id === value.id}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          label={respLabel}
-                          placeholder={currentUser?.name || ''}
-                        />
-                      )}
-                    />
-                  ) : (
-                    <TextField
-                      fullWidth
-                      disabled={isUserProjectRestricted}
-                      label={respLabel}
-                      placeholder={t('phResponsiblePerson')}
-                      value={responsible}
-                      onChange={(e) => setResponsible(e.target.value)}
-                      size="small"
-                    />
-                  );
-                })()}
+                <UserAutocomplete
+                  value={responsible}
+                  initialOption={
+                    effectiveProjectToEdit?.responsibleUser ||
+                    (responsible ? ({ id: effectiveProjectToEdit?.responsibleId || responsible, name: responsible } as any) : null)
+                  }
+                  valueMode="name"
+                  onChange={(val) => setResponsible(val || '')}
+                  restrictedPermission="projects"
+                />
               </Grid>
 
               {/* SERVICE TYPE */}
               <Grid size={{ xs: 12, sm: 4 }}>
-                <Autocomplete
-                  size="small"
-                  options={services}
-                  getOptionLabel={(option) => option.name || getServiceLabel(option.code, services)}
-                  value={services.find((s) => s.code === type) || null}
-                  onChange={(_, newValue) => {
-                    setType(newValue ? newValue.code : '');
-                  }}
-                  isOptionEqualToValue={(option, value) => option.code === value.code}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label={t('lblService')}
-                      required
-                    />
-                  )}
+                <ServiceAutocomplete
+                  value={type}
+                  initialOption={
+                    effectiveProjectToEdit?.service ||
+                    (type ? ({ code: type, name: effectiveProjectToEdit?.serviceName || getServiceLabel(type) } as any) : null)
+                  }
+                  valueMode="code"
+                  onChange={(val) => setType(val || '')}
+                  required
                 />
               </Grid>
 
@@ -640,7 +567,7 @@ const ProjectModal: React.FC<Props> = ({
                   projectName={name}
                   clientId={clientId}
                   clientName={clientName}
-                  invoices={invoices}
+                  invoices={invoiceState.projectInvoices}
                   onSaveInvoice={onSaveInvoice}
                   onDeleteInvoice={wrappedOnDeleteInvoice}
                   onStatusChangeInvoice={onStatusChangeInvoice}
@@ -657,7 +584,7 @@ const ProjectModal: React.FC<Props> = ({
                   clientId={clientId}
                   clientName={clientName}
                   responsible={responsible}
-                  reminders={reminders}
+                  reminders={reminderState.projectReminders}
                   onSaveReminder={onSaveReminder}
                   onDeleteReminder={wrappedOnDeleteReminder}
                   onStatusChangeReminder={onStatusChangeReminder}

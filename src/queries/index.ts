@@ -118,6 +118,7 @@ export interface PaginatedProjectsParams {
   status?: string;
   type?: string;
   clientId?: string;
+  clientName?: string;
   responsible?: string;
   dateFrom?: string;
   dateTo?: string;
@@ -140,6 +141,7 @@ export function usePaginatedProjectsQuery(params: PaginatedProjectsParams, enabl
     params.status,
     params.type,
     params.clientId,
+    params.clientName,
     params.responsible,
     params.dateFrom,
     params.dateTo,
@@ -162,6 +164,7 @@ export function usePaginatedProjectsQuery(params: PaginatedProjectsParams, enabl
           status: params.status,
           type: params.type,
           clientId: params.clientId,
+          clientName: params.clientName,
           responsible: params.responsible,
           dateFrom: params.dateFrom,
           dateTo: params.dateTo,
@@ -201,6 +204,7 @@ export interface InfiniteProjectsParams {
   status?: string;
   type?: string;
   clientId?: string;
+  clientName?: string;
   responsible?: string;
   dateFrom?: string;
   dateTo?: string;
@@ -223,6 +227,7 @@ export function useInfiniteProjectsQuery(params: InfiniteProjectsParams = {}, en
     params.status,
     params.type,
     params.clientId,
+    params.clientName,
     params.responsible,
     params.dateFrom,
     params.dateTo,
@@ -243,6 +248,7 @@ export function useInfiniteProjectsQuery(params: InfiniteProjectsParams = {}, en
       if (params.status && params.status !== 'all') q.set('status', params.status);
       if (params.type && params.type !== 'all') q.set('type', params.type);
       if (params.clientId && params.clientId !== 'all') q.set('clientId', params.clientId);
+      if (params.clientName && params.clientName !== 'all') q.set('clientName', params.clientName);
       if (params.responsible && params.responsible !== 'all') q.set('responsible', params.responsible);
       if (params.dateFrom) q.set('dateFrom', params.dateFrom);
       if (params.dateTo) q.set('dateTo', params.dateTo);
@@ -1867,6 +1873,7 @@ export function useRemindersMutations() {
   const generic = useGenericMutations<Reminder>({
     basePath: API_ROUTES.REMINDERS.BASE,
     queryKeyToInvalidate: ['reminders'],
+    additionalInvalidates: [['projects', 'details'], ['autocomplete', 'reminders']],
     errorSaveMessageKey: 'errorSavingService',
     deleteConfirmMessageKey: 'confirmDeleteReminder' as any,
   });
@@ -1878,7 +1885,7 @@ export function useRemindersMutations() {
         path: API_ROUTES.REMINDERS.STATUS(id),
         method: 'PATCH',
         body: { status: newStatus },
-        queryKeysToInvalidate: [['reminders']],
+        queryKeysToInvalidate: [['reminders'], ['projects', 'details'], ['autocomplete', 'reminders']],
      });
   };
   
@@ -1892,6 +1899,7 @@ export function useInvoicesMutations() {
   const generic = useGenericMutations<Invoice>({
     basePath: API_ROUTES.INVOICES.BASE,
     queryKeyToInvalidate: ['invoices'],
+    additionalInvalidates: [['projects', 'details'], ['autocomplete', 'invoices']],
     errorSaveMessageKey: 'errorSavingService',
     deleteConfirmMessageKey: 'confirmDeleteInvoice' as any,
   });
@@ -1903,7 +1911,7 @@ export function useInvoicesMutations() {
         path: API_ROUTES.INVOICES.STATUS(id),
         method: 'PATCH',
         body: { status, paymentDate },
-        queryKeysToInvalidate: [['invoices']],
+        queryKeysToInvalidate: [['invoices'], ['projects', 'details'], ['autocomplete', 'invoices']],
      });
   };
   
@@ -2181,4 +2189,6 @@ export function useRestoreVersionMutation() {
     },
   });
 }
+
+export * from './autocomplete.queries';
 

@@ -87,12 +87,14 @@ function fmtDate(d: string | null): string {
 
 import {
   usePaginatedProjectsQuery,
-  useServicesQuery,
-  useClientsSummaryQuery,
-  useUsersSummaryQuery,
   useProjectsMutations,
   useProjectDetailsQuery,
 } from '../../queries';
+import {
+  ClientAutocomplete,
+  ServiceAutocomplete,
+  UserAutocomplete,
+} from '../../components/common/autocomplete';
 import { useDebounce } from '../../hooks/useDebounce';
 import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
 
@@ -210,7 +212,6 @@ const ProjectsPage: React.FC<Props> = ({
   const canCreateProject = hasPermission('projects', 'create') || hasPermission('tracker_projects', 'create');
   const canViewHistory = hasPermission('history', 'view');
 
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterClient, setFilterClient] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -219,10 +220,6 @@ const ProjectsPage: React.FC<Props> = ({
   const [filterDateTo, setFilterDateTo] = useState<string>('');
   const [filterDateField, setFilterDateField] = useState<string>('deadline');
 
-  const shouldFetchFilterLookups = isFilterOpen || filterClient !== 'all' || filterResponsible !== 'all';
-  const { data: services = [] } = useServicesQuery();
-  const { data: clients = [] } = useClientsSummaryQuery({ enabled: shouldFetchFilterLookups });
-  const { data: users = [] } = useUsersSummaryQuery({ enabled: shouldFetchFilterLookups });
   const { handleDelete } = useProjectsMutations();
   const [completeConfirmState, setCompleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
   const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
@@ -398,24 +395,6 @@ const ProjectsPage: React.FC<Props> = ({
     { id: 'notes', label: t('lblProjectNotes') },
   ];
 
-  const uniqueCategories = useMemo(
-    () => Array.from(new Set(services.map((s) => s.name).filter(Boolean))),
-    [services]
-  );
-  const uniqueClients = useMemo(
-    () => Array.from(new Set(clients.map((c) => c.name).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
-    [clients]
-  );
-  const otherResponsibles = useMemo(
-    () =>
-      isProjectsRestricted
-        ? []
-        : Array.from(new Set(users.map((u) => u.name).filter(Boolean)))
-            .filter((r) => !currentUser?.name || r.trim().toLowerCase() !== currentUser.name.trim().toLowerCase())
-            .sort((a, b) => a.localeCompare(b)),
-    [isProjectsRestricted, users, currentUser]
-  );
-
   const debouncedSearch = useDebounce(searchQuery, 500);
 
   const statusParam = useMemo(() => {
@@ -446,7 +425,7 @@ const ProjectsPage: React.FC<Props> = ({
     search: debouncedSearch,
     status: statusParam,
     type: filterCategory !== 'all' ? filterCategory : undefined,
-    clientId: filterClient !== 'all' ? filterClient : undefined,
+    clientName: filterClient !== 'all' ? filterClient : undefined,
     responsible: responsibleParam,
     dateFrom: filterDateFrom || undefined,
     dateTo: filterDateTo || undefined,
@@ -458,7 +437,7 @@ const ProjectsPage: React.FC<Props> = ({
 
   useEffect(() => {
     setPage(0);
-  }, [debouncedSearch, quickFilters, filterCategory, filterStatus, filterResponsible, filterDateFrom, filterDateTo, filterDateField, sortColumn, sortDirection, setPage]);
+  }, [debouncedSearch, quickFilters, filterCategory, filterClient, filterStatus, filterResponsible, filterDateFrom, filterDateTo, filterDateField, sortColumn, sortDirection, setPage]);
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
@@ -469,14 +448,6 @@ const ProjectsPage: React.FC<Props> = ({
     setRowsPerPageValue(val);
     setPage(0);
   };
-
-
-  const responsibleOptions = useMemo(() => {
-    const list: string[] = [];
-    if (currentUser?.name) list.push(currentUser.name);
-    list.push(...otherResponsibles);
-    return list;
-  }, [currentUser?.name, otherResponsibles]);
 
   const sortOptions = useMemo(() => [
     { value: 'name', label: t('colProject') },
@@ -568,7 +539,6 @@ const ProjectsPage: React.FC<Props> = ({
             <TableFilterSelector
               activeCount={activeFilterCount}
               onClear={clearFilters}
-              onOpen={() => setIsFilterOpen(true)}
               sortingContent={
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                   <Autocomplete
@@ -614,41 +584,35 @@ const ProjectsPage: React.FC<Props> = ({
               }
               filteringContent={
                 <>
-                  <Autocomplete
+                  <ServiceAutocomplete
                     size="small"
                     fullWidth
                     disablePortal
-                    options={uniqueCategories}
-                    getOptionLabel={(cat) => getServiceLabel(cat, services)}
                     value={filterCategory === 'all' ? null : filterCategory}
-                    onChange={(_, newValue) => setFilterCategory(newValue || 'all')}
-                    renderInput={(params) => <TextField {...params} label={t('colService')} size="small" />}
+                    valueMode="code"
+                    onChange={(val) => setFilterCategory(val || 'all')}
+                    label={t('colService')}
                   />
 
-                  <Autocomplete
+                  <ClientAutocomplete
                     size="small"
                     fullWidth
                     disablePortal
-                    options={uniqueClients}
                     value={filterClient === 'all' ? null : filterClient}
-                    onChange={(_, newValue) => setFilterClient(newValue || 'all')}
-                    renderInput={(params) => <TextField {...params} label={t('colClient')} size="small" />}
+                    valueMode="name"
+                    onChange={(val) => setFilterClient(val || 'all')}
+                    label={t('colClient')}
                   />
 
-                  <Autocomplete
+                  <UserAutocomplete
                     size="small"
                     fullWidth
                     disablePortal
-                    options={responsibleOptions}
-                    getOptionLabel={(option) => {
-                      if (currentUser?.name && option === currentUser.name) {
-                        return `${t('lblMe')} (${currentUser.name})`;
-                      }
-                      return option;
-                    }}
                     value={filterResponsible === 'all' ? null : filterResponsible}
-                    onChange={(_, newValue) => handleFilterResponsibleChange(newValue || 'all')}
-                    renderInput={(params) => <TextField {...params} label={t('colResponsible')} size="small" />}
+                    valueMode="name"
+                    restrictedPermission="projects"
+                    onChange={(val) => handleFilterResponsibleChange(val || 'all')}
+                    label={t('colResponsible')}
                   />
 
                   <Autocomplete
@@ -816,7 +780,7 @@ const ProjectsPage: React.FC<Props> = ({
                         <TableCell>{p.clientName || '—'}</TableCell>
                       )}
                       {activeCols.includes('category') && (
-                        <TableCell>{getServiceLabel(p.type, services)}</TableCell>
+                        <TableCell>{p.serviceName || getServiceLabel(p.type)}</TableCell>
                       )}
                       {activeCols.includes('responsible') && (
                         <TableCell>{p.responsible || '—'}</TableCell>
