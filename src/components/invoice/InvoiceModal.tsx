@@ -32,7 +32,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { parseInvoiceNotes, serializeInvoiceNotes } from '../../utils/invoiceUtils';
 import { AddIcon, DeleteIcon, EditIcon, LinkIcon, ReceiptLongIcon } from '../icons';
-import { useClientsSummaryQuery } from '../../queries';
+import { useClientsSummaryQuery, useProvidedServicesQuery } from '../../queries';
 
 export interface InvoiceModalProps {
   open: boolean;
@@ -102,6 +102,12 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   const [initialPsId, setInitialPsId] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string>('');
 
+  const { data: clientProvidedServices = [] } = useProvidedServicesQuery(
+    { clientId: formData.clientId || undefined },
+    { enabled: open && Boolean(formData.clientId) }
+  );
+  const effectiveProvidedServices = providedServices && providedServices.length > 0 ? providedServices : clientProvidedServices;
+
   useEffect(() => {
     if (!open) return;
     setErrorMsg('');
@@ -110,8 +116,9 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
       const { invoiceType: parsedType, parentInvoiceId: parsedParentId, cleanNotes } = parseInvoiceNotes(
         editingInvoice.notes
       );
-      const linkedPs = providedServices.find((ps) => ps.invoiceId === editingInvoice.id);
-      const initialPs = linkedPs ? linkedPs.id : '';
+      const linkedPsFromInvoice = (editingInvoice as any)?.providedServices?.[0]?.id || (editingInvoice as any)?.providedServiceId || '';
+      const linkedPs = effectiveProvidedServices.find((ps) => ps.invoiceId === editingInvoice.id);
+      const initialPs = linkedPs ? linkedPs.id : linkedPsFromInvoice;
       setInitialPsId(initialPs);
 
       setFormData({
@@ -190,10 +197,10 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   // Context-aware provided services list for the modal
   const modalProvidedServices = useMemo(() => {
     if (formData.clientId) {
-      return providedServices.filter((ps) => ps.clientId === formData.clientId);
+      return effectiveProvidedServices.filter((ps) => ps.clientId === formData.clientId);
     }
-    return providedServices;
-  }, [providedServices, formData.clientId]);
+    return effectiveProvidedServices;
+  }, [effectiveProvidedServices, formData.clientId]);
 
   const handleAddItem = () => {
     setFormData((prev) => ({
@@ -796,7 +803,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                       return `${serviceName}${option.location ? ` - ${option.location}` : ''}`;
                     }}
                     value={
-                      providedServices.find((ps) => ps.id === formData.providedServiceId) || null
+                      effectiveProvidedServices.find((ps) => ps.id === formData.providedServiceId) || null
                     }
                     onChange={(_, val) => {
                       setFormData({

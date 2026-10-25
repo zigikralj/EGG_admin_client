@@ -22,10 +22,10 @@ import {
   LinearProgress,
   Stack,
 } from '@mui/material';
-import type { Project, ProjectUpdateSummary } from '../../types';
+import type { Project, ProjectUpdateSummary, User } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import { useProjectUpdatesQuery, useUsersQuery, useAuthHeaders } from '../../queries';
+import { useProjectUpdatesQuery, useUsersSummaryQuery, useAuthHeaders } from '../../queries';
 import { apiFetch } from '../../api';
 import { API_ROUTES } from '../../constants';
 import { ProjectNotesPreview } from '../project/ProjectCard';
@@ -44,6 +44,7 @@ import {
 } from '../icons';
 
 export interface ProjectUpdatesPanelProps {
+  users?: User[];
   onOpenProjectDiff: (project: Project, diffRange: { dateFrom: string; dateTo: string }) => void;
   onEditProject?: (project: Project) => void;
   onViewProject?: (project: Project) => void;
@@ -106,6 +107,7 @@ function isNearDeadline(deadline: string | null | undefined, done: boolean, days
 }
 
 export const ProjectUpdatesPanel: React.FC<ProjectUpdatesPanelProps> = ({
+  users: usersProp,
   onOpenProjectDiff,
   onEditProject,
   onViewProject: _onViewProject,
@@ -113,9 +115,9 @@ export const ProjectUpdatesPanel: React.FC<ProjectUpdatesPanelProps> = ({
   const { t } = useLanguage();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
-  const { data: users = [] } = useUsersQuery();
   const { currentUser, isRestrictedToOwn, canEditProject } = useAuth();
   const isRestricted = isRestrictedToOwn('tracker_updates') || isRestrictedToOwn('tracker_projects') || isRestrictedToOwn('projects');
+  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
 
   // Helper date calculations
   const calculatePresetRange = (preset: DatePreset): { dateFrom: string; dateTo: string } => {
@@ -164,6 +166,9 @@ export const ProjectUpdatesPanel: React.FC<ProjectUpdatesPanelProps> = ({
   const [customTo, setCustomTo] = useState<string>(() => range.dateTo.slice(0, 16));
   const [search, setSearch] = useState<string>('');
   const [responsibleId, setResponsibleId] = useState<string>(() => (isRestricted && currentUser?.id ? currentUser.id : ''));
+  const shouldFetchUsers = !usersProp && !isRestricted && (Boolean(responsibleId) || isUserDropdownOpen);
+  const { data: fetchedUsers = [] } = useUsersSummaryQuery({ enabled: shouldFetchUsers });
+  const users = usersProp && usersProp.length > 0 ? usersProp : fetchedUsers;
 
   useEffect(() => {
     if (isRestricted && currentUser?.id && !responsibleId) {
@@ -449,6 +454,7 @@ export const ProjectUpdatesPanel: React.FC<ProjectUpdatesPanelProps> = ({
               value={isRestricted && currentUser?.id ? currentUser.id : responsibleId}
               label={t('lblResponsiblePerson') || 'Odgovorno lice'}
               onChange={(e) => setResponsibleId(e.target.value)}
+              onOpen={() => setIsUserDropdownOpen(true)}
               disabled={isRestricted}
             >
               {!isRestricted && <MenuItem value="">{t('allUsers') || 'Svi korisnici'}</MenuItem>}

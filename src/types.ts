@@ -3,6 +3,7 @@ export interface Project {
   name: string;
   clientId?: string | null;
   clientName: string;
+  client?: { id: string; name: string; city?: string | null } | null;
   responsible: string | null;
   type: string;
   start: string | null;
@@ -289,6 +290,7 @@ export interface Invoice {
   items?: InvoiceItem[];
   client?: Client | null;
   project?: Project | null;
+  providedServices?: { id: string; scheduledDate?: string | null; status?: string | null }[];
   isNewStaged?: boolean;
   isLinkedExisting?: boolean;
   createdAt?: string;

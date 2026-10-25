@@ -173,7 +173,7 @@ const ProvidedServicesPage: React.FC<Props> = ({
 
   const isStatsTab = subTab === 'statistics';
   const shouldFetchClients = isStatsTab || isOpen || isFilterOpen || filterClient !== 'all';
-  const { data: providedServices = [] } = useProvidedServicesQuery({ enabled: isStatsTab || isOpen });
+  const { data: providedServices = [] } = useProvidedServicesQuery({ enabled: isStatsTab });
   const { data: services = [] } = useServicesQuery();
   const { data: clients = [] } = useClientsSummaryQuery({ enabled: shouldFetchClients });
   const { data: projects = [] } = useProjectsQuery('', { enabled: isStatsTab || isOpen });
@@ -201,7 +201,7 @@ const ProvidedServicesPage: React.FC<Props> = ({
 
   const rawItems = (paginatedData as any)?.items || (Array.isArray(paginatedData) ? paginatedData : []);
   const totalProvidedServices = paginatedData?.total ?? rawItems.length;
-  const { resolveListOptions } = useLinkedListOptions();
+  const { resolveListOptions } = useLinkedListOptions({ enabled: isOpen });
 
   const { handleSave, handleDelete } = useProvidedServicesMutations();
   const { handleSave: handleSaveService } = useServicesMutations();

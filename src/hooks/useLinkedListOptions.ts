@@ -1,4 +1,4 @@
-import { useClientsQuery, usePermitsQuery, useUsersQuery, useCategoriesQuery, useWasteCatalogQuery } from '../queries';
+import { useClientsQuery, usePermitsQuery, useUsersSummaryQuery, useCategoriesQuery, useWasteCatalogQuery } from '../queries';
 import { PERMIT_TYPE_OPTIONS } from '../types';
 import type { CustomFieldDefinition, Client, Permit } from '../types';
 
@@ -49,12 +49,13 @@ export const clientHasPermitType = (
   return relatedPermits.some((p) => checkTypes(p.permitTypes));
 };
 
-export function useLinkedListOptions() {
-  const { data: clients = [] } = useClientsQuery();
-  const { data: permits = [] } = usePermitsQuery();
-  const { data: users = [] } = useUsersQuery();
-  const { data: categories = [] } = useCategoriesQuery();
-  const { data: wasteCatalog = [] } = useWasteCatalogQuery();
+export function useLinkedListOptions(options?: { enabled?: boolean }) {
+  const isEnabled = options?.enabled ?? true;
+  const { data: clients = [] } = useClientsQuery({ enabled: isEnabled });
+  const { data: permits = [] } = usePermitsQuery({ enabled: isEnabled });
+  const { data: users = [] } = useUsersSummaryQuery({ enabled: isEnabled });
+  const { data: categories = [] } = useCategoriesQuery({ enabled: isEnabled });
+  const { data: wasteCatalog = [] } = useWasteCatalogQuery({ enabled: isEnabled });
 
   const resolveListOptions = (field: CustomFieldDefinition): string[] => {
     if (field.type === 'client' || field.linkedList === 'clients') {

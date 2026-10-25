@@ -498,7 +498,7 @@ export function useUsersQuery(options?: { enabled?: boolean }) {
 
 export function useUsersSummaryQuery(options?: { enabled?: boolean }) {
   const getAuthHeaders = useAuthHeaders();
-  return useQuery<Array<{ id: string; name: string; email: string | null; role: string }>>({
+  return useQuery<User[]>({
     queryKey: ['users', 'summary'],
     enabled: options?.enabled ?? true,
     queryFn: async () => {
@@ -587,21 +587,34 @@ export function useServicesQuery(options?: { enabled?: boolean }) {
   });
 }
 
-export function useProvidedServicesQuery(options?: { enabled?: boolean }) {
+export function useProvidedServicesQuery(
+  filtersOrOptions?: { clientId?: string; enabled?: boolean },
+  options?: { enabled?: boolean }
+) {
   const getAuthHeaders = useAuthHeaders();
   const queryClient = useQueryClient();
-  const queryKey = ['provided-services'] as const;
+  const clientId = filtersOrOptions && 'clientId' in filtersOrOptions ? filtersOrOptions.clientId : undefined;
+  const isEnabled = options?.enabled ?? (filtersOrOptions && 'enabled' in filtersOrOptions ? filtersOrOptions.enabled : true) ?? true;
+  const queryKey = clientId ? (['provided-services', { clientId }] as const) : (['provided-services'] as const);
 
   return useQuery<ProvidedService[]>({
     queryKey,
-    enabled: options?.enabled ?? true,
-    queryFn: () =>
-      fetchWithDeltaSync<ProvidedService>({
+    enabled: isEnabled,
+    queryFn: async () => {
+      if (clientId) {
+        const url = `${API_ROUTES.PROVIDED_SERVICES.BASE}?clientId=${encodeURIComponent(clientId)}`;
+        const res = await fetch(url, { headers: getAuthHeaders() });
+        if (!res.ok) throw new Error('Failed to fetch client provided services');
+        const data = await res.json();
+        return Array.isArray(data) ? data : data.items || [];
+      }
+      return fetchWithDeltaSync<ProvidedService>({
         url: API_ROUTES.PROVIDED_SERVICES.BASE,
         queryKey,
         queryClient,
         headers: getAuthHeaders(),
-      }),
+      });
+    },
   });
 }
 
@@ -960,13 +973,14 @@ export function usePaginatedInvoicesQuery(params: PaginatedInvoicesParams, enabl
   });
 }
 
-export function usePermitsQuery() {
+export function usePermitsQuery(options?: { enabled?: boolean }) {
   const getAuthHeaders = useAuthHeaders();
   const queryClient = useQueryClient();
   const queryKey = ['permits'] as const;
 
   return useQuery<Permit[]>({
     queryKey,
+    enabled: options?.enabled ?? true,
     queryFn: () =>
       fetchWithDeltaSync<Permit>({
         url: API_ROUTES.PERMITS.BASE,
@@ -1072,10 +1086,11 @@ export function usePaginatedPermitsQuery(params: PaginatedPermitsParams, enabled
   });
 }
 
-export function useWasteCatalogQuery() {
+export function useWasteCatalogQuery(options?: { enabled?: boolean }) {
   const getAuthHeaders = useAuthHeaders();
   return useQuery<WasteCatalog[]>({
     queryKey: ['waste-catalog'],
+    enabled: options?.enabled ?? true,
     queryFn: async () => {
       return syncWasteCatalog(getAuthHeaders());
     },

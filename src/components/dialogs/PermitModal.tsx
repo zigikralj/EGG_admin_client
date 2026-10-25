@@ -39,6 +39,7 @@ import {
 import { useLanguage } from '../../context/LanguageContext';
 import { WasteCatalogAutocomplete } from '../common/WasteCatalogAutocomplete';
 import { ErrorDialog } from './ErrorDialog';
+import { useRemindersQuery } from '../../queries';
 
 export interface StagedReminderItem {
   id: string;
@@ -63,7 +64,7 @@ export interface PermitModalProps {
   onClose: () => void;
   editingPermit: Permit | null;
   clients: Client[];
-  reminders: Reminder[];
+  reminders?: Reminder[];
   canEdit: boolean;
   canCreate: boolean;
   canDelete?: boolean;
@@ -225,25 +226,34 @@ export const PermitModal: React.FC<PermitModalProps> = React.memo(({
     setSelectedWasteCatalogIds(validValues.map((v) => v.id));
   }, []);
 
+  const { data: fetchedReminders = [] } = useRemindersQuery({
+    enabled: open && (addReminderMode === 'existing' || stagedLinkReminderIds.length > 0),
+  });
+  const allReminders = reminders && reminders.length > 0 ? reminders : fetchedReminders;
+
   const existingLinkedReminders = useMemo(() => {
-    if (!editingPermit || !reminders) return [];
-    return reminders.filter((r) => r.permitId === editingPermit.id);
-  }, [editingPermit, reminders]);
+    if (!editingPermit) return [];
+    if ((editingPermit as any).reminders) {
+      return (editingPermit as any).reminders as Reminder[];
+    }
+    if (!allReminders) return [];
+    return allReminders.filter((r) => r.permitId === editingPermit.id);
+  }, [editingPermit, allReminders]);
 
   const totalRemindersCount = useMemo(() => {
     return existingLinkedReminders.length + stagedNewReminders.length + stagedLinkReminderIds.length;
   }, [existingLinkedReminders.length, stagedNewReminders.length, stagedLinkReminderIds.length]);
 
   const availableExistingReminders = useMemo(() => {
-    if (!reminders) return [];
+    if (!allReminders) return [];
     const currentPermitId = editingPermit?.id;
     const stagedIds = new Set(stagedLinkReminderIds);
-    return reminders.filter((r) => {
+    return allReminders.filter((r) => {
       if (stagedIds.has(r.id)) return false;
       if (currentPermitId && r.permitId === currentPermitId) return false;
       return true;
     });
-  }, [reminders, editingPermit?.id, stagedLinkReminderIds]);
+  }, [allReminders, editingPermit?.id, stagedLinkReminderIds]);
 
   const handleAddStagedReminder = () => {
     if (addReminderMode === 'new') {
@@ -731,7 +741,7 @@ export const PermitModal: React.FC<PermitModalProps> = React.memo(({
 
                 {/* Staged Linked Reminders */}
                 {stagedLinkReminderIds.map((remId) => {
-                  const rem = reminders.find((r) => r.id === remId);
+                  const rem = allReminders.find((r) => r.id === remId);
                   if (!rem) return null;
                   return (
                     <Card

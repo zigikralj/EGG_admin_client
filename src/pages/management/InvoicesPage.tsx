@@ -61,7 +61,6 @@ import {
   usePaginatedInvoicesQuery,
   useClientsSummaryQuery,
   useProjectsQuery,
-  useProvidedServicesQuery,
   useInvoicesMutations,
   useProvidedServicesMutations,
 } from '../../queries';
@@ -141,7 +140,6 @@ const InvoicesPage: React.FC<Props> = ({
   const shouldFetchClients = isFilterOpen || isOpen || filterClient !== 'all';
   const { data: clients = [] } = useClientsSummaryQuery({ enabled: shouldFetchClients });
   const { data: projects = [] } = useProjectsQuery('', { enabled: isOpen });
-  const { data: providedServices = [] } = useProvidedServicesQuery({ enabled: isOpen });
 
   const { handleSave: handleSaveInvoice, handleDelete, handleUpdateInvoiceStatus } = useInvoicesMutations();
   const { handleSave: handleSaveProvidedService } = useProvidedServicesMutations();
@@ -1033,7 +1031,6 @@ const InvoicesPage: React.FC<Props> = ({
         editingInvoice={editingInvoice}
         clients={clients}
         projects={projects}
-        providedServices={providedServices}
         invoices={rawInvoices}
         onSave={handleSaveInvoiceFromModal}
         isSaving={isSaving}

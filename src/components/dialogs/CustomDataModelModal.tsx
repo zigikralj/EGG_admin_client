@@ -39,8 +39,8 @@ export const CustomDataModelModal: React.FC<Props> = ({
   onSave,
 }) => {
   const { t, getServiceLabel, getPermitTypeLabel } = useLanguage();
-  const { data: clients = [] } = useClientsQuery();
-  const { data: permits = [] } = usePermitsQuery();
+  const { data: clients = [] } = useClientsQuery({ enabled: isOpen });
+  const { data: permits = [] } = usePermitsQuery({ enabled: isOpen });
   const [fields, setFields] = useState<CustomFieldDefinition[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

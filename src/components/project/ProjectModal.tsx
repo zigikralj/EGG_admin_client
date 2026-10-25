@@ -37,7 +37,7 @@ import {
   NotificationsActiveIcon,
 } from '../icons';
 import { ConfirmDialog } from '../dialogs/ConfirmDialog';
-import { useClientsSummaryQuery, useUsersQuery, useServicesQuery, useRemindersQuery, useInvoicesQuery, useProjectsMutations, useRemindersMutations, useInvoicesMutations, useProjectDetailsQuery } from '../../queries';
+import { useClientsSummaryQuery, useUsersSummaryQuery, useServicesQuery, useRemindersQuery, useInvoicesQuery, useProjectsMutations, useRemindersMutations, useInvoicesMutations, useProjectDetailsQuery } from '../../queries';
 
 interface Props {
   isOpen: boolean;
@@ -51,7 +51,7 @@ const ProjectModal: React.FC<Props> = ({
   onClose,
 }) => {
   const { data: clients = [] } = useClientsSummaryQuery({ enabled: isOpen });
-  const { data: users = [] } = useUsersQuery({ enabled: isOpen });
+  const { data: users = [] } = useUsersSummaryQuery({ enabled: isOpen });
   const { data: services = [] } = useServicesQuery({ enabled: isOpen });
   const { data: reminders = [] } = useRemindersQuery({ enabled: isOpen });
   const { data: invoices = [] } = useInvoicesQuery({ enabled: isOpen });

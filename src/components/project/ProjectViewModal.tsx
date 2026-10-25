@@ -42,11 +42,8 @@ import {
 import { ConfirmDialog } from '../dialogs/ConfirmDialog';
 import { HistoryTimelineModal } from '../history';
 import {
-  useClientsQuery,
-  useUsersQuery,
+  useUsersSummaryQuery,
   useServicesQuery,
-  useRemindersQuery,
-  useInvoicesQuery,
   useProjectsMutations,
   useRemindersMutations,
   useInvoicesMutations,
@@ -70,11 +67,8 @@ const ProjectViewModal: React.FC<Props> = ({
   onEdit,
   diffRange,
 }) => {
-  const { data: clients = [] } = useClientsQuery();
-  const { data: users = [] } = useUsersQuery();
-  const { data: services = [] } = useServicesQuery();
-  const { data: reminders = [] } = useRemindersQuery();
-  const { data: invoices = [] } = useInvoicesQuery();
+  const { data: users = [] } = useUsersSummaryQuery({ enabled: isOpen });
+  const { data: services = [] } = useServicesQuery({ enabled: isOpen });
   const { handleSave: onSave, handleSaveNotes: _handleSaveNotes, handleSaveNote, toggleDoneMutation } = useProjectsMutations();
   const { handleSave: onSaveReminder, handleDelete: onDeleteReminder, handleStatusChangeReminder: onStatusChangeReminder } = useRemindersMutations();
   const { handleSave: onSaveInvoice, handleDelete: onDeleteInvoice, handleUpdateInvoiceStatus: _onStatusChangeInvoice } = useInvoicesMutations();
@@ -214,10 +208,13 @@ const ProjectViewModal: React.FC<Props> = ({
     }
   }, [effectiveProjectId, effectiveProjectNotes]);
 
+  const reminders = effectiveProject?.reminders || [];
+  const invoices = effectiveProject?.invoices || [];
+
   const { reminderState, invoiceState } = useProjectForm({
     projectToEdit: effectiveProject,
-    clients,
-    users,
+    clients: (effectiveProject?.client ? [effectiveProject.client] : []) as any,
+    users: users as any,
     services,
     reminders,
     invoices,
@@ -256,7 +253,7 @@ const ProjectViewModal: React.FC<Props> = ({
 
   if (!isOpen || !project) return null;
 
-  const clientObj = clients.find((c) => c.id === project.clientId || c.name === project.clientName);
+  const clientObj = effectiveProject?.client || null;
 
   const isEditable = project ? canEditProject(project) : false;
   const canEditProjectInvoices = canManageInvoices;
