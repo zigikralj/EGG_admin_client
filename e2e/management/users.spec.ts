@@ -98,7 +98,7 @@ test.describe('Users & Roles Management', () => {
       },
     ];
 
-    await page.route('**/api/users', async (route) => {
+    await page.route(/\/api\/users(\?.*)?$/, async (route) => {
       if (route.request().method() === 'GET') {
         await route.fulfill({
           status: 200,
@@ -232,7 +232,7 @@ test.describe('Users & Roles Management', () => {
 
   test('should add a new user', async ({ page }) => {
     let createdPayload: any = null;
-    await page.route('**/api/users', async (route) => {
+    await page.route(/\/api\/users(\?.*)?$/, async (route) => {
       if (route.request().method() === 'POST') {
         createdPayload = route.request().postDataJSON();
         const created = { id: '3', status: 'APPROVED', ...createdPayload };

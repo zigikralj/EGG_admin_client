@@ -30,10 +30,20 @@ test.describe('Tracker Dashboard', () => {
 
   test.beforeEach(async ({ page }) => {
     await page.route(/\/api\/projects(\?.*)?$/, async (route) => {
+      const url = new URL(route.request().url());
+      const search = (url.searchParams.get('search') || '').toLowerCase();
+      let filtered = mockProjects;
+      if (search) {
+        filtered = mockProjects.filter((p) =>
+          p.name.toLowerCase().includes(search) ||
+          p.clientName.toLowerCase().includes(search) ||
+          p.type.toLowerCase().includes(search)
+        );
+      }
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(mockProjects),
+        body: JSON.stringify(filtered),
       });
     });
 
@@ -68,7 +78,7 @@ test.describe('Tracker Dashboard', () => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
 
-    await page.route('**/api/users', async (route) => {
+    await page.route(/\/api\/users(\?.*)?$/, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -134,7 +144,7 @@ test.describe('Tracker Dashboard', () => {
     await expect(page.locator('header')).toBeVisible();
 
     // Verify projects are rendered on dashboard
-    await expect(page.getByText('Eko Analiza Vazduha')).toBeVisible();
+    await expect(page.getByText('Eko Analiza Vazduha')).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('Fabrika Cementa')).toBeVisible();
     await expect(page.getByText('Ispitivanje Otpadnih Voda')).toBeVisible();
     await expect(page.getByText('Hemijska Industrija')).toBeVisible();
@@ -148,7 +158,7 @@ test.describe('Tracker Dashboard', () => {
     await page.goto('/');
 
     // Wait for projects to be displayed
-    await expect(page.getByText('Eko Analiza Vazduha')).toBeVisible();
+    await expect(page.getByText('Eko Analiza Vazduha')).toBeVisible({ timeout: 10000 });
 
     // Find and click the collapsed search button to expand it
     const searchButton = page.getByRole('button', { name: /Pretraga|Search/i });
@@ -166,7 +176,7 @@ test.describe('Tracker Dashboard', () => {
 
     // Clear search
     await searchInput.fill('');
-    await expect(page.getByText('Eko Analiza Vazduha')).toBeVisible();
+    await expect(page.getByText('Eko Analiza Vazduha')).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('Ispitivanje Otpadnih Voda')).toBeVisible();
   });
 
@@ -182,7 +192,7 @@ test.describe('Tracker Dashboard', () => {
     });
 
     await page.goto('/');
-    await expect(page.getByText('Eko Analiza Vazduha')).toBeVisible();
+    await expect(page.getByText('Eko Analiza Vazduha')).toBeVisible({ timeout: 10000 });
 
     // Locate the first project card
     const firstCard = page.locator('.MuiCard-root', { hasText: 'Eko Analiza Vazduha' });

@@ -873,14 +873,14 @@ const ProvidedServicesPage: React.FC<Props> = ({
                       {activeCols.includes('client') && (
                         <TableCell>
                           <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                            {cli?.name || item.clientId}
+                            {cli?.name || item.clientName || item.clientId}
                           </Typography>
                         </TableCell>
                       )}
                       {activeCols.includes('project') && (
                         <TableCell>
                           <Typography variant="body2" color="text.secondary">
-                            {prj?.name || '—'}
+                            {prj?.name || item.projectName || '—'}
                           </Typography>
                         </TableCell>
                       )}

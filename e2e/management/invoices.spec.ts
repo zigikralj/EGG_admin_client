@@ -55,7 +55,7 @@ test.describe('Invoices Management', () => {
     ];
 
     // Mock all necessary endpoints
-    await page.route('**/api/invoices', async (route) => {
+    await page.route(/\/api\/invoices(\?.*)?$/, async (route) => {
       if (route.request().method() === 'GET') {
         await route.fulfill({
           status: 200,
@@ -125,7 +125,7 @@ test.describe('Invoices Management', () => {
       }
     });
 
-    await page.route('**/api/clients', async (route) => {
+    await page.route(/\/api\/clients(\?.*)?$/, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -135,7 +135,7 @@ test.describe('Invoices Management', () => {
       });
     });
 
-    await page.route('**/api/projects', async (route) => {
+    await page.route(/\/api\/projects(\?.*)?$/, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -145,7 +145,7 @@ test.describe('Invoices Management', () => {
       });
     });
 
-    await page.route('**/api/provided-services', async (route) => {
+    await page.route(/\/api\/provided-services(\?.*)?$/, async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
 
@@ -177,7 +177,7 @@ test.describe('Invoices Management', () => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
     });
 
-    await page.route('**/api/reminders', async (route) => {
+    await page.route(/\/api\/reminders(\?.*)?$/, async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
 
@@ -185,7 +185,7 @@ test.describe('Invoices Management', () => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
 
-    await page.route('**/api/users', async (route) => {
+    await page.route(/\/api\/users(\?.*)?$/, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -193,19 +193,19 @@ test.describe('Invoices Management', () => {
       });
     });
 
-    await page.route('**/api/services', async (route) => {
+    await page.route(/\/api\/services(\?.*)?$/, async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
 
-    await page.route('**/api/categories', async (route) => {
+    await page.route(/\/api\/categories(\?.*)?$/, async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
 
-    await page.route('**/api/permits', async (route) => {
+    await page.route(/\/api\/permits(\?.*)?$/, async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
 
-    await page.route('**/api/activity-logs', async (route) => {
+    await page.route('**/api/activity-logs**', async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
 
@@ -224,7 +224,7 @@ test.describe('Invoices Management', () => {
 
   test('should create a new invoice linked with a project', async ({ page }) => {
     let createdPayload: any = null;
-    await page.route('**/api/invoices', async (route) => {
+    await page.route(/\/api\/invoices(\?.*)?$/, async (route) => {
       if (route.request().method() === 'POST') {
         createdPayload = route.request().postDataJSON();
         const created = { id: '2', ...createdPayload, totalAmount: 2500 };

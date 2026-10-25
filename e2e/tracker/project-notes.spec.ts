@@ -57,7 +57,7 @@ test.describe('Project Notes & TipTap Editor', () => {
   };
 
   test.beforeEach(async ({ page }) => {
-    await page.route('**/api/projects', async (route) => {
+    await page.route(/\/api\/projects(\?.*)?$/, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -123,7 +123,7 @@ test.describe('Project Notes & TipTap Editor', () => {
       });
     });
 
-    await page.route('**/api/clients', async (route) => {
+    await page.route(/\/api\/clients(\?.*)?$/, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -131,27 +131,27 @@ test.describe('Project Notes & TipTap Editor', () => {
       });
     });
 
-    await page.route('**/api/services', async (route) => {
+    await page.route(/\/api\/services(\?.*)?$/, async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
 
-    await page.route('**/api/categories', async (route) => {
+    await page.route(/\/api\/categories(\?.*)?$/, async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
 
-    await page.route('**/api/provided-services', async (route) => {
+    await page.route(/\/api\/provided-services(\?.*)?$/, async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
 
-    await page.route('**/api/reminders', async (route) => {
+    await page.route(/\/api\/reminders(\?.*)?$/, async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
 
-    await page.route('**/api/invoices', async (route) => {
+    await page.route(/\/api\/invoices(\?.*)?$/, async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
 
-    await page.route('**/api/users', async (route) => {
+    await page.route(/\/api\/users(\?.*)?$/, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
