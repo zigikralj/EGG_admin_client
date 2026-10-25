@@ -304,12 +304,27 @@ export interface ProjectNoteData {
 
 export function useProjectNoteQuery(projectId: string | undefined, enabled: boolean = true) {
   const getAuthHeaders = useAuthHeaders();
+  const queryClient = useQueryClient();
   return useQuery<ProjectNoteData>({
     queryKey: ['projects', 'note', projectId],
     queryFn: async () => {
       const res = await apiFetch(API_ROUTES.PROJECTS.NOTE(projectId!), { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch project note');
       return res.json();
+    },
+    initialData: () => {
+      if (!projectId) return undefined;
+      const cached = queryClient.getQueryData<Project>(['projects', 'details', projectId]);
+      if (cached && cached.notes !== undefined && cached.notes !== null) {
+        return {
+          id: (cached as any).note?.id || null,
+          projectId,
+          content: cached.notes,
+          version: (cached as any).note?.version || 1,
+          updatedAt: (cached as any).note?.updatedAt || null,
+        };
+      }
+      return undefined;
     },
     enabled: Boolean(projectId) && enabled,
     meta: { silent: true },

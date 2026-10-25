@@ -11,7 +11,7 @@ import {
 
 import { useLanguage } from '../../context/LanguageContext';
 import { stripHtmlToText } from '../common/RichTextEditor';
-import { useProjectDetailsQuery } from '../../queries';
+import { useProjectNoteQuery } from '../../queries';
 import {
   NotesIcon,
   OpenInNewIcon,
@@ -43,12 +43,12 @@ export const ProjectNotesPreview: React.FC<ProjectNotesPreviewProps> = ({
 
   const isExpanded = isLocked || isHovered;
 
-  const { data: projectDetails, isLoading: isLoadingDetails } = useProjectDetailsQuery(
+  const { data: noteData, isLoading: isLoadingNote } = useProjectNoteQuery(
     projectId,
     isExpanded && !initialNotes
   );
 
-  const fullNotes = initialNotes || projectDetails?.notes || null;
+  const fullNotes = initialNotes || (noteData?.content !== undefined ? noteData.content : null);
 
   const cleanText = useMemo(() => {
     if (notesPreview && notesPreview.trim()) return notesPreview.trim();
@@ -96,7 +96,7 @@ export const ProjectNotesPreview: React.FC<ProjectNotesPreviewProps> = ({
     else if (contentRef.current) ro.observe(contentRef.current);
 
     return () => ro.disconnect();
-  }, [cleanText, fullNotes, isLoadingDetails, measureHeights]);
+  }, [cleanText, fullNotes, isLoadingNote, measureHeights]);
 
   useEffect(() => {
     if (isExpanded) {
@@ -477,7 +477,7 @@ export const ProjectNotesPreview: React.FC<ProjectNotesPreviewProps> = ({
               },
             }}
           >
-            {isLoadingDetails && !fullNotes ? (
+            {isLoadingNote && !fullNotes ? (
               <Box
                 sx={{
                   display: 'flex',

@@ -46,7 +46,6 @@ import {
   useRemindersMutations,
   useInvoicesMutations,
   useProjectDetailsQuery,
-  useProjectNoteQuery,
   useProjectUpdatesDiffQuery,
 } from '../../queries';
 
@@ -167,12 +166,7 @@ const ProjectViewModal: React.FC<Props> = ({
     );
   };
 
-  const { data: noteData } = useProjectNoteQuery(
-    effectiveProjectId,
-    isOpen && Boolean(effectiveProjectId)
-  );
-
-  const effectiveProjectNotes = noteData?.content !== undefined ? noteData.content : effectiveProject?.notes;
+  const effectiveProjectNotes = effectiveProject?.notes;
 
   // Local state for editable notes
   const [notes, setNotes] = useState(effectiveProjectNotes || '');

@@ -227,20 +227,6 @@ export const ProjectUpdatesPanel: React.FC<ProjectUpdatesPanelProps> = ({
       meta: { silent: true },
       staleTime: 5 * 60_000,
     });
-
-    // Prefetch project note
-    queryClient.prefetchQuery({
-      queryKey: ['projects', 'note', projectId],
-      queryFn: async () => {
-        const res = await apiFetch(API_ROUTES.PROJECTS.NOTE(projectId), {
-          headers: getAuthHeaders(),
-        });
-        if (!res.ok) throw new Error('Failed to prefetch project note');
-        return res.json();
-      },
-      meta: { silent: true },
-      staleTime: 5 * 60_000,
-    });
   }, [queryClient, getAuthHeaders, range.dateFrom, range.dateTo]);
 
   const handlePresetClick = (preset: DatePreset) => {
