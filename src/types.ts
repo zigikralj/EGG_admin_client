@@ -5,7 +5,11 @@ export interface Project {
   clientName: string;
   client?: { id: string; name: string; city?: string | null } | null;
   responsible: string | null;
+  responsibleId?: string | null;
+  responsibleUser?: { id: string; name: string; email?: string | null; gender?: string | null } | null;
   type: string;
+  serviceName?: string | null;
+  service?: { id?: string; code?: string; name: string } | null;
   start: string | null;
   deadline: string | null;
   progress: number;

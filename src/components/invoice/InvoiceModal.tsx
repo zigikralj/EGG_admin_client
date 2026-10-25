@@ -52,14 +52,17 @@ export interface InvoiceModalProps {
   onToggleEditMode?: () => void;
 }
 
+const EMPTY_PROVIDED_SERVICES: ProvidedService[] = [];
+const EMPTY_INVOICES: Invoice[] = [];
+
 export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   open,
   onClose,
   editingInvoice,
   clients,
   projects,
-  providedServices = [],
-  invoices,
+  providedServices = EMPTY_PROVIDED_SERVICES,
+  invoices = EMPTY_INVOICES,
   onSave,
   isSaving = false,
   isViewMode = false,
@@ -180,7 +183,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
 
   // Available parent invoices for linking
   const availableParentInvoices = useMemo(() => {
-    return invoices.filter((inv) => {
+    return (invoices || []).filter((inv) => {
       if (editingInvoice && inv.id === editingInvoice.id) return false;
       return true;
     });

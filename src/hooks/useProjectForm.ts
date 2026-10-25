@@ -14,8 +14,8 @@ export function useProjectForm({
 }: {
   projectToEdit?: Project | null;
   clients: Client[];
-  users: User[];
-  services: Service[];
+  users?: User[];
+  services?: Service[];
   reminders?: Reminder[];
   invoices?: Invoice[];
   currentUser?: User | null;
