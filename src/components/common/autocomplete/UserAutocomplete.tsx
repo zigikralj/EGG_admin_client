@@ -101,12 +101,8 @@ export function UserAutocomplete<
   return (
     <CustomAutocomplete<User, Multiple, FreeSolo>
       entity="users"
-      valueMode={valueMode === 'name' ? 'object' : valueMode}
-      value={
-        valueMode === 'name' && typeof value === 'string' && value
-          ? ({ name: value } as any)
-          : value
-      }
+      valueMode={valueMode}
+      value={value}
       onChange={handleCustomChange}
       disabled={effectiveDisabled}
       label={computedLabel}
@@ -119,6 +115,12 @@ export function UserAutocomplete<
           return (
             option.id === val ||
             option.name?.trim().toLowerCase() === val.trim().toLowerCase()
+          );
+        }
+        if (typeof (option as any) === 'string') {
+          return (
+            (option as any) === val.id ||
+            (option as any).trim().toLowerCase() === val.name?.trim().toLowerCase()
           );
         }
         if (option.id && val.id) return option.id === val.id;

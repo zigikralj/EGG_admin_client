@@ -279,4 +279,48 @@ describe('CustomAutocomplete', () => {
       expect(screen.getByText('INV-2026-001')).toBeInTheDocument();
     });
   });
+
+  it('does not duplicate the selected item in the dropdown when server results contain the same item', async () => {
+    vi.spyOn(api, 'apiFetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        items: [
+          { id: 'cuid-123', name: 'Petar Marković', role: 'USER' },
+          { id: 'cuid-456', name: 'Marko Nikolić', role: 'USER' },
+        ],
+        total: 2,
+        page: 1,
+        limit: 10,
+        totalPages: 1,
+        hasMore: false,
+      }),
+    } as any);
+
+    renderWithProviders(
+      <UserAutocomplete
+        value="Petar Marković"
+        initialOption={{ id: 'Petar Marković', name: 'Petar Marković' } as any}
+        valueMode="name"
+        onChange={vi.fn()}
+        placeholder="Select user"
+      />
+    );
+
+    const input = screen.getByPlaceholderText('Select user');
+    expect(screen.getByDisplayValue('Petar Marković')).toBeInTheDocument();
+
+    // Open dropdown
+    fireEvent.focus(input);
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+
+    // Wait for options to render
+    await waitFor(() => {
+      const options = screen.getAllByRole('option');
+      expect(options.length).toBe(2);
+    });
+
+    // Petar Marković must only appear once in the option list
+    const petarOptions = screen.getAllByRole('option', { name: /Petar Marković/i });
+    expect(petarOptions).toHaveLength(1);
+  });
 });

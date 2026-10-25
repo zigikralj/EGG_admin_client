@@ -124,11 +124,11 @@ export function CustomAutocomplete<
       setCachedSelectedOptions((prev) => {
         const map = new Map<string, T>();
         prev.forEach((item) => {
-          const k = item.id || item.code || JSON.stringify(item);
+          const k = item.id || item.code || (item as any)?.name || JSON.stringify(item);
           map.set(k, item);
         });
         arr.forEach((item) => {
-          const k = item.id || item.code || JSON.stringify(item);
+          const k = item.id || item.code || (item as any)?.name || JSON.stringify(item);
           map.set(k, item);
         });
         return Array.from(map.values());
@@ -140,30 +140,109 @@ export function CustomAutocomplete<
   const defaultIsOptionEqualToValue = useCallback(
     (option: T, val: any) => {
       if (!option || !val) return option === val;
+      if (typeof (option as any) === 'string' && typeof val === 'string') {
+        return (option as any).trim().toLowerCase() === val.trim().toLowerCase();
+      }
+      if (typeof (option as any) === 'string') {
+        return (
+          (option as any) === val.id ||
+          (option as any) === val.code ||
+          (option as any).trim().toLowerCase() === (val as any).name?.trim().toLowerCase() ||
+          (getOptionLabel ? getOptionLabel(val).trim().toLowerCase() === (option as any).trim().toLowerCase() : false)
+        );
+      }
       if (typeof val === 'string') {
         if (valueMode === 'id') return option.id === val;
         if (valueMode === 'code') return option.code === val;
         if (valueMode === 'name') {
           return (
-            (option as any).name === val ||
-            (getOptionLabel ? getOptionLabel(option) === val : false)
+            (option as any).name?.trim().toLowerCase() === val.trim().toLowerCase() ||
+            (getOptionLabel ? getOptionLabel(option).trim().toLowerCase() === val.trim().toLowerCase() : false)
           );
         }
         return (
           option.id === val ||
           option.code === val ||
-          (option as any).name === val ||
-          (getOptionLabel ? getOptionLabel(option) === val : false)
+          (option as any).name?.trim().toLowerCase() === val.trim().toLowerCase() ||
+          (getOptionLabel ? getOptionLabel(option).trim().toLowerCase() === val.trim().toLowerCase() : false)
         );
       }
       if (option.id && val.id) return option.id === val.id;
       if (option.code && val.code) return option.code === val.code;
+      if ((option as any)?.name && (val as any)?.name) {
+        return (option as any).name.trim().toLowerCase() === (val as any).name.trim().toLowerCase();
+      }
       return option === val;
     },
     [valueMode, getOptionLabel]
   );
 
   const activeIsOptionEqualToValue = isOptionEqualToValue || defaultIsOptionEqualToValue;
+
+  // Default label getter
+  const defaultGetOptionLabel = useCallback(
+    (option: T | string) => {
+      if (typeof option === 'string') return option;
+      if ((option as any)?.__isLoadMoreSentinel || option?.id === '__LOAD_MORE__') return '';
+      return (
+        (option as any)?.name ||
+        option?.code ||
+        option?.id ||
+        ''
+      );
+    },
+    []
+  );
+
+  const activeGetOptionLabel = getOptionLabel || defaultGetOptionLabel;
+
+  // Deep option equality checker for deduplication
+  const areOptionsEqual = useCallback(
+    (a: any, b: any): boolean => {
+      if (!a || !b) return a === b;
+      if (a === b) return true;
+      if ((a as any)?.__isLoadMoreSentinel || (b as any)?.__isLoadMoreSentinel) return false;
+      if (a.id === '__LOAD_MORE__' || b.id === '__LOAD_MORE__') return false;
+
+      if (activeIsOptionEqualToValue(a, b) || activeIsOptionEqualToValue(b, a)) {
+        return true;
+      }
+      if (typeof a === 'string' && typeof b === 'string') {
+        return a.trim().toLowerCase() === b.trim().toLowerCase();
+      }
+      if (a.id && b.id && a.id === b.id) return true;
+      if (a.code && b.code && a.code === b.code) return true;
+      const nameA = a.name || (typeof a === 'string' ? a : null);
+      const nameB = b.name || (typeof b === 'string' ? b : null);
+      if (nameA && nameB && nameA.trim().toLowerCase() === nameB.trim().toLowerCase()) {
+        return true;
+      }
+      const labelA = activeGetOptionLabel(a);
+      const labelB = activeGetOptionLabel(b);
+      if (labelA && labelB && labelA.trim().toLowerCase() === labelB.trim().toLowerCase()) {
+        return true;
+      }
+      return false;
+    },
+    [activeIsOptionEqualToValue, activeGetOptionLabel]
+  );
+
+  // Sync cachedSelectedOptions with authoritative server objects when items are fetched
+  useEffect(() => {
+    if (items.length > 0 && value) {
+      const candidates = Array.isArray(value) ? value : [value];
+      candidates.forEach((cand) => {
+        const found = items.find((opt) => areOptionsEqual(opt, cand as any));
+        if (found) {
+          setCachedSelectedOptions((prev) => {
+            const next = prev.filter((p) => !areOptionsEqual(p, found));
+            next.push(found);
+            return next;
+          });
+        }
+      });
+    }
+  }, [items, value, areOptionsEqual]);
 
   // Resolve normalized value for MUI Autocomplete
   const normalizedValue = useMemo(() => {
@@ -214,13 +293,18 @@ export function CustomAutocomplete<
   // Combine and deduplicate options
   const displayOptions = useMemo(() => {
     const list: T[] = [];
-    const seen = new Set<string>();
+
+    const isDuplicate = (item: T): boolean => {
+      return list.some((existing) => areOptionsEqual(existing, item));
+    };
 
     const add = (item: T) => {
       if (!item) return;
-      const key = item.id || item.code || (typeof item === 'string' ? item : JSON.stringify(item));
-      if (!seen.has(key)) {
-        seen.add(key);
+      if ((item as any)?.__isLoadMoreSentinel || item?.id === '__LOAD_MORE__') {
+        list.push(item);
+        return;
+      }
+      if (!isDuplicate(item)) {
         list.push(item);
       }
     };
@@ -230,24 +314,30 @@ export function CustomAutocomplete<
       prependOptions.forEach(add);
     }
 
-    // 2. Currently selected items and cached initialOption (ensures label is visible when closed/not yet in first page)
-    if (normalizedValue) {
-      if (Array.isArray(normalizedValue)) {
-        normalizedValue.forEach((item) => {
-          if (typeof item === 'object') add(item);
-        });
-      } else if (typeof normalizedValue === 'object') {
-        add(normalizedValue);
-      }
-    }
-    cachedSelectedOptions.forEach(add);
-
-    // 3. Loaded items from infinite query
+    // 2. Loaded items from infinite query (real server items are authoritative)
     let filteredItems = items;
     if (filterLoadedOptions) {
       filteredItems = filterLoadedOptions(items);
     }
     filteredItems.forEach(add);
+
+    // 3. Currently selected items and cached initialOption
+    // Only added if not already present in list (e.g. selected item is on page 2+ or before query loads)
+    const selectedCandidates: T[] = [];
+    if (normalizedValue) {
+      if (Array.isArray(normalizedValue)) {
+        normalizedValue.forEach((item) => {
+          if (item) selectedCandidates.push(item);
+        });
+      } else {
+        selectedCandidates.push(normalizedValue);
+      }
+    }
+    cachedSelectedOptions.forEach((item) => {
+      if (item) selectedCandidates.push(item);
+    });
+
+    selectedCandidates.forEach(add);
 
     // 4. Sentinel option for pagination footer if hasMore
     if (hasMore && isOpen) {
@@ -260,30 +350,14 @@ export function CustomAutocomplete<
     return list;
   }, [
     prependOptions,
-    normalizedValue,
-    cachedSelectedOptions,
     items,
     filterLoadedOptions,
+    normalizedValue,
+    cachedSelectedOptions,
     hasMore,
     isOpen,
+    areOptionsEqual,
   ]);
-
-  // Default label getter
-  const defaultGetOptionLabel = useCallback(
-    (option: T | string) => {
-      if (typeof option === 'string') return option;
-      if ((option as any)?.__isLoadMoreSentinel || option?.id === '__LOAD_MORE__') return '';
-      return (
-        (option as any)?.name ||
-        option?.code ||
-        option?.id ||
-        ''
-      );
-    },
-    []
-  );
-
-  const activeGetOptionLabel = getOptionLabel || defaultGetOptionLabel;
 
   // Handle option change
   const handleChange = useCallback(
@@ -519,8 +593,17 @@ export function CustomAutocomplete<
           return renderOption(props, option, state);
         }
 
+        const optionKey =
+          option.id && option.id !== '__LOAD_MORE__'
+            ? `opt-id-${option.id}`
+            : option.code
+            ? `opt-code-${option.code}`
+            : (option as any)?.name
+            ? `opt-name-${(option as any).name}`
+            : key || `opt-${activeGetOptionLabel(option)}`;
+
         return (
-          <Box key={key || option.id || option.code} component="li" {...otherProps}>
+          <Box key={optionKey} component="li" {...otherProps}>
             <Typography variant="body2">{activeGetOptionLabel(option)}</Typography>
           </Box>
         );
