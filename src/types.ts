@@ -204,7 +204,7 @@ export interface User {
   id: string;
   name: string;
   email?: string | null;
-  role: UserRole;
+  role?: UserRole;
   roleEntity?: Role | null;
   permissions?: Record<string, any>;
   isSystemAdmin?: boolean;

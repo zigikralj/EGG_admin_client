@@ -76,10 +76,8 @@ export function useEntityAutocompleteInfiniteQuery<T = any>({
         q.set('search', search.trim());
       }
 
-      // Default fields=summary for lightweight models
-      if (entity === 'clients' || entity === 'users' || entity === 'projects') {
-        q.set('fields', 'summary');
-      }
+      // Default fields=summary for all autocomplete entities (lightweight payloads)
+      q.set('fields', 'summary');
 
       if (queryParams) {
         Object.entries(queryParams).forEach(([key, val]) => {
