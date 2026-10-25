@@ -257,182 +257,6 @@ export const ProjectCard: React.FC<Props> = ({
     };
   }, [projectInvoices]);
 
-  const tooltipSlotProps = {
-    tooltip: {
-      sx: {
-        bgcolor: '#1e293b',
-        color: '#f8fafc',
-        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(0, 0, 0, 0.6)',
-        border: '1px solid #334155',
-        p: 1.25,
-        borderRadius: '8px',
-        opacity: '1 !important',
-        '& .MuiTooltip-arrow': {
-          color: '#1e293b',
-        },
-      },
-    },
-  };
-
-  const renderRemindersTooltip = () => {
-    return (
-      <Box sx={{ p: 0.5, minWidth: 260, maxWidth: 340 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, pb: 0.75, borderBottom: '1px solid #334155' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            <NotificationsActiveIcon sx={{ fontSize: '1rem', color: '#ffb74d' }} />
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '0.85rem', color: '#f8fafc' }}>
-              {t('lblRemindersChip')} ({projectReminders.length})
-            </Typography>
-          </Box>
-        </Box>
-        <Stack spacing={1} sx={{ maxHeight: 240, overflowY: 'auto' }}>
-          {projectReminders.map((r, idx) => {
-            const s = (r.status || '').toLowerCase();
-            const isComp = s === 'completed' || s === 'završeno' || s === 'завршено';
-            const isLateRem = !isComp && (
-              s === 'overdue' || s === 'kasni' || (r.dueDate && new Date(r.dueDate.split('T')[0]) < new Date(new Date().toDateString()))
-            );
-            const isApprRem = !isComp && !isLateRem && r.dueDate && (() => {
-              const diff = (new Date(r.dueDate.split('T')[0]).getTime() - new Date(new Date().toDateString()).getTime()) / 86400000;
-              return diff >= 0 && diff <= 10;
-            })();
-
-            const statusColor: 'error' | 'warning' | 'info' | 'success' | 'default' = isLateRem
-              ? 'error'
-              : isApprRem
-              ? 'warning'
-              : isComp
-              ? 'success'
-              : s === 'in progress' || s === 'u toku' || s === 'у току'
-              ? 'info'
-              : 'default';
-
-            const statusLabel = isLateRem
-              ? t('statusOverdue')
-              : isApprRem
-              ? t('statusPending')
-              : isComp
-              ? t('statusCompleted')
-              : s === 'in progress' || s === 'u toku' || s === 'у току'
-              ? t('statusInProgress')
-              : t('statusPending');
-
-            return (
-              <Box
-                key={r.id || idx}
-                sx={{
-                  p: 1,
-                  borderRadius: 1.5,
-                  bgcolor: '#0f172a',
-                  border: '1px solid #334155',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 0.5,
-                }}
-              >
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8rem', lineHeight: 1.2, color: '#f8fafc' }}>
-                    {r.title || (r as any).projectName || t('lblRemindersChip')}
-                  </Typography>
-                  <Chip
-                    label={statusLabel}
-                    size="small"
-                    color={statusColor}
-                    sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700 }}
-                  />
-                </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.7rem', color: '#94a3b8' }}>
-                  <span>{t('lblDueDate')}: {fmtDate(r.dueDate || null)}</span>
-                  {r.responsible && <span>{r.responsible}</span>}
-                </Box>
-                {r.notes && (
-                  <Typography variant="caption" sx={{ fontSize: '0.7rem', color: '#cbd5e1', fontStyle: 'italic', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                    {r.notes}
-                  </Typography>
-                )}
-              </Box>
-            );
-          })}
-        </Stack>
-      </Box>
-    );
-  };
-
-  const renderInvoicesTooltip = () => {
-    const formatAmount = (amount?: number | null, curr?: string | null) => {
-      const val = amount || 0;
-      const c = curr || 'RSD';
-      return `${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${c}`;
-    };
-
-    const getStatusLabel = (st?: string) => {
-      switch (st) {
-        case 'Draft': return t('statusDraft');
-        case 'Sent': return t('statusSent');
-        case 'Paid': return t('statusPaid');
-        case 'Overdue': return t('statusOverdue');
-        case 'Cancelled': return t('statusCancelled');
-        default: return st || t('statusDraft');
-      }
-    };
-
-    const getStatusColor = (st?: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
-      switch (st) {
-        case 'Paid': return 'success';
-        case 'Sent': return 'info';
-        case 'Overdue': return 'error';
-        case 'Cancelled': return 'default';
-        case 'Draft':
-        default: return 'warning';
-      }
-    };
-
-    return (
-      <Box sx={{ p: 0.5, minWidth: 260, maxWidth: 340 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, pb: 0.75, borderBottom: '1px solid #334155' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            <ReceiptLongIcon sx={{ fontSize: '1rem', color: '#64b5f6' }} />
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '0.85rem', color: '#f8fafc' }}>
-              {t('lblInvoicesChip')} ({projectInvoices.length})
-            </Typography>
-          </Box>
-        </Box>
-        <Stack spacing={1} sx={{ maxHeight: 240, overflowY: 'auto' }}>
-          {projectInvoices.map((inv) => (
-            <Box
-              key={inv.id}
-              sx={{
-                p: 1,
-                borderRadius: 1.5,
-                bgcolor: '#0f172a',
-                border: '1px solid #334155',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 0.5,
-              }}
-            >
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
-                <Typography variant="body2" sx={{ fontWeight: 700, fontSize: '0.8rem', lineHeight: 1.2, color: '#f8fafc' }}>
-                  {inv.invoiceNumber}
-                </Typography>
-                <Chip
-                  label={getStatusLabel(inv.status)}
-                  size="small"
-                  color={getStatusColor(inv.status)}
-                  sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700 }}
-                />
-              </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.7rem', color: '#94a3b8' }}>
-                <span>{t('lblDueDate')}: {fmtDate(inv.dueDate || inv.dateCreated || null)}</span>
-                <strong style={{ color: '#38bdf8' }}>{formatAmount(inv.totalAmount, inv.currency)}</strong>
-              </Box>
-            </Box>
-          ))}
-        </Stack>
-      </Box>
-    );
-  };
-
   return (
     <Card
       variant="outlined"
@@ -578,47 +402,43 @@ export const ProjectCard: React.FC<Props> = ({
           />
 
           {reminderUrgency && (
-            <Tooltip title={renderRemindersTooltip()} arrow enterDelay={100} leaveDelay={200} slotProps={tooltipSlotProps}>
-              <Chip
-                icon={<NotificationsActiveIcon sx={{ fontSize: '0.85rem !important' }} />}
-                label={`${t('lblRemindersChip')} (${reminderUrgency.count})`}
-                size="small"
-                color={reminderUrgency.color}
-                variant={reminderUrgency.color === 'default' ? 'outlined' : 'filled'}
-                onClick={() => (onView ? onView(p) : onEdit(p))}
-                sx={{
-                  height: 24,
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  '&:hover': {
-                    opacity: 0.85,
-                  },
-                }}
-              />
-            </Tooltip>
+            <Chip
+              icon={<NotificationsActiveIcon sx={{ fontSize: '0.85rem !important' }} />}
+              label={`${t('lblRemindersChip')} (${reminderUrgency.count})`}
+              size="small"
+              color={reminderUrgency.color}
+              variant={reminderUrgency.color === 'default' ? 'outlined' : 'filled'}
+              onClick={() => (onView ? onView(p) : onEdit(p))}
+              sx={{
+                height: 24,
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                '&:hover': {
+                  opacity: 0.85,
+                },
+              }}
+            />
           )}
 
           {invoiceUrgency && (
-            <Tooltip title={renderInvoicesTooltip()} arrow enterDelay={100} leaveDelay={200} slotProps={tooltipSlotProps}>
-              <Chip
-                icon={<ReceiptLongIcon sx={{ fontSize: '0.85rem !important' }} />}
-                label={`${t('lblInvoicesChip')} (${invoiceUrgency.count})`}
-                size="small"
-                color={invoiceUrgency.color}
-                variant={invoiceUrgency.color === 'default' ? 'outlined' : 'filled'}
-                onClick={() => (onView ? onView(p) : onEdit(p))}
-                sx={{
-                  height: 24,
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  '&:hover': {
-                    opacity: 0.85,
-                  },
-                }}
-              />
-            </Tooltip>
+            <Chip
+              icon={<ReceiptLongIcon sx={{ fontSize: '0.85rem !important' }} />}
+              label={`${t('lblInvoicesChip')} (${invoiceUrgency.count})`}
+              size="small"
+              color={invoiceUrgency.color}
+              variant={invoiceUrgency.color === 'default' ? 'outlined' : 'filled'}
+              onClick={() => (onView ? onView(p) : onEdit(p))}
+              sx={{
+                height: 24,
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                '&:hover': {
+                  opacity: 0.85,
+                },
+              }}
+            />
           )}
 
         </Stack>
