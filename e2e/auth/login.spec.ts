@@ -49,7 +49,7 @@ async function mockDashboardRoutes(page: Page) {
     await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
   });
 
-  await page.route('**/api/users', async (route) => {
+  await page.route(/\/api\/users(\?.*)?$/, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -81,7 +81,7 @@ test.describe('Login flow', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          user: { id: 1, name: 'Test User', email: 'test@example.com', role: 'Admin' },
+          user: { id: 1, name: 'Test User', email: 'test@example.com', role: 'Admin', isSystemAdmin: true, permissions: {} },
           token: 'fake-jwt-token',
           expiresIn: 3600,
         }),
@@ -93,7 +93,7 @@ test.describe('Login flow', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ id: 1, name: 'Test User', email: 'test@example.com', role: 'Admin' }),
+        body: JSON.stringify({ id: 1, name: 'Test User', email: 'test@example.com', role: 'Admin', isSystemAdmin: true, permissions: {} }),
       });
     });
 
@@ -159,7 +159,7 @@ test.describe('Login flow', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          user: { id: 1, name: 'Test User', email: 'test@example.com', role: 'Admin' },
+          user: { id: 1, name: 'Test User', email: 'test@example.com', role: 'Admin', isSystemAdmin: true, permissions: {} },
           token: 'fake-jwt-token',
           expiresIn: 3600,
         }),

@@ -18,7 +18,7 @@ interface NotificationContextType {
 export const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, setPendingUsersCount } = useAuth();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -38,6 +38,9 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         const data = await res.json();
         setNotifications(data.notifications || []);
         setUnreadCount(typeof data.unreadCount === 'number' ? data.unreadCount : 0);
+        if (typeof data.pendingUsersCount === 'number') {
+          setPendingUsersCount?.(data.pendingUsersCount);
+        }
       }
     } catch (e) {
       console.error('Error fetching notifications:', e);
@@ -45,7 +48,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       isFetchingRef.current = false;
       setIsLoading(false);
     }
-  }, [currentUser]);
+  }, [currentUser, setPendingUsersCount]);
 
   // Initial fetch when currentUser changes
   useEffect(() => {

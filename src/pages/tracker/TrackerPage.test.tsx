@@ -41,8 +41,8 @@ describe('TrackerPage Integration', () => {
   it('renders without crashing', async () => {
     renderPage();
     await waitFor(() => {
-      // The page loads lazy components or MSW data
-      expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+      expect(screen.getByText('subTabProjects')).toBeInTheDocument();
+      expect(screen.getByText('Test Project')).toBeInTheDocument();
     });
   });
 });

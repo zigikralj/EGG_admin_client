@@ -85,7 +85,15 @@ function fmtDate(d: string | null): string {
   return `${day}.${m}.${y}.`;
 }
 
-import { useProjectsQuery, useServicesQuery, useInvoicesQuery, useProjectsMutations, useProjectDetailsQuery } from '../../queries';
+import {
+  usePaginatedProjectsQuery,
+  useServicesQuery,
+  useClientsSummaryQuery,
+  useUsersSummaryQuery,
+  useProjectsMutations,
+  useProjectDetailsQuery,
+} from '../../queries';
+import { useDebounce } from '../../hooks/useDebounce';
 import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
 
 interface ProjectNotesTableCellProps {
@@ -202,9 +210,19 @@ const ProjectsPage: React.FC<Props> = ({
   const canCreateProject = hasPermission('projects', 'create') || hasPermission('tracker_projects', 'create');
   const canViewHistory = hasPermission('history', 'view');
 
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [filterClient, setFilterClient] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterResponsible, setFilterResponsible] = useState<string>('all');
+  const [filterDateFrom, setFilterDateFrom] = useState<string>('');
+  const [filterDateTo, setFilterDateTo] = useState<string>('');
+  const [filterDateField, setFilterDateField] = useState<string>('deadline');
+
+  const shouldFetchFilterLookups = isFilterOpen || filterClient !== 'all' || filterResponsible !== 'all';
   const { data: services = [] } = useServicesQuery();
-  const { data: invoices = [] } = useInvoicesQuery();
-  const hasInvoices = (project: Project) => invoices.some((inv) => inv.projectId === project.id);
+  const { data: clients = [] } = useClientsSummaryQuery({ enabled: shouldFetchFilterLookups });
+  const { data: users = [] } = useUsersSummaryQuery({ enabled: shouldFetchFilterLookups });
   const { handleDelete } = useProjectsMutations();
   const [completeConfirmState, setCompleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
   const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
@@ -252,25 +270,8 @@ const ProjectsPage: React.FC<Props> = ({
     else if (typeof quickFilterProp === 'string' && quickFilterProp !== 'all') initial = [quickFilterProp];
     return isProjectsRestricted ? initial.filter((k) => k !== 'my') : initial;
   });
-  // Popover Filter states
-  const [filterCategory, setFilterCategory] = useState<string>('all');
-  const [filterClient, setFilterClient] = useState<string>('all');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [filterResponsible, setFilterResponsible] = useState<string>('all');
-  const [filterDateFrom, setFilterDateFrom] = useState<string>('');
-  const [filterDateTo, setFilterDateTo] = useState<string>('');
-  const [filterDateField, setFilterDateField] = useState<string>('deadline');
 
-  const doneOption = useMemo(() => {
-    if (filterStatus === 'done') return true;
-    if (quickFilters.includes('active') || filterStatus === 'creation' || filterStatus === 'overdue' || filterStatus === 'stale') return false;
-    return undefined;
-  }, [filterStatus, quickFilters]);
 
-  const { data: projects = [], refetch: refetchProjects, isRefetching } = useProjectsQuery(
-    '',
-    doneOption !== undefined ? { done: doneOption } : undefined
-  );
 
   useEffect(() => {
     if (Array.isArray(quickFiltersProp)) {
@@ -397,144 +398,67 @@ const ProjectsPage: React.FC<Props> = ({
     { id: 'notes', label: t('lblProjectNotes') },
   ];
 
-  const uniqueCategories = Array.from(new Set(projects.map((p) => p.type).filter(Boolean)));
-  const uniqueClients = Array.from(new Set(projects.map((p) => p.clientName).filter(Boolean))).sort((a, b) => a.localeCompare(b));
-  const otherResponsibles = isProjectsRestricted
-    ? []
-    : Array.from(
-        new Set(projects.map((p) => p.responsible).filter(Boolean) as string[])
-      )
-        .filter((r) => !currentUser?.name || r.trim().toLowerCase() !== currentUser.name.trim().toLowerCase())
-        .sort((a, b) => a.localeCompare(b));
+  const uniqueCategories = useMemo(
+    () => Array.from(new Set(services.map((s) => s.name).filter(Boolean))),
+    [services]
+  );
+  const uniqueClients = useMemo(
+    () => Array.from(new Set(clients.map((c) => c.name).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+    [clients]
+  );
+  const otherResponsibles = useMemo(
+    () =>
+      isProjectsRestricted
+        ? []
+        : Array.from(new Set(users.map((u) => u.name).filter(Boolean)))
+            .filter((r) => !currentUser?.name || r.trim().toLowerCase() !== currentUser.name.trim().toLowerCase())
+            .sort((a, b) => a.localeCompare(b)),
+    [isProjectsRestricted, users, currentUser]
+  );
 
-  // 1. Apply Quick & Popover Filters
-  const filteredProjects = projects.filter((p) => {
-    if (isProjectsRestricted) {
-      const isMyName =
-        p.responsible &&
-        currentUser?.name &&
-        p.responsible.trim().toLowerCase() === currentUser.name.trim().toLowerCase();
-      const isMyId = (p as any).responsibleId && (p as any).responsibleId === currentUser?.id;
-      if (!isMyName && !isMyId) return false;
-    }
+  const debouncedSearch = useDebounce(searchQuery, 500);
 
-    if (quickFilters.includes('my') && currentUser) {
-      const isMyName =
-        p.responsible &&
-        currentUser.name &&
-        p.responsible.trim().toLowerCase() === currentUser.name.trim().toLowerCase();
-      const isMyId = (p as any).responsibleId && (p as any).responsibleId === currentUser.id;
-      if (!isMyName && !isMyId) return false;
-    }
-    if (quickFilters.includes('active') && p.done) return false;
-    if (quickFilters.includes('missing_invoice') && hasInvoices(p)) return false;
-    if (quickFilters.includes('stale') && (!isStale(p.start, p.done) || p.done)) return false;
-    if (quickFilters.includes('overdue') && (!isLate(p.deadline, p.done) || p.done)) return false;
+  const statusParam = useMemo(() => {
+    if (filterStatus !== 'all') return filterStatus;
+    if (quickFilters.includes('overdue')) return 'overdue';
+    if (quickFilters.includes('stale')) return 'stale';
+    if (quickFilters.includes('active')) return 'active';
+    if (quickFilters.includes('done')) return 'done';
+    if (quickFilters.includes('missing_invoice')) return 'missing_invoice';
+    return undefined;
+  }, [filterStatus, quickFilters]);
 
-    if (filterCategory !== 'all' && p.type !== filterCategory) return false;
-    if (filterClient !== 'all' && p.clientName !== filterClient) return false;
-    if (filterResponsible !== 'all') {
-      const isMyName =
-        currentUser?.name &&
-        filterResponsible === currentUser.name &&
-        ((p.responsible && currentUser.name && p.responsible.trim().toLowerCase() === currentUser.name.trim().toLowerCase()) ||
-          ((p as any).responsibleId && (p as any).responsibleId === currentUser.id));
-      if (!isMyName && p.responsible !== filterResponsible) return false;
-    }
-    if (filterStatus !== 'all') {
-      const stale = isStale(p.start, p.done);
-      const late = isLate(p.deadline, p.done);
-      if (filterStatus === 'done' && !p.done) return false;
-      if (filterStatus === 'overdue' && (!late || p.done)) return false;
-      if (filterStatus === 'stale' && (!stale || p.done)) return false;
-      if (filterStatus === 'creation' && (p.done || stale || late)) return false;
-    }
+  const responsibleParam = useMemo(() => {
+    if (quickFilters.includes('my') && currentUser?.name) return currentUser.name;
+    if (filterResponsible !== 'all') return filterResponsible;
+    return undefined;
+  }, [quickFilters, currentUser, filterResponsible]);
 
-    // Date range filter
-    if (filterDateFrom || filterDateTo) {
-      let rawDate: string | null | undefined = null;
-      if (filterDateField === 'start') {
-        rawDate = p.start;
-      } else if (filterDateField === 'createdAt') {
-        rawDate = p.createdAt;
-      } else {
-        rawDate = p.deadline;
-      }
-      const dateVal = rawDate ? rawDate.slice(0, 10) : '';
-      if (dateVal) {
-        if (filterDateFrom && dateVal < filterDateFrom) return false;
-        if (filterDateTo && dateVal > filterDateTo) return false;
-      } else {
-        return false;
-      }
-    }
-
-    return true;
+  const {
+    data: paginatedData,
+    refetch: refetchProjects,
+    isRefetching,
+  } = usePaginatedProjectsQuery({
+    page,
+    rowsPerPage: activeRowsPerPage,
+    sortBy: sortColumn,
+    sortOrder: sortDirection,
+    search: debouncedSearch,
+    status: statusParam,
+    type: filterCategory !== 'all' ? filterCategory : undefined,
+    clientId: filterClient !== 'all' ? filterClient : undefined,
+    responsible: responsibleParam,
+    dateFrom: filterDateFrom || undefined,
+    dateTo: filterDateTo || undefined,
+    dateField: filterDateField,
   });
 
-  // 2. Search among filtered items
-  const searchedProjects = filteredProjects.filter((p) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      p.name.toLowerCase().includes(q) ||
-      (p.clientName && p.clientName.toLowerCase().includes(q)) ||
-      (p.responsible && p.responsible.toLowerCase().includes(q)) ||
-      getServiceLabel(p.type, services).toLowerCase().includes(q)
-    );
-  });
-
-  // 3. Sort final dataset
-  const sortedProjects = [...searchedProjects].sort((a, b) => {
-    let res = 0;
-    switch (sortColumn) {
-      case 'name':
-        res = a.name.localeCompare(b.name);
-        break;
-      case 'client':
-        res = (a.clientName || '').localeCompare(b.clientName || '');
-        break;
-      case 'category':
-        res = getServiceLabel(a.type, services).localeCompare(getServiceLabel(b.type, services));
-        break;
-      case 'responsible':
-        res = (a.responsible || '').localeCompare(b.responsible || '');
-        break;
-      case 'progress':
-        res = a.progress - b.progress;
-        break;
-      case 'start':
-        res =
-          (a.start ? new Date(a.start).getTime() : 0) -
-          (b.start ? new Date(b.start).getTime() : 0);
-        break;
-      case 'deadline':
-        res =
-          (a.deadline ? new Date(a.deadline).getTime() : 0) -
-          (b.deadline ? new Date(b.deadline).getTime() : 0);
-        break;
-      case 'status': {
-        const lateA = isLate(a.deadline, a.done);
-        const lateB = isLate(b.deadline, b.done);
-        const valA = a.done ? 3 : lateA ? 0 : isStale(a.start, a.done) ? 2 : 1;
-        const valB = b.done ? 3 : lateB ? 0 : isStale(b.start, b.done) ? 2 : 1;
-        res = valA - valB;
-        break;
-      }
-      case 'createdAt':
-        res =
-          (a.createdAt ? new Date(a.createdAt).getTime() : 0) -
-          (b.createdAt ? new Date(b.createdAt).getTime() : 0);
-        break;
-      default:
-        res = 0;
-    }
-    return sortDirection === 'asc' ? res : -res;
-  });
+  const projects = paginatedData?.items || [];
+  const totalProjects = paginatedData?.total || 0;
 
   useEffect(() => {
     setPage(0);
-  }, [searchQuery, quickFilters, filterCategory, filterStatus, filterResponsible, filterDateFrom, filterDateTo, filterDateField, sortColumn, sortDirection, setPage]);
+  }, [debouncedSearch, quickFilters, filterCategory, filterStatus, filterResponsible, filterDateFrom, filterDateTo, filterDateField, sortColumn, sortDirection, setPage]);
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
@@ -546,7 +470,6 @@ const ProjectsPage: React.FC<Props> = ({
     setPage(0);
   };
 
-  const paginatedProjects = sortedProjects.slice(page * activeRowsPerPage, page * activeRowsPerPage + activeRowsPerPage);
 
   const responsibleOptions = useMemo(() => {
     const list: string[] = [];
@@ -645,6 +568,7 @@ const ProjectsPage: React.FC<Props> = ({
             <TableFilterSelector
               activeCount={activeFilterCount}
               onClear={clearFilters}
+              onOpen={() => setIsFilterOpen(true)}
               sortingContent={
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                   <Autocomplete
@@ -854,14 +778,14 @@ const ProjectsPage: React.FC<Props> = ({
               </TableRow>
             </TableHead>
             <TableBody>
-              {sortedProjects.length === 0 ? (
+              {projects.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={activeCols.length + 1} align="center" sx={{ py: 3, color: 'text.secondary' }}>
                     {t('emptyProjects')}
                   </TableCell>
                 </TableRow>
               ) : (
-                paginatedProjects.map((p) => {
+                projects.map((p) => {
                   const stale = isStale(p.start, p.done);
                   const editable = canEditProject(p);
                   const deletable = canDeleteProject(p);
@@ -980,7 +904,7 @@ const ProjectsPage: React.FC<Props> = ({
         <TablePagination
           rowsPerPageOptions={activeRowsPerPageOptions}
           component="div"
-          count={sortedProjects.length}
+          count={totalProjects}
           rowsPerPage={activeRowsPerPage}
           page={page}
           onPageChange={handleChangePage}

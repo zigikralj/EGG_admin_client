@@ -29,6 +29,8 @@ export async function mockCommonApi(page: Page, options: MockApiOptions = {}) {
     role: 'Admin',
     isApproved: true,
     status: 'ACTIVE',
+    isSystemAdmin: true,
+    permissions: {},
     roleEntity: { id: 1, name: 'Admin', isSystemAdmin: true, permissions: {} },
   };
 
@@ -84,7 +86,7 @@ export async function mockCommonApi(page: Page, options: MockApiOptions = {}) {
     });
   });
 
-  await page.route('**/api/users', async (route) => {
+  await page.route(/\/api\/users(\?.*)?$/, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',

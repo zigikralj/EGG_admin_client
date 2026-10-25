@@ -8,6 +8,7 @@ interface AuthContextType {
   currentUser: User | null;
   users: User[];
   pendingUsersCount: number;
+  setPendingUsersCount: (count: number) => void;
   setCurrentUser: (user: User | null) => void;
   login: (emailOrName: string, password: string) => Promise<{ success: boolean; errorCode?: string; message?: string }>;
   register: (data: { name: string; email: string; phone?: string; password: string }) => Promise<{ success: boolean; message: string }>;
@@ -38,6 +39,7 @@ export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const queryClient = useQueryClient();
   const [users, setUsers] = useState<User[]>([]);
+  const [serverPendingUsersCount, setServerPendingUsersCount] = useState<number>(0);
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     try {
       const expiresAt = localStorage.getItem('auth_session_expires_at');
@@ -64,57 +66,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   });
 
-  const [roles, setRolesState] = useState<Role[]>([]);
-  const [isRolesLoading, setIsRolesLoading] = useState<boolean>(() => Boolean(currentUser?.id));
-
-  const refreshRoles = React.useCallback(async () => {
-    if (!currentUser?.id) {
-      setRolesState([]);
-      setIsRolesLoading(false);
-      return;
+  const [roles] = useState<Role[]>([]);
+  const [isRolesLoading, setIsRolesLoading] = useState<boolean>(() => {
+    if (!currentUser?.id) return false;
+    if (
+      currentUser.permissions !== undefined ||
+      currentUser.roleEntity !== undefined ||
+      currentUser.isSystemAdmin !== undefined ||
+      currentUser.role === 'Administrator'
+    ) {
+      return false;
     }
-    try {
-      setIsRolesLoading(true);
-      const res = await apiFetch(API_ROUTES.ROLES.BASE, { headers: { 'X-User-Id': currentUser.id } });
-      if (res.ok) {
-        const data: Role[] = await res.json();
-        setRolesState(data);
-        const myUpdatedRole = data.find((r: Role) => r.name === currentUser.role);
-        if (myUpdatedRole) {
-          setCurrentUser((prev) => {
-            if (!prev) return null;
-            if (JSON.stringify(prev.roleEntity) === JSON.stringify(myUpdatedRole)) return prev;
-            const next = { ...prev, roleEntity: myUpdatedRole };
-            localStorage.setItem('auth_user', JSON.stringify(next));
-            return next;
-          });
-        }
-      }
-    } catch (err) {
-      console.error('Error fetching roles for AuthContext:', err);
-    } finally {
-      setIsRolesLoading(false);
-    }
-  }, [currentUser?.id, currentUser?.role]);
+    return true;
+  });
 
-  useEffect(() => {
-    refreshRoles();
-  }, [refreshRoles]);
-
-  useEffect(() => {
-    const handleRolesChanged = () => {
-      refreshRoles();
-    };
-    window.addEventListener('roles:changed', handleRolesChanged);
-    return () => {
-      window.removeEventListener('roles:changed', handleRolesChanged);
-    };
-  }, [refreshRoles]);
+  const inFlightAuthPromiseRef = React.useRef<Promise<void> | null>(null);
+  const lastAuthRefreshAtRef = React.useRef<number>(0);
 
   const logout = React.useCallback(() => {
     try {
       queryClient.clear();
     } catch (e) {}
+    inFlightAuthPromiseRef.current = null;
+    lastAuthRefreshAtRef.current = 0;
     localStorage.removeItem('auth_user');
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_session_expires_at');
@@ -124,8 +98,107 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     sessionStorage.removeItem('activity_session_id');
     sessionStorage.removeItem('activity_session_last_active');
     sessionStorage.removeItem('activity_login_logged');
+    setServerPendingUsersCount(0);
     setCurrentUser(null);
   }, [queryClient]);
+
+  const performAuthRefresh = React.useCallback(async (force = false) => {
+    if (!currentUser?.id) {
+      setIsRolesLoading(false);
+      return;
+    }
+    if (inFlightAuthPromiseRef.current) {
+      return inFlightAuthPromiseRef.current;
+    }
+    if (!force && Date.now() - lastAuthRefreshAtRef.current < 5000) {
+      setIsRolesLoading(false);
+      return;
+    }
+
+    const requestPromise = (async () => {
+      try {
+        const res = await apiFetch(API_ROUTES.AUTH.ME, {
+          headers: { 'X-User-Id': currentUser.id },
+        });
+        lastAuthRefreshAtRef.current = Date.now();
+        if (res.status === 403) {
+          const data = await res.json();
+          if (data.error === 'ACCOUNT_BLOCKED') {
+            logout();
+          }
+        } else if (res.ok) {
+          const updatedUser = await res.json();
+          if (updatedUser) {
+            setCurrentUser((prev) => {
+              if (!prev) return null;
+              const roleUnchanged = prev.role === updatedUser.role;
+              const nextPermissions = updatedUser.permissions ?? (roleUnchanged ? prev.permissions : undefined);
+              const nextRoleEntity = updatedUser.roleEntity ?? (roleUnchanged ? prev.roleEntity : undefined);
+              const nextIsSystemAdmin = updatedUser.isSystemAdmin ?? (roleUnchanged ? prev.isSystemAdmin : undefined);
+              const nextActivityLoggingEnabled = updatedUser.activityLoggingEnabled ?? prev.activityLoggingEnabled;
+              if (
+                prev.id === updatedUser.id &&
+                prev.name === updatedUser.name &&
+                prev.email === updatedUser.email &&
+                prev.role === updatedUser.role &&
+                prev.isSystemAdmin === nextIsSystemAdmin &&
+                prev.activityLoggingEnabled === nextActivityLoggingEnabled &&
+                JSON.stringify(prev.permissions) === JSON.stringify(nextPermissions) &&
+                JSON.stringify(prev.roleEntity) === JSON.stringify(nextRoleEntity)
+              ) {
+                return prev;
+              }
+              const merged = {
+                ...prev,
+                ...updatedUser,
+                permissions: nextPermissions,
+                roleEntity: nextRoleEntity,
+                isSystemAdmin: nextIsSystemAdmin,
+                activityLoggingEnabled: nextActivityLoggingEnabled,
+              };
+              localStorage.setItem('auth_user', JSON.stringify(merged));
+              return merged;
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Error refreshing user session permissions:', err);
+      } finally {
+        inFlightAuthPromiseRef.current = null;
+        setIsRolesLoading(false);
+      }
+    })();
+
+    inFlightAuthPromiseRef.current = requestPromise;
+    return requestPromise;
+  }, [currentUser?.id, logout]);
+
+  const refreshRoles = React.useCallback(async () => {
+    await performAuthRefresh(true);
+  }, [performAuthRefresh]);
+
+  useEffect(() => {
+    const handleRolesChanged = () => {
+      void performAuthRefresh(true);
+    };
+    const handleActivityLoggingChanged = (e: Event) => {
+      const enabled = (e as CustomEvent<boolean>).detail;
+      if (typeof enabled === 'boolean') {
+        setCurrentUser((prev) => {
+          if (!prev || prev.activityLoggingEnabled === enabled) return prev;
+          const merged = { ...prev, activityLoggingEnabled: enabled };
+          localStorage.setItem('auth_user', JSON.stringify(merged));
+          return merged;
+        });
+      }
+    };
+    window.addEventListener('roles:changed', handleRolesChanged);
+    window.addEventListener('activity-logging:changed', handleActivityLoggingChanged);
+    return () => {
+      window.removeEventListener('roles:changed', handleRolesChanged);
+      window.removeEventListener('activity-logging:changed', handleActivityLoggingChanged);
+    };
+  }, [performAuthRefresh]);
 
   // Keep currentUser synced when users list updates, logging out if blocked
   useEffect(() => {
@@ -145,18 +218,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             prev.role === updated.role &&
             prev.phone === updated.phone &&
             prev.isApproved === updated.isApproved &&
-            prev.status === updated.status
+            prev.status === updated.status &&
+            (updated.permissions === undefined || JSON.stringify(prev.permissions) === JSON.stringify(updated.permissions)) &&
+            (updated.roleEntity === undefined || JSON.stringify(prev.roleEntity) === JSON.stringify(updated.roleEntity))
           ) {
             return prev;
           }
-          localStorage.setItem('auth_user', JSON.stringify(updated));
-          return updated;
+          const merged = {
+            ...prev,
+            ...updated,
+            permissions: updated.permissions ?? prev.permissions,
+            roleEntity: updated.roleEntity ?? prev.roleEntity,
+            isSystemAdmin: updated.isSystemAdmin ?? prev.isSystemAdmin,
+          };
+          localStorage.setItem('auth_user', JSON.stringify(merged));
+          return merged;
         });
       }
     }
   }, [users, currentUser, logout]);
 
-  // Periodic auth check to log out blocked users.
+  // Periodic auth check to log out blocked users and keep session permissions fresh.
   // Uses Page Visibility API to pause polling when the tab is hidden,
   // eliminating all auth requests for inactive/background tabs.
   useEffect(() => {
@@ -164,37 +246,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     let intervalId: ReturnType<typeof setInterval> | null = null;
 
-    const checkAuth = async () => {
-      try {
-        const res = await apiFetch(API_ROUTES.AUTH.ME, {
-          headers: { 'X-User-Id': currentUser.id },
-        });
-        if (res.status === 403) {
-          const data = await res.json();
-          if (data.error === 'ACCOUNT_BLOCKED') {
-            logout();
-          }
-        } else if (res.ok) {
-          const updatedUser = await res.json();
-          if (updatedUser) {
-            setCurrentUser((prev) => {
-              if (!prev) return null;
-              if (
-                prev.id === updatedUser.id &&
-                prev.name === updatedUser.name &&
-                prev.email === updatedUser.email &&
-                prev.role === updatedUser.role &&
-                JSON.stringify(prev.roleEntity) === JSON.stringify(updatedUser.roleEntity)
-              ) {
-                return prev;
-              }
-              const merged = { ...prev, ...updatedUser };
-              localStorage.setItem('auth_user', JSON.stringify(merged));
-              return merged;
-            });
-          }
-        }
-      } catch (e) {}
+    const checkAuth = () => {
+      void performAuthRefresh(false);
     };
 
     const startPolling = () => {
@@ -219,7 +272,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    // Check auth immediately on mount to ensure fresh roleEntity & permissions
+    // Check auth immediately on mount to ensure fresh session & permissions
     checkAuth();
 
     // Start polling only if tab is currently visible
@@ -232,7 +285,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       stopPolling();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [currentUser, logout]);
+  }, [currentUser?.id, performAuthRefresh]);
 
   useEffect(() => {
     const checkSession = () => {
@@ -286,6 +339,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           queryClient.clear();
         } catch (e) {}
+        lastAuthRefreshAtRef.current = Date.now();
         setCurrentUser(data.user);
         localStorage.setItem('auth_user', JSON.stringify(data.user));
         if (data.token) {
@@ -339,26 +393,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const pendingUsersCount = React.useMemo(() => {
-    return users.filter((u) => u.status === 'PENDING').length;
-  }, [users]);
+    if (users.length > 0) {
+      return users.filter((u) => u.status === 'PENDING').length;
+    }
+    return serverPendingUsersCount;
+  }, [users, serverPendingUsersCount]);
 
   const actualRole: UserRole = (currentUser?.role as UserRole) || 'User';
 
-  const currentRoleEntity = React.useMemo(() => {
+  const userPermissions = React.useMemo(() => {
     if (!currentUser) return null;
-    return roles.find((r) => r.name === currentUser.role) || currentUser.roleEntity || null;
-  }, [currentUser, roles]);
+    if (currentUser.permissions && typeof currentUser.permissions === 'object') {
+      return currentUser.permissions;
+    }
+    if (currentUser.roleEntity?.permissions && typeof currentUser.roleEntity.permissions === 'object') {
+      return currentUser.roleEntity.permissions;
+    }
+    return null;
+  }, [currentUser]);
 
-  const isRealAdmin = Boolean(currentRoleEntity?.isSystemAdmin || actualRole === 'Administrator');
+  const isRealAdmin = Boolean(
+    currentUser?.isSystemAdmin ||
+    currentUser?.roleEntity?.isSystemAdmin ||
+    actualRole === 'Administrator'
+  );
   const isSystemAdmin = isRealAdmin;
   
   const isRestrictedToOwn = React.useCallback((resource: string): boolean => {
     if (isSystemAdmin) return false;
-    const roleEnt = currentRoleEntity;
-    if (!roleEnt) return false;
-    if (roleEnt.isSystemAdmin) return false;
+    if (!userPermissions) return false;
 
-    const perms = roleEnt.permissions || {};
+    const perms = userPermissions;
     const checkOnlyOwn = (key: string) => {
       const val = perms[key];
       if (val === true) return true;
@@ -387,18 +452,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     return false;
-  }, [isSystemAdmin, currentRoleEntity]);
+  }, [isSystemAdmin, userPermissions]);
 
   const hasPermission = React.useCallback((resource: string, action: string): boolean => {
     if (isSystemAdmin) return true;
+    if (!userPermissions) return false;
 
-    const roleEnt = currentRoleEntity;
-    if (!roleEnt) {
-      return false;
-    }
-
-    if (roleEnt.isSystemAdmin) return true;
-    const perms = roleEnt.permissions || {};
+    const perms = userPermissions;
 
     if (resource === 'apps') {
       return Array.isArray(perms.apps) && perms.apps.includes(action);
@@ -429,7 +489,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     return false;
-  }, [isSystemAdmin, currentRoleEntity]);
+  }, [isSystemAdmin, userPermissions]);
 
   const canManageClients = Boolean(hasPermission('clients', 'edit') || hasPermission('clients', 'create'));
   const canManagePermits = Boolean(hasPermission('permits', 'edit') || hasPermission('permits', 'create'));
@@ -441,12 +501,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const canEditUser = React.useCallback(
     (targetUser: User): boolean => {
       if (isSystemAdmin) return true;
-      const targetRoleEnt = roles.find((r) => r.name === targetUser.role) || targetUser.roleEntity;
-      const isTargetAdmin = targetRoleEnt?.isSystemAdmin || targetUser.role === 'Administrator';
+      const isTargetAdmin = Boolean(
+        targetUser.isSystemAdmin ||
+        targetUser.roleEntity?.isSystemAdmin ||
+        targetUser.role === 'Administrator'
+      );
       if (isTargetAdmin) return false;
       return hasPermission('users', 'edit');
     },
-    [isSystemAdmin, roles, hasPermission]
+    [isSystemAdmin, hasPermission]
   );
 
   const canDeleteUser = React.useCallback(
@@ -454,12 +517,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!currentUser) return false;
       if (targetUser.id === currentUser.id) return false;
       if (isSystemAdmin) return true;
-      const targetRoleEnt = roles.find((r) => r.name === targetUser.role) || targetUser.roleEntity;
-      const isTargetAdmin = targetRoleEnt?.isSystemAdmin || targetUser.role === 'Administrator';
+      const isTargetAdmin = Boolean(
+        targetUser.isSystemAdmin ||
+        targetUser.roleEntity?.isSystemAdmin ||
+        targetUser.role === 'Administrator'
+      );
       if (isTargetAdmin) return false;
       return hasPermission('users', 'delete');
     },
-    [isSystemAdmin, roles, hasPermission, currentUser]
+    [isSystemAdmin, hasPermission, currentUser]
   );
 
   const canEditProject = React.useCallback(
@@ -509,6 +575,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       currentUser,
       users,
       pendingUsersCount,
+      setPendingUsersCount: setServerPendingUsersCount,
       setCurrentUser: handleSetCurrentUser,
       login,
       register,

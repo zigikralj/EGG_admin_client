@@ -147,10 +147,24 @@ test.describe('Reminders Management', () => {
     await page.route(/\/api\/reminders(\?.*)?$/, async (route) => {
       const method = route.request().method();
       if (method === 'GET') {
+        const url = new URL(route.request().url());
+        const search = (url.searchParams.get('search') || '').toLowerCase();
+        const status = url.searchParams.get('status');
+        let filtered = remindersData;
+        if (search) {
+          filtered = filtered.filter((r) =>
+            (r.title || '').toLowerCase().includes(search) ||
+            (r.projectName || '').toLowerCase().includes(search) ||
+            (r.clientName || '').toLowerCase().includes(search)
+          );
+        }
+        if (status && status !== 'all') {
+          filtered = filtered.filter((r) => (r.status || '').toLowerCase() === status.toLowerCase());
+        }
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
-          body: JSON.stringify(remindersData),
+          body: JSON.stringify(filtered),
         });
       } else if (method === 'POST') {
         const newRem = route.request().postDataJSON();
@@ -241,7 +255,7 @@ test.describe('Reminders Management', () => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
 
-    await page.route('**/api/users', async (route) => {
+    await page.route(/\/api\/users(\?.*)?$/, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',

@@ -54,23 +54,10 @@ describe('AdminLayout', () => {
     });
   });
 
-  const mockStats = {
-    active: 5,
-    completed: 2,
-    done: 2,
-    stale: 0,
-    servicesCount: 5,
-    usersCount: 10,
-    clientsCount: 8,
-    categoriesCount: 4,
-    monitor: 1,
-    invoicesCount: 3,
-  };
-
   const renderComponent = (initialRoute = '/project-tracker') => {
     return render(
       <MemoryRouter initialEntries={[initialRoute]}>
-        <AdminLayout stats={mockStats}>
+        <AdminLayout>
           <div data-testid="admin-layout-children">Child Content</div>
         </AdminLayout>
       </MemoryRouter>

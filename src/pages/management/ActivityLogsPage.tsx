@@ -27,7 +27,7 @@ import { useAuth } from '../../context/AuthContext';
 import {
   useActivityLogsSummaryQuery,
   useActivityMonthlyStatsQuery,
-  useUsersQuery,
+  useUsersSummaryQuery,
   useActivityLogsMutations,
   useActivityLogStatusQuery,
   useActivityLogToggleMutation,
@@ -102,10 +102,10 @@ export const ActivityLogsPage: React.FC = () => {
     isLoading: isMonthlyLoading,
     isFetching: isMonthlyFetching,
     refetch: refetchMonthly,
-  } = useActivityMonthlyStatsQuery();
+  } = useActivityMonthlyStatsQuery(undefined, { enabled: activeTab === 'monthly' });
 
-  const { data: users = [] } = useUsersQuery();
-  const userMap = useMemo(() => new Map(users.map(u => [u.id, u])), [users]);
+  const { data: users = [] } = useUsersSummaryQuery();
+  const userMap = useMemo(() => new Map(users.map(u => [u.id, u as any])), [users]);
   const { clearAllMutation, deleteSessionMutation } = useActivityLogsMutations();
 
   const { hasPermission } = useAuth();
@@ -156,8 +156,7 @@ export const ActivityLogsPage: React.FC = () => {
 
   React.useEffect(() => {
     void flushActivityTracker(true);
-    void queryClient.invalidateQueries({ queryKey: ['activity-logs', 'summary'] });
-  }, [queryClient]);
+  }, []);
 
   const handleRefreshClick = async () => {
     await flushActivityTracker(true);
