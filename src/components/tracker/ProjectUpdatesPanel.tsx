@@ -22,7 +22,7 @@ import {
   LinearProgress,
   Stack,
 } from '@mui/material';
-import type { Project, ProjectUpdateSummary, User } from '../../types';
+import type { Project, ProjectUpdateSummary } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useProjectUpdatesQuery, useUsersSummaryQuery, useAuthHeaders } from '../../queries';
@@ -44,7 +44,6 @@ import {
 } from '../icons';
 
 export interface ProjectUpdatesPanelProps {
-  users?: User[];
   onOpenProjectDiff: (project: Project, diffRange: { dateFrom: string; dateTo: string }) => void;
   onEditProject?: (project: Project) => void;
   onViewProject?: (project: Project) => void;
@@ -107,7 +106,6 @@ function isNearDeadline(deadline: string | null | undefined, done: boolean, days
 }
 
 export const ProjectUpdatesPanel: React.FC<ProjectUpdatesPanelProps> = ({
-  users: usersProp,
   onOpenProjectDiff,
   onEditProject,
   onViewProject: _onViewProject,
@@ -166,9 +164,8 @@ export const ProjectUpdatesPanel: React.FC<ProjectUpdatesPanelProps> = ({
   const [customTo, setCustomTo] = useState<string>(() => range.dateTo.slice(0, 16));
   const [search, setSearch] = useState<string>('');
   const [responsibleId, setResponsibleId] = useState<string>(() => (isRestricted && currentUser?.id ? currentUser.id : ''));
-  const shouldFetchUsers = !usersProp && !isRestricted && (Boolean(responsibleId) || isUserDropdownOpen);
-  const { data: fetchedUsers = [] } = useUsersSummaryQuery({ enabled: shouldFetchUsers });
-  const users = usersProp && usersProp.length > 0 ? usersProp : fetchedUsers;
+  const shouldFetchUsers = !isRestricted && (Boolean(responsibleId) || isUserDropdownOpen);
+  const { data: users = [] } = useUsersSummaryQuery({ enabled: shouldFetchUsers });
 
   useEffect(() => {
     if (isRestricted && currentUser?.id && !responsibleId) {

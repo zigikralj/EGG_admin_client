@@ -94,8 +94,6 @@ const ProjectModal: React.FC<Props> = ({
   const { formState, reminderState, invoiceState, handleClientSelectChange } = useProjectForm({
     projectToEdit: effectiveProjectToEdit,
     clients,
-    users,
-    services,
     reminders,
     invoices,
     currentUser,
@@ -628,7 +626,6 @@ const ProjectModal: React.FC<Props> = ({
                   <TipTapEditor
                     value={notes}
                     onChange={setNotes}
-                    users={users}
                     placeholder={t('phProjectNotes')}
                     autoSaveEnabled={false}
                     minHeight={150}
@@ -660,7 +657,6 @@ const ProjectModal: React.FC<Props> = ({
                   clientId={clientId}
                   clientName={clientName}
                   responsible={responsible}
-                  users={users}
                   reminders={reminders}
                   onSaveReminder={onSaveReminder}
                   onDeleteReminder={wrappedOnDeleteReminder}

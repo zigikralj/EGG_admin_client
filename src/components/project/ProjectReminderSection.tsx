@@ -28,7 +28,7 @@ import {
 
 
 
-import type { Reminder, User, Project } from '../../types';
+import type { Reminder, Project } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { NotificationsActiveIcon, AddIcon, CloseIcon, CalendarTodayIcon, CheckIcon, EditIcon, DeleteIcon } from '../icons';
@@ -40,7 +40,6 @@ interface ProjectReminderSectionProps {
   clientId: string;
   clientName: string;
   responsible: string;
-  users?: User[];
   reminders: Reminder[];
   onSaveReminder?: (reminder: Partial<Reminder>) => void;
   onDeleteReminder?: (id: string) => void;
@@ -56,7 +55,6 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
   clientId,
   clientName,
   responsible,
-  users,
   reminders,
   onSaveReminder,
   onDeleteReminder,
@@ -95,9 +93,9 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
     toggleStagedReminderStatus,
   } = reminderState;
 
-  const shouldFetchUsers = (!users || users.length === 0) && (isAddingReminder || Boolean(editingProjectReminder));
-  const { data: fetchedUsers = [] } = useUsersSummaryQuery({ enabled: shouldFetchUsers });
-  const effectiveUsers = users && users.length > 0 ? users : fetchedUsers;
+  const { data: users = [] } = useUsersSummaryQuery({
+    enabled: isAddingReminder || Boolean(editingProjectReminder),
+  });
 
   const getStatusChip = (st?: string) => {
     if (!st) return null;
@@ -318,8 +316,8 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
                   {(() => {
-                    const respLabel = getResponsibleLabel(newReminderResponsible, effectiveUsers);
-                    const selectableUsers = effectiveUsers.filter((u) => {
+                    const respLabel = getResponsibleLabel(newReminderResponsible, users);
+                    const selectableUsers = users.filter((u) => {
                       const isSelected = Boolean(newReminderResponsible) && u.name.trim().toLowerCase() === newReminderResponsible.trim().toLowerCase();
                       if (isSelected) return true;
                       const isBlocked = u.status === "BLOCKED" || u.status?.toLowerCase() === "blocked" || (u.isApproved === false && u.status !== "PENDING");
@@ -637,8 +635,8 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
               </Grid>
               <Grid size={{ xs: 12 }}>
                 {(() => {
-                  const respLabel = getResponsibleLabel(editReminderResponsible, effectiveUsers);
-                  const selectableUsers = effectiveUsers.filter((u) => {
+                  const respLabel = getResponsibleLabel(editReminderResponsible, users);
+                  const selectableUsers = users.filter((u) => {
                     const isSelected =
                       Boolean(editReminderResponsible) &&
                       u.name.trim().toLowerCase() === editReminderResponsible.trim().toLowerCase();

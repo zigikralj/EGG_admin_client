@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 import type { Reminder, Project, Client, Permit, User } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
+import { useUsersSummaryQuery } from '../../queries';
 
 export interface ReminderModalProps {
   open: boolean;
@@ -23,7 +24,7 @@ export interface ReminderModalProps {
   projects: Project[];
   clients: Client[];
   permits: Permit[];
-  users: User[];
+  users?: User[];
   canCreate: boolean;
   canEdit: boolean;
   isRestricted: boolean;
@@ -48,6 +49,11 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
   isSaving = false,
 }) => {
   const { t, getResponsibleLabel } = useLanguage();
+
+  const { data: fetchedUsers = [] } = useUsersSummaryQuery({
+    enabled: open && (!users || users.length === 0),
+  });
+  const effectiveUsers = users && users.length > 0 ? users : fetchedUsers;
 
   const [title, setTitle] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState('');
@@ -118,7 +124,7 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
 
   const handleResponsibleSelect = (uId: string) => {
     setSelectedResponsibleId(uId);
-    const u = users.find((usr) => usr.id === uId);
+    const u = effectiveUsers.find((usr) => usr.id === uId);
     if (u) setResponsible(u.name);
   };
 
@@ -143,8 +149,8 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
     });
   };
 
-  const respLabel = getResponsibleLabel(selectedResponsibleId || responsible, users);
-  const selectableUsers = users.filter((u) => {
+  const respLabel = getResponsibleLabel(selectedResponsibleId || responsible, effectiveUsers);
+  const selectableUsers = effectiveUsers.filter((u) => {
     const isMe = Boolean(currentUser?.name) && u.name.trim().toLowerCase() === currentUser?.name?.trim().toLowerCase();
     if (isRestricted) return isMe;
     const isSelected =
