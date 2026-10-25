@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.11.2] - 2026-10-25
+
+- Lazy load optimization (#93) by @zigikralj
+
 ## [v1.11.1] - 2026-10-24
 
 - ci: run CodeQL only on pull requests and schedule (#91) by @zigikralj
