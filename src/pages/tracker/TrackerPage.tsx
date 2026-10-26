@@ -34,6 +34,11 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useLoading } from '../../context/LoadingContext';
 import { ArrowUpwardIcon, ArrowDownwardIcon, AddIcon, RefreshIcon } from '../../components/icons';
+import {
+  ClientAutocomplete,
+  UserAutocomplete,
+  ServiceAutocomplete,
+} from '../../components/common/autocomplete';
 
 const ProjectsStatistics = React.lazy(() => import('../../components/tracker/statistics/ProjectsStatistics'));
 const WasteDisposalStatistics = React.lazy(() => import('../../components/tracker/statistics/WasteDisposalStatistics'));
@@ -111,15 +116,13 @@ const DashboardView: React.FC<Props> = ({
   sortDashboardProjects,
   onSortDashboardProjectsChange,
 }) => {
-  const { t, getServiceLabel } = useLanguage();
+  const { t } = useLanguage();
   const { currentUser, isRestrictedToOwn, hasPermission } = useAuth();
   const isProjectsRestricted = isRestrictedToOwn('projects') || isRestrictedToOwn('tracker_projects');
   const isRemindersRestricted = isRestrictedToOwn('reminders') || isRestrictedToOwn('tracker_reminders');
   const { withLoading } = useLoading();
   const canViewWasteDisposal = hasPermission('wasteDisposal', 'view');
   const canViewUpdates = hasPermission('tracker_updates', 'view');
-
-  const [isProjectsFilterOpen, setIsProjectsFilterOpen] = useState(false);
 
   const isStatisticSubTab =
     dashboardSubTab === 'statistic' ||
@@ -131,19 +134,15 @@ const DashboardView: React.FC<Props> = ({
   const shouldFetchReminders = dashboardSubTab === 'reminders';
   const shouldFetchProvidedServices = dashboardSubTab === 'waste-disposal' || isStatisticSubTab;
   const shouldFetchClients =
-    (dashboardSubTab === 'projects' && isProjectsFilterOpen) ||
     dashboardSubTab === 'reminders' ||
     dashboardSubTab === 'waste-disposal' ||
     isStatisticSubTab;
   const shouldFetchUsers =
-    (dashboardSubTab === 'projects' && isProjectsFilterOpen) ||
     dashboardSubTab === 'reminders' ||
     isStatisticSubTab;
   const shouldFetchCategories =
-    (dashboardSubTab === 'projects' && isProjectsFilterOpen) ||
     isStatisticSubTab;
   const shouldFetchServices =
-    (dashboardSubTab === 'projects' && isProjectsFilterOpen) ||
     dashboardSubTab === 'waste-disposal' ||
     isStatisticSubTab;
 
@@ -431,35 +430,6 @@ const DashboardView: React.FC<Props> = ({
     setFilterDateField('deadline');
     setSearchQuery('');
   };
-
-  const uniqueCategories = useMemo(() => {
-    if (categories.length > 0) return categories.map((c) => c.name);
-    return Array.from(new Set(projects.map((p) => p.type).filter(Boolean)));
-  }, [categories, projects]);
-
-  const uniqueClients = useMemo(() => {
-    if (clients.length > 0) return Array.from(new Set(clients.map((c) => c.name).filter(Boolean))).sort((a, b) => a.localeCompare(b));
-    return Array.from(new Set(projects.map((p) => p.clientName).filter(Boolean))).sort((a, b) => a.localeCompare(b));
-  }, [clients, projects]);
-
-  const otherResponsibles = useMemo(() => {
-    const currentName = currentUser?.name?.trim().toLowerCase();
-    const source = users.length > 0 ? users.map((u) => u.name) : projects.map((p) => p.responsible);
-    const setOfNames = new Set(source.filter(Boolean) as string[]);
-    return Array.from(setOfNames)
-      .filter((r) => !currentName || r.trim().toLowerCase() !== currentName)
-      .sort((a, b) => a.localeCompare(b));
-  }, [users, projects, currentUser]);
-
-  const responsibleOptions = useMemo(() => {
-    if (isProjectsRestricted) {
-      return currentUser?.name ? [currentUser.name] : [];
-    }
-    const list: string[] = [];
-    if (currentUser?.name) list.push(currentUser.name);
-    list.push(...otherResponsibles);
-    return list;
-  }, [currentUser?.name, otherResponsibles, isProjectsRestricted]);
 
   const sortOptions = useMemo(() => [
     { value: 'deadline', label: t('deadline') },
@@ -797,7 +767,6 @@ const DashboardView: React.FC<Props> = ({
                 <TableFilterSelector
                   activeCount={activeFilterCount}
                   onClear={clearFilters}
-                  onOpen={() => setIsProjectsFilterOpen(true)}
                   sortingContent={
                     <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                       <Autocomplete
@@ -843,41 +812,35 @@ const DashboardView: React.FC<Props> = ({
                   }
                   filteringContent={
                     <>
-                      <Autocomplete
+                      <ServiceAutocomplete
                         size="small"
                         fullWidth
                         disablePortal
-                        options={uniqueCategories}
-                        getOptionLabel={(cat) => getServiceLabel(cat, services)}
                         value={filterCategory === 'all' ? null : filterCategory}
-                        onChange={(_, newValue) => setFilterCategory(newValue || 'all')}
-                        renderInput={(params) => <TextField {...params} label={t('colService')} size="small" />}
+                        valueMode="code"
+                        onChange={(val) => setFilterCategory(val || 'all')}
+                        label={t('colService')}
                       />
 
-                      <Autocomplete
+                      <ClientAutocomplete
                         size="small"
                         fullWidth
                         disablePortal
-                        options={uniqueClients}
                         value={filterClient === 'all' ? null : filterClient}
-                        onChange={(_, newValue) => setFilterClient(newValue || 'all')}
-                        renderInput={(params) => <TextField {...params} label={t('colClient')} size="small" />}
+                        valueMode="name"
+                        onChange={(val) => setFilterClient(val || 'all')}
+                        label={t('colClient')}
                       />
 
-                      <Autocomplete
+                      <UserAutocomplete
                         size="small"
                         fullWidth
                         disablePortal
-                        options={responsibleOptions}
-                        getOptionLabel={(option) => {
-                          if (currentUser?.name && option === currentUser.name) {
-                            return `${t('lblMe')} (${currentUser.name})`;
-                          }
-                          return option;
-                        }}
                         value={filterResponsible === 'all' ? null : filterResponsible}
-                        onChange={(_, newValue) => handleFilterResponsibleChange(newValue || 'all')}
-                        renderInput={(params) => <TextField {...params} label={t('colResponsible')} size="small" />}
+                        valueMode="name"
+                        restrictedPermission="projects"
+                        onChange={(val) => handleFilterResponsibleChange(val || 'all')}
+                        label={t('colResponsible')}
                       />
 
                       <Autocomplete

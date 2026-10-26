@@ -123,7 +123,6 @@ const ProvidedServicesPage: React.FC<Props> = ({
   const hasAnyRowAction = canEditAny || canDeleteAny;
   const [isOpen, setIsOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ProvidedService | null>(null);
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -177,7 +176,7 @@ const ProvidedServicesPage: React.FC<Props> = ({
   });
 
   const isStatsTab = subTab === 'statistics';
-  const shouldFetchClients = isStatsTab || isFilterOpen || filterClient !== 'all';
+  const shouldFetchClients = isStatsTab;
   const { data: providedServices = [] } = useProvidedServicesQuery({ enabled: isStatsTab });
   const { data: services = [] } = useServicesQuery();
   const { data: clients = [] } = useClientsSummaryQuery({ enabled: shouldFetchClients });
@@ -647,7 +646,6 @@ const ProvidedServicesPage: React.FC<Props> = ({
             <TableFilterSelector
               activeCount={activeFilterCount}
               onClear={clearFilters}
-              onOpen={() => setIsFilterOpen(true)}
               sortingContent={
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                   <Autocomplete
@@ -705,28 +703,24 @@ const ProvidedServicesPage: React.FC<Props> = ({
                     renderInput={(params) => <TextField {...params} label={t('lblInvoiceStatus')} size="small" />}
                   />
 
-                  <Autocomplete
+                  <ServiceAutocomplete
                     size="small"
                     fullWidth
                     disablePortal
-                    options={services}
-                    getOptionLabel={(option) => option.name || getServiceLabel(option.code)}
-                    isOptionEqualToValue={(option, val) => option.id === val.id}
-                    value={services.find((s) => s.id === filterService) || null}
-                    onChange={(_, newValue) => setFilterService(newValue ? newValue.id : 'all')}
-                    renderInput={(params) => <TextField {...params} label={t('colService')} size="small" />}
+                    value={filterService === 'all' ? null : filterService}
+                    valueMode="id"
+                    onChange={(val) => setFilterService(val || 'all')}
+                    label={t('colService')}
                   />
 
-                  <Autocomplete
+                  <ClientAutocomplete
                     size="small"
                     fullWidth
                     disablePortal
-                    options={clients}
-                    getOptionLabel={(option) => option.name}
-                    isOptionEqualToValue={(option, val) => option.id === val.id}
-                    value={clients.find((c) => c.id === filterClient) || null}
-                    onChange={(_, newValue) => setFilterClient(newValue ? newValue.id : 'all')}
-                    renderInput={(params) => <TextField {...params} label={t('colClient')} size="small" />}
+                    value={filterClient === 'all' ? null : filterClient}
+                    valueMode="id"
+                    onChange={(val) => setFilterClient(val || 'all')}
+                    label={t('colClient')}
                   />
                 </>
               }

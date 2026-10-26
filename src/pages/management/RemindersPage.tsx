@@ -49,14 +49,11 @@ const DEFAULT_COLUMNS = ['title', 'project', 'client', 'responsible', 'status', 
 
 import {
   usePaginatedRemindersQuery,
-  useProjectsQuery,
-  useClientsSummaryQuery,
-  useUsersSummaryQuery,
-  usePermitsSummaryQuery,
   useRemindersMutations,
 } from '../../queries';
 import { useDebounce } from '../../hooks/useDebounce';
 import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
+import { ClientAutocomplete, UserAutocomplete } from '../../components/common/autocomplete';
 
 const RemindersPage: React.FC<Props> = ({
   visibleColumns = DEFAULT_COLUMNS,
@@ -135,19 +132,12 @@ const RemindersPage: React.FC<Props> = ({
     defaultSortDirection: 'asc',
   });
 
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterClient, setFilterClient] = useState<string>('all');
   const [filterResponsible, setFilterResponsible] = useState<string>('all');
   const [filterDateFrom, setFilterDateFrom] = useState<string>('');
   const [filterDateTo, setFilterDateTo] = useState<string>('');
   const [filterDateField, setFilterDateField] = useState<string>('dueDate');
-
-  const shouldFetchFilterLookups = isFilterOpen || isOpen || filterClient !== 'all' || filterResponsible !== 'all';
-  const { data: clients = [] } = useClientsSummaryQuery({ enabled: shouldFetchFilterLookups });
-  const { data: users = [] } = useUsersSummaryQuery({ enabled: shouldFetchFilterLookups });
-  const { data: projects = [] } = useProjectsQuery('', { enabled: isOpen });
-  const { data: permits = [] } = usePermitsSummaryQuery({ enabled: isOpen });
 
   const { handleSave, handleDelete, handleStatusChangeReminder: handleStatusChange } = useRemindersMutations();
 
@@ -368,19 +358,6 @@ const RemindersPage: React.FC<Props> = ({
     }
   };
 
-  const uniqueClients = useMemo(() => {
-    if (clients.length > 0) return Array.from(new Set(clients.map((c) => c.name).filter(Boolean))).sort((a, b) => a.localeCompare(b));
-    return Array.from(new Set(rawReminders.map((r) => r.clientName).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b));
-  }, [clients, rawReminders]);
-
-  const otherResponsibles = useMemo(() => {
-    if (isRemindersRestricted) return [];
-    const source = users.length > 0 ? users.map((u) => u.name) : rawReminders.map((r) => r.responsible);
-    return Array.from(new Set(source.filter(Boolean) as string[]))
-      .filter((r) => !currentUser?.name || r.trim().toLowerCase() !== currentUser.name.trim().toLowerCase())
-      .sort((a, b) => a.localeCompare(b));
-  }, [isRemindersRestricted, users, rawReminders, currentUser]);
-
   useEffect(() => {
     setPage(0);
   }, [debouncedSearchQuery, quickFilters, filterStatus, filterClient, filterResponsible, filterDateFrom, filterDateTo, setPage]);
@@ -418,16 +395,6 @@ const RemindersPage: React.FC<Props> = ({
         return <Chip label={t('statusPending')} color="warning" size="small" sx={{ fontWeight: 600 }} />;
     }
   };
-
-  const responsibleOptions = useMemo(() => {
-    if (isRemindersRestricted) {
-      return currentUser?.name ? [currentUser.name] : [];
-    }
-    const list: string[] = [];
-    if (currentUser?.name) list.push(currentUser.name);
-    list.push(...otherResponsibles);
-    return list;
-  }, [currentUser?.name, otherResponsibles, isRemindersRestricted]);
 
   const sortOptions = useMemo(() => [
     { value: 'title', label: t('colTitle') },
@@ -530,7 +497,6 @@ const RemindersPage: React.FC<Props> = ({
             <TableFilterSelector
               activeCount={activeFilterCount}
               onClear={clearFilters}
-              onOpen={() => setIsFilterOpen(true)}
               sortingContent={
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                   <Autocomplete
@@ -587,30 +553,25 @@ const RemindersPage: React.FC<Props> = ({
                     renderInput={(params) => <TextField {...params} label={t('colStatus')} size="small" />}
                   />
 
-                  <Autocomplete
+                  <ClientAutocomplete
                     size="small"
                     fullWidth
                     disablePortal
-                    options={uniqueClients}
                     value={filterClient === 'all' ? null : filterClient}
-                    onChange={(_, newValue) => setFilterClient(newValue || 'all')}
-                    renderInput={(params) => <TextField {...params} label={t('colClient')} size="small" />}
+                    valueMode="id"
+                    onChange={(val) => setFilterClient(val || 'all')}
+                    label={t('colClient')}
                   />
 
-                  <Autocomplete
+                  <UserAutocomplete
                     size="small"
                     fullWidth
                     disablePortal
-                    options={responsibleOptions}
-                    getOptionLabel={(option) => {
-                      if (currentUser?.name && option === currentUser.name) {
-                        return `${t('lblMe')} (${currentUser.name})`;
-                      }
-                      return option;
-                    }}
                     value={filterResponsible === 'all' ? null : filterResponsible}
-                    onChange={(_, newValue) => handleFilterResponsibleChange(newValue || 'all')}
-                    renderInput={(params) => <TextField {...params} label={t('colResponsible')} size="small" />}
+                    valueMode="name"
+                    restrictedPermission="reminders"
+                    onChange={(val) => handleFilterResponsibleChange(val || 'all')}
+                    label={t('colResponsible')}
                   />
                 </>
               }
@@ -810,10 +771,6 @@ const RemindersPage: React.FC<Props> = ({
         open={isOpen}
         onClose={() => setIsOpen(false)}
         editingReminder={editingReminder}
-        projects={projects}
-        clients={clients}
-        permits={permits}
-        users={users}
         canCreate={canCreate}
         canEdit={editingReminder ? getItemPermissions(editingReminder).canEdit : canCreate}
         isRestricted={isRemindersRestricted}
