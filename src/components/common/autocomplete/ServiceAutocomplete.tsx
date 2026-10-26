@@ -25,7 +25,7 @@ export function ServiceAutocomplete<
   const defaultGetOptionLabel = (option: Service | string) => {
     if (typeof option === 'string') return option;
     if ((option as any)?.__isLoadMoreSentinel || option?.id === '__LOAD_MORE__') return '';
-    return (option.code ? getServiceLabel(option.code) : '') || option.name || option.code || '';
+    return option.name || (option.code ? getServiceLabel(option.code) : '') || option.code || '';
   };
 
   return (

@@ -150,8 +150,8 @@ describe('CustomAutocomplete', () => {
       />
     );
 
-    // Initial value resolved by code
-    expect(screen.getByDisplayValue('WASTE_DISPOSAL')).toBeInTheDocument();
+    // Initial value resolved by code with service name display
+    expect(screen.getByDisplayValue('Zbrinjavanje otpada')).toBeInTheDocument();
   });
 
   it('renders load more sentinel when hasMore is true and triggers fetchNextPage on click', async () => {
