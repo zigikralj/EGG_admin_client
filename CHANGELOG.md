@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.11.3] - 2026-10-26
+
+- refactor: optimize data fetching and query caching across components … (#95) by @zigikralj
+
 ## [v1.11.2] - 2026-10-25
 
 - Lazy load optimization (#93) by @zigikralj
