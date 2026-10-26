@@ -22,6 +22,7 @@ import {
   UndoIcon,
   RedoIcon,
   HistoryIcon,
+  AlternateEmailIcon,
 } from '../../icons';
 import { useLanguage } from '../../../context/LanguageContext';
 
@@ -236,6 +237,23 @@ export const TipTapToolbar: React.FC<TipTapToolbarProps> = ({
       <Tooltip title={t('insertTable') || 'Insert Table'}>
         <IconButton size="small" onClick={insertTable}>
           <TableChartIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+
+      {/* Mention User */}
+      <Tooltip title={t('editorMentionUser') || 'Mention user (@)'}>
+        <IconButton
+          size="small"
+          onClick={() => {
+            if (!editor) return;
+            const { from } = editor.state.selection;
+            const textBefore = editor.state.doc.textBetween(Math.max(0, from - 1), from);
+            const needsSpace = from > 0 && Boolean(textBefore) && !/\s/.test(textBefore);
+            editor.chain().focus().insertContent(needsSpace ? ' @' : '@').run();
+          }}
+          color="default"
+        >
+          <AlternateEmailIcon fontSize="small" />
         </IconButton>
       </Tooltip>
 

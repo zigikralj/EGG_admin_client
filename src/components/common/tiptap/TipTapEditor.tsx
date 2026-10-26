@@ -15,6 +15,8 @@ import type { User } from '../../../types';
 
 import { cleanWordHtml } from '../RichTextEditor';
 
+import { fetchMentionUsers } from '../../../queries';
+
 export interface TipTapEditorProps {
   value: string;
   onChange?: (html: string) => void;
@@ -36,7 +38,7 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = ({
   autoSaveDebounceMs = 3500,
   readOnly = false,
   placeholder,
-  users = [],
+  users: propUsers,
   onOpenHistory,
   minHeight = 220,
 }) => {
@@ -45,18 +47,28 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = ({
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedValRef = useRef(value || '');
 
-  const usersRef = useRef(users);
-  usersRef.current = users;
+  const propUsersRef = useRef(propUsers);
+  propUsersRef.current = propUsers;
 
   const mentionExt = useMemo(() => {
-    return createMentionExtension(() =>
-      usersRef.current.map((u) => ({
-        id: u.id,
-        name: u.name,
-        role: u.role,
-        avatarUrl: u.avatarUrl,
-      }))
-    );
+    return createMentionExtension(async (query: string, signal?: AbortSignal) => {
+      // 1. If explicit users were passed via prop, filter from them in memory
+      if (propUsersRef.current && propUsersRef.current.length > 0) {
+        const q = (query || '').toLowerCase().trim();
+        return propUsersRef.current
+          .filter((u) => u.status !== 'BLOCKED' && (!q || (u.name && u.name.toLowerCase().includes(q))))
+          .slice(0, 10)
+          .map((u) => ({
+            id: u.id,
+            name: u.name,
+            role: u.role,
+            avatarUrl: u.avatarUrl,
+          }));
+      }
+
+      // 2. Otherwise, fetch lightweight paginated users from server (limit: 10, fields: mention, debounced)
+      return await fetchMentionUsers(query, 10, signal);
+    });
   }, []);
 
   const editor = useEditor({

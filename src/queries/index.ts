@@ -512,7 +512,8 @@ export function useUsersQuery(options?: { enabled?: boolean }) {
     queryFn: async () => {
       const res = await apiFetch(API_ROUTES.USERS.BASE, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch users');
-      return res.json();
+      const data = await res.json();
+      return Array.isArray(data) ? data : (data.items || []);
     }
   });
 }
@@ -531,6 +532,69 @@ export function useUsersSummaryQuery(options?: { enabled?: boolean }) {
     },
     staleTime: 60_000,
   });
+}
+
+export interface MentionUserSummary {
+  id: string;
+  name: string;
+  role?: string;
+  avatarUrl?: string | null;
+}
+
+const mentionCache = new Map<string, { data: MentionUserSummary[]; expires: number }>();
+const MENTION_CACHE_TTL = 30_000;
+
+export async function fetchMentionUsers(
+  query: string = '',
+  limit: number = 10,
+  signal?: AbortSignal
+): Promise<MentionUserSummary[]> {
+  const trimmed = query.trim().toLowerCase();
+  const cacheKey = `${trimmed}:${limit}`;
+  const now = Date.now();
+  const cached = mentionCache.get(cacheKey);
+  if (cached && cached.expires > now) {
+    return cached.data;
+  }
+
+  const params = new URLSearchParams({
+    fields: 'mention',
+    page: '1',
+    limit: String(limit),
+  });
+  if (trimmed) {
+    params.set('search', trimmed);
+  }
+
+  const headers: Record<string, string> = {};
+  const storedUser = typeof localStorage !== 'undefined' ? localStorage.getItem('auth_user') : null;
+  if (storedUser) {
+    try {
+      const parsed = JSON.parse(storedUser);
+      if (parsed?.id) headers['X-User-Id'] = parsed.id;
+    } catch {}
+  }
+
+  try {
+    const res = await apiFetch(`${API_ROUTES.USERS.BASE}?${params.toString()}`, {
+      headers,
+      signal,
+    });
+
+    if (!res.ok) return [];
+    const data = await res.json();
+    const items: MentionUserSummary[] = (Array.isArray(data) ? data : data.items || []).map((u: any) => ({
+      id: String(u.id),
+      name: u.name,
+      role: u.role,
+      avatarUrl: u.avatarUrl,
+    }));
+
+    mentionCache.set(cacheKey, { data: items, expires: now + MENTION_CACHE_TTL });
+    return items;
+  } catch {
+    return [];
+  }
 }
 
 export interface PaginatedUsersParams {
