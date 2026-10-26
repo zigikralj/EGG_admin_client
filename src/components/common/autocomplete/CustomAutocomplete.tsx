@@ -5,6 +5,7 @@ import {
   CircularProgress,
   Box,
   Typography,
+  Button,
 } from '@mui/material';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useDebounce } from '../../../hooks/useDebounce';
@@ -104,6 +105,8 @@ export function CustomAutocomplete<
     fetchNextPage,
     isFetchingNextPage,
     isLoading,
+    isError,
+    refetch,
   } = useEntityAutocompleteInfiniteQuery<T>({
     entity,
     search: debouncedSearch,
@@ -529,6 +532,35 @@ export function CustomAutocomplete<
             <Typography variant="body2" color="text.secondary">
               {t('loadingData') || 'Učitavanje...'}
             </Typography>
+          </Box>
+        ) : isError ? (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 1,
+              py: 1,
+            }}
+          >
+            <Typography variant="body2" color="error">
+              {t('errorLoadingOptions')}
+            </Typography>
+            <Button
+              size="small"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                refetch();
+              }}
+              sx={{ textTransform: 'none', minWidth: 'auto', p: 0.5, fontSize: '0.75rem' }}
+            >
+              {t('btnRetry')}
+            </Button>
           </Box>
         ) : (
           <Typography variant="body2" color="text.secondary">

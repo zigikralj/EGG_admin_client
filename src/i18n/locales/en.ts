@@ -660,6 +660,7 @@ const enTranslations: TranslationKeys = {
   "appVersion": "Version",
   "buildTime": "Build",
   "loadingData": "Loading data...",
+  "errorLoadingOptions": "Error loading options",
   "loadingServerWakingUp": "Server is waking up...",
   "loadingServerWakingUpDetail": "Free tier hosting services (Render & Neon) hibernate during inactivity. Initial startup may take up to 60 seconds. Thank you for your patience!",
   "loadingSaving": "Saving changes...",

@@ -701,6 +701,7 @@ export interface TranslationKeys {
 
   // Loading Mask & Server Spin-up
   loadingData: string;
+  errorLoadingOptions: string;
   loadingServerWakingUp: string;
   loadingServerWakingUpDetail: string;
   loadingSaving: string;

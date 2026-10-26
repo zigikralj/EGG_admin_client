@@ -323,4 +323,26 @@ describe('CustomAutocomplete', () => {
     const petarOptions = screen.getAllByRole('option', { name: /Petar Marković/i });
     expect(petarOptions).toHaveLength(1);
   });
+
+  it('displays error state and retry button when query fails', async () => {
+    vi.spyOn(api, 'apiFetch').mockRejectedValue(new Error('Network error'));
+
+    renderWithProviders(
+      <CustomAutocomplete
+        entity="clients"
+        value={null}
+        onChange={vi.fn()}
+        placeholder="Select client"
+      />
+    );
+
+    const input = screen.getByPlaceholderText('Select client');
+    fireEvent.focus(input);
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Pokušaj ponovo|Retry/i })).toBeInTheDocument();
+    });
+  });
 });
+

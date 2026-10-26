@@ -660,6 +660,7 @@ const srLatnTranslations: TranslationKeys = {
   "appVersion": "Verzija",
   "buildTime": "Izdanje",
   "loadingData": "Učitavanje podataka...",
+  "errorLoadingOptions": "Greška pri učitavanju opcija",
   "loadingServerWakingUp": "Server se budi iz stanja mirovanja...",
   "loadingServerWakingUpDetail": "Besplatni servisi (Render i Neon) prelaze u hibernaciju nakon perioda neaktivnosti. Prvo pokretanje može potrajati do 60 sekundi. Hvala na strpljenju!",
   "loadingSaving": "Čuvanje izmena...",

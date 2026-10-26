@@ -660,6 +660,7 @@ const srCyrlTranslations: TranslationKeys = {
   "appVersion": "Верзија",
   "buildTime": "Издање",
   "loadingData": "Учитавање података...",
+  "errorLoadingOptions": "Грешка при учитавању опција",
   "loadingServerWakingUp": "Сервер се буди из стања мировања...",
   "loadingServerWakingUpDetail": "Бесплатни сервиси (Render и Neon) прелазе у хибернацију након периода неактивности. Прво покретање може потрајати до 60 секунди. Хвала на стрпљењу!",
   "loadingSaving": "Чување измена...",
