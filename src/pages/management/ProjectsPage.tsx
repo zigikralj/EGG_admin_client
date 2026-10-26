@@ -115,7 +115,7 @@ const ProjectNotesTableCell: React.FC<ProjectNotesTableCellProps> = ({ project: 
 
   const { data: details, isLoading } = useProjectDetailsQuery(
     p.id,
-    isTooltipOpen && !p.notes
+    isTooltipOpen
   );
 
   if (!hasNotes) {
@@ -127,7 +127,7 @@ const ProjectNotesTableCell: React.FC<ProjectNotesTableCellProps> = ({ project: 
   }
 
   const displayText = p.notesPreview || (p.notes ? stripHtmlToText(p.notes) : '') || t('viewProjectNotes');
-  const fullHtml = p.notes || details?.notes || null;
+  const fullHtml = details?.notes || p.notes || null;
 
   return (
     <Tooltip

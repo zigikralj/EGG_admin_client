@@ -1650,6 +1650,46 @@ export function useGenericActionMutation() {
   });
 }
 
+function updateProjectNotesInCache(
+  old: any,
+  targetId: string,
+  notes: string | null,
+  notesPreview: string | null
+) {
+  if (!old) return old;
+  // If it's a flat array of projects: Project[]
+  if (Array.isArray(old)) {
+    return old.map((p: any) =>
+      p && p.id === targetId ? { ...p, notes, notesPreview } : p
+    );
+  }
+  // If it's an infinite query data object: { pages: [{ items: Project[], ... }], pageParams: [...] }
+  if (old && typeof old === 'object' && Array.isArray(old.pages)) {
+    return {
+      ...old,
+      pages: old.pages.map((page: any) => {
+        if (!page || !Array.isArray(page.items)) return page;
+        return {
+          ...page,
+          items: page.items.map((p: any) =>
+            p && p.id === targetId ? { ...p, notes, notesPreview } : p
+          ),
+        };
+      }),
+    };
+  }
+  // If it's a paginated response object: { items: Project[], ... }
+  if (old && typeof old === 'object' && Array.isArray(old.items)) {
+    return {
+      ...old,
+      items: old.items.map((p: any) =>
+        p && p.id === targetId ? { ...p, notes, notesPreview } : p
+      ),
+    };
+  }
+  return old;
+}
+
 export function useProjectsMutations() {
   const generic = useGenericMutations<Project>({
     basePath: API_ROUTES.PROJECTS.BASE,
@@ -1700,23 +1740,27 @@ export function useProjectsMutations() {
       }
       return await res.json();
     },
-    onSuccess: (data: { id: string; notes: string | null; notesPreview: string | null }) => {
-      // Direct optimistic cache update to avoid refetching entire project list from Neon
-      queryClient.setQueryData(['projects', 'details', data.id], (old: any) => {
+    onSuccess: (data: any, variables: { id: string; notes: string | null }) => {
+      const targetProjectId = variables.id;
+      const content = data.notes !== undefined ? data.notes : variables.notes;
+      const preview = data.notesPreview !== undefined ? data.notesPreview : null;
+
+      queryClient.setQueryData(['projects', 'note', targetProjectId], (old: any) => ({
+        ...old,
+        projectId: targetProjectId,
+        content: content || '',
+      }));
+
+      queryClient.setQueryData(['projects', 'details', targetProjectId], (old: any) => {
         if (!old) return old;
-        return { ...old, notes: data.notes, notesPreview: data.notesPreview };
+        return { ...old, notes: content, notesPreview: preview };
       });
 
-      queryClient.setQueriesData({ queryKey: ['projects'] }, (old: any) => {
-        if (!old) return old;
-        if (Array.isArray(old)) {
-          return old.map((p: any) =>
-            p.id === data.id ? { ...p, notesPreview: data.notesPreview } : p
-          );
-        }
-        return old;
-      });
+      queryClient.setQueriesData({ queryKey: ['projects'] }, (old: any) =>
+        updateProjectNotesInCache(old, targetProjectId, content, preview)
+      );
 
+      queryClient.invalidateQueries({ queryKey: ['projects', 'note', 'revisions', targetProjectId] });
       queryClient.invalidateQueries({ queryKey: ['history'] });
       queryClient.invalidateQueries({ queryKey: ['history-diff'] });
       queryClient.invalidateQueries({ queryKey: ['history-version'] });
@@ -1740,25 +1784,31 @@ export function useProjectsMutations() {
       }
       return await res.json();
     },
-    onSuccess: (data: { id: string; content: string; notesPreview: string | null; version: number }) => {
-      queryClient.setQueryData(['projects', 'note', data.id], data);
+    onSuccess: (data: any, variables: { id: string; content: string; reason?: string }) => {
+      const targetProjectId = variables.id;
+      const preview = data.notesPreview !== undefined ? data.notesPreview : null;
 
-      queryClient.setQueryData(['projects', 'details', data.id], (old: any) => {
-        if (!old) return old;
-        return { ...old, notes: data.content, notesPreview: data.notesPreview };
+      queryClient.setQueryData(['projects', 'note', targetProjectId], {
+        id: data.noteId || data.id,
+        projectId: targetProjectId,
+        content: variables.content,
+        version: data.version,
+        updatedAt: data.updatedAt,
       });
 
-      queryClient.setQueriesData({ queryKey: ['projects'] }, (old: any) => {
+      queryClient.setQueryData(['projects', 'details', targetProjectId], (old: any) => {
         if (!old) return old;
-        if (Array.isArray(old)) {
-          return old.map((p: any) =>
-            p.id === data.id ? { ...p, notesPreview: data.notesPreview } : p
-          );
-        }
-        return old;
+        return { ...old, notes: variables.content, notesPreview: preview };
       });
 
-      queryClient.invalidateQueries({ queryKey: ['projects', 'note', 'revisions', data.id] });
+      queryClient.setQueriesData({ queryKey: ['projects'] }, (old: any) =>
+        updateProjectNotesInCache(old, targetProjectId, variables.content, preview)
+      );
+
+      queryClient.invalidateQueries({ queryKey: ['projects', 'note', 'revisions', targetProjectId] });
+      queryClient.invalidateQueries({ queryKey: ['history'] });
+      queryClient.invalidateQueries({ queryKey: ['history-diff'] });
+      queryClient.invalidateQueries({ queryKey: ['history-version'] });
     },
   });
 

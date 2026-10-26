@@ -170,7 +170,7 @@ const ProjectViewModal: React.FC<Props> = ({
 
   // Local state for editable notes
   const [notes, setNotes] = useState(effectiveProjectNotes || '');
-  const prevProjectIdRef = useRef(effectiveProjectId);
+  const prevProjectIdRef = useRef<string | undefined>(undefined);
   const lastSavedNotesRef = useRef(effectiveProjectNotes || '');
   const isAutoSavingRef = useRef(false);
 

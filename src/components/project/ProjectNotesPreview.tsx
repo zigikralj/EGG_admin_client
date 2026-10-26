@@ -45,10 +45,10 @@ export const ProjectNotesPreview: React.FC<ProjectNotesPreviewProps> = ({
 
   const { data: noteData, isLoading: isLoadingNote } = useProjectNoteQuery(
     projectId,
-    isExpanded && !initialNotes
+    isExpanded
   );
 
-  const fullNotes = initialNotes || (noteData?.content !== undefined ? noteData.content : null);
+  const fullNotes = noteData?.content !== undefined ? noteData.content : (initialNotes || null);
 
   const cleanText = useMemo(() => {
     if (notesPreview && notesPreview.trim()) return notesPreview.trim();
