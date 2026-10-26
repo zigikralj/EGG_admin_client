@@ -25,7 +25,7 @@ import {
 import type { Project, ProjectUpdateSummary } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import { useProjectUpdatesQuery, useUsersQuery, useAuthHeaders } from '../../queries';
+import { useProjectUpdatesQuery, useUsersSummaryQuery, useAuthHeaders } from '../../queries';
 import { apiFetch } from '../../api';
 import { API_ROUTES } from '../../constants';
 import { ProjectNotesPreview } from '../project/ProjectCard';
@@ -113,9 +113,9 @@ export const ProjectUpdatesPanel: React.FC<ProjectUpdatesPanelProps> = ({
   const { t } = useLanguage();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
-  const { data: users = [] } = useUsersQuery();
   const { currentUser, isRestrictedToOwn, canEditProject } = useAuth();
   const isRestricted = isRestrictedToOwn('tracker_updates') || isRestrictedToOwn('tracker_projects') || isRestrictedToOwn('projects');
+  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
 
   // Helper date calculations
   const calculatePresetRange = (preset: DatePreset): { dateFrom: string; dateTo: string } => {
@@ -164,6 +164,8 @@ export const ProjectUpdatesPanel: React.FC<ProjectUpdatesPanelProps> = ({
   const [customTo, setCustomTo] = useState<string>(() => range.dateTo.slice(0, 16));
   const [search, setSearch] = useState<string>('');
   const [responsibleId, setResponsibleId] = useState<string>(() => (isRestricted && currentUser?.id ? currentUser.id : ''));
+  const shouldFetchUsers = !isRestricted && (Boolean(responsibleId) || isUserDropdownOpen);
+  const { data: users = [] } = useUsersSummaryQuery({ enabled: shouldFetchUsers });
 
   useEffect(() => {
     if (isRestricted && currentUser?.id && !responsibleId) {
@@ -220,20 +222,6 @@ export const ProjectUpdatesPanel: React.FC<ProjectUpdatesPanelProps> = ({
           headers: getAuthHeaders(),
         });
         if (!res.ok) throw new Error('Failed to prefetch project details');
-        return res.json();
-      },
-      meta: { silent: true },
-      staleTime: 5 * 60_000,
-    });
-
-    // Prefetch project note
-    queryClient.prefetchQuery({
-      queryKey: ['projects', 'note', projectId],
-      queryFn: async () => {
-        const res = await apiFetch(API_ROUTES.PROJECTS.NOTE(projectId), {
-          headers: getAuthHeaders(),
-        });
-        if (!res.ok) throw new Error('Failed to prefetch project note');
         return res.json();
       },
       meta: { silent: true },
@@ -449,6 +437,7 @@ export const ProjectUpdatesPanel: React.FC<ProjectUpdatesPanelProps> = ({
               value={isRestricted && currentUser?.id ? currentUser.id : responsibleId}
               label={t('lblResponsiblePerson') || 'Odgovorno lice'}
               onChange={(e) => setResponsibleId(e.target.value)}
+              onOpen={() => setIsUserDropdownOpen(true)}
               disabled={isRestricted}
             >
               {!isRestricted && <MenuItem value="">{t('allUsers') || 'Svi korisnici'}</MenuItem>}

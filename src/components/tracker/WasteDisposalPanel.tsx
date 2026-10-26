@@ -149,7 +149,6 @@ export const WasteDisposalPanel: React.FC<Props> = ({
 }) => {
   const { t, getServiceLabel, getPermitTypeLabel } = useLanguage();
   const { hasPermission } = useAuth();
-  const { resolveListOptions } = useLinkedListOptions();
   const { handleSave: handleSaveService } = useServicesMutations();
   const canEdit = hasPermission('wasteDisposal', 'edit') || hasPermission('providedServices', 'edit');
   const canDelete = hasPermission('wasteDisposal', 'delete') || hasPermission('providedServices', 'delete');
@@ -196,6 +195,7 @@ export const WasteDisposalPanel: React.FC<Props> = ({
 
   // Dialog State
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { resolveListOptions } = useLinkedListOptions({ enabled: isDialogOpen });
   const [isViewMode, setIsViewMode] = useState(false);
   const [editingItem, setEditingItem] = useState<ProvidedService | null>(null);
   const [isSaving, setIsSaving] = useState(false);

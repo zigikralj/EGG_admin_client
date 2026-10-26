@@ -44,7 +44,6 @@ import {
 import {
   usePaginatedPermitsQuery,
   useClientsSummaryQuery,
-  useRemindersQuery,
   usePermitsMutations,
   useRemindersMutations,
 } from '../../queries';
@@ -126,7 +125,6 @@ const PermitsPage: React.FC<Props> = ({
 
   const shouldFetchClients = isFilterOpen || isOpen || filterClient !== 'all';
   const { data: clients = [] } = useClientsSummaryQuery({ enabled: shouldFetchClients });
-  const { data: reminders = [] } = useRemindersQuery({ enabled: isOpen });
   const { handleSave: handleSavePermit, handleDelete: handleDeletePermit } = usePermitsMutations();
   const { handleSave: handleSaveReminder, handleDelete: handleDeleteReminder } = useRemindersMutations();
 
@@ -481,15 +479,13 @@ const PermitsPage: React.FC<Props> = ({
   // Map reminders to permits
   const permitRemindersMap = useMemo(() => {
     const map = new Map<string, Reminder[]>();
-    reminders.forEach((r) => {
-      if (r.permitId) {
-        const existing = map.get(r.permitId) || [];
-        existing.push(r);
-        map.set(r.permitId, existing);
+    permits.forEach((p) => {
+      if (p.id && (p as any).reminders) {
+        map.set(p.id, (p as any).reminders);
       }
     });
     return map;
-  }, [reminders]);
+  }, [permits]);
 
 
 
@@ -771,7 +767,6 @@ const PermitsPage: React.FC<Props> = ({
         onClose={() => setIsOpen(false)}
         editingPermit={editingPermit}
         clients={clients}
-        reminders={reminders}
         canEdit={canEdit}
         canCreate={canCreate}
         canDelete={canDelete}

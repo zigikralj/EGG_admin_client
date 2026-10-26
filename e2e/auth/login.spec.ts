@@ -202,6 +202,8 @@ test.describe('Login flow', () => {
     // Open user avatar dropdown menu in header by clicking the user name/avatar box
     const userHeading = page.locator('header').getByRole('heading', { name: 'Test User' });
     await expect(userHeading).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await expect(userHeading).toBeVisible({ timeout: 10000 });
     await userHeading.click();
 
     // Wait for the menu to open and click the logout menu item

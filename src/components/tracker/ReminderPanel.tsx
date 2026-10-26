@@ -37,6 +37,11 @@ import { ErrorDialog } from '../dialogs/ErrorDialog';
 import { NotificationsActiveIcon, EditIcon, DeleteIcon, CheckIcon, CalendarTodayIcon, AddIcon, ArrowUpwardIcon, ArrowDownwardIcon, VisibilityIcon } from '../icons';
 import { DashboardPanelSkeleton } from '../tracker/DashboardPanelSkeleton';
 import { useTableView } from '../../hooks/useTableView';
+import {
+  ProjectAutocomplete,
+  ClientAutocomplete,
+  UserAutocomplete,
+} from '../common/autocomplete';
 
 interface Props {
   projects?: Project[];
@@ -272,48 +277,6 @@ export const ReminderPanel: React.FC<Props> = ({
     return [];
   }, [reminders, projects, clients, users]);
 
-  const uniqueClients = useMemo(() => {
-    const set = new Set<string>();
-    rawItems.forEach((r) => {
-      if (r.clientName && r.clientName.trim()) set.add(r.clientName.trim());
-    });
-    clients.forEach((c) => {
-      if (c.name && c.name.trim()) set.add(c.name.trim());
-    });
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [rawItems, clients]);
-
-  const otherResponsibles = useMemo(() => {
-    if (isRemindersRestricted) return [];
-    const currentName = currentUser?.name?.trim().toLowerCase();
-    const set = new Set<string>();
-    rawItems.forEach((r) => {
-      if (r.responsible && r.responsible !== '—' && r.responsible.trim()) {
-        set.add(r.responsible.trim());
-      }
-    });
-    users.forEach((u) => {
-      if (u.name && u.name.trim()) set.add(u.name.trim());
-    });
-    return Array.from(set)
-      .filter((r) => !currentName || r.trim().toLowerCase() !== currentName)
-      .sort((a, b) => a.localeCompare(b));
-  }, [rawItems, users, currentUser, isRemindersRestricted]);
-
-  const responsibleOptions = useMemo(() => {
-    if (isRemindersRestricted) {
-      return currentUser?.name ? [currentUser.name] : [];
-    }
-    const list: string[] = [];
-    if (currentUser?.name) {
-      list.push(currentUser.name);
-    }
-    otherResponsibles.forEach((r) => {
-      if (!list.includes(r)) list.push(r);
-    });
-    return list;
-  }, [currentUser, otherResponsibles, isRemindersRestricted]);
-
   const sortOptions = useMemo(() => [
     { value: 'dueDate', label: t('lblDueDate') },
     { value: 'title', label: t('colTitle') },
@@ -514,10 +477,10 @@ export const ReminderPanel: React.FC<Props> = ({
     setSelectedReminder(null);
   };
 
-  const handleProjectSelect = (projId: string) => {
+  const handleProjectSelect = (projId: string, projObj?: Project | null) => {
     setSelectedProjectId(projId);
-    if (!projId) return;
-    const proj = projects.find((p) => p.id === projId);
+    if (!projId && !projObj) return;
+    const proj = projObj || projects.find((p) => p.id === projId);
     if (proj) {
       if (!title) {
         setTitle(proj.name);
@@ -729,40 +692,25 @@ export const ReminderPanel: React.FC<Props> = ({
                   renderInput={(params) => <TextField {...params} label={t('colStatus')} size="small" />}
                 />
 
-                <Autocomplete
+                <ClientAutocomplete
                   size="small"
                   fullWidth
                   disablePortal
-                  options={uniqueClients}
                   value={filterClient === 'all' ? null : filterClient}
-                  onChange={(_, newValue) => setFilterClient(newValue || 'all')}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label={t('colClient')}
-                    />
-                  )}
+                  valueMode="name"
+                  onChange={(val) => setFilterClient(val || 'all')}
+                  label={t('colClient')}
                 />
 
-                <Autocomplete
+                <UserAutocomplete
                   size="small"
                   fullWidth
                   disablePortal
-                  options={responsibleOptions}
-                  getOptionLabel={(option) => {
-                    if (currentUser?.name && option === currentUser.name) {
-                      return `${t('lblMe')} (${currentUser.name})`;
-                    }
-                    return option;
-                  }}
                   value={filterResponsible === 'all' ? null : filterResponsible}
-                  onChange={(_, newValue) => handleFilterResponsibleChange(newValue || 'all')}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label={t('colResponsible')}
-                    />
-                  )}
+                  valueMode="name"
+                  restrictedPermission="reminders"
+                  onChange={(val) => handleFilterResponsibleChange(val || 'all')}
+                  label={t('colResponsible')}
                 />
               </>
             }
@@ -965,129 +913,94 @@ export const ReminderPanel: React.FC<Props> = ({
 
               {/* Project Selection / Custom Name */}
               <Grid size={{ xs: 12 }}>
-                <Autocomplete
+                <ProjectAutocomplete
                   freeSolo
                   size="small"
                   disabled={!canEditSelected}
-                  options={projects}
-                  getOptionLabel={(option) => {
-                    if (typeof option === 'string') return option;
-                    return `${option.name} (${option.clientName})`;
-                  }}
                   value={
                     selectedProjectId
-                      ? projects.find((p) => p.id === selectedProjectId) || projectName
-                      : projectName
+                      ? { id: selectedProjectId, name: projectName }
+                      : projectName || null
                   }
-                  onChange={(_, newValue) => {
+                  initialOption={
+                    selectedProjectId ? ({ id: selectedProjectId, name: projectName } as any) : null
+                  }
+                  onChange={(newValue, opt) => {
                     if (typeof newValue === 'string') {
                       setSelectedProjectId('');
                       setProjectName(newValue);
-                    } else if (newValue) {
-                      handleProjectSelect(newValue.id);
+                    } else if (opt) {
+                      handleProjectSelect(opt.id, opt);
                     } else {
                       setSelectedProjectId('');
                       setProjectName('');
                     }
                   }}
-                  onInputChange={(_, newInputValue, reason) => {
-                    if (reason === 'input') {
-                      setSelectedProjectId('');
-                      setProjectName(newInputValue);
-                    }
-                  }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label={t('colProject')}
-                    />
-                  )}
+                  label={t('colProject')}
+                  placeholder={t('phProjectName')}
                 />
               </Grid>
 
               {/* Client Selection / Custom Name */}
               <Grid size={{ xs: 12, sm: 6 }}>
-                <Autocomplete
+                <ClientAutocomplete
                   freeSolo
                   size="small"
                   disabled={!canEditSelected}
-                  options={clients}
-                  getOptionLabel={(option) => {
-                    if (typeof option === 'string') return option;
-                    return option.name;
-                  }}
                   value={
                     selectedClientId
-                      ? clients.find((c) => c.id === selectedClientId) || clientName
-                      : clientName
+                      ? { id: selectedClientId, name: clientName }
+                      : clientName || null
                   }
-                  onChange={(_, newValue) => {
+                  initialOption={
+                    selectedClientId ? ({ id: selectedClientId, name: clientName } as any) : null
+                  }
+                  onChange={(newValue, opt) => {
                     if (typeof newValue === 'string') {
                       setSelectedClientId('');
                       setClientName(newValue);
-                    } else if (newValue) {
-                      setSelectedClientId(newValue.id);
-                      setClientName(newValue.name);
+                    } else if (opt) {
+                      setSelectedClientId(opt.id || '');
+                      setClientName(opt.name || '');
                     } else {
                       setSelectedClientId('');
                       setClientName('');
                     }
                   }}
-                  onInputChange={(_, newInputValue, reason) => {
-                    if (reason === 'input') {
-                      setSelectedClientId('');
-                      setClientName(newInputValue);
-                    }
-                  }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label={t('colClient')}
-                    />
-                  )}
+                  label={t('colClient')}
+                  placeholder={t('phClient')}
                 />
               </Grid>
 
               {/* Responsible Person */}
               <Grid size={{ xs: 12, sm: 6 }}>
-                <Autocomplete
+                <UserAutocomplete
                   freeSolo
                   size="small"
                   disabled={!canEditSelected || isRemindersRestricted}
-                  options={users}
-                  getOptionLabel={(option) => {
-                    if (typeof option === 'string') return option;
-                    return option.name;
-                  }}
                   value={
                     selectedResponsibleId
-                      ? users.find((u) => u.id === selectedResponsibleId) || responsible
-                      : responsible
+                      ? { id: selectedResponsibleId, name: responsible }
+                      : responsible || null
                   }
-                  onChange={(_, newValue) => {
-                    if (typeof newValue === 'string') {
-                      setSelectedResponsibleId('');
-                      setResponsible(newValue);
-                    } else if (newValue) {
-                      setSelectedResponsibleId(newValue.id);
-                      setResponsible(newValue.name);
+                  initialOption={
+                    selectedResponsibleId ? ({ id: selectedResponsibleId, name: responsible } as any) : null
+                  }
+                  valueMode="name"
+                  onChange={(val, opt) => {
+                    if (typeof val === 'string') {
+                      setResponsible(val);
+                      setSelectedResponsibleId(opt?.id || '');
+                    } else if (opt) {
+                      setSelectedResponsibleId(opt.id || '');
+                      setResponsible(opt.name || '');
                     } else {
                       setSelectedResponsibleId('');
                       setResponsible('');
                     }
                   }}
-                  onInputChange={(_, newInputValue, reason) => {
-                    if (reason === 'input') {
-                      setSelectedResponsibleId('');
-                      setResponsible(newInputValue);
-                    }
-                  }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label={t('colResponsible')}
-                    />
-                  )}
+                  label={t('colResponsible')}
+                  placeholder={currentUser?.name || ''}
                 />
               </Grid>
 

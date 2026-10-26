@@ -59,14 +59,12 @@ const DEFAULT_COLUMNS = ['invoiceNumber', 'invoiceType', 'linkedInvoices', 'clie
 
 import {
   usePaginatedInvoicesQuery,
-  useClientsSummaryQuery,
-  useProjectsQuery,
-  useProvidedServicesQuery,
   useInvoicesMutations,
   useProvidedServicesMutations,
 } from '../../queries';
 import { useDebounce } from '../../hooks/useDebounce';
 import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
+import { ClientAutocomplete } from '../../components/common/autocomplete';
 
 const InvoicesPage: React.FC<Props> = ({
   visibleColumns = DEFAULT_COLUMNS,
@@ -126,8 +124,6 @@ const InvoicesPage: React.FC<Props> = ({
     defaultSortDirection: 'desc',
   });
 
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-
   // Filter states
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterClient, setFilterClient] = useState<string>('all');
@@ -137,11 +133,6 @@ const InvoicesPage: React.FC<Props> = ({
   const [filterDateFrom, setFilterDateFrom] = useState<string>('');
   const [filterDateTo, setFilterDateTo] = useState<string>('');
   const [filterDateField, setFilterDateField] = useState<string>('dateCreated');
-
-  const shouldFetchClients = isFilterOpen || isOpen || filterClient !== 'all';
-  const { data: clients = [] } = useClientsSummaryQuery({ enabled: shouldFetchClients });
-  const { data: projects = [] } = useProjectsQuery('', { enabled: isOpen });
-  const { data: providedServices = [] } = useProvidedServicesQuery({ enabled: isOpen });
 
   const { handleSave: handleSaveInvoice, handleDelete, handleUpdateInvoiceStatus } = useInvoicesMutations();
   const { handleSave: handleSaveProvidedService } = useProvidedServicesMutations();
@@ -481,7 +472,6 @@ const InvoicesPage: React.FC<Props> = ({
             <TableFilterSelector
               activeCount={activeFilterCount}
               onClear={clearFilters}
-              onOpen={() => setIsFilterOpen(true)}
               sortingContent={
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                   <Autocomplete
@@ -589,21 +579,15 @@ const InvoicesPage: React.FC<Props> = ({
                   </FormControl>
 
                   {/* Client Filter */}
-                  <FormControl fullWidth size="small">
-                    <InputLabel>{t('lblClient')}</InputLabel>
-                    <Select
-                      value={filterClient}
-                      label={t('lblClient')}
-                      onChange={(e) => setFilterClient(e.target.value)}
-                    >
-                      <MenuItem value="all">All</MenuItem>
-                      {clients.map((c) => (
-                        <MenuItem key={c.id} value={c.id}>
-                          {c.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <ClientAutocomplete
+                    size="small"
+                    fullWidth
+                    disablePortal
+                    value={filterClient === 'all' ? null : filterClient}
+                    valueMode="id"
+                    onChange={(val) => setFilterClient(val || 'all')}
+                    label={t('lblClient')}
+                  />
                 </Box>
               }
             />
@@ -1031,9 +1015,6 @@ const InvoicesPage: React.FC<Props> = ({
         open={isOpen}
         onClose={() => setIsOpen(false)}
         editingInvoice={editingInvoice}
-        clients={clients}
-        projects={projects}
-        providedServices={providedServices}
         invoices={rawInvoices}
         onSave={handleSaveInvoiceFromModal}
         isSaving={isSaving}

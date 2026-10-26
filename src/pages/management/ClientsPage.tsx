@@ -39,9 +39,10 @@ interface Props extends TableViewProps {}
 
 const DEFAULT_COLUMNS = ['name', 'city', 'contactPerson', 'email', 'phone', 'permit', 'projectCount'];
 
-import { useClientsSummaryQuery, usePaginatedClientsQuery, usePermitsSummaryQuery, useClientsMutations } from '../../queries';
+import { useClientsSummaryQuery, usePaginatedClientsQuery, useClientsMutations } from '../../queries';
 import { useDebounce } from '../../hooks/useDebounce';
 import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
+import { PermitAutocomplete } from '../../components/common/autocomplete';
 
 const ClientsPage: React.FC<Props> = ({
   visibleColumns = DEFAULT_COLUMNS,
@@ -74,7 +75,6 @@ const ClientsPage: React.FC<Props> = ({
 
   const shouldFetchClientsSummary = isFilterOpen || filterCity !== 'all';
   const { data: clientsSummary = [] } = useClientsSummaryQuery({ enabled: shouldFetchClientsSummary });
-  const { data: permits = [] } = usePermitsSummaryQuery({ enabled: isOpen });
   const { handleSave, handleDelete } = useClientsMutations();
   const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
   const onDeleteClient = (id: string) => handleDelete(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
@@ -162,19 +162,9 @@ const ClientsPage: React.FC<Props> = ({
 
   const getClientPermits = useCallback((c: Client): Permit[] => {
     if (c.permits && c.permits.length > 0) return c.permits;
-    const byClientId = permits.filter((p) => p.clientId === c.id);
-    if (byClientId.length > 0) return byClientId;
     if (c.permit) return [c.permit];
-    if (c.permitId) {
-      const found = permits.find((p) => p.id === c.permitId);
-      if (found) return [found];
-    }
-    if (c.extraData?.permitId) {
-      const found = permits.find((p) => p.id === c.extraData!.permitId);
-      if (found) return [found];
-    }
     return [];
-  }, [permits]);
+  }, []);
 
   const openNew = () => {
     if (!canCreate) return;
@@ -701,30 +691,16 @@ const ClientsPage: React.FC<Props> = ({
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
-                <Autocomplete
+                <PermitAutocomplete
                   multiple
-                  options={permits}
-                  getOptionLabel={(option) =>
-                    typeof option === 'string'
-                      ? option
-                      : `${option.permitNumber}${option.indexNumber ? ` (${option.indexNumber})` : ''}`
-                  }
-                  value={permits.filter((p) => selectedPermitIds.includes(p.id))}
-                  onChange={(_, newValues) => {
-                    setSelectedPermitIds(
-                      newValues.map((v) => (typeof v === 'string' ? v : v.id))
-                    );
+                  size="small"
+                  value={selectedPermitIds}
+                  initialOption={editingClient?.permits}
+                  onChange={(ids) => {
+                    setSelectedPermitIds(ids || []);
                   }}
-                  isOptionEqualToValue={(option, val) => option.id === val.id}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      size="small"
-                      label={t('lblPermit')}
-                      placeholder={t('phSelectPermit')}
-                      helperText={!permits.length ? t('emptyPermits') : undefined}
-                    />
-                  )}
+                  label={t('lblPermit')}
+                  placeholder={t('phSelectPermit')}
                 />
               </Grid>
             </Grid>

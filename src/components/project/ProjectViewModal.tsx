@@ -42,16 +42,10 @@ import {
 import { ConfirmDialog } from '../dialogs/ConfirmDialog';
 import { HistoryTimelineModal } from '../history';
 import {
-  useClientsQuery,
-  useUsersQuery,
-  useServicesQuery,
-  useRemindersQuery,
-  useInvoicesQuery,
   useProjectsMutations,
   useRemindersMutations,
   useInvoicesMutations,
   useProjectDetailsQuery,
-  useProjectNoteQuery,
   useProjectUpdatesDiffQuery,
 } from '../../queries';
 
@@ -70,11 +64,6 @@ const ProjectViewModal: React.FC<Props> = ({
   onEdit,
   diffRange,
 }) => {
-  const { data: clients = [] } = useClientsQuery();
-  const { data: users = [] } = useUsersQuery();
-  const { data: services = [] } = useServicesQuery();
-  const { data: reminders = [] } = useRemindersQuery();
-  const { data: invoices = [] } = useInvoicesQuery();
   const { handleSave: onSave, handleSaveNotes: _handleSaveNotes, handleSaveNote, toggleDoneMutation } = useProjectsMutations();
   const { handleSave: onSaveReminder, handleDelete: onDeleteReminder, handleStatusChangeReminder: onStatusChangeReminder } = useRemindersMutations();
   const { handleSave: onSaveInvoice, handleDelete: onDeleteInvoice, handleUpdateInvoiceStatus: _onStatusChangeInvoice } = useInvoicesMutations();
@@ -177,16 +166,11 @@ const ProjectViewModal: React.FC<Props> = ({
     );
   };
 
-  const { data: noteData } = useProjectNoteQuery(
-    effectiveProjectId,
-    isOpen && Boolean(effectiveProjectId)
-  );
-
-  const effectiveProjectNotes = noteData?.content !== undefined ? noteData.content : effectiveProject?.notes;
+  const effectiveProjectNotes = effectiveProject?.notes;
 
   // Local state for editable notes
   const [notes, setNotes] = useState(effectiveProjectNotes || '');
-  const prevProjectIdRef = useRef(effectiveProjectId);
+  const prevProjectIdRef = useRef<string | undefined>(undefined);
   const lastSavedNotesRef = useRef(effectiveProjectNotes || '');
   const isAutoSavingRef = useRef(false);
 
@@ -214,11 +198,12 @@ const ProjectViewModal: React.FC<Props> = ({
     }
   }, [effectiveProjectId, effectiveProjectNotes]);
 
+  const reminders = effectiveProject?.reminders || [];
+  const invoices = effectiveProject?.invoices || [];
+
   const { reminderState, invoiceState } = useProjectForm({
     projectToEdit: effectiveProject,
-    clients,
-    users,
-    services,
+    clients: (effectiveProject?.client ? [effectiveProject.client] : []) as any,
     reminders,
     invoices,
     currentUser,
@@ -256,7 +241,7 @@ const ProjectViewModal: React.FC<Props> = ({
 
   if (!isOpen || !project) return null;
 
-  const clientObj = clients.find((c) => c.id === project.clientId || c.name === project.clientName);
+  const clientObj = effectiveProject?.client || null;
 
   const isEditable = project ? canEditProject(project) : false;
   const canEditProjectInvoices = canManageInvoices;
@@ -446,11 +431,11 @@ const ProjectViewModal: React.FC<Props> = ({
             <Grid size={{ xs: 12, sm: 6 }}>
               <Box sx={{ py: 0.75, px: 1.25, bgcolor: 'background.default', borderRadius: 1, border: '1px solid', borderColor: 'divider', height: '100%', display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                 <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600, fontSize: '0.8125rem', whiteSpace: 'nowrap' }}>
-                  {getResponsibleLabel(project.responsible, users)}:
+                  {getResponsibleLabel(effectiveProject?.responsibleUser || effectiveProject?.responsible || project.responsible)}:
                 </Typography>
                 <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap' }}>
-                  {project.responsible || '—'}
-                  {renderFieldDiff('responsible', (r) => getResponsibleLabel(r, users))}
+                  {effectiveProject?.responsible || project.responsible || '—'}
+                  {renderFieldDiff('responsible', (r) => getResponsibleLabel(r))}
                 </Typography>
               </Box>
             </Grid>
@@ -462,8 +447,8 @@ const ProjectViewModal: React.FC<Props> = ({
                   {t('lblService')}:
                 </Typography>
                 <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap' }}>
-                  {getServiceLabel(project.type, services)}
-                  {renderFieldDiff('type', (tp) => getServiceLabel(tp, services))}
+                  {effectiveProject?.serviceName || effectiveProject?.service?.name || getServiceLabel(effectiveProject?.type || project.type)}
+                  {renderFieldDiff('type', (tp) => effectiveProject?.serviceName || getServiceLabel(tp))}
                 </Typography>
               </Box>
             </Grid>
@@ -764,7 +749,6 @@ const ProjectViewModal: React.FC<Props> = ({
                       } catch {}
                     }}
                     onAutoSave={handleAutoSaveNotes}
-                    users={users}
                     placeholder={t('phProjectNotes')}
                     minHeight={160}
                   />
@@ -772,7 +756,6 @@ const ProjectViewModal: React.FC<Props> = ({
                   <TipTapEditor
                     value={notes}
                     readOnly
-                    users={users}
                     minHeight={100}
                   />
                 )}
@@ -860,7 +843,6 @@ const ProjectViewModal: React.FC<Props> = ({
                 clientId={project.clientId || ''}
                 clientName={project.clientName || ''}
                 responsible={project.responsible || ''}
-                users={users}
                 reminders={reminders}
                 onSaveReminder={onSaveReminder}
                 onDeleteReminder={wrappedOnDeleteReminder}

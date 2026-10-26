@@ -3,8 +3,13 @@ export interface Project {
   name: string;
   clientId?: string | null;
   clientName: string;
+  client?: { id: string; name: string; city?: string | null } | null;
   responsible: string | null;
+  responsibleId?: string | null;
+  responsibleUser?: { id: string; name: string; email?: string | null; gender?: string | null } | null;
   type: string;
+  serviceName?: string | null;
+  service?: { id?: string; code?: string; name: string } | null;
   start: string | null;
   deadline: string | null;
   progress: number;
@@ -199,7 +204,7 @@ export interface User {
   id: string;
   name: string;
   email?: string | null;
-  role: UserRole;
+  role?: UserRole;
   roleEntity?: Role | null;
   permissions?: Record<string, any>;
   isSystemAdmin?: boolean;
@@ -289,6 +294,7 @@ export interface Invoice {
   items?: InvoiceItem[];
   client?: Client | null;
   project?: Project | null;
+  providedServices?: { id: string; scheduledDate?: string | null; status?: string | null }[];
   isNewStaged?: boolean;
   isLinkedExisting?: boolean;
   createdAt?: string;

@@ -8,7 +8,6 @@ import {
   ToggleButton,
   Grid,
   TextField,
-  Autocomplete,
   Chip,
   Tooltip,
   IconButton,
@@ -28,10 +27,11 @@ import {
 
 
 
-import type { Reminder, User, Project } from '../../types';
+import type { Reminder, Project } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { NotificationsActiveIcon, AddIcon, CloseIcon, CalendarTodayIcon, CheckIcon, EditIcon, DeleteIcon } from '../icons';
+import { UserAutocomplete, ReminderAutocomplete } from '../common/autocomplete';
 
 interface ProjectReminderSectionProps {
   projectToEdit?: Project | null;
@@ -39,7 +39,6 @@ interface ProjectReminderSectionProps {
   clientId: string;
   clientName: string;
   responsible: string;
-  users: User[];
   reminders: Reminder[];
   onSaveReminder?: (reminder: Partial<Reminder>) => void;
   onDeleteReminder?: (id: string) => void;
@@ -55,7 +54,6 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
   clientId,
   clientName,
   responsible,
-  users,
   reminders,
   onSaveReminder,
   onDeleteReminder,
@@ -64,7 +62,7 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
   reminderState,
   disabled = false,
 }) => {
-  const { t, getResponsibleLabel } = useLanguage();
+  const { t } = useLanguage();
   const { currentUser, hasPermission } = useAuth();
 
   const canCreateReminder =
@@ -87,7 +85,6 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
     editReminderResponsible, setEditReminderResponsible,
     editReminderNotes, setEditReminderNotes,
     projectReminders,
-    availableExistingReminders,
     addStagedReminder,
     removeStagedReminder,
     updateStagedReminder,
@@ -312,35 +309,14 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
                   />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
-                  {(() => {
-                    const respLabel = getResponsibleLabel(newReminderResponsible, users);
-                    const selectableUsers = users.filter((u) => {
-                      const isSelected = Boolean(newReminderResponsible) && u.name.trim().toLowerCase() === newReminderResponsible.trim().toLowerCase();
-                      if (isSelected) return true;
-                      const isBlocked = u.status === "BLOCKED" || u.status?.toLowerCase() === "blocked" || (u.isApproved === false && u.status !== "PENDING");
-                      if (isBlocked) return false;
-                      if (u.role === "Administrator" || u.roleEntity?.isSystemAdmin) return false;
-                      return true;
-                    });
-                    return (
-                      <Autocomplete
-                        freeSolo
-                        size="small"
-                        options={selectableUsers}
-                        getOptionLabel={(u) => (typeof u === "string" ? u : u.name)}
-                        value={newReminderResponsible}
-                        onChange={(_, val) => {
-                          if (typeof val === "string") setNewReminderResponsible(val);
-                          else if (val) setNewReminderResponsible(val.name);
-                          else setNewReminderResponsible("");
-                        }}
-                        onInputChange={(_, val, reason) => {
-                          if (reason === "input") setNewReminderResponsible(val);
-                        }}
-                        renderInput={(params) => <TextField {...params} label={respLabel} />}
-                      />
-                    );
-                  })()}
+                  <UserAutocomplete
+                    freeSolo
+                    size="small"
+                    value={newReminderResponsible}
+                    valueMode="name"
+                    onChange={(val) => setNewReminderResponsible(val || '')}
+                    placeholder={currentUser?.name || ''}
+                  />
                 </Grid>
                 <Grid size={{ xs: 12 }}>
                   <TextField
@@ -364,59 +340,16 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
               </Grid>
             ) : (
               <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-                <Autocomplete
+                <ReminderAutocomplete
                   size="small"
-                  options={availableExistingReminders}
-                  groupBy={(r: Reminder) => {
-                    const targetClientId = clientId || projectToEdit?.clientId;
-                    const targetClientName = (clientName || projectToEdit?.clientName || "").trim().toLowerCase();
-                    const isMatch =
-                      Boolean(targetClientId && r.clientId === targetClientId) ||
-                      Boolean(targetClientName && r.clientName && r.clientName.trim().toLowerCase() === targetClientName);
-                    return isMatch ? `${t("colClient")}: ${clientName || projectToEdit?.clientName || ""}` : t("other");
-                  }}
-                  getOptionLabel={(r: Reminder) =>
-                    `${r.title || r.projectName || t("tabReminders")}${r.dueDate ? ` (${r.dueDate})` : ""}${r.clientName ? ` - ${r.clientName}` : ""}`
-                  }
-                  value={availableExistingReminders.find((r: Reminder) => r.id === selectedExistingReminderId) || null}
-                  onChange={(_, val) => setSelectedExistingReminderId(val ? val.id : "")}
-                  renderOption={(props, r) => {
-                    const { key, ...otherProps } = props as any;
-                    const targetClientId = clientId || projectToEdit?.clientId;
-                    const targetClientName = (clientName || projectToEdit?.clientName || "").trim().toLowerCase();
-                    const isMatch =
-                      Boolean(targetClientId && r.clientId === targetClientId) ||
-                      Boolean(targetClientName && r.clientName && r.clientName.trim().toLowerCase() === targetClientName);
-
-                    return (
-                      <li key={key || r.id} {...otherProps}>
-                        <Box sx={{ display: "flex", flexDirection: "column", width: "100%", py: 0.5 }}>
-                          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
-                            <Typography variant="body2" sx={{ fontWeight: isMatch ? 700 : 500 }}>
-                              {r.title || r.projectName || "—"}
-                            </Typography>
-                            {isMatch && (
-                              <Chip
-                                label={t("colClient")}
-                                size="small"
-                                color="primary"
-                                variant="outlined"
-                                sx={{ height: 18, fontSize: "0.65rem", fontWeight: 600 }}
-                              />
-                            )}
-                          </Box>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary", fontSize: "0.75rem", mt: 0.25 }}>
-                            {r.clientName && <span>{r.clientName}</span>}
-                            {r.dueDate && <span>• {r.dueDate}</span>}
-                            {r.status && <span>• {r.status}</span>}
-                          </Box>
-                        </Box>
-                      </li>
-                    );
-                  }}
-                  renderInput={(params) => (
-                    <TextField {...params} placeholder={t("phSelectExistingReminder")} label={t("tabReminders")} />
-                  )}
+                  value={selectedExistingReminderId}
+                  onChange={(val) => setSelectedExistingReminderId(val || '')}
+                  prioritizeClientId={clientId || projectToEdit?.clientId}
+                  prioritizeClientName={clientName || projectToEdit?.clientName || ''}
+                  excludeProjectId={projectToEdit?.id}
+                  excludeIds={projectReminders.map((r: Reminder) => r.id)}
+                  placeholder={t('phSelectExistingReminder')}
+                  label={t('tabReminders')}
                 />
                 <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
                   <Button size="small" variant="outlined" color="inherit" onClick={() => setIsAddingReminder(false)}>
@@ -631,40 +564,14 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
                 </FormControl>
               </Grid>
               <Grid size={{ xs: 12 }}>
-                {(() => {
-                  const respLabel = getResponsibleLabel(editReminderResponsible, users);
-                  const selectableUsers = users.filter((u) => {
-                    const isSelected =
-                      Boolean(editReminderResponsible) &&
-                      u.name.trim().toLowerCase() === editReminderResponsible.trim().toLowerCase();
-                    if (isSelected) return true;
-                    const isBlocked =
-                      u.status === 'BLOCKED' ||
-                      u.status?.toLowerCase() === 'blocked' ||
-                      (u.isApproved === false && u.status !== 'PENDING');
-                    if (isBlocked) return false;
-                    if (u.role === 'Administrator' || u.roleEntity?.isSystemAdmin) return false;
-                    return true;
-                  });
-                  return (
-                    <Autocomplete
-                      freeSolo
-                      size="small"
-                      options={selectableUsers}
-                      getOptionLabel={(u) => (typeof u === 'string' ? u : u.name)}
-                      value={editReminderResponsible}
-                      onChange={(_, val) => {
-                        if (typeof val === 'string') setEditReminderResponsible(val);
-                        else if (val) setEditReminderResponsible(val.name);
-                        else setEditReminderResponsible('');
-                      }}
-                      onInputChange={(_, val, reason) => {
-                        if (reason === 'input') setEditReminderResponsible(val);
-                      }}
-                      renderInput={(params) => <TextField {...params} label={respLabel} />}
-                    />
-                  );
-                })()}
+                <UserAutocomplete
+                  freeSolo
+                  size="small"
+                  value={editReminderResponsible}
+                  valueMode="name"
+                  onChange={(val) => setEditReminderResponsible(val || '')}
+                  placeholder={currentUser?.name || ''}
+                />
               </Grid>
               <Grid size={{ xs: 12 }}>
                 <TextField

@@ -96,6 +96,11 @@ import {
 } from '../../queries';
 import { useDebounce } from '../../hooks/useDebounce';
 import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
+import {
+  ClientAutocomplete,
+  ServiceAutocomplete,
+  ProjectAutocomplete,
+} from '../../components/common/autocomplete';
 
 const ProvidedServicesPage: React.FC<Props> = ({
   subTab = 'summary',
@@ -118,7 +123,6 @@ const ProvidedServicesPage: React.FC<Props> = ({
   const hasAnyRowAction = canEditAny || canDeleteAny;
   const [isOpen, setIsOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ProvidedService | null>(null);
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -172,12 +176,12 @@ const ProvidedServicesPage: React.FC<Props> = ({
   });
 
   const isStatsTab = subTab === 'statistics';
-  const shouldFetchClients = isStatsTab || isOpen || isFilterOpen || filterClient !== 'all';
-  const { data: providedServices = [] } = useProvidedServicesQuery({ enabled: isStatsTab || isOpen });
+  const shouldFetchClients = isStatsTab;
+  const { data: providedServices = [] } = useProvidedServicesQuery({ enabled: isStatsTab });
   const { data: services = [] } = useServicesQuery();
   const { data: clients = [] } = useClientsSummaryQuery({ enabled: shouldFetchClients });
-  const { data: projects = [] } = useProjectsQuery('', { enabled: isStatsTab || isOpen });
-  const { data: invoices = [] } = useInvoicesQuery({ enabled: isStatsTab || isOpen });
+  const { data: projects = [] } = useProjectsQuery('', { enabled: isStatsTab });
+  const { data: invoices = [] } = useInvoicesQuery({ enabled: isStatsTab });
   const { data: categories = [] } = useCategoriesQuery({ enabled: isStatsTab });
 
   const {
@@ -201,7 +205,7 @@ const ProvidedServicesPage: React.FC<Props> = ({
 
   const rawItems = (paginatedData as any)?.items || (Array.isArray(paginatedData) ? paginatedData : []);
   const totalProvidedServices = paginatedData?.total ?? rawItems.length;
-  const { resolveListOptions } = useLinkedListOptions();
+  const { resolveListOptions } = useLinkedListOptions({ enabled: isOpen });
 
   const { handleSave, handleDelete } = useProvidedServicesMutations();
   const { handleSave: handleSaveService } = useServicesMutations();
@@ -539,12 +543,6 @@ const ProvidedServicesPage: React.FC<Props> = ({
     }
   };
 
-  // Filter projects for the selected client in the dialog
-  const availableProjectsForClient = useMemo(() => {
-    if (!selectedClientId) return projects;
-    return projects.filter((p) => p.clientId === selectedClientId);
-  }, [projects, selectedClientId]);
-
   const activeServiceObj = useMemo(() => {
     return services.find((s) => s.id === selectedServiceId) || null;
   }, [services, selectedServiceId]);
@@ -648,7 +646,6 @@ const ProvidedServicesPage: React.FC<Props> = ({
             <TableFilterSelector
               activeCount={activeFilterCount}
               onClear={clearFilters}
-              onOpen={() => setIsFilterOpen(true)}
               sortingContent={
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                   <Autocomplete
@@ -706,28 +703,24 @@ const ProvidedServicesPage: React.FC<Props> = ({
                     renderInput={(params) => <TextField {...params} label={t('lblInvoiceStatus')} size="small" />}
                   />
 
-                  <Autocomplete
+                  <ServiceAutocomplete
                     size="small"
                     fullWidth
                     disablePortal
-                    options={services}
-                    getOptionLabel={(option) => option.name || getServiceLabel(option.code)}
-                    isOptionEqualToValue={(option, val) => option.id === val.id}
-                    value={services.find((s) => s.id === filterService) || null}
-                    onChange={(_, newValue) => setFilterService(newValue ? newValue.id : 'all')}
-                    renderInput={(params) => <TextField {...params} label={t('colService')} size="small" />}
+                    value={filterService === 'all' ? null : filterService}
+                    valueMode="id"
+                    onChange={(val) => setFilterService(val || 'all')}
+                    label={t('colService')}
                   />
 
-                  <Autocomplete
+                  <ClientAutocomplete
                     size="small"
                     fullWidth
                     disablePortal
-                    options={clients}
-                    getOptionLabel={(option) => option.name}
-                    isOptionEqualToValue={(option, val) => option.id === val.id}
-                    value={clients.find((c) => c.id === filterClient) || null}
-                    onChange={(_, newValue) => setFilterClient(newValue ? newValue.id : 'all')}
-                    renderInput={(params) => <TextField {...params} label={t('colClient')} size="small" />}
+                    value={filterClient === 'all' ? null : filterClient}
+                    valueMode="id"
+                    onChange={(val) => setFilterClient(val || 'all')}
+                    label={t('colClient')}
                   />
                 </>
               }
@@ -1042,54 +1035,50 @@ const ProvidedServicesPage: React.FC<Props> = ({
             <Grid container spacing={2} sx={{ pt: 1 }}>
               {/* Service Selection */}
               <Grid size={{ xs: 12, sm: 6 }}>
-                <Autocomplete
+                <ServiceAutocomplete
                   size="small"
                   fullWidth
-                  options={services}
-                  getOptionLabel={(option) => option.name || getServiceLabel(option.code)}
-                  isOptionEqualToValue={(option, val) => option.id === val.id}
-                  value={services.find((s) => s.id === selectedServiceId) || null}
-                  onChange={(_, newValue) => setSelectedServiceId(newValue ? newValue.id : '')}
-                  renderInput={(params) => <TextField {...params} label={t('colService')} required size="small" />}
+                  valueMode="id"
+                  value={selectedServiceId || null}
+                  initialOption={editingItem?.service || (editingItem?.serviceId ? services.find((s) => s.id === editingItem.serviceId) : undefined)}
+                  onChange={(val) => setSelectedServiceId(val || '')}
+                  label={t('colService')}
+                  required
                 />
               </Grid>
 
               {/* Client Selection */}
               <Grid size={{ xs: 12, sm: 6 }}>
-                <Autocomplete
+                <ClientAutocomplete
                   size="small"
                   fullWidth
-                  options={clients}
-                  getOptionLabel={(option) => option.name}
-                  isOptionEqualToValue={(option, val) => option.id === val.id}
-                  value={clients.find((c) => c.id === selectedClientId) || null}
-                  onChange={(_, newValue) => {
-                    setSelectedClientId(newValue ? newValue.id : '');
-                    // Clear selected project or invoice if not matching new client
-                    if (newValue) {
-                      const prj = projects.find((p) => p.id === selectedProjectId);
-                      if (prj && prj.clientId !== newValue.id) setSelectedProjectId('');
-                      const inv = invoices.find((i) => i.id === selectedInvoiceId);
-                      if (inv && inv.clientId !== newValue.id) setSelectedInvoiceId('');
+                  valueMode="id"
+                  value={selectedClientId || null}
+                  initialOption={editingItem?.client || (editingItem?.clientId ? clients.find((c) => c.id === editingItem.clientId) : undefined)}
+                  onChange={(val) => {
+                    setSelectedClientId(val || '');
+                    if (val !== selectedClientId) {
+                      setSelectedProjectId('');
+                      setSelectedInvoiceId('');
                     }
                   }}
-                  renderInput={(params) => <TextField {...params} label={t('colClient')} required size="small" />}
+                  label={t('colClient')}
+                  required
                 />
               </Grid>
 
               {/* Project Selection (Optional) */}
               <Grid size={{ xs: 12, sm: 6 }}>
-                <Autocomplete
+                <ProjectAutocomplete
                   size="small"
                   fullWidth
-                  options={availableProjectsForClient}
-                  getOptionLabel={(option) => option.name}
-                  isOptionEqualToValue={(option, val) => option.id === val.id}
-                  value={availableProjectsForClient.find((p) => p.id === selectedProjectId) || null}
-                  onChange={(_, newValue) => setSelectedProjectId(newValue ? newValue.id : '')}
-                  renderInput={(params) => (
-                    <TextField {...params} label={t('colProject')} size="small" placeholder={t('lblNoneOptional')} />
-                  )}
+                  valueMode="id"
+                  value={selectedProjectId || null}
+                  clientId={selectedClientId || undefined}
+                  initialOption={editingItem?.project || (editingItem?.projectId ? projects.find((p) => p.id === editingItem.projectId) : undefined)}
+                  onChange={(val) => setSelectedProjectId(val || '')}
+                  label={t('colProject')}
+                  placeholder={t('lblNoneOptional')}
                 />
               </Grid>
 

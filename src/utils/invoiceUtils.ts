@@ -2,6 +2,11 @@ import type { Invoice, InvoiceType } from '../types';
 
 const META_REGEX = /(?:\r?\n)?<!--meta:(\{.*?\})-->$/s;
 
+export function formatInvoiceAmount(amount?: number | null, curr?: string | null): string {
+  if (amount === undefined || amount === null) return '';
+  return `${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${curr || 'RSD'}`;
+}
+
 /**
  * Extracts clean user notes and metadata (invoiceType, parentInvoiceId) from the raw notes field.
  * Leaves the regex fallback in place to support older records until the DB migration is run.

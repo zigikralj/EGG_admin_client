@@ -104,7 +104,7 @@ export const ActivityLogsPage: React.FC = () => {
     refetch: refetchMonthly,
   } = useActivityMonthlyStatsQuery(undefined, { enabled: activeTab === 'monthly' });
 
-  const { data: users = [] } = useUsersSummaryQuery();
+  const { data: users = [] } = useUsersSummaryQuery({ enabled: activeTab === 'daily' });
   const userMap = useMemo(() => new Map(users.map(u => [u.id, u as any])), [users]);
   const { clearAllMutation, deleteSessionMutation } = useActivityLogsMutations();
 

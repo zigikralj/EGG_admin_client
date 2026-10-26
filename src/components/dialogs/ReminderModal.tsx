@@ -11,19 +11,24 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Autocomplete,
 } from '@mui/material';
 import type { Reminder, Project, Client, Permit, User } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
+import {
+  ProjectAutocomplete,
+  ClientAutocomplete,
+  PermitAutocomplete,
+  UserAutocomplete,
+} from '../common/autocomplete';
 
 export interface ReminderModalProps {
   open: boolean;
   onClose: () => void;
   editingReminder: Reminder | null;
-  projects: Project[];
-  clients: Client[];
-  permits: Permit[];
-  users: User[];
+  projects?: Project[];
+  clients?: Client[];
+  permits?: Permit[];
+  users?: User[];
   canCreate: boolean;
   canEdit: boolean;
   isRestricted: boolean;
@@ -36,10 +41,10 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
   open,
   onClose,
   editingReminder,
-  projects,
-  clients,
-  permits,
-  users,
+  projects: _projects = [],
+  clients: _clients = [],
+  permits: _permits = [],
+  users: _users = [],
   canCreate,
   canEdit,
   isRestricted,
@@ -47,7 +52,7 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
   onSave,
   isSaving = false,
 }) => {
-  const { t, getResponsibleLabel } = useLanguage();
+  const { t } = useLanguage();
 
   const [title, setTitle] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState('');
@@ -98,30 +103,6 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
     }
   }, [editingReminder, open]);
 
-  const handleProjectSelect = (pId: string) => {
-    setSelectedProjectId(pId);
-    const p = projects.find((proj) => proj.id === pId);
-    if (p) {
-      setProjectName(p.name);
-      if (p.clientId && !selectedClientId) {
-        setSelectedClientId(p.clientId);
-        setClientName(p.clientName);
-      }
-    }
-  };
-
-  const handleClientSelect = (cId: string) => {
-    setSelectedClientId(cId);
-    const c = clients.find((cli) => cli.id === cId);
-    if (c) setClientName(c.name);
-  };
-
-  const handleResponsibleSelect = (uId: string) => {
-    setSelectedResponsibleId(uId);
-    const u = users.find((usr) => usr.id === uId);
-    if (u) setResponsible(u.name);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || isSaving) return;
@@ -142,20 +123,6 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
       notes: notes.trim() || null,
     });
   };
-
-  const respLabel = getResponsibleLabel(selectedResponsibleId || responsible, users);
-  const selectableUsers = users.filter((u) => {
-    const isMe = Boolean(currentUser?.name) && u.name.trim().toLowerCase() === currentUser?.name?.trim().toLowerCase();
-    if (isRestricted) return isMe;
-    const isSelected =
-      (Boolean(selectedResponsibleId) && u.id === selectedResponsibleId) ||
-      (Boolean(responsible) && u.name.trim().toLowerCase() === responsible.trim().toLowerCase());
-    if (isSelected) return true;
-    const isBlocked = u.status === 'BLOCKED' || u.status?.toLowerCase() === 'blocked' || (u.isApproved === false && u.status !== 'PENDING');
-    if (isBlocked) return false;
-    if (u.role === 'Administrator' || u.roleEntity?.isSystemAdmin) return false;
-    return true;
-  });
 
   const isResponsibleDisabled = isRestricted || (!editingReminder ? !canCreate : !canEdit);
 
@@ -196,155 +163,131 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
 
             {/* Project Selection / Custom Name */}
             <Grid size={{ xs: 12 }}>
-              <Autocomplete
+              <ProjectAutocomplete
                 freeSolo
                 size="small"
-                options={projects}
-                getOptionLabel={(option) => {
-                  if (typeof option === 'string') return option;
-                  return `${option.name} (${option.clientName})`;
-                }}
                 value={
                   selectedProjectId
-                    ? projects.find((p) => p.id === selectedProjectId) || projectName
-                    : projectName
+                    ? { id: selectedProjectId, name: projectName }
+                    : projectName || null
                 }
-                onChange={(_, newValue) => {
+                initialOption={
+                  selectedProjectId ? ({ id: selectedProjectId, name: projectName } as any) : null
+                }
+                onChange={(newValue, opt) => {
                   if (typeof newValue === 'string') {
                     setSelectedProjectId('');
                     setProjectName(newValue);
-                  } else if (newValue) {
-                    handleProjectSelect(newValue.id);
+                  } else if (opt) {
+                    setSelectedProjectId(opt.id || '');
+                    setProjectName(opt.name || (opt as any).projectName || '');
+                    if (opt.clientId) {
+                      setSelectedClientId(opt.clientId);
+                      if (opt.clientName) setClientName(opt.clientName);
+                    }
                   } else {
                     setSelectedProjectId('');
                     setProjectName('');
                   }
                 }}
-                onInputChange={(_, newInputValue, reason) => {
-                  if (reason === 'input') {
-                    setSelectedProjectId('');
-                    setProjectName(newInputValue);
-                  }
-                }}
-                renderInput={(params) => <TextField {...params} label={t('colProject')} />}
+                label={t('colProject')}
+                placeholder={t('phProjectName')}
               />
             </Grid>
 
             {/* Client Selection / Custom Name */}
             <Grid size={{ xs: 12, sm: 6 }}>
-              <Autocomplete
+              <ClientAutocomplete
                 freeSolo
                 size="small"
-                options={clients}
-                getOptionLabel={(option) => {
-                  if (typeof option === 'string') return option;
-                  return option.name;
-                }}
                 value={
                   selectedClientId
-                    ? clients.find((c) => c.id === selectedClientId) || clientName
-                    : clientName
+                    ? { id: selectedClientId, name: clientName }
+                    : clientName || null
                 }
-                onChange={(_, newValue) => {
+                initialOption={
+                  selectedClientId ? ({ id: selectedClientId, name: clientName } as any) : null
+                }
+                onChange={(newValue, opt) => {
                   if (typeof newValue === 'string') {
                     setSelectedClientId('');
                     setClientName(newValue);
-                  } else if (newValue) {
-                    handleClientSelect(newValue.id);
+                  } else if (opt) {
+                    setSelectedClientId(opt.id || '');
+                    setClientName(opt.name || '');
                   } else {
                     setSelectedClientId('');
                     setClientName('');
                   }
                 }}
-                onInputChange={(_, newInputValue, reason) => {
-                  if (reason === 'input') {
-                    setSelectedClientId('');
-                    setClientName(newInputValue);
-                  }
-                }}
-                renderInput={(params) => <TextField {...params} label={t('colClient')} />}
+                label={t('lblClient')}
+                placeholder={t('phClient')}
               />
             </Grid>
 
             {/* Permit Selection (Optional) */}
             <Grid size={{ xs: 12, sm: 6 }}>
-              <Autocomplete
+              <PermitAutocomplete
                 freeSolo
                 size="small"
-                options={selectedClientId ? permits.filter((p) => p.clientId === selectedClientId) : permits}
-                getOptionLabel={(option) => {
-                  if (typeof option === 'string') return option;
-                  return `${option.permitNumber} (${option.indexNumber})`;
-                }}
+                clientId={selectedClientId || undefined}
                 value={
                   selectedPermitId
-                    ? permits.find((p) => p.id === selectedPermitId) || permitNumber
-                    : permitNumber
+                    ? { id: selectedPermitId, permitNumber }
+                    : permitNumber || null
                 }
-                onChange={(_, newValue) => {
+                initialOption={
+                  selectedPermitId ? ({ id: selectedPermitId, permitNumber } as any) : null
+                }
+                onChange={(newValue, opt) => {
                   if (typeof newValue === 'string') {
                     setSelectedPermitId('');
                     setPermitNumber(newValue);
-                  } else if (newValue) {
-                    setSelectedPermitId(newValue.id);
-                    setPermitNumber(newValue.permitNumber);
-                    if (newValue.clientId && !selectedClientId) {
-                      setSelectedClientId(newValue.clientId);
-                      const c = clients.find((cli) => cli.id === newValue.clientId);
-                      if (c) setClientName(c.name);
+                  } else if (opt) {
+                    setSelectedPermitId(opt.id || '');
+                    setPermitNumber(opt.permitNumber || '');
+                    if (opt.clientId && !selectedClientId) {
+                      setSelectedClientId(opt.clientId);
+                      if (opt.clientName) setClientName(opt.clientName);
                     }
                   } else {
                     setSelectedPermitId('');
                     setPermitNumber('');
                   }
                 }}
-                onInputChange={(_, newInputValue, reason) => {
-                  if (reason === 'input') {
-                    setSelectedPermitId('');
-                    setPermitNumber(newInputValue);
-                  }
-                }}
-                renderInput={(params) => (
-                  <TextField {...params} label={t('lblPermit')} placeholder={t('phSelectPermit')} />
-                )}
+                label={t('lblPermit')}
+                placeholder={t('phSelectPermit')}
               />
             </Grid>
 
             {/* Responsible Selection / Custom Name */}
             <Grid size={{ xs: 12, sm: 6 }}>
-              <Autocomplete
-                key={respLabel}
+              <UserAutocomplete
                 freeSolo
                 size="small"
                 disabled={isResponsibleDisabled}
-                options={selectableUsers}
-                getOptionLabel={(option) => {
-                  if (typeof option === 'string') return option;
-                  return option.name;
-                }}
                 value={
                   selectedResponsibleId
-                    ? selectableUsers.find((u) => u.id === selectedResponsibleId) || responsible
-                    : responsible
+                    ? { id: selectedResponsibleId, name: responsible }
+                    : responsible || null
                 }
-                onChange={(_, newValue) => {
-                  if (typeof newValue === 'string') {
-                    setSelectedResponsibleId('');
-                    setResponsible(newValue);
-                  } else if (newValue) {
-                    handleResponsibleSelect(newValue.id);
+                initialOption={
+                  selectedResponsibleId ? ({ id: selectedResponsibleId, name: responsible } as any) : null
+                }
+                valueMode="name"
+                onChange={(val, opt) => {
+                  if (typeof val === 'string') {
+                    setResponsible(val);
+                    setSelectedResponsibleId(opt?.id || '');
+                  } else if (opt) {
+                    setSelectedResponsibleId(opt.id || '');
+                    setResponsible(opt.name || '');
                   } else {
                     setSelectedResponsibleId('');
                     setResponsible('');
                   }
                 }}
-                onInputChange={(_, newInputValue, reason) => {
-                  if (reason === 'input') {
-                    setSelectedResponsibleId('');
-                    setResponsible(newInputValue);
-                  }
-                }}
-                renderInput={(params) => <TextField {...params} label={respLabel} />}
+                placeholder={currentUser?.name || ''}
               />
             </Grid>
 

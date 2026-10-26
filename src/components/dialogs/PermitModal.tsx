@@ -39,6 +39,8 @@ import {
 import { useLanguage } from '../../context/LanguageContext';
 import { WasteCatalogAutocomplete } from '../common/WasteCatalogAutocomplete';
 import { ErrorDialog } from './ErrorDialog';
+import { useRemindersQuery } from '../../queries';
+import { ClientAutocomplete, ReminderAutocomplete } from '../common/autocomplete';
 
 export interface StagedReminderItem {
   id: string;
@@ -63,7 +65,7 @@ export interface PermitModalProps {
   onClose: () => void;
   editingPermit: Permit | null;
   clients: Client[];
-  reminders: Reminder[];
+  reminders?: Reminder[];
   canEdit: boolean;
   canCreate: boolean;
   canDelete?: boolean;
@@ -225,25 +227,23 @@ export const PermitModal: React.FC<PermitModalProps> = React.memo(({
     setSelectedWasteCatalogIds(validValues.map((v) => v.id));
   }, []);
 
+  const { data: fetchedReminders = [] } = useRemindersQuery({
+    enabled: open && (addReminderMode === 'existing' || stagedLinkReminderIds.length > 0),
+  });
+  const allReminders = reminders && reminders.length > 0 ? reminders : fetchedReminders;
+
   const existingLinkedReminders = useMemo(() => {
-    if (!editingPermit || !reminders) return [];
-    return reminders.filter((r) => r.permitId === editingPermit.id);
-  }, [editingPermit, reminders]);
+    if (!editingPermit) return [];
+    if ((editingPermit as any).reminders) {
+      return (editingPermit as any).reminders as Reminder[];
+    }
+    if (!allReminders) return [];
+    return allReminders.filter((r) => r.permitId === editingPermit.id);
+  }, [editingPermit, allReminders]);
 
   const totalRemindersCount = useMemo(() => {
     return existingLinkedReminders.length + stagedNewReminders.length + stagedLinkReminderIds.length;
   }, [existingLinkedReminders.length, stagedNewReminders.length, stagedLinkReminderIds.length]);
-
-  const availableExistingReminders = useMemo(() => {
-    if (!reminders) return [];
-    const currentPermitId = editingPermit?.id;
-    const stagedIds = new Set(stagedLinkReminderIds);
-    return reminders.filter((r) => {
-      if (stagedIds.has(r.id)) return false;
-      if (currentPermitId && r.permitId === currentPermitId) return false;
-      return true;
-    });
-  }, [reminders, editingPermit?.id, stagedLinkReminderIds]);
 
   const handleAddStagedReminder = () => {
     if (addReminderMode === 'new') {
@@ -428,23 +428,20 @@ export const PermitModal: React.FC<PermitModalProps> = React.memo(({
 
               {/* Client (Required) */}
               <Grid size={{ xs: 12, sm: 6 }}>
-                <Autocomplete
+                <ClientAutocomplete
                   size="small"
-                  options={clients}
-                  getOptionLabel={(option) => `${option.name}${option.city ? ` (${option.city})` : ''}`}
-                  value={clients.find((c) => c.id === selectedClientId) || null}
-                  onChange={(_, newValue) => {
-                    setSelectedClientId(newValue ? newValue.id : '');
+                  value={selectedClientId}
+                  initialOption={
+                    editingPermit?.client ||
+                    (selectedClientId && clients ? clients.find((c) => c.id === selectedClientId) || null : null)
+                  }
+                  onChange={(id) => {
+                    setSelectedClientId(id || '');
                   }}
-                  isOptionEqualToValue={(option, val) => option.id === val.id}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label={t('colClientName')}
-                      placeholder={t('phClient')}
-                      required
-                    />
-                  )}
+                  required
+                  showCity
+                  label={t('colClientName')}
+                  placeholder={t('phClient')}
                 />
               </Grid>
 
@@ -630,26 +627,17 @@ export const PermitModal: React.FC<PermitModalProps> = React.memo(({
                   </Grid>
                 ) : (
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <Autocomplete
+                    <ReminderAutocomplete
                       size="small"
-                      options={availableExistingReminders}
-                      getOptionLabel={(option) => {
-                        const dueDatePart = option.dueDate ? ` [${formatDate(option.dueDate)}]` : '';
-                        const clientPart = option.clientName ? ` (${option.clientName})` : '';
-                        return `${option.title || option.projectName || ''}${dueDatePart}${clientPart}`;
+                      value={selectedExistingReminderId}
+                      onChange={(id) => {
+                        setSelectedExistingReminderId(id || '');
                       }}
-                      value={availableExistingReminders.find((r) => r.id === selectedExistingReminderId) || null}
-                      onChange={(_, newValue) => {
-                        setSelectedExistingReminderId(newValue ? newValue.id : '');
-                      }}
-                      noOptionsText={t('emptyReminders') || 'Nema dostupnih podsetnika'}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          label={t('tabReminders')}
-                          placeholder={t('phSelectExistingReminder')}
-                        />
-                      )}
+                      prioritizeClientId={selectedClientId}
+                      excludePermitId={editingPermit?.id}
+                      excludeIds={stagedLinkReminderIds}
+                      label={t('tabReminders')}
+                      placeholder={t('phSelectExistingReminder')}
                     />
                   </Box>
                 )}
@@ -731,7 +719,7 @@ export const PermitModal: React.FC<PermitModalProps> = React.memo(({
 
                 {/* Staged Linked Reminders */}
                 {stagedLinkReminderIds.map((remId) => {
-                  const rem = reminders.find((r) => r.id === remId);
+                  const rem = allReminders.find((r) => r.id === remId);
                   if (!rem) return null;
                   return (
                     <Card

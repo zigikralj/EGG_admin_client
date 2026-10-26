@@ -118,6 +118,7 @@ export interface PaginatedProjectsParams {
   status?: string;
   type?: string;
   clientId?: string;
+  clientName?: string;
   responsible?: string;
   dateFrom?: string;
   dateTo?: string;
@@ -140,6 +141,7 @@ export function usePaginatedProjectsQuery(params: PaginatedProjectsParams, enabl
     params.status,
     params.type,
     params.clientId,
+    params.clientName,
     params.responsible,
     params.dateFrom,
     params.dateTo,
@@ -162,6 +164,7 @@ export function usePaginatedProjectsQuery(params: PaginatedProjectsParams, enabl
           status: params.status,
           type: params.type,
           clientId: params.clientId,
+          clientName: params.clientName,
           responsible: params.responsible,
           dateFrom: params.dateFrom,
           dateTo: params.dateTo,
@@ -201,6 +204,7 @@ export interface InfiniteProjectsParams {
   status?: string;
   type?: string;
   clientId?: string;
+  clientName?: string;
   responsible?: string;
   dateFrom?: string;
   dateTo?: string;
@@ -223,6 +227,7 @@ export function useInfiniteProjectsQuery(params: InfiniteProjectsParams = {}, en
     params.status,
     params.type,
     params.clientId,
+    params.clientName,
     params.responsible,
     params.dateFrom,
     params.dateTo,
@@ -243,6 +248,7 @@ export function useInfiniteProjectsQuery(params: InfiniteProjectsParams = {}, en
       if (params.status && params.status !== 'all') q.set('status', params.status);
       if (params.type && params.type !== 'all') q.set('type', params.type);
       if (params.clientId && params.clientId !== 'all') q.set('clientId', params.clientId);
+      if (params.clientName && params.clientName !== 'all') q.set('clientName', params.clientName);
       if (params.responsible && params.responsible !== 'all') q.set('responsible', params.responsible);
       if (params.dateFrom) q.set('dateFrom', params.dateFrom);
       if (params.dateTo) q.set('dateTo', params.dateTo);
@@ -304,12 +310,27 @@ export interface ProjectNoteData {
 
 export function useProjectNoteQuery(projectId: string | undefined, enabled: boolean = true) {
   const getAuthHeaders = useAuthHeaders();
+  const queryClient = useQueryClient();
   return useQuery<ProjectNoteData>({
     queryKey: ['projects', 'note', projectId],
     queryFn: async () => {
       const res = await apiFetch(API_ROUTES.PROJECTS.NOTE(projectId!), { headers: getAuthHeaders() });
       if (!res.ok) throw new Error('Failed to fetch project note');
       return res.json();
+    },
+    initialData: () => {
+      if (!projectId) return undefined;
+      const cached = queryClient.getQueryData<Project>(['projects', 'details', projectId]);
+      if (cached && cached.notes !== undefined && cached.notes !== null) {
+        return {
+          id: (cached as any).note?.id || null,
+          projectId,
+          content: cached.notes,
+          version: (cached as any).note?.version || 1,
+          updatedAt: (cached as any).note?.updatedAt || null,
+        };
+      }
+      return undefined;
     },
     enabled: Boolean(projectId) && enabled,
     meta: { silent: true },
@@ -498,7 +519,7 @@ export function useUsersQuery(options?: { enabled?: boolean }) {
 
 export function useUsersSummaryQuery(options?: { enabled?: boolean }) {
   const getAuthHeaders = useAuthHeaders();
-  return useQuery<Array<{ id: string; name: string; email: string | null; role: string }>>({
+  return useQuery<User[]>({
     queryKey: ['users', 'summary'],
     enabled: options?.enabled ?? true,
     queryFn: async () => {
@@ -587,21 +608,34 @@ export function useServicesQuery(options?: { enabled?: boolean }) {
   });
 }
 
-export function useProvidedServicesQuery(options?: { enabled?: boolean }) {
+export function useProvidedServicesQuery(
+  filtersOrOptions?: { clientId?: string; enabled?: boolean },
+  options?: { enabled?: boolean }
+) {
   const getAuthHeaders = useAuthHeaders();
   const queryClient = useQueryClient();
-  const queryKey = ['provided-services'] as const;
+  const clientId = filtersOrOptions && 'clientId' in filtersOrOptions ? filtersOrOptions.clientId : undefined;
+  const isEnabled = options?.enabled ?? (filtersOrOptions && 'enabled' in filtersOrOptions ? filtersOrOptions.enabled : true) ?? true;
+  const queryKey = clientId ? (['provided-services', { clientId }] as const) : (['provided-services'] as const);
 
   return useQuery<ProvidedService[]>({
     queryKey,
-    enabled: options?.enabled ?? true,
-    queryFn: () =>
-      fetchWithDeltaSync<ProvidedService>({
+    enabled: isEnabled,
+    queryFn: async () => {
+      if (clientId) {
+        const url = `${API_ROUTES.PROVIDED_SERVICES.BASE}?clientId=${encodeURIComponent(clientId)}`;
+        const res = await fetch(url, { headers: getAuthHeaders() });
+        if (!res.ok) throw new Error('Failed to fetch client provided services');
+        const data = await res.json();
+        return Array.isArray(data) ? data : data.items || [];
+      }
+      return fetchWithDeltaSync<ProvidedService>({
         url: API_ROUTES.PROVIDED_SERVICES.BASE,
         queryKey,
         queryClient,
         headers: getAuthHeaders(),
-      }),
+      });
+    },
   });
 }
 
@@ -960,13 +994,14 @@ export function usePaginatedInvoicesQuery(params: PaginatedInvoicesParams, enabl
   });
 }
 
-export function usePermitsQuery() {
+export function usePermitsQuery(options?: { enabled?: boolean }) {
   const getAuthHeaders = useAuthHeaders();
   const queryClient = useQueryClient();
   const queryKey = ['permits'] as const;
 
   return useQuery<Permit[]>({
     queryKey,
+    enabled: options?.enabled ?? true,
     queryFn: () =>
       fetchWithDeltaSync<Permit>({
         url: API_ROUTES.PERMITS.BASE,
@@ -1072,10 +1107,11 @@ export function usePaginatedPermitsQuery(params: PaginatedPermitsParams, enabled
   });
 }
 
-export function useWasteCatalogQuery() {
+export function useWasteCatalogQuery(options?: { enabled?: boolean }) {
   const getAuthHeaders = useAuthHeaders();
   return useQuery<WasteCatalog[]>({
     queryKey: ['waste-catalog'],
+    enabled: options?.enabled ?? true,
     queryFn: async () => {
       return syncWasteCatalog(getAuthHeaders());
     },
@@ -1614,6 +1650,46 @@ export function useGenericActionMutation() {
   });
 }
 
+function updateProjectNotesInCache(
+  old: any,
+  targetId: string,
+  notes: string | null,
+  notesPreview: string | null
+) {
+  if (!old) return old;
+  // If it's a flat array of projects: Project[]
+  if (Array.isArray(old)) {
+    return old.map((p: any) =>
+      p && p.id === targetId ? { ...p, notes, notesPreview } : p
+    );
+  }
+  // If it's an infinite query data object: { pages: [{ items: Project[], ... }], pageParams: [...] }
+  if (old && typeof old === 'object' && Array.isArray(old.pages)) {
+    return {
+      ...old,
+      pages: old.pages.map((page: any) => {
+        if (!page || !Array.isArray(page.items)) return page;
+        return {
+          ...page,
+          items: page.items.map((p: any) =>
+            p && p.id === targetId ? { ...p, notes, notesPreview } : p
+          ),
+        };
+      }),
+    };
+  }
+  // If it's a paginated response object: { items: Project[], ... }
+  if (old && typeof old === 'object' && Array.isArray(old.items)) {
+    return {
+      ...old,
+      items: old.items.map((p: any) =>
+        p && p.id === targetId ? { ...p, notes, notesPreview } : p
+      ),
+    };
+  }
+  return old;
+}
+
 export function useProjectsMutations() {
   const generic = useGenericMutations<Project>({
     basePath: API_ROUTES.PROJECTS.BASE,
@@ -1664,23 +1740,27 @@ export function useProjectsMutations() {
       }
       return await res.json();
     },
-    onSuccess: (data: { id: string; notes: string | null; notesPreview: string | null }) => {
-      // Direct optimistic cache update to avoid refetching entire project list from Neon
-      queryClient.setQueryData(['projects', 'details', data.id], (old: any) => {
+    onSuccess: (data: any, variables: { id: string; notes: string | null }) => {
+      const targetProjectId = variables.id;
+      const content = data.notes !== undefined ? data.notes : variables.notes;
+      const preview = data.notesPreview !== undefined ? data.notesPreview : null;
+
+      queryClient.setQueryData(['projects', 'note', targetProjectId], (old: any) => ({
+        ...old,
+        projectId: targetProjectId,
+        content: content || '',
+      }));
+
+      queryClient.setQueryData(['projects', 'details', targetProjectId], (old: any) => {
         if (!old) return old;
-        return { ...old, notes: data.notes, notesPreview: data.notesPreview };
+        return { ...old, notes: content, notesPreview: preview };
       });
 
-      queryClient.setQueriesData({ queryKey: ['projects'] }, (old: any) => {
-        if (!old) return old;
-        if (Array.isArray(old)) {
-          return old.map((p: any) =>
-            p.id === data.id ? { ...p, notesPreview: data.notesPreview } : p
-          );
-        }
-        return old;
-      });
+      queryClient.setQueriesData({ queryKey: ['projects'] }, (old: any) =>
+        updateProjectNotesInCache(old, targetProjectId, content, preview)
+      );
 
+      queryClient.invalidateQueries({ queryKey: ['projects', 'note', 'revisions', targetProjectId] });
       queryClient.invalidateQueries({ queryKey: ['history'] });
       queryClient.invalidateQueries({ queryKey: ['history-diff'] });
       queryClient.invalidateQueries({ queryKey: ['history-version'] });
@@ -1704,25 +1784,31 @@ export function useProjectsMutations() {
       }
       return await res.json();
     },
-    onSuccess: (data: { id: string; content: string; notesPreview: string | null; version: number }) => {
-      queryClient.setQueryData(['projects', 'note', data.id], data);
+    onSuccess: (data: any, variables: { id: string; content: string; reason?: string }) => {
+      const targetProjectId = variables.id;
+      const preview = data.notesPreview !== undefined ? data.notesPreview : null;
 
-      queryClient.setQueryData(['projects', 'details', data.id], (old: any) => {
-        if (!old) return old;
-        return { ...old, notes: data.content, notesPreview: data.notesPreview };
+      queryClient.setQueryData(['projects', 'note', targetProjectId], {
+        id: data.noteId || data.id,
+        projectId: targetProjectId,
+        content: variables.content,
+        version: data.version,
+        updatedAt: data.updatedAt,
       });
 
-      queryClient.setQueriesData({ queryKey: ['projects'] }, (old: any) => {
+      queryClient.setQueryData(['projects', 'details', targetProjectId], (old: any) => {
         if (!old) return old;
-        if (Array.isArray(old)) {
-          return old.map((p: any) =>
-            p.id === data.id ? { ...p, notesPreview: data.notesPreview } : p
-          );
-        }
-        return old;
+        return { ...old, notes: variables.content, notesPreview: preview };
       });
 
-      queryClient.invalidateQueries({ queryKey: ['projects', 'note', 'revisions', data.id] });
+      queryClient.setQueriesData({ queryKey: ['projects'] }, (old: any) =>
+        updateProjectNotesInCache(old, targetProjectId, variables.content, preview)
+      );
+
+      queryClient.invalidateQueries({ queryKey: ['projects', 'note', 'revisions', targetProjectId] });
+      queryClient.invalidateQueries({ queryKey: ['history'] });
+      queryClient.invalidateQueries({ queryKey: ['history-diff'] });
+      queryClient.invalidateQueries({ queryKey: ['history-version'] });
     },
   });
 
@@ -1837,6 +1923,7 @@ export function useRemindersMutations() {
   const generic = useGenericMutations<Reminder>({
     basePath: API_ROUTES.REMINDERS.BASE,
     queryKeyToInvalidate: ['reminders'],
+    additionalInvalidates: [['projects', 'details'], ['autocomplete', 'reminders']],
     errorSaveMessageKey: 'errorSavingService',
     deleteConfirmMessageKey: 'confirmDeleteReminder' as any,
   });
@@ -1848,7 +1935,7 @@ export function useRemindersMutations() {
         path: API_ROUTES.REMINDERS.STATUS(id),
         method: 'PATCH',
         body: { status: newStatus },
-        queryKeysToInvalidate: [['reminders']],
+        queryKeysToInvalidate: [['reminders'], ['projects', 'details'], ['autocomplete', 'reminders']],
      });
   };
   
@@ -1862,6 +1949,7 @@ export function useInvoicesMutations() {
   const generic = useGenericMutations<Invoice>({
     basePath: API_ROUTES.INVOICES.BASE,
     queryKeyToInvalidate: ['invoices'],
+    additionalInvalidates: [['projects', 'details'], ['autocomplete', 'invoices']],
     errorSaveMessageKey: 'errorSavingService',
     deleteConfirmMessageKey: 'confirmDeleteInvoice' as any,
   });
@@ -1873,7 +1961,7 @@ export function useInvoicesMutations() {
         path: API_ROUTES.INVOICES.STATUS(id),
         method: 'PATCH',
         body: { status, paymentDate },
-        queryKeysToInvalidate: [['invoices']],
+        queryKeysToInvalidate: [['invoices'], ['projects', 'details'], ['autocomplete', 'invoices']],
      });
   };
   
@@ -2151,4 +2239,6 @@ export function useRestoreVersionMutation() {
     },
   });
 }
+
+export * from './autocomplete.queries';
 

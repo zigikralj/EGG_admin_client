@@ -32,14 +32,15 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { parseInvoiceNotes, serializeInvoiceNotes } from '../../utils/invoiceUtils';
 import { AddIcon, DeleteIcon, EditIcon, LinkIcon, ReceiptLongIcon } from '../icons';
-import { useClientsSummaryQuery } from '../../queries';
+import { useProvidedServicesQuery } from '../../queries';
+import { ClientAutocomplete, ProjectAutocomplete, InvoiceAutocomplete } from '../common/autocomplete';
 
 export interface InvoiceModalProps {
   open: boolean;
   onClose: () => void;
   editingInvoice: Invoice | null;
-  clients: Client[];
-  projects: Project[];
+  clients?: Client[];
+  projects?: Project[];
   providedServices?: ProvidedService[];
   invoices: Invoice[];
   onSave: (
@@ -52,14 +53,17 @@ export interface InvoiceModalProps {
   onToggleEditMode?: () => void;
 }
 
+const EMPTY_PROVIDED_SERVICES: ProvidedService[] = [];
+const EMPTY_INVOICES: Invoice[] = [];
+
 export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   open,
   onClose,
   editingInvoice,
-  clients,
-  projects,
-  providedServices = [],
-  invoices,
+  clients: _clients,
+  projects: _projects,
+  providedServices = EMPTY_PROVIDED_SERVICES,
+  invoices = EMPTY_INVOICES,
   onSave,
   isSaving = false,
   isViewMode = false,
@@ -68,11 +72,6 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   const { t } = useLanguage();
   const { hasPermission } = useAuth();
   const canEdit = hasPermission('invoices', 'edit');
-
-  const { data: fetchedClients = [] } = useClientsSummaryQuery({
-    enabled: open && (!clients || clients.length === 0),
-  });
-  const effectiveClients = clients && clients.length > 0 ? clients : (fetchedClients as any);
 
   const [formData, setFormData] = useState({
     invoiceNumber: '',
@@ -102,6 +101,12 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   const [initialPsId, setInitialPsId] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string>('');
 
+  const { data: clientProvidedServices = [] } = useProvidedServicesQuery(
+    { clientId: formData.clientId || undefined },
+    { enabled: open && Boolean(formData.clientId) }
+  );
+  const effectiveProvidedServices = providedServices && providedServices.length > 0 ? providedServices : clientProvidedServices;
+
   useEffect(() => {
     if (!open) return;
     setErrorMsg('');
@@ -110,8 +115,9 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
       const { invoiceType: parsedType, parentInvoiceId: parsedParentId, cleanNotes } = parseInvoiceNotes(
         editingInvoice.notes
       );
-      const linkedPs = providedServices.find((ps) => ps.invoiceId === editingInvoice.id);
-      const initialPs = linkedPs ? linkedPs.id : '';
+      const linkedPsFromInvoice = (editingInvoice as any)?.providedServices?.[0]?.id || (editingInvoice as any)?.providedServiceId || '';
+      const linkedPs = effectiveProvidedServices.find((ps) => ps.invoiceId === editingInvoice.id);
+      const initialPs = linkedPs ? linkedPs.id : linkedPsFromInvoice;
       setInitialPsId(initialPs);
 
       setFormData({
@@ -173,27 +179,19 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
 
   // Available parent invoices for linking
   const availableParentInvoices = useMemo(() => {
-    return invoices.filter((inv) => {
+    return (invoices || []).filter((inv) => {
       if (editingInvoice && inv.id === editingInvoice.id) return false;
       return true;
     });
   }, [invoices, editingInvoice]);
 
-  // Context-aware projects list for the modal
-  const modalProjects = useMemo(() => {
-    if (formData.clientId) {
-      return projects.filter((p) => p.clientId === formData.clientId);
-    }
-    return projects;
-  }, [projects, formData.clientId]);
-
   // Context-aware provided services list for the modal
   const modalProvidedServices = useMemo(() => {
     if (formData.clientId) {
-      return providedServices.filter((ps) => ps.clientId === formData.clientId);
+      return effectiveProvidedServices.filter((ps) => ps.clientId === formData.clientId);
     }
-    return providedServices;
-  }, [providedServices, formData.clientId]);
+    return effectiveProvidedServices;
+  }, [effectiveProvidedServices, formData.clientId]);
 
   const handleAddItem = () => {
     setFormData((prev) => ({
@@ -679,35 +677,25 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
 
               {/* Linked / Parent Invoice Selection */}
               <Grid size={{ xs: 12, sm: 8 }}>
-                <Autocomplete
-                  options={availableParentInvoices}
-                  groupBy={(inv) => {
-                    const matchClient = formData.clientId && inv.clientId === formData.clientId;
-                    const matchProj = formData.projectId && inv.projectId === formData.projectId;
-                    if (matchProj) return `${t('tabProjects')}: ${formData.projectName || ''}`;
-                    if (matchClient) return `${t('lblClient')}: ${formData.clientName || ''}`;
-                    return t('other');
-                  }}
-                  getOptionLabel={(inv) =>
-                    `${inv.invoiceNumber}${inv.invoiceType && inv.invoiceType !== 'Standard' ? ` [${inv.invoiceType}]` : ''}${inv.clientName ? ` (${inv.clientName})` : ''} [${inv.status}]`
+                <InvoiceAutocomplete
+                  value={formData.parentInvoiceId}
+                  initialOption={
+                    formData.parentInvoiceId
+                      ? ({ id: formData.parentInvoiceId, invoiceNumber: '' } as any)
+                      : null
                   }
-                  value={
-                    availableParentInvoices.find((inv) => inv.id === formData.parentInvoiceId) || null
-                  }
-                  onChange={(_, val) => {
+                  onChange={(id) => {
                     setFormData({
                       ...formData,
-                      parentInvoiceId: val ? val.id : '',
+                      parentInvoiceId: id || '',
                     });
                   }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      size="small"
-                      label={t('lblParentInvoice')}
-                      placeholder={t('phSelectParentInvoice')}
-                    />
-                  )}
+                  prioritizeProjectId={formData.projectId || undefined}
+                  prioritizeClientId={formData.clientId || undefined}
+                  prioritizeClientName={formData.clientName || undefined}
+                  excludeIds={editingInvoice ? [editingInvoice.id] : undefined}
+                  label={t('lblParentInvoice')}
+                  placeholder={t('phSelectParentInvoice')}
                 />
               </Grid>
 
@@ -735,52 +723,47 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
 
               {/* Client Selection */}
               <Grid size={{ xs: 12, sm: 6 }}>
-                <Autocomplete
-                  options={effectiveClients}
-                  getOptionLabel={(option) => option.name || ''}
-                  value={effectiveClients.find((c: any) => c.id === formData.clientId) || null}
-                  onChange={(_, val) => {
+                <ClientAutocomplete
+                  value={formData.clientId}
+                  initialOption={
+                    formData.clientId
+                      ? ({ id: formData.clientId, name: formData.clientName } as any)
+                      : null
+                  }
+                  onChange={(id, opt) => {
                     setFormData({
                       ...formData,
-                      clientId: val ? val.id : '',
-                      clientName: val ? val.name : '',
+                      clientId: id || '',
+                      clientName: opt ? opt.name : '',
                     });
                   }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      size="small"
-                      label={t('lblClient')}
-                      placeholder={t('phClient')}
-                      required
-                    />
-                  )}
+                  required
+                  label={t('lblClient')}
+                  placeholder={t('phClient')}
                 />
               </Grid>
 
               {/* Project Selection */}
               <Grid size={{ xs: 12, sm: 6 }}>
-                <Autocomplete
-                  options={modalProjects}
-                  getOptionLabel={(option) => option.name || ''}
-                  value={projects.find((p) => p.id === formData.projectId) || null}
-                  onChange={(_, val) => {
+                <ProjectAutocomplete
+                  value={formData.projectId}
+                  initialOption={
+                    formData.projectId
+                      ? ({ id: formData.projectId, name: formData.projectName } as any)
+                      : null
+                  }
+                  clientId={formData.clientId || undefined}
+                  onChange={(id, opt) => {
                     setFormData({
                       ...formData,
-                      projectId: val ? val.id : '',
-                      projectName: val ? val.name : '',
-                      clientId: val && val.clientId ? val.clientId : formData.clientId,
-                      clientName: val && val.clientName ? val.clientName : formData.clientName,
+                      projectId: id || '',
+                      projectName: opt ? opt.name : '',
+                      clientId: opt && opt.clientId ? opt.clientId : formData.clientId,
+                      clientName: opt && opt.clientName ? opt.clientName : formData.clientName,
                     });
                   }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      size="small"
-                      label={t('tabProjects')}
-                      placeholder={t('phProjectName')}
-                    />
-                  )}
+                  label={t('tabProjects')}
+                  placeholder={t('phProjectName')}
                 />
               </Grid>
 
@@ -796,7 +779,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                       return `${serviceName}${option.location ? ` - ${option.location}` : ''}`;
                     }}
                     value={
-                      providedServices.find((ps) => ps.id === formData.providedServiceId) || null
+                      effectiveProvidedServices.find((ps) => ps.id === formData.providedServiceId) || null
                     }
                     onChange={(_, val) => {
                       setFormData({
