@@ -90,6 +90,7 @@ const enTranslations: TranslationKeys = {
   "btnNewProvidedService": "New Provided Service",
   "providedServicesListTitle": "Provided Services",
   "emptyProvidedServices": "No provided services found.",
+  "emptyResults": "No results found.",
   "modalNewProvidedService": "New Provided Service",
   "modalEditProvidedService": "Edit Provided Service",
   "colScheduledDate": "Scheduled Date",

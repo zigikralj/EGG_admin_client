@@ -125,7 +125,7 @@ export function InvoiceAutocomplete<
       placeholder={placeholder !== undefined ? placeholder : t('phSelectExistingInvoice')}
       queryParams={mergedQueryParams}
       getOptionLabel={getOptionLabel || defaultGetOptionLabel}
-      groupBy={groupBy !== undefined ? groupBy : (prioritizeClientId || prioritizeClientName ? defaultGroupBy : undefined)}
+      groupBy={groupBy}
       renderOption={renderOption || defaultRenderOption}
       {...restProps}
     />

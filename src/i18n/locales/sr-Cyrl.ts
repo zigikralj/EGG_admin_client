@@ -90,6 +90,7 @@ const srCyrlTranslations: TranslationKeys = {
   "btnNewProvidedService": "Нова пружена услуга",
   "providedServicesListTitle": "Пружене услуге",
   "emptyProvidedServices": "Нема пронађених пружених услуга.",
+  "emptyResults": "Нема резултата.",
   "modalNewProvidedService": "Нова пружена услуга",
   "modalEditProvidedService": "Измена пружене услуге",
   "colScheduledDate": "Планирани датум",

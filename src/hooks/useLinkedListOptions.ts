@@ -1,4 +1,4 @@
-import { useClientsQuery, usePermitsQuery, useUsersSummaryQuery, useCategoriesQuery, useWasteCatalogQuery } from '../queries';
+import { useClientsSummaryQuery, usePermitsQuery, useUsersSummaryQuery, useCategoriesQuery, useWasteCatalogQuery } from '../queries';
 import { PERMIT_TYPE_OPTIONS } from '../types';
 import type { CustomFieldDefinition, Client, Permit } from '../types';
 
@@ -49,13 +49,42 @@ export const clientHasPermitType = (
   return relatedPermits.some((p) => checkTypes(p.permitTypes));
 };
 
-export function useLinkedListOptions(options?: { enabled?: boolean }) {
+export interface UseLinkedListOptionsParams {
+  enabled?: boolean;
+  fields?: CustomFieldDefinition[];
+  clients?: Client[];
+}
+
+export function useLinkedListOptions(options?: UseLinkedListOptionsParams) {
   const isEnabled = options?.enabled ?? true;
-  const { data: clients = [] } = useClientsQuery({ enabled: isEnabled });
-  const { data: permits = [] } = usePermitsQuery({ enabled: isEnabled });
-  const { data: users = [] } = useUsersSummaryQuery({ enabled: isEnabled });
-  const { data: categories = [] } = useCategoriesQuery({ enabled: isEnabled });
-  const { data: wasteCatalog = [] } = useWasteCatalogQuery({ enabled: isEnabled });
+  const fields = options?.fields;
+
+  // Determine what entities are actually needed based on the custom fields
+  const needsClients = fields ? fields.some((f) => f.type === 'client' || f.linkedList === 'clients') : true;
+  const needsPermits = fields ? fields.some((f) => (f.type === 'client' || f.linkedList === 'clients') && f.permitTypeFilter && f.permitTypeFilter !== 'all') : true;
+  const needsUsers = fields ? fields.some((f) => f.linkedList === 'users') : true;
+  const needsCategories = fields ? fields.some((f) => f.linkedList === 'category') : true;
+  const needsWasteCatalog = fields ? fields.some((f) => f.type === 'list' && f.linkedList === 'index_number') : false;
+
+  const hasProvidedClients = Boolean(options?.clients && options.clients.length > 0);
+
+  const { data: fetchedClients = [] } = useClientsSummaryQuery({
+    enabled: isEnabled && needsClients && !hasProvidedClients,
+  });
+  const clients: Client[] = hasProvidedClients ? options!.clients! : (fetchedClients as Client[]);
+
+  const { data: permits = [] } = usePermitsQuery({
+    enabled: isEnabled && needsPermits,
+  });
+  const { data: users = [] } = useUsersSummaryQuery({
+    enabled: isEnabled && needsUsers,
+  });
+  const { data: categories = [] } = useCategoriesQuery({
+    enabled: isEnabled && needsCategories,
+  });
+  const { data: wasteCatalog = [] } = useWasteCatalogQuery({
+    enabled: isEnabled && needsWasteCatalog,
+  });
 
   const resolveListOptions = (field: CustomFieldDefinition): string[] => {
     if (field.type === 'client' || field.linkedList === 'clients') {

@@ -124,7 +124,7 @@ export function ReminderAutocomplete<
       placeholder={placeholder !== undefined ? placeholder : t('phSelectExistingReminder')}
       queryParams={mergedQueryParams}
       getOptionLabel={getOptionLabel || defaultGetOptionLabel}
-      groupBy={groupBy !== undefined ? groupBy : (prioritizeClientId || prioritizeClientName ? defaultGroupBy : undefined)}
+      groupBy={groupBy}
       renderOption={renderOption || defaultRenderOption}
       {...restProps}
     />

@@ -125,6 +125,18 @@ export function CustomAutocomplete<
     if (initialOption) {
       const arr = Array.isArray(initialOption) ? (initialOption as T[]) : [initialOption as T];
       setCachedSelectedOptions((prev) => {
+        const allPresent = arr.every((item) =>
+          prev.some((p) => {
+            if (item.id && p.id) return item.id === p.id;
+            if (item.code && p.code) return item.code === p.code;
+            if ((item as any)?.name && (p as any)?.name) return (item as any).name === (p as any).name;
+            return false;
+          })
+        );
+        if (allPresent && prev.length >= arr.length) {
+          return prev;
+        }
+
         const map = new Map<string, T>();
         prev.forEach((item) => {
           const k = item.id || item.code || (item as any)?.name || JSON.stringify(item);
@@ -456,13 +468,16 @@ export function CustomAutocomplete<
         return t('emptyPermits');
       case 'categories':
         return t('emptyCategories');
+      case 'providedServices':
+        return t('emptyProvidedServices');
       default:
-        return 'Nema rezultata';
+        return t('emptyResults');
     }
   }, [entity, t]);
 
   return (
     <Autocomplete
+      key={Boolean(groupBy) ? 'grouped' : 'flat'}
       open={isOpen}
       onOpen={() => setIsOpen(true)}
       onClose={() => {

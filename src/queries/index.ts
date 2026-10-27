@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient, useInfiniteQuery, keepPreviousDa
 import { apiFetch } from '../api';
 import { fetchWithDeltaSync } from '../utils/deltaSync';
 import { syncWasteCatalog, sortWasteCatalog, upsertCatalogItemInDB, getMemoryCachedCatalog } from '../utils/wasteCatalogStorage';
+import { isWasteDisposalService } from '../utils/serviceUtils';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { API_ROUTES } from '../constants';
@@ -106,6 +107,22 @@ export function useProjectsQuery(searchQuery: string = '', options?: { done?: bo
         headers: getAuthHeaders(),
       });
     },
+  });
+}
+
+export function useProjectsSummaryQuery(options?: { enabled?: boolean }) {
+  const getAuthHeaders = useAuthHeaders();
+  return useQuery<Project[]>({
+    queryKey: ['projects', 'summary'],
+    enabled: options?.enabled ?? true,
+    queryFn: async () => {
+      const res = await apiFetch(`${API_ROUTES.PROJECTS.BASE}?fields=summary`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error('Failed to fetch projects summary');
+      return res.json();
+    },
+    staleTime: 60_000,
   });
 }
 
@@ -672,6 +689,34 @@ export function useServicesQuery(options?: { enabled?: boolean }) {
   });
 }
 
+export function useWasteDisposalServiceQuery(options?: { enabled?: boolean }) {
+  const getAuthHeaders = useAuthHeaders();
+  return useQuery<Service | null>({
+    queryKey: ['services', 'waste-disposal-default'],
+    enabled: options?.enabled ?? true,
+    staleTime: 10 * 60 * 1000,
+    queryFn: async () => {
+      const searchTerms = ['odlaganje otpada', 'waste disposal', 'odlaganje', 'zbrinjavanje'];
+      for (const term of searchTerms) {
+        try {
+          const res = await apiFetch(`${API_ROUTES.SERVICES.BASE}?search=${encodeURIComponent(term)}&limit=5`, {
+            headers: getAuthHeaders(),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const items: Service[] = Array.isArray(data) ? data : data.items || [];
+            const match = items.find((s) => isWasteDisposalService(s));
+            if (match) return match;
+          }
+        } catch {
+          // Continue to next search term
+        }
+      }
+      return null;
+    },
+  });
+}
+
 export function useProvidedServicesQuery(
   filtersOrOptions?: { clientId?: string; enabled?: boolean },
   options?: { enabled?: boolean }
@@ -717,6 +762,8 @@ export interface PaginatedProvidedServicesParams {
   dateFrom?: string;
   dateTo?: string;
   dateField?: string;
+  isWasteDisposalOnly?: boolean;
+  missingInvoice?: boolean;
 }
 
 export function usePaginatedProvidedServicesQuery(params: PaginatedProvidedServicesParams, enabled: boolean = true) {
@@ -737,10 +784,13 @@ export function usePaginatedProvidedServicesQuery(params: PaginatedProvidedServi
     params.dateFrom,
     params.dateTo,
     params.dateField,
+    params.isWasteDisposalOnly,
+    params.missingInvoice,
   ] as const;
 
   return useQuery<PaginatedResponse<ProvidedService>>({
     queryKey,
+    enabled,
     queryFn: async () => {
       const q = buildPaginationQueryParams(
         {
@@ -759,6 +809,8 @@ export function usePaginatedProvidedServicesQuery(params: PaginatedProvidedServi
           dateFrom: params.dateFrom || undefined,
           dateTo: params.dateTo || undefined,
           dateField: params.dateField || undefined,
+          isWasteDisposalOnly: params.isWasteDisposalOnly ? true : undefined,
+          missingInvoice: params.missingInvoice ? true : undefined,
         }
       );
       const res = await apiFetch(`${API_ROUTES.PROVIDED_SERVICES.BASE}?${q.toString()}`, {
@@ -778,7 +830,6 @@ export function usePaginatedProvidedServicesQuery(params: PaginatedProvidedServi
       }
       return data;
     },
-    enabled,
     staleTime: 30000,
   });
 }
@@ -970,6 +1021,22 @@ export function useInvoicesQuery(options?: { enabled?: boolean }) {
         queryClient,
         headers: getAuthHeaders(),
       }),
+  });
+}
+
+export function useInvoicesSummaryQuery(options?: { enabled?: boolean }) {
+  const getAuthHeaders = useAuthHeaders();
+  return useQuery<Invoice[]>({
+    queryKey: ['invoices', 'summary'],
+    enabled: options?.enabled ?? true,
+    queryFn: async () => {
+      const res = await apiFetch(`${API_ROUTES.INVOICES.BASE}?fields=summary`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error('Failed to fetch invoices summary');
+      return res.json();
+    },
+    staleTime: 60_000,
   });
 }
 
@@ -2013,7 +2080,7 @@ export function useInvoicesMutations() {
   const generic = useGenericMutations<Invoice>({
     basePath: API_ROUTES.INVOICES.BASE,
     queryKeyToInvalidate: ['invoices'],
-    additionalInvalidates: [['projects', 'details'], ['autocomplete', 'invoices']],
+    additionalInvalidates: [['projects', 'details'], ['autocomplete', 'invoices'], ['provided-services']],
     errorSaveMessageKey: 'errorSavingService',
     deleteConfirmMessageKey: 'confirmDeleteInvoice' as any,
   });
@@ -2025,7 +2092,7 @@ export function useInvoicesMutations() {
         path: API_ROUTES.INVOICES.STATUS(id),
         method: 'PATCH',
         body: { status, paymentDate },
-        queryKeysToInvalidate: [['invoices'], ['projects', 'details'], ['autocomplete', 'invoices']],
+        queryKeysToInvalidate: [['invoices'], ['projects', 'details'], ['autocomplete', 'invoices'], ['provided-services']],
      });
   };
   

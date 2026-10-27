@@ -8,6 +8,7 @@ import {
   Chip,
   Autocomplete,
   Button,
+  CircularProgress,
 } from '@mui/material';
 
 import type { Invoice, Client, Project, ProvidedService, SaveResult } from '../../types';
@@ -33,6 +34,12 @@ import {
 } from '../icons';
 import { DashboardPanelSkeleton } from '../tracker/DashboardPanelSkeleton';
 import { useTableView } from '../../hooks/useTableView';
+import { useDebounce } from '../../hooks/useDebounce';
+import {
+  usePaginatedInvoicesQuery,
+  useClientsSummaryQuery,
+  useProjectsSummaryQuery,
+} from '../../queries';
 
 interface Props {
   invoices?: Invoice[];
@@ -55,6 +62,7 @@ interface Props {
   onRowsPerPageChange?: (rowsPerPage: number) => void;
   onRefresh?: () => void;
   isRefreshing?: boolean;
+  onTotalCountChange?: (count: number) => void;
 }
 
 function fmtDate(d: string | null): string {
@@ -75,10 +83,10 @@ const formatInvoiceAmount = (amount?: number | null, curr?: string | null) => {
 };
 
 export const ApproachingInvoicesPanel: React.FC<Props> = ({
-  invoices = [],
-  clients = [],
-  projects = [],
-  providedServices = [],
+  invoices: invoicesProp,
+  clients: clientsProp = [],
+  projects: projectsProp = [],
+  providedServices: providedServicesProp = [],
   isFullHeight = false,
   hideNotch = false,
   openNewInvoiceTrigger,
@@ -95,6 +103,7 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
   onRowsPerPageChange,
   onRefresh,
   isRefreshing,
+  onTotalCountChange,
 }) => {
   const { t } = useLanguage();
   const { hasPermission } = useAuth();
@@ -102,8 +111,12 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
   const canEdit = hasPermission('tracker_invoices', 'edit') || hasPermission('invoices', 'edit');
   const canDelete = hasPermission('tracker_invoices', 'delete') || hasPermission('invoices', 'delete');
 
+  // Pagination mode: if invoices was passed explicitly with items, use client-side pagination, else use server-side pagination
+  const isServerPaginated = !invoicesProp || invoicesProp.length === 0;
+
   // Search & Filters state
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 400);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterClient, setFilterClient] = useState<string>('all');
   const [filterProject, setFilterProject] = useState<string>('all');
@@ -139,6 +152,7 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
   };
 
   // Modal / Dialog state
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isViewMode, setIsViewMode] = useState(true);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
@@ -148,9 +162,46 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
     message: '',
   });
 
+  // Server-side paginated invoices query
+  const {
+    data: paginatedData,
+    refetch: refetchPaginatedInvoices,
+    isLoading: isPaginatedLoading,
+    isFetching: isPaginatedFetching,
+  } = usePaginatedInvoicesQuery(
+    {
+      page,
+      rowsPerPage: activeRowsPerPage,
+      sortBy: sortOption,
+      sortOrder: sortDirection,
+      search: debouncedSearchQuery,
+      status: filterStatus === 'all' ? undefined : filterStatus,
+      clientId: filterClient === 'all' ? undefined : filterClient,
+      projectId: filterProject === 'all' ? undefined : filterProject,
+      dateFrom: filterDateFrom || undefined,
+      dateTo: filterDateTo || undefined,
+      dateField: (filterDateFrom || filterDateTo) ? filterDateField : undefined,
+    },
+    isServerPaginated
+  );
+
+  // Fetch auxiliary supporting data only when filter panel is opened
+  const shouldFetchSupportingData = isFilterOpen;
+
+  const { data: fetchedClients = [] } = useClientsSummaryQuery({
+    enabled: clientsProp.length === 0 && shouldFetchSupportingData,
+  });
+  const { data: fetchedProjects = [] } = useProjectsSummaryQuery({
+    enabled: projectsProp.length === 0 && shouldFetchSupportingData,
+  });
+
+  const clients = clientsProp.length > 0 ? clientsProp : (fetchedClients as Client[]);
+  const projects = projectsProp.length > 0 ? projectsProp : (fetchedProjects as unknown as Project[]);
+  const providedServices = providedServicesProp;
+
   useEffect(() => {
     setPage(0);
-  }, [searchQuery, filterStatus, filterClient, filterProject, filterDateFrom, filterDateTo, filterDateField, sortOption, sortDirection]);
+  }, [debouncedSearchQuery, filterStatus, filterClient, filterProject, filterDateFrom, filterDateTo, filterDateField, sortOption, sortDirection]);
 
   useEffect(() => {
     if (openNewInvoiceTrigger && openNewInvoiceTrigger > 0) {
@@ -212,8 +263,13 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
 
   // Enhance all invoices with links so all statuses can be sorted and filtered
   const enhancedInvoices = useMemo(() => {
-    return enhanceInvoicesWithLinks(invoices);
-  }, [invoices]);
+    if (isServerPaginated) return [];
+    return enhanceInvoicesWithLinks(invoicesProp || []);
+  }, [isServerPaginated, invoicesProp]);
+
+  const serverItems = useMemo(() => {
+    return enhanceInvoicesWithLinks(paginatedData?.items || []);
+  }, [paginatedData?.items]);
 
   const getInvoiceTypeChip = (type?: string | null) => {
     if (!type || type === 'Standard') {
@@ -295,19 +351,25 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
 
   const uniqueClients = useMemo(() => {
     const set = new Set<string>();
-    invoices.forEach((inv) => {
+    clients.forEach((c) => {
+      if (c.name && c.name.trim()) set.add(c.name.trim());
+    });
+    (invoicesProp || []).forEach((inv) => {
       if (inv.clientName && inv.clientName.trim()) set.add(inv.clientName.trim());
     });
     return Array.from(set).sort();
-  }, [invoices]);
+  }, [clients, invoicesProp]);
 
   const uniqueProjects = useMemo(() => {
     const set = new Set<string>();
-    invoices.forEach((inv) => {
+    projects.forEach((p) => {
+      if (p.name && p.name.trim()) set.add(p.name.trim());
+    });
+    (invoicesProp || []).forEach((inv) => {
       if (inv.projectName && inv.projectName.trim()) set.add(inv.projectName.trim());
     });
     return Array.from(set).sort();
-  }, [invoices]);
+  }, [projects, invoicesProp]);
 
 
 
@@ -332,6 +394,7 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
   ], [t]);
 
   const filteredAndSortedItems = useMemo(() => {
+    if (isServerPaginated) return [];
     const q = searchQuery.toLowerCase().trim();
 
     const filtered = enhancedInvoices.filter((inv) => {
@@ -419,11 +482,33 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
       if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
       return (a.invoiceNumber || '').localeCompare(b.invoiceNumber || '');
     });
-  }, [enhancedInvoices, searchQuery, filterStatus, filterClient, filterProject, filterDateFrom, filterDateTo, filterDateField, sortOption, sortDirection, t]);
+  }, [isServerPaginated, enhancedInvoices, searchQuery, filterStatus, filterClient, filterProject, filterDateFrom, filterDateTo, filterDateField, sortOption, sortDirection, t]);
 
   const paginatedItems = useMemo(() => {
+    if (isServerPaginated) return [];
     return filteredAndSortedItems.slice(page * activeRowsPerPage, page * activeRowsPerPage + activeRowsPerPage);
-  }, [filteredAndSortedItems, page, activeRowsPerPage]);
+  }, [isServerPaginated, filteredAndSortedItems, page, activeRowsPerPage]);
+
+  const totalCount = isServerPaginated
+    ? (paginatedData?.total ?? 0)
+    : filteredAndSortedItems.length;
+
+  const displayItems = isServerPaginated ? serverItems : paginatedItems;
+
+  useEffect(() => {
+    if (onTotalCountChange) {
+      onTotalCountChange(totalCount);
+    }
+  }, [totalCount, onTotalCountChange]);
+
+  const handleRefresh = () => {
+    if (isServerPaginated) {
+      refetchPaginatedInvoices();
+    }
+    if (onRefresh) {
+      onRefresh();
+    }
+  };
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
@@ -503,10 +588,10 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
         icon={<CalendarTodayIcon fontSize="small" sx={{ mr: 0.5 }} />}
         isFullHeight={isFullHeight}
         hideNotch={hideNotch}
-        isEmpty={filteredAndSortedItems.length === 0}
+        isEmpty={displayItems.length === 0 && !isPaginatedLoading}
         emptyMessage={t('emptyInvoices')}
         paginationProps={{
-          count: filteredAndSortedItems.length,
+          count: totalCount,
           page: page,
           rowsPerPage: activeRowsPerPage,
           rowsPerPageOptions: activeRowsPerPageOptions,
@@ -542,11 +627,15 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
           selectedKeys: filterStatus === 'unpaid' ? ['unpaid'] : [],
           onChange: (keys) => setFilterStatus(keys.includes('unpaid') ? 'unpaid' : 'all'),
         }}
-        refreshProps={onRefresh ? { onRefresh, isRefreshing } : undefined}
+        refreshProps={{
+          onRefresh: handleRefresh,
+          isRefreshing: isRefreshing || isPaginatedFetching,
+        }}
         filterSelector={
           <TableFilterSelector
             activeCount={activeFilterCount}
             onClear={handleClearAllFilters}
+            onOpen={() => setIsFilterOpen(true)}
             sortingContent={
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                 <Autocomplete
@@ -648,7 +737,12 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
           />
         }
         listContent={
-          paginatedItems.map((inv) => {
+          isPaginatedLoading && displayItems.length === 0 ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+              <CircularProgress size={32} />
+            </Box>
+          ) : (
+            displayItems.map((inv) => {
             const isLate = isOverdueInvoice(inv);
             const isApproaching = isApproachingInvoice(inv);
             const isPaid = inv.status === 'Paid';
@@ -872,7 +966,8 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
               </Box>
             );
           })
-        }
+        )
+      }
       />
 
       {/* INVOICE VIEW / EDIT MODAL */}
@@ -883,7 +978,7 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
         clients={clients}
         projects={projects}
         providedServices={providedServices}
-        invoices={enhancedInvoices}
+        invoices={isServerPaginated ? displayItems : enhancedInvoices}
         onSave={handleSaveInvoiceFromModal}
         isSaving={isSaving}
         isViewMode={isViewMode}

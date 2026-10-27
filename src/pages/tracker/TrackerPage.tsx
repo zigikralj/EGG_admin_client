@@ -23,7 +23,7 @@ import type { Project, DashboardSubTab } from '../../types';
 import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
 import { ReminderPanel } from '../../components/tracker/ReminderPanel';
 import { ApproachingInvoicesPanel } from '../../components/tracker/ApproachingInvoicesPanel';
-import { WasteDisposalPanel, isWasteDisposalService } from '../../components/tracker/WasteDisposalPanel';
+import { WasteDisposalPanel } from '../../components/tracker/WasteDisposalPanel';
 import { ProjectCard } from '../../components/project/ProjectCard';
 
 import { TableFilterSelector } from '../../components/common/TableFilterSelector';
@@ -129,13 +129,14 @@ const DashboardView: React.FC<Props> = ({
     dashboardSubTab === 'statistic-waste-disposal' ||
     dashboardSubTab === 'statistic-waste-management' ||
     dashboardSubTab === 'waste-management';
-  const shouldFetchProjects = isStatisticSubTab;
-  const shouldFetchInvoices = dashboardSubTab === 'invoices' || isStatisticSubTab;
+  const shouldFetchProjects =
+    isStatisticSubTab;
+  const shouldFetchInvoices =
+    isStatisticSubTab;
   const shouldFetchReminders = dashboardSubTab === 'reminders';
-  const shouldFetchProvidedServices = dashboardSubTab === 'waste-disposal' || isStatisticSubTab;
+  const shouldFetchProvidedServices = isStatisticSubTab;
   const shouldFetchClients =
     dashboardSubTab === 'reminders' ||
-    dashboardSubTab === 'waste-disposal' ||
     isStatisticSubTab;
   const shouldFetchUsers =
     dashboardSubTab === 'reminders' ||
@@ -143,7 +144,6 @@ const DashboardView: React.FC<Props> = ({
   const shouldFetchCategories =
     isStatisticSubTab;
   const shouldFetchServices =
-    dashboardSubTab === 'waste-disposal' ||
     isStatisticSubTab;
 
   const { data: projects = [], refetch: refetchProjects, isRefetching: isRefetchingProjects } = useProjectsQuery('', { enabled: shouldFetchProjects });
@@ -151,9 +151,9 @@ const DashboardView: React.FC<Props> = ({
   const { data: users = [] } = useUsersSummaryQuery({ enabled: shouldFetchUsers });
   const { data: categories = [] } = useCategoriesQuery({ enabled: shouldFetchCategories });
   const { data: services = [] } = useServicesQuery({ enabled: shouldFetchServices });
-  const { data: providedServices = [], refetch: refetchProvidedServices, isRefetching: isRefetchingProvidedServices } = useProvidedServicesQuery({ enabled: shouldFetchProvidedServices });
+  const { data: providedServices = [] } = useProvidedServicesQuery({ enabled: shouldFetchProvidedServices });
   const { data: reminders = [], refetch: refetchReminders, isRefetching: isRefetchingReminders } = useRemindersQuery({ enabled: shouldFetchReminders });
-  const { data: invoices = [], refetch: refetchInvoices, isRefetching: isRefetchingInvoices } = useInvoicesQuery({ enabled: shouldFetchInvoices });
+  const { data: invoices = [] } = useInvoicesQuery({ enabled: shouldFetchInvoices });
 
   const displayReminders = useMemo(() => {
     if (!isRemindersRestricted || !currentUser) return reminders;
@@ -484,12 +484,10 @@ const DashboardView: React.FC<Props> = ({
     />
   );
 
+  const [invoiceTotalCount, setInvoiceTotalCount] = useState<number>(0);
+
   const renderApproachingInvoicesPanel = (isFullHeight = false, hideNotch = false) => (
     <ApproachingInvoicesPanel
-      invoices={invoices}
-      providedServices={providedServices}
-      clients={clients}
-      projects={projects}
       isFullHeight={isFullHeight}
       hideNotch={hideNotch}
       openNewInvoiceTrigger={newInvoiceTrigger}
@@ -504,26 +502,14 @@ const DashboardView: React.FC<Props> = ({
       onRowsPerPageOptionsChange={onInvoicesRowsPerPageOptionsChange}
       rowsPerPage={invoicesRowsPerPage}
       onRowsPerPageChange={onInvoicesRowsPerPageChange}
-      onRefresh={() => withLoading(() => refetchInvoices(), t('loadingRefreshing') || 'Refreshing data...')}
-      isRefreshing={isRefetchingInvoices}
+      onTotalCountChange={setInvoiceTotalCount}
     />
   );
 
-  const wasteProvidedServices = useMemo(() => {
-    return providedServices.filter((item) => {
-      const srv = item.service || services.find((s) => s.id === item.serviceId);
-      return isWasteDisposalService(srv);
-    });
-  }, [providedServices, services]);
+  const [wasteTotalCount, setWasteTotalCount] = useState<number>(0);
 
   const renderWasteDisposalPanel = (isFullHeight = false, hideNotch = false) => (
     <WasteDisposalPanel
-      providedServices={providedServices}
-      services={services}
-      clients={clients}
-      projects={projects}
-      invoices={invoices}
-      categories={categories}
       isFullHeight={isFullHeight}
       hideNotch={hideNotch}
       openNewTrigger={newWasteServiceTrigger}
@@ -537,8 +523,7 @@ const DashboardView: React.FC<Props> = ({
       onRowsPerPageOptionsChange={onWasteManagementRowsPerPageOptionsChange}
       rowsPerPage={wasteManagementRowsPerPage}
       onRowsPerPageChange={onWasteManagementRowsPerPageChange}
-      onRefresh={() => withLoading(() => refetchProvidedServices(), t('loadingRefreshing') || 'Refreshing data...')}
-      isRefreshing={isRefetchingProvidedServices}
+      onTotalCountChange={setWasteTotalCount}
     />
   );
 
@@ -621,7 +606,7 @@ const DashboardView: React.FC<Props> = ({
               <Typography variant="h6" sx={{ fontWeight: 700 }}>
                 {t('tabInvoices')}
               </Typography>
-              <Chip label={invoices.length} size="small" color="primary" sx={{ fontWeight: 700 }} />
+              <Chip label={invoiceTotalCount} size="small" color="primary" sx={{ fontWeight: 700 }} />
             </Box>
             {true && (
               <Button
@@ -648,7 +633,7 @@ const DashboardView: React.FC<Props> = ({
               <Typography variant="h6" sx={{ fontWeight: 700 }}>
                 {t('subTabWasteDisposal')}
               </Typography>
-              <Chip label={wasteProvidedServices.length} size="small" color="primary" sx={{ fontWeight: 700 }} />
+              <Chip label={wasteTotalCount} size="small" color="primary" sx={{ fontWeight: 700 }} />
             </Box>
             {true && (
               <Button

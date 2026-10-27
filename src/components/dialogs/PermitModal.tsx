@@ -64,7 +64,7 @@ export interface PermitModalProps {
   open: boolean;
   onClose: () => void;
   editingPermit: Permit | null;
-  clients: Client[];
+  clients?: Client[];
   reminders?: Reminder[];
   canEdit: boolean;
   canCreate: boolean;
@@ -87,7 +87,7 @@ export const PermitModal: React.FC<PermitModalProps> = React.memo(({
   open,
   onClose,
   editingPermit,
-  clients,
+  clients = [],
   reminders,
   canEdit,
   canCreate,
@@ -228,7 +228,7 @@ export const PermitModal: React.FC<PermitModalProps> = React.memo(({
   }, []);
 
   const { data: fetchedReminders = [] } = useRemindersQuery({
-    enabled: open && (addReminderMode === 'existing' || stagedLinkReminderIds.length > 0),
+    enabled: open && stagedLinkReminderIds.length > 0,
   });
   const allReminders = reminders && reminders.length > 0 ? reminders : fetchedReminders;
 

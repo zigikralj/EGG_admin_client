@@ -90,6 +90,7 @@ const srLatnTranslations: TranslationKeys = {
   "btnNewProvidedService": "Nova pružena usluga",
   "providedServicesListTitle": "Pružene usluge",
   "emptyProvidedServices": "Nema pronađenih pruženih usluga.",
+  "emptyResults": "Nema rezultata.",
   "modalNewProvidedService": "Nova pružena usluga",
   "modalEditProvidedService": "Izmena pružene usluge",
   "colScheduledDate": "Planirani datum",

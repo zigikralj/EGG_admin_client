@@ -93,6 +93,7 @@ export interface TranslationKeys {
   btnNewProvidedService: string;
   providedServicesListTitle: string;
   emptyProvidedServices: string;
+  emptyResults: string;
   modalNewProvidedService: string;
   modalEditProvidedService: string;
   colScheduledDate: string;
