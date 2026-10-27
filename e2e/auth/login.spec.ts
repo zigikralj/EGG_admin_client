@@ -203,6 +203,7 @@ test.describe('Login flow', () => {
     const userHeading = page.locator('header').getByRole('heading', { name: 'Test User' });
     await expect(userHeading).toBeVisible({ timeout: 10000 });
     await page.waitForLoadState('networkidle').catch(() => {});
+    await expect(page.locator('.MuiBackdrop-root')).toBeHidden({ timeout: 10000 }).catch(() => {});
     await expect(userHeading).toBeVisible({ timeout: 10000 });
     await userHeading.click();
 

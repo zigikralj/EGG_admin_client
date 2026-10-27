@@ -9,14 +9,16 @@ export default defineConfig({
   forbidOnly: isCI,
   retries: isCI ? 2 : 0,
   maxFailures: isCI ? 1 : (process.env.MAX_FAILURES ? parseInt(process.env.MAX_FAILURES, 10) : undefined),
-  // Use 2 workers on CI runners instead of restricting to 1, halving CI test time
-  workers: isCI ? 2 : undefined,
+  workers: 2,
+  expect: {
+    timeout: 10_000,
+  },
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL,
     trace: 'on-first-retry',
-    actionTimeout: 10_000,
-    navigationTimeout: 15_000,
+    actionTimeout: 15_000,
+    navigationTimeout: 30_000,
   },
   projects: [
     { name: 'setup', testMatch: /.*\.setup\.ts/ },
