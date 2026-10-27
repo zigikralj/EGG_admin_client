@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { CustomAutocomplete, type CustomAutocompleteProps } from './CustomAutocomplete';
 import { useLanguage } from '../../../context/LanguageContext';
 import type { Client } from '../../../types';
@@ -14,7 +14,7 @@ export interface ClientAutocompleteProps<
   permitTypeFilter?: string;
 }
 
-export function ClientAutocomplete<
+function ClientAutocompleteInner<
   Multiple extends boolean | undefined = false,
   FreeSolo extends boolean | undefined = false
 >({
@@ -30,6 +30,7 @@ export function ClientAutocomplete<
   const { t } = useLanguage();
 
   const mergedQueryParams = useMemo(() => {
+    if (!queryParams && !permitTypeFilter) return undefined;
     const q: Record<string, any> = { ...queryParams };
     if (permitTypeFilter) {
       q.permitType = permitTypeFilter;
@@ -37,14 +38,17 @@ export function ClientAutocomplete<
     return q;
   }, [queryParams, permitTypeFilter]);
 
-  const defaultGetOptionLabel = (option: Client | string) => {
-    if (typeof option === 'string') return option;
-    if ((option as any)?.__isLoadMoreSentinel || option?.id === '__LOAD_MORE__') return '';
-    if (showCity && option.city) {
-      return `${option.name} (${option.city})`;
-    }
-    return option.name || '';
-  };
+  const defaultGetOptionLabel = useCallback(
+    (option: Client | string) => {
+      if (typeof option === 'string') return option;
+      if ((option as any)?.__isLoadMoreSentinel || option?.id === '__LOAD_MORE__') return '';
+      if (showCity && option.city) {
+        return `${option.name} (${option.city})`;
+      }
+      return option.name || '';
+    },
+    [showCity]
+  );
 
   return (
     <CustomAutocomplete<Client, Multiple, FreeSolo>
@@ -58,3 +62,10 @@ export function ClientAutocomplete<
     />
   );
 }
+
+export const ClientAutocomplete = React.memo(ClientAutocompleteInner) as <
+  Multiple extends boolean | undefined = false,
+  FreeSolo extends boolean | undefined = false
+>(
+  props: ClientAutocompleteProps<Multiple, FreeSolo>
+) => React.ReactElement | null;

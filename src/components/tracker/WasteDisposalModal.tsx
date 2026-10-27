@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -38,6 +38,305 @@ import type {
   CustomFieldDefinition,
   SaveResult,
 } from '../../types';
+
+const EMPTY_ARRAY: any[] = [];
+
+interface FastTextFieldProps {
+  label: string;
+  value: string | number;
+  type?: string;
+  disabled?: boolean;
+  multiline?: boolean;
+  rows?: number;
+  fullWidth?: boolean;
+  size?: 'small' | 'medium';
+  placeholder?: string;
+  helperText?: React.ReactNode;
+  slotProps?: any;
+  valueRef?: React.MutableRefObject<any>;
+  onChange: (value: any) => void;
+  onFastChange?: (value: any) => void;
+}
+
+const FastTextField: React.FC<FastTextFieldProps> = React.memo(({
+  label,
+  value,
+  type = 'text',
+  disabled = false,
+  multiline = false,
+  rows,
+  fullWidth = true,
+  size = 'small',
+  placeholder,
+  helperText,
+  slotProps,
+  valueRef,
+  onChange,
+  onFastChange,
+}) => {
+  const [localVal, setLocalVal] = useState<string | number>(value ?? '');
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestValRef = useRef<string | number>(value ?? '');
+
+  useEffect(() => {
+    setLocalVal(value ?? '');
+    latestValRef.current = value ?? '';
+    if (valueRef) {
+      valueRef.current = value ?? '';
+    }
+  }, [value, valueRef]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const raw = e.target.value;
+    const nextVal = type === 'number' ? (raw === '' ? '' : Number(raw)) : raw;
+    setLocalVal(raw);
+    latestValRef.current = nextVal;
+    if (valueRef) {
+      valueRef.current = nextVal;
+    }
+    if (onFastChange) {
+      onFastChange(nextVal);
+    }
+
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      onChange(nextVal);
+    }, 150);
+  };
+
+  const handleBlur = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    onChange(latestValRef.current);
+  };
+
+  return (
+    <TextField
+      fullWidth={fullWidth}
+      size={size}
+      type={type}
+      label={label}
+      value={localVal}
+      disabled={disabled}
+      multiline={multiline}
+      rows={rows}
+      placeholder={placeholder}
+      helperText={helperText}
+      slotProps={slotProps}
+      onChange={handleChange}
+      onBlur={handleBlur}
+    />
+  );
+});
+
+interface CustomFieldItemProps {
+  field: CustomFieldDefinition;
+  value: any;
+  disabled?: boolean;
+  resolvedOptions: string[];
+  onChange: (fieldId: string, value: any) => void;
+  customDataRef: React.MutableRefObject<Record<string, any>>;
+}
+
+const CustomFieldItem: React.FC<CustomFieldItemProps> = React.memo(({
+  field,
+  value,
+  disabled,
+  resolvedOptions,
+  onChange,
+  customDataRef,
+}) => {
+  const { t, getPermitTypeLabel } = useLanguage();
+  const val = value ?? '';
+  const isListOrClient = field.type === 'list' || field.type === 'client';
+  const optionsToDisplay = useMemo(() => {
+    return val && typeof val === 'string' && !resolvedOptions.includes(val)
+      ? [val, ...resolvedOptions]
+      : resolvedOptions;
+  }, [val, resolvedOptions]);
+
+  const handleFastTextOrNumber = useCallback(
+    (nextVal: any) => {
+      if (customDataRef.current) {
+        customDataRef.current[field.id] = nextVal;
+      }
+    },
+    [customDataRef, field.id]
+  );
+
+  const handleCommitValue = useCallback(
+    (committedVal: any) => {
+      onChange(field.id, committedVal);
+    },
+    [onChange, field.id]
+  );
+
+  if ((field.type === 'list' && field.linkedList === 'index_number') || field.id === 'indeksni_broj') {
+    return (
+      <WasteCatalogAutocomplete
+        multiple={true}
+        size="small"
+        fullWidth
+        disabled={disabled}
+        label={field.name}
+        placeholder={t('lblNoneOptional')}
+        value={val || EMPTY_ARRAY}
+        onChange={(_, codes) => {
+          handleFastTextOrNumber(codes || []);
+          handleCommitValue(codes || []);
+        }}
+      />
+    );
+  }
+
+  if (field.type === 'client' || field.linkedList === 'clients') {
+    return (
+      <ClientAutocomplete
+        size="small"
+        fullWidth
+        disabled={disabled}
+        label={field.name}
+        placeholder={t('lblNoneOptional')}
+        permitTypeFilter={field.permitTypeFilter}
+        valueMode="name"
+        value={val || null}
+        onChange={(_, selectedName) => {
+          handleFastTextOrNumber(selectedName || '');
+          handleCommitValue(selectedName || '');
+        }}
+        helperText={
+          field.permitTypeFilter
+            ? `${t('lblFilteredByPermit')}: ${getPermitTypeLabel(field.permitTypeFilter)}`
+            : undefined
+        }
+      />
+    );
+  }
+
+  if (isListOrClient && (optionsToDisplay.length > 0 || field.type === 'list')) {
+    return (
+      <Autocomplete
+        size="small"
+        fullWidth
+        disabled={disabled}
+        options={optionsToDisplay}
+        value={val || null}
+        onChange={(_, newValue) => {
+          handleFastTextOrNumber(newValue || '');
+          handleCommitValue(newValue || '');
+        }}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            label={field.name}
+            placeholder={t('lblNoneOptional')}
+            helperText={
+              field.permitTypeFilter
+                ? `${t('lblFilteredByPermit')}: ${getPermitTypeLabel(field.permitTypeFilter)}`
+                : undefined
+            }
+          />
+        )}
+      />
+    );
+  }
+
+  if (field.type === 'number') {
+    return (
+      <FastTextField
+        fullWidth
+        size="small"
+        type="number"
+        label={field.unit ? `${field.name} (${field.unit})` : field.name}
+        value={val}
+        disabled={disabled}
+        onFastChange={handleFastTextOrNumber}
+        onChange={handleCommitValue}
+      />
+    );
+  }
+
+  return (
+    <FastTextField
+      fullWidth
+      size="small"
+      label={field.name}
+      value={val}
+      disabled={disabled}
+      onFastChange={handleFastTextOrNumber}
+      onChange={handleCommitValue}
+    />
+  );
+});
+
+interface CustomFieldsSectionProps {
+  activeCustomFields: CustomFieldDefinition[];
+  customData: Record<string, any>;
+  customDataRef: React.MutableRefObject<Record<string, any>>;
+  resolvedListOptionsMap: Map<string, string[]>;
+  isViewMode: boolean;
+  canManageServices: boolean;
+  selectedService: Service | null | undefined;
+  onOpenCustomModelModal: () => void;
+  onCustomFieldChange: (fieldId: string, value: any) => void;
+}
+
+const CustomFieldsSection: React.FC<CustomFieldsSectionProps> = React.memo(({
+  activeCustomFields,
+  customData,
+  customDataRef,
+  resolvedListOptionsMap,
+  isViewMode,
+  canManageServices,
+  selectedService,
+  onOpenCustomModelModal,
+  onCustomFieldChange,
+}) => {
+  const { t } = useLanguage();
+  if (activeCustomFields.length === 0) return null;
+
+  return (
+    <Grid size={{ xs: 12 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.secondary' }}>
+          {t('customDataSection')}
+        </Typography>
+        {!isViewMode && canManageServices && selectedService && (
+          <Button
+            size="small"
+            variant="text"
+            startIcon={<SettingsIcon sx={{ fontSize: '15px !important' }} />}
+            onClick={onOpenCustomModelModal}
+            sx={{ textTransform: 'none', py: 0 }}
+          >
+            {t('btnDefineModel')}
+          </Button>
+        )}
+      </Box>
+      <Grid container spacing={2}>
+        {activeCustomFields.map((field) => {
+          const val = customData[field.id];
+          const isListOrClient = field.type === 'list' || field.type === 'client';
+          const resolvedOptions = isListOrClient ? (resolvedListOptionsMap.get(field.id) || EMPTY_ARRAY) : EMPTY_ARRAY;
+          return (
+            <Grid size={{ xs: 12, md: 6 }} key={field.id}>
+              <CustomFieldItem
+                field={field}
+                value={val}
+                disabled={isViewMode}
+                resolvedOptions={resolvedOptions}
+                onChange={onCustomFieldChange}
+                customDataRef={customDataRef}
+              />
+            </Grid>
+          );
+        })}
+      </Grid>
+    </Grid>
+  );
+});
 
 export interface WasteDisposalModalProps {
   open: boolean;
@@ -98,7 +397,7 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
   onStatusChangeInvoice,
   setErrorDialogState,
 }) => {
-  const { t, getPermitTypeLabel } = useLanguage();
+  const { t } = useLanguage();
   const [isCustomModelModalOpen, setIsCustomModelModalOpen] = useState(false);
 
   const prepareCustomDataForForm = (item: ProvidedService) => {
@@ -153,10 +452,18 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
     customData: {},
   }));
 
+  const locationRef = useRef<string>(formData.location);
+  const notesRef = useRef<string>(formData.notes);
+  const customDataRef = useRef<Record<string, any>>(formData.customData);
+
   // Re-sync local formData when dialog opens or editing item changes
   useEffect(() => {
     if (!open) return;
     if (editingItem) {
+      const initialCustom = prepareCustomDataForForm(editingItem);
+      locationRef.current = editingItem.location || '';
+      notesRef.current = editingItem.notes || '';
+      customDataRef.current = initialCustom;
       setFormData({
         serviceId: editingItem.serviceId || '',
         clientId: editingItem.clientId || '',
@@ -169,9 +476,12 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
         completionDate: editingItem.completionDate ? editingItem.completionDate.slice(0, 10) : '',
         location: editingItem.location || '',
         notes: editingItem.notes || '',
-        customData: prepareCustomDataForForm(editingItem),
+        customData: initialCustom,
       });
     } else {
+      locationRef.current = '';
+      notesRef.current = '';
+      customDataRef.current = {};
       setFormData({
         serviceId: targetWasteService?.id || '',
         clientId: '',
@@ -231,7 +541,7 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
   const resolvedListOptionsMap = useMemo(() => {
     const map = new Map<string, string[]>();
     activeCustomFields.forEach((field) => {
-      if (field.type === 'list' || field.type === 'client') {
+      if (field.type === 'list' && field.linkedList !== 'clients' && field.linkedList !== 'index_number') {
         map.set(field.id, resolveListOptions(field));
       }
     });
@@ -263,6 +573,93 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
     return null;
   }, [editingItem?.project, formData.projectId, formData.projectName]);
 
+  const handleServiceChange = useCallback((val: string | null) => {
+    setFormData((prev) => ({ ...prev, serviceId: val || '' }));
+  }, []);
+
+  const handleClientChange = useCallback((newClientId: string | null, opt?: Client) => {
+    setFormData((prev) => {
+      const clientChanged = prev.clientId !== (newClientId || '');
+      const matchingProjects = newClientId ? projects.filter((p) => p.clientId === newClientId) : [];
+      const singleProject = matchingProjects.length === 1 ? matchingProjects[0] : null;
+      const newLocation = opt?.city ? opt.city : (clientChanged ? '' : prev.location);
+      locationRef.current = newLocation;
+      return {
+        ...prev,
+        clientId: newClientId || '',
+        clientName: opt?.name || '',
+        projectId: clientChanged ? (singleProject ? singleProject.id : '') : prev.projectId,
+        projectName: clientChanged ? (singleProject ? singleProject.name : '') : prev.projectName,
+        invoiceId: clientChanged ? '' : prev.invoiceId,
+        location: newLocation,
+      };
+    });
+  }, [projects]);
+
+  const handleProjectChange = useCallback((newProjectId: string | null, opt?: Project) => {
+    setFormData((prev) => {
+      const updates: Partial<typeof prev> = {
+        projectId: newProjectId || '',
+        projectName: opt?.name || '',
+      };
+      if (opt && !prev.clientId && (opt.clientId || opt.clientName)) {
+        updates.clientId = opt.clientId || '';
+        updates.clientName = opt.clientName || '';
+      }
+      return {
+        ...prev,
+        ...updates,
+      };
+    });
+  }, []);
+
+  const handleStatusChange = useCallback((e: any) => {
+    setFormData((prev) => ({ ...prev, status: e.target.value }));
+  }, []);
+
+  const handleScheduledDateChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData((prev) => ({ ...prev, scheduledDate: e.target.value }));
+  }, []);
+
+  const handleCompletionDateChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData((prev) => ({ ...prev, completionDate: e.target.value }));
+  }, []);
+
+  const handleLocationChange = useCallback((newLoc: string) => {
+    locationRef.current = newLoc;
+    setFormData((prev) => (prev.location === newLoc ? prev : { ...prev, location: newLoc }));
+  }, []);
+
+  const handleNotesChange = useCallback((newNotes: string) => {
+    notesRef.current = newNotes;
+    setFormData((prev) => (prev.notes === newNotes ? prev : { ...prev, notes: newNotes }));
+  }, []);
+
+  const handleCustomFieldChange = useCallback((fieldId: string, val: any) => {
+    if (customDataRef.current) {
+      customDataRef.current[fieldId] = val;
+    }
+    setFormData((prev) => ({
+      ...prev,
+      customData: {
+        ...prev.customData,
+        [fieldId]: val,
+      },
+    }));
+  }, []);
+
+  const handleOpenCustomModelModal = useCallback(() => {
+    setIsCustomModelModalOpen(true);
+  }, []);
+
+  const handleSelectInvoiceId = useCallback((invId: string) => {
+    setFormData((prev) => (prev.invoiceId === invId ? prev : { ...prev, invoiceId: invId }));
+  }, []);
+
+  const invoicesListProp = useMemo(() => {
+    return editingItem?.invoice ? [editingItem.invoice] : EMPTY_ARRAY;
+  }, [editingItem?.invoice?.id]);
+
   const handleSave = async () => {
     if (!formData.serviceId) {
       setErrorDialogState({ open: true, message: t('alertServiceRequired') });
@@ -273,6 +670,10 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
       return;
     }
 
+    const effectiveLocation = locationRef.current !== undefined ? locationRef.current : formData.location;
+    const effectiveNotes = notesRef.current !== undefined ? notesRef.current : formData.notes;
+    const effectiveCustomData = customDataRef.current !== undefined ? customDataRef.current : formData.customData;
+
     const payload: Partial<ProvidedService> = {
       ...(editingItem?.id ? { id: editingItem.id } : {}),
       serviceId: formData.serviceId,
@@ -282,9 +683,9 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
       status: formData.status,
       scheduledDate: formData.scheduledDate ? new Date(formData.scheduledDate).toISOString() : null,
       completionDate: formData.completionDate ? new Date(formData.completionDate).toISOString() : null,
-      location: formData.location || null,
-      notes: formData.notes || null,
-      customData: Object.keys(formData.customData).length > 0 ? formData.customData : null,
+      location: effectiveLocation || null,
+      notes: effectiveNotes || null,
+      customData: Object.keys(effectiveCustomData).length > 0 ? effectiveCustomData : null,
     };
 
     await onSave(payload);
@@ -316,7 +717,7 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
                 value={formData.serviceId}
                 initialOption={serviceInitialOption}
                 valueMode="id"
-                onChange={(val) => setFormData((prev) => ({ ...prev, serviceId: val || '' }))}
+                onChange={handleServiceChange}
                 readOnly={
                   isViewMode ||
                   (!editingItem
@@ -338,22 +739,7 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
                 value={formData.clientId}
                 initialOption={clientInitialOption}
                 valueMode="id"
-                onChange={(newClientId, opt) => {
-                  setFormData((prev) => {
-                    const clientChanged = prev.clientId !== (newClientId || '');
-                    const matchingProjects = newClientId ? projects.filter((p) => p.clientId === newClientId) : [];
-                    const singleProject = matchingProjects.length === 1 ? matchingProjects[0] : null;
-                    return {
-                      ...prev,
-                      clientId: newClientId || '',
-                      clientName: opt?.name || '',
-                      projectId: clientChanged ? (singleProject ? singleProject.id : '') : prev.projectId,
-                      projectName: clientChanged ? (singleProject ? singleProject.name : '') : prev.projectName,
-                      invoiceId: clientChanged ? '' : prev.invoiceId,
-                      location: opt?.city ? opt.city : (clientChanged ? '' : prev.location),
-                    };
-                  });
-                }}
+                onChange={handleClientChange}
                 required
                 label={t('colClient')}
               />
@@ -369,22 +755,7 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
                 clientId={formData.clientId || undefined}
                 initialOption={projectInitialOption}
                 valueMode="id"
-                onChange={(newProjectId, opt) =>
-                  setFormData((prev) => {
-                    const updates: Partial<typeof prev> = {
-                      projectId: newProjectId || '',
-                      projectName: opt?.name || '',
-                    };
-                    if (opt && !prev.clientId && (opt.clientId || opt.clientName)) {
-                      updates.clientId = opt.clientId || '';
-                      updates.clientName = opt.clientName || '';
-                    }
-                    return {
-                      ...prev,
-                      ...updates,
-                    };
-                  })
-                }
+                onChange={handleProjectChange}
                 label={t('colProject')}
                 placeholder={t('lblNoneOptional')}
               />
@@ -397,7 +768,7 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
                 <Select
                   value={formData.status}
                   label={t('colStatus')}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, status: e.target.value }))}
+                  onChange={handleStatusChange}
                 >
                   <MenuItem value="Planned">{t('statusPlanned')}</MenuItem>
                   <MenuItem value="In Progress">{t('statusInProgress')}</MenuItem>
@@ -417,7 +788,7 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
                 slotProps={{ inputLabel: { shrink: true } }}
                 value={formData.scheduledDate}
                 disabled={isViewMode}
-                onChange={(e) => setFormData((prev) => ({ ...prev, scheduledDate: e.target.value }))}
+                onChange={handleScheduledDateChange}
               />
             </Grid>
 
@@ -431,129 +802,35 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
                 slotProps={{ inputLabel: { shrink: true } }}
                 value={formData.completionDate}
                 disabled={isViewMode}
-                onChange={(e) => setFormData((prev) => ({ ...prev, completionDate: e.target.value }))}
+                onChange={handleCompletionDateChange}
               />
             </Grid>
 
             {/* LOCATION */}
             <Grid size={{ xs: 12 }}>
-              <TextField
+              <FastTextField
                 fullWidth
                 size="small"
                 label={t('colLocation')}
                 value={formData.location}
                 disabled={isViewMode}
-                onChange={(e) => setFormData((prev) => ({ ...prev, location: e.target.value }))}
+                valueRef={locationRef}
+                onChange={handleLocationChange}
               />
             </Grid>
 
-            {/* DYNAMIC CUSTOM FIELDS (Vrsta otpada, Količina, Indeksni broj, etc.) */}
-            {activeCustomFields.length > 0 && (
-              <Grid size={{ xs: 12 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.secondary' }}>
-                    {t('customDataSection')}
-                  </Typography>
-                  {!isViewMode && canManageServices && selectedService && onSaveCustomModel && (
-                    <Button
-                      size="small"
-                      variant="text"
-                      startIcon={<SettingsIcon sx={{ fontSize: '15px !important' }} />}
-                      onClick={() => setIsCustomModelModalOpen(true)}
-                      sx={{ textTransform: 'none', py: 0 }}
-                    >
-                      {t('btnDefineModel')}
-                    </Button>
-                  )}
-                </Box>
-                <Grid container spacing={2}>
-                  {activeCustomFields.map((field) => {
-                    const val = formData.customData[field.id] ?? '';
-                    const isListOrClient = field.type === 'list' || field.type === 'client';
-                    const resolvedOptions = isListOrClient ? (resolvedListOptionsMap.get(field.id) || []) : [];
-                    const optionsToDisplay =
-                      val && typeof val === 'string' && !resolvedOptions.includes(val)
-                        ? [val, ...resolvedOptions]
-                        : resolvedOptions;
-                    return (
-                      <Grid size={{ xs: 12, md: 6 }} key={field.id}>
-                        {(field.type === 'list' && field.linkedList === 'index_number') || field.id === 'indeksni_broj' ? (
-                          <WasteCatalogAutocomplete
-                            multiple={true}
-                            size="small"
-                            fullWidth
-                            disabled={isViewMode}
-                            label={field.name}
-                            placeholder={t('lblNoneOptional')}
-                            value={val || []}
-                            onChange={(_, codes) => {
-                              setFormData((prev) => ({
-                                ...prev,
-                                customData: { ...prev.customData, [field.id]: codes || [] },
-                              }));
-                            }}
-                          />
-                        ) : isListOrClient && (optionsToDisplay.length > 0 || field.linkedList === 'clients' || field.type === 'client') ? (
-                          <Autocomplete
-                            size="small"
-                            fullWidth
-                            disabled={isViewMode}
-                            options={optionsToDisplay}
-                            value={val || null}
-                            onChange={(_, newValue) => {
-                              setFormData((prev) => ({
-                                ...prev,
-                                customData: { ...prev.customData, [field.id]: newValue || '' },
-                              }));
-                            }}
-                            renderInput={(params) => (
-                              <TextField
-                                {...params}
-                                label={field.name}
-                                placeholder={t('lblNoneOptional')}
-                                helperText={field.permitTypeFilter ? `${t('lblFilteredByPermit')}: ${getPermitTypeLabel(field.permitTypeFilter)}` : undefined}
-                              />
-                            )}
-                          />
-                        ) : field.type === 'number' ? (
-                          <TextField
-                            fullWidth
-                            size="small"
-                            type="number"
-                            label={field.unit ? `${field.name} (${field.unit})` : field.name}
-                            value={val}
-                            disabled={isViewMode}
-                            onChange={(e) =>
-                              setFormData((prev) => ({
-                                ...prev,
-                                customData: {
-                                  ...prev.customData,
-                                  [field.id]: e.target.value === '' ? '' : Number(e.target.value),
-                                },
-                              }))
-                            }
-                          />
-                        ) : (
-                          <TextField
-                            fullWidth
-                            size="small"
-                            label={field.name}
-                            value={val}
-                            disabled={isViewMode}
-                            onChange={(e) =>
-                              setFormData((prev) => ({
-                                ...prev,
-                                customData: { ...prev.customData, [field.id]: e.target.value },
-                              }))
-                            }
-                          />
-                        )}
-                      </Grid>
-                    );
-                  })}
-                </Grid>
-              </Grid>
-            )}
+            {/* DYNAMIC CUSTOM FIELDS */}
+            <CustomFieldsSection
+              activeCustomFields={activeCustomFields}
+              customData={formData.customData}
+              customDataRef={customDataRef}
+              resolvedListOptionsMap={resolvedListOptionsMap}
+              isViewMode={isViewMode}
+              canManageServices={canManageServices}
+              selectedService={selectedService}
+              onOpenCustomModelModal={handleOpenCustomModelModal}
+              onCustomFieldChange={handleCustomFieldChange}
+            />
 
             {/* INVOICE LINKING SECTION */}
             <Grid size={{ xs: 12 }}>
@@ -563,9 +840,9 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
                 projectId={formData.projectId}
                 projectName={formData.projectName}
                 selectedInvoiceId={formData.invoiceId}
-                onSelectInvoiceId={(invId) => setFormData((prev) => ({ ...prev, invoiceId: invId }))}
+                onSelectInvoiceId={handleSelectInvoiceId}
                 initialInvoice={editingItem?.invoice}
-                invoices={editingItem?.invoice ? [editingItem.invoice] : []}
+                invoices={invoicesListProp}
                 onSaveInvoice={onSaveInvoice}
                 onDeleteInvoice={onDeleteInvoice}
                 onStatusChangeInvoice={onStatusChangeInvoice}
@@ -576,7 +853,7 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
 
             {/* NOTES */}
             <Grid size={{ xs: 12 }}>
-              <TextField
+              <FastTextField
                 fullWidth
                 multiline
                 rows={3}
@@ -584,7 +861,8 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
                 label={t('lblNotes')}
                 value={formData.notes}
                 disabled={isViewMode}
-                onChange={(e) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
+                valueRef={notesRef}
+                onChange={handleNotesChange}
               />
             </Grid>
           </Grid>
@@ -621,7 +899,7 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
         </DialogActions>
       </Dialog>
 
-      {onSaveCustomModel && (
+      {onSaveCustomModel && isCustomModelModalOpen && (
         <CustomDataModelModal
           isOpen={isCustomModelModalOpen}
           onClose={() => setIsCustomModelModalOpen(false)}
@@ -629,7 +907,7 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
           initialFields={
             selectedService?.customDataModel && Array.isArray(selectedService.customDataModel)
               ? selectedService.customDataModel
-              : []
+              : EMPTY_ARRAY
           }
           onSave={onSaveCustomModel}
         />

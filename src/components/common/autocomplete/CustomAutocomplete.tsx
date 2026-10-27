@@ -58,7 +58,7 @@ export interface CustomAutocompleteProps<
   valueMode?: 'object' | 'id' | 'code' | 'name';
 }
 
-export function CustomAutocomplete<
+function CustomAutocompleteInner<
   T extends { id?: string; code?: string; [key: string]: any } = any,
   Multiple extends boolean | undefined = false,
   FreeSolo extends boolean | undefined = false
@@ -689,3 +689,11 @@ export function CustomAutocomplete<
     />
   );
 }
+
+export const CustomAutocomplete = React.memo(CustomAutocompleteInner) as <
+  T extends { id?: string; code?: string; [key: string]: any } = any,
+  Multiple extends boolean | undefined = false,
+  FreeSolo extends boolean | undefined = false
+>(
+  props: CustomAutocompleteProps<T, Multiple, FreeSolo>
+) => React.ReactElement | null;
