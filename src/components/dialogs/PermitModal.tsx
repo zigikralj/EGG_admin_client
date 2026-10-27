@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -179,11 +179,14 @@ export const PermitModal: React.FC<PermitModalProps> = React.memo(({
     }
   }, []);
 
+  const getLinkedClientRef = useRef(getLinkedClient);
+  getLinkedClientRef.current = getLinkedClient;
+
   // Initialize form state when opened or permit changes
   useEffect(() => {
     if (open) {
       if (editingPermit) {
-        const linkedClient = getLinkedClient(editingPermit);
+        const linkedClient = getLinkedClientRef.current(editingPermit);
         setSelectedClientId(linkedClient?.id || editingPermit.clientId || '');
 
         const ids = (editingPermit.wasteCatalogIds?.length
@@ -220,7 +223,7 @@ export const PermitModal: React.FC<PermitModalProps> = React.memo(({
       setInlineReminderNotes('');
       setSelectedExistingReminderId('');
     }
-  }, [open, editingPermit, getLinkedClient]);
+  }, [open, editingPermit]);
 
   const handleWasteCatalogChange = useCallback((validValues: WasteCatalog[]) => {
     setSelectedCatalogItems(validValues);
