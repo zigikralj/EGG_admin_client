@@ -477,7 +477,7 @@ export function CustomAutocomplete<
 
   return (
     <Autocomplete
-      key={Boolean(groupBy) ? 'grouped' : 'flat'}
+      key={groupBy ? 'grouped' : 'flat'}
       open={isOpen}
       onOpen={() => setIsOpen(true)}
       onClose={() => {

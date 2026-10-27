@@ -7,16 +7,6 @@ import {
   Box,
   Chip,
   Autocomplete,
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Grid,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   CircularProgress,
 } from '@mui/material';
 
@@ -36,7 +26,6 @@ import { TableFilterSelector } from '../common/TableFilterSelector';
 import { TableOptionsSelector } from '../common/ColumnSelector';
 import { DateRangeFilter } from '../common/DateRangeFilter';
 import { ErrorDialog } from '../dialogs/ErrorDialog';
-import { ProvidedServiceInvoiceSection } from '../providedService/ProvidedServiceInvoiceSection';
 import {
   DeleteSweepIcon,
   CalendarTodayIcon,
@@ -49,7 +38,6 @@ import {
   VisibilityIcon,
   EditIcon,
   DeleteIcon,
-  SettingsIcon,
 } from '../icons';
 import { DashboardPanelSkeleton } from '../tracker/DashboardPanelSkeleton';
 import { type QuickFilterItem } from '../common/TableQuickFilters';
@@ -131,14 +119,12 @@ export const WasteDisposalPanel: React.FC<Props> = ({
   isRefreshing,
   onTotalCountChange,
 }) => {
-  const { t, getServiceLabel, getPermitTypeLabel } = useLanguage();
+  const { t, getServiceLabel } = useLanguage();
   const { hasPermission } = useAuth();
   const { handleSave: handleSaveService } = useServicesMutations();
   const canEdit = hasPermission('wasteDisposal', 'edit') || hasPermission('providedServices', 'edit');
   const canDelete = hasPermission('wasteDisposal', 'delete') || hasPermission('providedServices', 'delete');
   const canManageServices = hasPermission('services', 'edit');
-
-  const [isCustomModelModalOpen, setIsCustomModelModalOpen] = useState(false);
 
   // Pagination mode: if providedServices was passed explicitly with items, use client-side pagination, else use server-side pagination
   const isServerPaginated = !providedServicesProp || providedServicesProp.length === 0;
