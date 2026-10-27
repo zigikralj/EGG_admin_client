@@ -138,8 +138,6 @@ interface CustomFieldItemProps {
   resolvedOptions: string[];
   onChange: (fieldId: string, value: any) => void;
   customDataRef: React.MutableRefObject<Record<string, any>>;
-  t: (key: string) => string;
-  getPermitTypeLabel: (type: string) => string;
 }
 
 const CustomFieldItem: React.FC<CustomFieldItemProps> = React.memo(({
@@ -149,9 +147,8 @@ const CustomFieldItem: React.FC<CustomFieldItemProps> = React.memo(({
   resolvedOptions,
   onChange,
   customDataRef,
-  t,
-  getPermitTypeLabel,
 }) => {
+  const { t, getPermitTypeLabel } = useLanguage();
   const val = value ?? '';
   const isListOrClient = field.type === 'list' || field.type === 'client';
   const optionsToDisplay = useMemo(() => {
@@ -284,8 +281,6 @@ interface CustomFieldsSectionProps {
   selectedService: Service | null | undefined;
   onOpenCustomModelModal: () => void;
   onCustomFieldChange: (fieldId: string, value: any) => void;
-  t: (key: string) => string;
-  getPermitTypeLabel: (type: string) => string;
 }
 
 const CustomFieldsSection: React.FC<CustomFieldsSectionProps> = React.memo(({
@@ -298,9 +293,8 @@ const CustomFieldsSection: React.FC<CustomFieldsSectionProps> = React.memo(({
   selectedService,
   onOpenCustomModelModal,
   onCustomFieldChange,
-  t,
-  getPermitTypeLabel,
 }) => {
+  const { t } = useLanguage();
   if (activeCustomFields.length === 0) return null;
 
   return (
@@ -335,8 +329,6 @@ const CustomFieldsSection: React.FC<CustomFieldsSectionProps> = React.memo(({
                 resolvedOptions={resolvedOptions}
                 onChange={onCustomFieldChange}
                 customDataRef={customDataRef}
-                t={t}
-                getPermitTypeLabel={getPermitTypeLabel}
               />
             </Grid>
           );
@@ -405,7 +397,7 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
   onStatusChangeInvoice,
   setErrorDialogState,
 }) => {
-  const { t, getPermitTypeLabel } = useLanguage();
+  const { t } = useLanguage();
   const [isCustomModelModalOpen, setIsCustomModelModalOpen] = useState(false);
 
   const prepareCustomDataForForm = (item: ProvidedService) => {
@@ -838,8 +830,6 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
               selectedService={selectedService}
               onOpenCustomModelModal={handleOpenCustomModelModal}
               onCustomFieldChange={handleCustomFieldChange}
-              t={t}
-              getPermitTypeLabel={getPermitTypeLabel}
             />
 
             {/* INVOICE LINKING SECTION */}
