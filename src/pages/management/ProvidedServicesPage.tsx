@@ -1269,7 +1269,7 @@ const ProvidedServicesPage: React.FC<Props> = ({
                             />
                           )}
                           {(field.type === 'list' || field.type === 'client') && (
-                            field.linkedList === 'index_number' ? (
+                            (field.type === 'list' && field.linkedList === 'index_number') || field.id === 'indeksni_broj' ? (
                               <WasteCatalogAutocomplete
                                 multiple={true}
                                 size="small"
@@ -1280,6 +1280,20 @@ const ProvidedServicesPage: React.FC<Props> = ({
                                 onChange={(_, codes) => {
                                   setCustomData((prev) => ({ ...prev, [field.id]: codes || [] }));
                                 }}
+                              />
+                            ) : field.type === 'client' || field.linkedList === 'clients' ? (
+                              <ClientAutocomplete
+                                size="small"
+                                fullWidth
+                                label={field.name}
+                                placeholder={t('lblNoneOptional')}
+                                permitTypeFilter={field.permitTypeFilter}
+                                valueMode="name"
+                                value={customData[field.id] || null}
+                                onChange={(_, selectedName) => {
+                                  setCustomData((prev) => ({ ...prev, [field.id]: selectedName || '' }));
+                                }}
+                                helperText={field.permitTypeFilter ? `${t('lblFilteredByPermit')}: ${getPermitTypeLabel(field.permitTypeFilter)}` : undefined}
                               />
                             ) : (
                               <Autocomplete

@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useClientsSummaryQuery, usePermitsQuery, useUsersSummaryQuery, useCategoriesQuery, useWasteCatalogQuery } from '../queries';
 import { PERMIT_TYPE_OPTIONS } from '../types';
 import type { CustomFieldDefinition, Client, Permit } from '../types';
@@ -59,12 +60,15 @@ export function useLinkedListOptions(options?: UseLinkedListOptionsParams) {
   const isEnabled = options?.enabled ?? true;
   const fields = options?.fields;
 
-  // Determine what entities are actually needed based on the custom fields
-  const needsClients = fields ? fields.some((f) => f.type === 'client' || f.linkedList === 'clients') : true;
-  const needsPermits = fields ? fields.some((f) => (f.type === 'client' || f.linkedList === 'clients') && f.permitTypeFilter && f.permitTypeFilter !== 'all') : true;
-  const needsUsers = fields ? fields.some((f) => f.linkedList === 'users') : true;
-  const needsCategories = fields ? fields.some((f) => f.linkedList === 'category') : true;
-  const needsWasteCatalog = fields ? fields.some((f) => f.type === 'list' && f.linkedList === 'index_number') : false;
+  // Determine what entities are actually needed based on the custom fields.
+  // Note: Client fields (type 'client' or linkedList 'clients') render ClientAutocomplete with
+  // server-side permit filtering & infinite pagination, so neither clients nor permits need to be fetched in bulk here.
+  // Similarly, waste catalog fields use WasteCatalogAutocomplete which has its own IndexedDB offline cache.
+  const needsClients = false;
+  const needsPermits = false;
+  const needsUsers = fields ? fields.some((f) => f.linkedList === 'users') : false;
+  const needsCategories = fields ? fields.some((f) => f.linkedList === 'category') : false;
+  const needsWasteCatalog = false;
 
   const hasProvidedClients = Boolean(options?.clients && options.clients.length > 0);
 
@@ -86,7 +90,7 @@ export function useLinkedListOptions(options?: UseLinkedListOptionsParams) {
     enabled: isEnabled && needsWasteCatalog,
   });
 
-  const resolveListOptions = (field: CustomFieldDefinition): string[] => {
+  const resolveListOptions = useCallback((field: CustomFieldDefinition): string[] => {
     if (field.type === 'client' || field.linkedList === 'clients') {
       const filtered = field.permitTypeFilter && field.permitTypeFilter !== 'all'
         ? clients.filter((c) => clientHasPermitType(c, permits, field.permitTypeFilter))
@@ -110,7 +114,7 @@ export function useLinkedListOptions(options?: UseLinkedListOptionsParams) {
       default:
         return field.options || [];
     }
-  };
+  }, [clients, permits, users, categories, wasteCatalog]);
 
   return { resolveListOptions };
 }
