@@ -205,7 +205,6 @@ const ProvidedServicesPage: React.FC<Props> = ({
 
   const rawItems = (paginatedData as any)?.items || (Array.isArray(paginatedData) ? paginatedData : []);
   const totalProvidedServices = paginatedData?.total ?? rawItems.length;
-  const { resolveListOptions } = useLinkedListOptions({ enabled: isOpen });
 
   const { handleSave, handleDelete } = useProvidedServicesMutations();
   const { handleSave: handleSaveService } = useServicesMutations();
@@ -287,7 +286,9 @@ const ProvidedServicesPage: React.FC<Props> = ({
   // Dialog Form States
   const [selectedServiceId, setSelectedServiceId] = useState<string>('');
   const [selectedClientId, setSelectedClientId] = useState<string>('');
+  const [selectedClientName, setSelectedClientName] = useState<string>('');
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  const [selectedProjectName, setSelectedProjectName] = useState<string>('');
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string>('');
   const [status, setStatus] = useState<string>('Planned');
   const [location, setLocation] = useState<string>('');
@@ -299,6 +300,12 @@ const ProvidedServicesPage: React.FC<Props> = ({
   const currentCustomFields = useMemo(() => {
     return getCustomModelForService(selectedServiceId);
   }, [selectedServiceId, services]);
+
+  const { resolveListOptions } = useLinkedListOptions({
+    enabled: isOpen,
+    fields: currentCustomFields,
+    clients,
+  });
 
   const getItemPermissions = useCallback((item: ProvidedService | null) => {
     if (!item) return { canEdit: canCreate, canDelete: false };
@@ -314,8 +321,10 @@ const ProvidedServicesPage: React.FC<Props> = ({
     setEditingItem(null);
     const initialServiceId = services[0]?.id || '';
     setSelectedServiceId(initialServiceId);
-    setSelectedClientId(clients[0]?.id || '');
+    setSelectedClientId('');
+    setSelectedClientName('');
     setSelectedProjectId('');
+    setSelectedProjectName('');
     setSelectedInvoiceId('');
     setStatus('Planned');
     setLocation('');
@@ -332,7 +341,9 @@ const ProvidedServicesPage: React.FC<Props> = ({
     setEditingItem(item);
     setSelectedServiceId(item.serviceId);
     setSelectedClientId(item.clientId);
+    setSelectedClientName(item.client?.name || '');
     setSelectedProjectId(item.projectId || '');
+    setSelectedProjectName(item.project?.name || '');
     setSelectedInvoiceId(item.invoiceId || '');
     setStatus(item.status || 'Planned');
     setLocation(item.location || '');
@@ -1054,11 +1065,13 @@ const ProvidedServicesPage: React.FC<Props> = ({
                   fullWidth
                   valueMode="id"
                   value={selectedClientId || null}
-                  initialOption={editingItem?.client || (editingItem?.clientId ? clients.find((c) => c.id === editingItem.clientId) : undefined)}
-                  onChange={(val) => {
+                  initialOption={editingItem?.client || (selectedClientId && selectedClientName ? { id: selectedClientId, name: selectedClientName } as any : undefined)}
+                  onChange={(val, opt) => {
                     setSelectedClientId(val || '');
+                    setSelectedClientName(opt?.name || '');
                     if (val !== selectedClientId) {
                       setSelectedProjectId('');
+                      setSelectedProjectName('');
                       setSelectedInvoiceId('');
                     }
                   }}
@@ -1075,8 +1088,11 @@ const ProvidedServicesPage: React.FC<Props> = ({
                   valueMode="id"
                   value={selectedProjectId || null}
                   clientId={selectedClientId || undefined}
-                  initialOption={editingItem?.project || (editingItem?.projectId ? projects.find((p) => p.id === editingItem.projectId) : undefined)}
-                  onChange={(val) => setSelectedProjectId(val || '')}
+                  initialOption={editingItem?.project || (selectedProjectId && selectedProjectName ? { id: selectedProjectId, name: selectedProjectName } as any : undefined)}
+                  onChange={(val, opt) => {
+                    setSelectedProjectId(val || '');
+                    setSelectedProjectName(opt?.name || '');
+                  }}
                   label={t('colProject')}
                   placeholder={t('lblNoneOptional')}
                 />
@@ -1142,12 +1158,13 @@ const ProvidedServicesPage: React.FC<Props> = ({
               <Grid size={{ xs: 12 }}>
                 <ProvidedServiceInvoiceSection
                   clientId={selectedClientId}
-                  clientName={clients.find((c) => c.id === selectedClientId)?.name}
+                  clientName={selectedClientName || editingItem?.client?.name}
                   projectId={selectedProjectId}
-                  projectName={projects.find((p) => p.id === selectedProjectId)?.name}
+                  projectName={selectedProjectName || editingItem?.project?.name}
                   selectedInvoiceId={selectedInvoiceId}
                   onSelectInvoiceId={(invId) => setSelectedInvoiceId(invId)}
-                  invoices={invoices}
+                  initialInvoice={editingItem?.invoice}
+                  invoices={editingItem?.invoice ? [editingItem.invoice] : []}
                   onSaveInvoice={handleSaveInvoice}
                   onDeleteInvoice={onDeleteInvoice}
                   onStatusChangeInvoice={handleStatusChangeInvoice}

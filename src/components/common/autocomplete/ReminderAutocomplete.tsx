@@ -61,16 +61,6 @@ export function ReminderAutocomplete<
     return `${r.title || r.projectName || t('tabReminders')}${r.dueDate ? ` (${r.dueDate})` : ''}${r.clientName ? ` - ${r.clientName}` : ''}`;
   };
 
-  const defaultGroupBy = (r: Reminder) => {
-    if ((r as any)?.__isLoadMoreSentinel || r?.id === '__LOAD_MORE__') return '';
-    const targetClientId = prioritizeClientId;
-    const targetClientName = (prioritizeClientName || '').trim().toLowerCase();
-    const isMatch =
-      Boolean(targetClientId && r.clientId === targetClientId) ||
-      Boolean(targetClientName && r.clientName && r.clientName.trim().toLowerCase() === targetClientName);
-    return isMatch ? `${t('colClient')}: ${prioritizeClientName || ''}` : t('other');
-  };
-
   const defaultRenderOption = (
     props: HTMLAttributes<HTMLLIElement> & { key?: Key },
     r: Reminder
@@ -124,7 +114,7 @@ export function ReminderAutocomplete<
       placeholder={placeholder !== undefined ? placeholder : t('phSelectExistingReminder')}
       queryParams={mergedQueryParams}
       getOptionLabel={getOptionLabel || defaultGetOptionLabel}
-      groupBy={groupBy !== undefined ? groupBy : (prioritizeClientId || prioritizeClientName ? defaultGroupBy : undefined)}
+      groupBy={groupBy}
       renderOption={renderOption || defaultRenderOption}
       {...restProps}
     />

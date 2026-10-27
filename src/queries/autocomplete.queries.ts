@@ -13,7 +13,8 @@ export type AutocompleteEntity =
   | 'invoices'
   | 'projects'
   | 'permits'
-  | 'categories';
+  | 'categories'
+  | 'providedServices';
 
 const ENTITY_BASE_ROUTES: Record<AutocompleteEntity, string> = {
   clients: API_ROUTES.CLIENTS.BASE,
@@ -24,6 +25,7 @@ const ENTITY_BASE_ROUTES: Record<AutocompleteEntity, string> = {
   projects: API_ROUTES.PROJECTS.BASE,
   permits: API_ROUTES.PERMITS.BASE,
   categories: API_ROUTES.CATEGORIES.BASE,
+  providedServices: API_ROUTES.PROVIDED_SERVICES.BASE,
 };
 
 export interface UseEntityAutocompleteInfiniteQueryParams {

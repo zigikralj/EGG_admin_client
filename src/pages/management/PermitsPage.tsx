@@ -123,7 +123,7 @@ const PermitsPage: React.FC<Props> = ({
   const [filterDateField, setFilterDateField] = useState<string>('endDate');
   const [permitTypeHeaderAnchor, setPermitTypeHeaderAnchor] = useState<null | HTMLElement>(null);
 
-  const shouldFetchClients = isFilterOpen || isOpen || filterClient !== 'all';
+  const shouldFetchClients = isFilterOpen || filterClient !== 'all';
   const { data: clients = [] } = useClientsSummaryQuery({ enabled: shouldFetchClients });
   const { handleSave: handleSavePermit, handleDelete: handleDeletePermit } = usePermitsMutations();
   const { handleSave: handleSaveReminder, handleDelete: handleDeleteReminder } = useRemindersMutations();

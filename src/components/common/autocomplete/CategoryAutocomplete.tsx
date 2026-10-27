@@ -9,7 +9,7 @@ export interface CategoryAutocompleteProps<
     CustomAutocompleteProps<Category, Multiple, FreeSolo>,
     'entity' | 'valueMode'
   > {
-  valueMode?: 'name' | 'id' | 'object';
+  valueMode?: 'name' | 'id' | 'code' | 'object';
 }
 
 export function CategoryAutocomplete<
@@ -29,7 +29,7 @@ export function CategoryAutocomplete<
   const defaultGetOptionLabel = (c: Category | string) => {
     if (typeof c === 'string') return c;
     if ((c as any)?.__isLoadMoreSentinel || c?.id === '__LOAD_MORE__') return '';
-    return c.name || '';
+    return c.name || c.code || '';
   };
 
   const handleCustomChange = (val: any, opt?: any) => {
@@ -43,6 +43,16 @@ export function CategoryAutocomplete<
       }
       return;
     }
+    if (valueMode === 'code') {
+      if (typeof val === 'string') {
+        onChange(val, opt);
+      } else if (val && typeof val === 'object' && val.code) {
+        onChange(val.code, val);
+      } else {
+        onChange(val ? val.code || '' : '', opt);
+      }
+      return;
+    }
     onChange(val, opt);
   };
 
@@ -53,6 +63,8 @@ export function CategoryAutocomplete<
       value={
         valueMode === 'name' && typeof value === 'string' && value
           ? ({ name: value } as any)
+          : valueMode === 'code' && typeof value === 'string' && value
+          ? ({ code: value } as any)
           : value
       }
       onChange={handleCustomChange}
@@ -62,9 +74,10 @@ export function CategoryAutocomplete<
       isOptionEqualToValue={(option, val) => {
         if (!option || !val) return option === val;
         if (typeof val === 'string') {
-          return option.id === val || option.name === val;
+          return option.id === val || option.code === val || option.name === val;
         }
         if (option.id && val.id) return option.id === val.id;
+        if (option.code && val.code) return option.code === val.code;
         if (option.name && val.name) return option.name === val.name;
         return option === val;
       }}

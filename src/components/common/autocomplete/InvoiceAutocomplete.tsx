@@ -63,16 +63,6 @@ export function InvoiceAutocomplete<
     return `${inv.invoiceNumber}${inv.invoiceType && inv.invoiceType !== 'Standard' ? ` [${inv.invoiceType}]` : ''}${inv.totalAmount ? ` (${formatInvoiceAmount(inv.totalAmount, inv.currency)})` : ''}${inv.clientName ? ` - ${inv.clientName}` : ''}`;
   };
 
-  const defaultGroupBy = (inv: Invoice) => {
-    if ((inv as any)?.__isLoadMoreSentinel || inv?.id === '__LOAD_MORE__') return '';
-    const targetClientId = prioritizeClientId;
-    const targetClientName = (prioritizeClientName || '').trim().toLowerCase();
-    const isMatch =
-      Boolean(targetClientId && inv.clientId === targetClientId) ||
-      Boolean(targetClientName && inv.clientName && inv.clientName.trim().toLowerCase() === targetClientName);
-    return isMatch ? `${t('colClient')}: ${prioritizeClientName || ''}` : t('other');
-  };
-
   const defaultRenderOption = (
     props: HTMLAttributes<HTMLLIElement> & { key?: Key },
     inv: Invoice
@@ -125,7 +115,7 @@ export function InvoiceAutocomplete<
       placeholder={placeholder !== undefined ? placeholder : t('phSelectExistingInvoice')}
       queryParams={mergedQueryParams}
       getOptionLabel={getOptionLabel || defaultGetOptionLabel}
-      groupBy={groupBy !== undefined ? groupBy : (prioritizeClientId || prioritizeClientName ? defaultGroupBy : undefined)}
+      groupBy={groupBy}
       renderOption={renderOption || defaultRenderOption}
       {...restProps}
     />

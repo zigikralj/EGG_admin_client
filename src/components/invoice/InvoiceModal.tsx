@@ -14,7 +14,6 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  Autocomplete,
   Divider,
   Paper,
   Chip,
@@ -32,8 +31,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { parseInvoiceNotes, serializeInvoiceNotes } from '../../utils/invoiceUtils';
 import { AddIcon, DeleteIcon, EditIcon, LinkIcon, ReceiptLongIcon } from '../icons';
-import { useProvidedServicesQuery } from '../../queries';
-import { ClientAutocomplete, ProjectAutocomplete, InvoiceAutocomplete } from '../common/autocomplete';
+import { ClientAutocomplete, ProjectAutocomplete, InvoiceAutocomplete, ProvidedServiceAutocomplete } from '../common/autocomplete';
 
 export interface InvoiceModalProps {
   open: boolean;
@@ -42,7 +40,7 @@ export interface InvoiceModalProps {
   clients?: Client[];
   projects?: Project[];
   providedServices?: ProvidedService[];
-  invoices: Invoice[];
+  invoices?: Invoice[];
   onSave: (
     payload: Partial<Invoice>,
     providedServiceId?: string,
@@ -101,12 +99,6 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   const [initialPsId, setInitialPsId] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string>('');
 
-  const { data: clientProvidedServices = [] } = useProvidedServicesQuery(
-    { clientId: formData.clientId || undefined },
-    { enabled: open && Boolean(formData.clientId) }
-  );
-  const effectiveProvidedServices = providedServices && providedServices.length > 0 ? providedServices : clientProvidedServices;
-
   useEffect(() => {
     if (!open) return;
     setErrorMsg('');
@@ -115,9 +107,8 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
       const { invoiceType: parsedType, parentInvoiceId: parsedParentId, cleanNotes } = parseInvoiceNotes(
         editingInvoice.notes
       );
-      const linkedPsFromInvoice = (editingInvoice as any)?.providedServices?.[0]?.id || (editingInvoice as any)?.providedServiceId || '';
-      const linkedPs = effectiveProvidedServices.find((ps) => ps.invoiceId === editingInvoice.id);
-      const initialPs = linkedPs ? linkedPs.id : linkedPsFromInvoice;
+      const linkedPs = (editingInvoice as any)?.providedServices?.[0] || (editingInvoice as any)?.providedService;
+      const initialPs = linkedPs ? linkedPs.id : ((editingInvoice as any)?.providedServiceId || '');
       setInitialPsId(initialPs);
 
       setFormData({
@@ -175,7 +166,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         items: [{ description: '', quantity: 1, unitPrice: 0, currency: 'RSD' }],
       });
     }
-  }, [open, editingInvoice, providedServices]);
+  }, [open, editingInvoice]);
 
   // Available parent invoices for linking
   const availableParentInvoices = useMemo(() => {
@@ -184,14 +175,6 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
       return true;
     });
   }, [invoices, editingInvoice]);
-
-  // Context-aware provided services list for the modal
-  const modalProvidedServices = useMemo(() => {
-    if (formData.clientId) {
-      return effectiveProvidedServices.filter((ps) => ps.clientId === formData.clientId);
-    }
-    return effectiveProvidedServices;
-  }, [effectiveProvidedServices, formData.clientId]);
 
   const handleAddItem = () => {
     setFormData((prev) => ({
@@ -490,13 +473,13 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                   </Typography>
                   <Box sx={{ mt: 0.5 }}>
                     {(() => {
-                      const parent = availableParentInvoices.find((p) => p.id === formData.parentInvoiceId);
+                      const parent = (editingInvoice as any)?.parentInvoice || availableParentInvoices.find((p) => p.id === formData.parentInvoiceId);
                       return (
                         <Chip
                           icon={<LinkIcon sx={{ fontSize: '14px !important' }} />}
                           size="small"
                           color="secondary"
-                          label={`${getLinkedInvoiceLabel(parent)}: ${parent?.invoiceNumber || formData.parentInvoiceId}`}
+                          label={`${getLinkedInvoiceLabel(parent)}: ${parent?.invoiceNumber || (editingInvoice as any)?.parentInvoiceNumber || formData.parentInvoiceId}`}
                         />
                       );
                     })()}
@@ -680,9 +663,10 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                 <InvoiceAutocomplete
                   value={formData.parentInvoiceId}
                   initialOption={
-                    formData.parentInvoiceId
-                      ? ({ id: formData.parentInvoiceId, invoiceNumber: '' } as any)
-                      : null
+                    (editingInvoice as any)?.parentInvoice ||
+                    (formData.parentInvoiceId
+                      ? ({ id: formData.parentInvoiceId, invoiceNumber: (editingInvoice as any)?.parentInvoiceNumber || '' } as any)
+                      : null)
                   }
                   onChange={(id) => {
                     setFormData({
@@ -771,31 +755,29 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
               {(hasPermission('providedServices', 'view') ||
                 hasPermission('wasteDisposal', 'view')) && (
                 <Grid size={{ xs: 12, sm: 6 }}>
-                  <Autocomplete
-                    options={modalProvidedServices}
-                    isOptionEqualToValue={(option, value) => option.id === value.id}
-                    getOptionLabel={(option) => {
-                      const serviceName = option.service?.name || option.serviceId || 'Unknown Service';
-                      return `${serviceName}${option.location ? ` - ${option.location}` : ''}`;
-                    }}
-                    value={
-                      effectiveProvidedServices.find((ps) => ps.id === formData.providedServiceId) || null
+                  <ProvidedServiceAutocomplete
+                    size="small"
+                    fullWidth
+                    clientId={formData.clientId || undefined}
+                    value={formData.providedServiceId}
+                    initialOption={
+                      (editingInvoice as any)?.providedServices?.[0] ||
+                      (editingInvoice as any)?.providedService ||
+                      (providedServices.find((ps) => ps.id === formData.providedServiceId) || null)
                     }
-                    onChange={(_, val) => {
-                      setFormData({
-                        ...formData,
-                        providedServiceId: val ? val.id : '',
-                        clientId: val && val.clientId ? val.clientId : formData.clientId,
-                      });
+                    valueMode="id"
+                    onChange={(val, opt) => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        providedServiceId: val || '',
+                        clientId: opt?.clientId ? opt.clientId : prev.clientId,
+                        clientName: opt?.client?.name ? opt.client.name : prev.clientName,
+                        projectId: opt?.projectId ? opt.projectId : prev.projectId,
+                        projectName: opt?.project?.name ? opt.project.name : prev.projectName,
+                      }));
                     }}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        size="small"
-                        label={t('tabProvidedServices')}
-                        placeholder={t('tabProvidedServices')}
-                      />
-                    )}
+                    label={t('tabProvidedServices')}
+                    placeholder={t('tabProvidedServices')}
                   />
                 </Grid>
               )}

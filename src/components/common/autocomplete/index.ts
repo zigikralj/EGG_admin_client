@@ -7,3 +7,4 @@ export * from './InvoiceAutocomplete';
 export * from './ProjectAutocomplete';
 export * from './PermitAutocomplete';
 export * from './CategoryAutocomplete';
+export * from './ProvidedServiceAutocomplete';

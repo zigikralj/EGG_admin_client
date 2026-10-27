@@ -822,6 +822,27 @@ html, body {
   }
 }
 
+/* TIPPY MENTION POPOVER - Strip default gray tooltip background and arrow */
+.tippy-box[data-theme~='mention-popover'] {
+  background-color: transparent !important;
+  color: inherit !important;
+  box-shadow: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  outline: 0 !important;
+}
+
+.tippy-box[data-theme~='mention-popover'] > .tippy-content {
+  padding: 0 !important;
+  background-color: transparent !important;
+}
+
+.tippy-box[data-theme~='mention-popover'] > .tippy-arrow {
+  display: none !important;
+}
+
+
 
 
 

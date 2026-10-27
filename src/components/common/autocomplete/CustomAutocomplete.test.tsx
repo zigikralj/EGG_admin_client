@@ -1,3 +1,4 @@
+import React from 'react';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderWithProviders } from '../../../tests/test-utils';
@@ -323,4 +324,97 @@ describe('CustomAutocomplete', () => {
     const petarOptions = screen.getAllByRole('option', { name: /Petar Marković/i });
     expect(petarOptions).toHaveLength(1);
   });
+
+  it('displays error state and retry button when query fails', async () => {
+    vi.spyOn(api, 'apiFetch').mockRejectedValue(new Error('Network error'));
+
+    renderWithProviders(
+      <CustomAutocomplete
+        entity="clients"
+        value={null}
+        onChange={vi.fn()}
+        placeholder="Select client"
+      />
+    );
+
+    const input = screen.getByPlaceholderText('Select client');
+    fireEvent.focus(input);
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Pokušaj ponovo|Retry/i })).toBeInTheDocument();
+    });
+  });
+
+  it('does not crash when selecting a client and updating prioritizeClientId on InvoiceAutocomplete', async () => {
+    vi.spyOn(api, 'apiFetch').mockImplementation(async (url: any) => {
+      const urlStr = String(url);
+      if (urlStr.includes('/clients')) {
+        return {
+          ok: true,
+          json: async () => ({
+            items: [{ id: 'c1', name: 'Client Alpha' }],
+            total: 1,
+            page: 1,
+            limit: 10,
+            totalPages: 1,
+            hasMore: false,
+          }),
+        } as any;
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          items: [{ id: 'inv1', invoiceNumber: 'INV-001', clientId: 'c1' }],
+          total: 1,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
+          hasMore: false,
+        }),
+      } as any;
+    });
+
+    function TestParent() {
+      const [clientId, setClientId] = React.useState('');
+      const [clientName, setClientName] = React.useState('');
+
+      return (
+        <div>
+          <InvoiceAutocomplete
+            value=""
+            onChange={vi.fn()}
+            prioritizeClientId={clientId || undefined}
+            prioritizeClientName={clientName || undefined}
+            placeholder="Select invoice"
+          />
+          <ClientAutocomplete
+            value={clientId}
+            onChange={(id, opt) => {
+              setClientId(id || '');
+              setClientName(opt ? opt.name : '');
+            }}
+            placeholder="Select client"
+          />
+        </div>
+      );
+    }
+
+    renderWithProviders(<TestParent />);
+
+    const clientInput = screen.getByPlaceholderText('Select client');
+    fireEvent.focus(clientInput);
+    fireEvent.keyDown(clientInput, { key: 'ArrowDown' });
+
+    await waitFor(() => {
+      expect(screen.getByText('Client Alpha')).toBeInTheDocument();
+    });
+
+    // Select the client option
+    fireEvent.click(screen.getByText('Client Alpha'));
+
+    // Verify it selected without throwing
+    expect(screen.getByDisplayValue('Client Alpha')).toBeInTheDocument();
+  });
 });
+

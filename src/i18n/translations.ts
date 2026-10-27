@@ -93,6 +93,7 @@ export interface TranslationKeys {
   btnNewProvidedService: string;
   providedServicesListTitle: string;
   emptyProvidedServices: string;
+  emptyResults: string;
   modalNewProvidedService: string;
   modalEditProvidedService: string;
   colScheduledDate: string;
@@ -701,6 +702,7 @@ export interface TranslationKeys {
 
   // Loading Mask & Server Spin-up
   loadingData: string;
+  errorLoadingOptions: string;
   loadingServerWakingUp: string;
   loadingServerWakingUpDetail: string;
   loadingSaving: string;

@@ -7,16 +7,7 @@ import {
   Box,
   Chip,
   Autocomplete,
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Grid,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
+  CircularProgress,
 } from '@mui/material';
 
 import type {
@@ -35,7 +26,6 @@ import { TableFilterSelector } from '../common/TableFilterSelector';
 import { TableOptionsSelector } from '../common/ColumnSelector';
 import { DateRangeFilter } from '../common/DateRangeFilter';
 import { ErrorDialog } from '../dialogs/ErrorDialog';
-import { ProvidedServiceInvoiceSection } from '../providedService/ProvidedServiceInvoiceSection';
 import {
   DeleteSweepIcon,
   CalendarTodayIcon,
@@ -48,7 +38,6 @@ import {
   VisibilityIcon,
   EditIcon,
   DeleteIcon,
-  SettingsIcon,
 } from '../icons';
 import { DashboardPanelSkeleton } from '../tracker/DashboardPanelSkeleton';
 import { type QuickFilterItem } from '../common/TableQuickFilters';
@@ -56,12 +45,18 @@ import { useTableView } from '../../hooks/useTableView';
 import {
   resolveCustomFieldBadges,
   formatFieldBadgeLabel,
-  isKeyMatch,
 } from '../../utils/customFields';
-import { useLinkedListOptions } from '../../hooks/useLinkedListOptions';
-import { WasteCatalogAutocomplete } from '../common/WasteCatalogAutocomplete';
-import { CustomDataModelModal } from '../dialogs/CustomDataModelModal';
-import { useServicesMutations } from '../../queries';
+import {
+  useServicesMutations,
+  useProjectsSummaryQuery,
+  usePaginatedProvidedServicesQuery,
+  useClientsSummaryQuery,
+  useServicesQuery,
+  useWasteDisposalServiceQuery,
+} from '../../queries';
+import { isWasteDisposalService } from '../../utils/serviceUtils';
+import { WasteDisposalModal } from './WasteDisposalModal';
+import { useDebounce } from '../../hooks/useDebounce';
 
 interface Props {
   providedServices?: ProvidedService[];
@@ -85,6 +80,7 @@ interface Props {
   onRowsPerPageChange?: (rowsPerPage: number) => void;
   onRefresh?: () => void;
   isRefreshing?: boolean;
+  onTotalCountChange?: (count: number) => void;
 }
 
 function fmtDate(d: string | null | undefined): string {
@@ -98,38 +94,13 @@ function fmtDate(d: string | null | undefined): string {
   return d;
 }
 
-export const isWasteDisposalService = (srv?: Service | null): boolean => {
-  if (!srv) return false;
-  const code = (srv.code || '').toLowerCase().trim();
-  const name = (srv.name || '').toLowerCase().trim();
-  return (
-    code === 'waste-disposal' ||
-    code === 'zbrinjavanje' ||
-    code === 'zbrinjavanje-otpada' ||
-    code === 'odlaganje' ||
-    code === 'odlaganje-otpada' ||
-    code.includes('disposal') ||
-    code.includes('zbrinjavanje') ||
-    code.includes('odlaganje') ||
-    name === 'waste disposal' ||
-    name === 'zbrinjavanje otpada' ||
-    name === 'збрињавање отпада' ||
-    name === 'odlaganje otpada' ||
-    name === 'одлагање отпада' ||
-    name.includes('disposal') ||
-    name.includes('zbrinjavanje') ||
-    name.includes('збрињавање') ||
-    name.includes('odlaganje') ||
-    name.includes('одлагање')
-  );
-};
 
 export const WasteDisposalPanel: React.FC<Props> = ({
-  providedServices = [],
-  services = [],
-  clients = [],
-  projects = [],
-  invoices = [],
+  providedServices: providedServicesProp,
+  services: servicesProp = [],
+  clients: clientsProp = [],
+  projects: projectsProp = [],
+  invoices: invoicesProp = [],
   categories: _categories = [],
   isFullHeight = false,
   hideNotch = false,
@@ -146,15 +117,48 @@ export const WasteDisposalPanel: React.FC<Props> = ({
   onRowsPerPageChange,
   onRefresh,
   isRefreshing,
+  onTotalCountChange,
 }) => {
-  const { t, getServiceLabel, getPermitTypeLabel } = useLanguage();
+  const { t, getServiceLabel } = useLanguage();
   const { hasPermission } = useAuth();
   const { handleSave: handleSaveService } = useServicesMutations();
   const canEdit = hasPermission('wasteDisposal', 'edit') || hasPermission('providedServices', 'edit');
   const canDelete = hasPermission('wasteDisposal', 'delete') || hasPermission('providedServices', 'delete');
   const canManageServices = hasPermission('services', 'edit');
 
-  const [isCustomModelModalOpen, setIsCustomModelModalOpen] = useState(false);
+  // Pagination mode: if providedServices was passed explicitly with items, use client-side pagination, else use server-side pagination
+  const isServerPaginated = !providedServicesProp || providedServicesProp.length === 0;
+
+  // Filter Popover & Dialog State
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isViewMode, setIsViewMode] = useState(false);
+  const [editingItem, setEditingItem] = useState<ProvidedService | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorDialogState, setErrorDialogState] = useState<{ open: boolean; message: string }>({
+    open: false,
+    message: '',
+  });
+
+  const shouldFetchSupportingData = isFilterOpen;
+
+  const { data: fetchedClients = [] } = useClientsSummaryQuery({
+    enabled: clientsProp.length === 0 && shouldFetchSupportingData,
+  });
+  const clients: Client[] = clientsProp.length > 0 ? clientsProp : (fetchedClients as Client[]);
+
+  const { data: fetchedServices = [] } = useServicesQuery({
+    enabled: servicesProp.length === 0 && shouldFetchSupportingData,
+  });
+  const services: Service[] = servicesProp.length > 0 ? servicesProp : fetchedServices;
+
+  const { data: fetchedProjects = [] } = useProjectsSummaryQuery({
+    enabled: projectsProp.length === 0 && shouldFetchSupportingData,
+  });
+  const projects: Project[] = projectsProp.length > 0 ? projectsProp : (fetchedProjects as unknown as Project[]);
+  const allProjects = projects;
+
+  const invoices: Invoice[] = invoicesProp;
 
   const handleSaveCustomModel = async (serviceId: string, fields: CustomFieldDefinition[]) => {
     await handleSaveService({ id: serviceId, customDataModel: fields });
@@ -193,41 +197,16 @@ export const WasteDisposalPanel: React.FC<Props> = ({
     defaultSortDirection: 'desc',
   });
 
-  // Dialog State
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const { resolveListOptions } = useLinkedListOptions({ enabled: isDialogOpen });
-  const [isViewMode, setIsViewMode] = useState(false);
-  const [editingItem, setEditingItem] = useState<ProvidedService | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [errorDialogState, setErrorDialogState] = useState<{ open: boolean; message: string }>({
-    open: false,
-    message: '',
+  // Filter waste services from the general services list
+  const wasteServices = useMemo(() => {
+    return services.filter((s) => isWasteDisposalService(s));
+  }, [services]);
+
+  const { data: defaultWasteService, isLoading: isWasteServiceLoading } = useWasteDisposalServiceQuery({
+    enabled: servicesProp.length === 0 && wasteServices.length === 0 && isDialogOpen && !editingItem,
   });
 
-  // Form Data State
-  const [formData, setFormData] = useState<{
-    serviceId: string;
-    clientId: string;
-    projectId: string;
-    invoiceId: string;
-    status: string;
-    scheduledDate: string;
-    completionDate: string;
-    location: string;
-    notes: string;
-    customData: Record<string, any>;
-  }>({
-    serviceId: '',
-    clientId: '',
-    projectId: '',
-    invoiceId: '',
-    status: 'Planned',
-    scheduledDate: '',
-    completionDate: '',
-    location: '',
-    notes: '',
-    customData: {},
-  });
+  const targetWasteService = wasteServices.length > 0 ? wasteServices[0] : (defaultWasteService || null);
 
   // Reset pagination when filters change
   useEffect(() => {
@@ -254,12 +233,8 @@ export const WasteDisposalPanel: React.FC<Props> = ({
     }
   }, [openNewTrigger]);
 
-  // Filter waste services from the general services list
-  const wasteServices = useMemo(() => {
-    return services.filter((s) => isWasteDisposalService(s));
-  }, [services]);
-
-  // Base list: only provided services corresponding to waste disposal
+  // Client-side fallback list: only provided services corresponding to waste disposal
+  const providedServices = providedServicesProp || [];
   const wasteProvidedServices = useMemo(() => {
     return providedServices.filter((item) => {
       const srv = item.service || services.find((s) => s.id === item.serviceId);
@@ -267,28 +242,33 @@ export const WasteDisposalPanel: React.FC<Props> = ({
     });
   }, [providedServices, services]);
 
-  // Unique clients for dropdown
-  const uniqueClients = useMemo(() => {
-    const map = new Map<string, string>();
-    wasteProvidedServices.forEach((item) => {
-      const c = item.client || clients.find((cl) => cl.id === item.clientId);
-      if (c?.id && c?.name) map.set(c.id, c.name);
-    });
-    clients.forEach((c) => {
-      if (c.id && c.name && !map.has(c.id)) map.set(c.id, c.name);
-    });
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
-  }, [wasteProvidedServices, clients]);
+  // Server-side paginated query
+  const debouncedSearchQuery = useDebounce(searchQuery, 400);
 
-  // Unique projects for dropdown
-  const uniqueProjects = useMemo(() => {
-    const map = new Map<string, string>();
-    wasteProvidedServices.forEach((item) => {
-      const p = item.project || projects.find((pr) => pr.id === item.projectId);
-      if (p?.id && p?.name) map.set(p.id, p.name);
-    });
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
-  }, [wasteProvidedServices, projects]);
+  const {
+    data: paginatedData,
+    isLoading: isPaginatedLoading,
+    isRefetching: isPaginatedRefetching,
+    refetch: refetchPaginated,
+  } = usePaginatedProvidedServicesQuery(
+    {
+      page,
+      rowsPerPage: activeRowsPerPage,
+      sortBy: sortOption,
+      sortOrder: sortDirection,
+      search: debouncedSearchQuery,
+      status: filterStatus,
+      serviceId: filterService,
+      clientId: filterClient,
+      projectId: filterProject,
+      dateFrom: filterDateFrom,
+      dateTo: filterDateTo,
+      dateField: filterDateField,
+      isWasteDisposalOnly: true,
+      missingInvoice: quickFilterMissingInvoice,
+    },
+    isServerPaginated
+  );
 
   const handleClearAllFilters = () => {
     setSearchQuery('');
@@ -503,6 +483,46 @@ export const WasteDisposalPanel: React.FC<Props> = ({
     return filteredAndSortedItems.slice(page * activeRowsPerPage, page * activeRowsPerPage + activeRowsPerPage);
   }, [filteredAndSortedItems, page, activeRowsPerPage]);
 
+  const totalCount = isServerPaginated
+    ? (paginatedData?.total ?? 0)
+    : filteredAndSortedItems.length;
+
+  useEffect(() => {
+    if (onTotalCountChange) {
+      onTotalCountChange(totalCount);
+    }
+  }, [totalCount, onTotalCountChange]);
+
+  const displayItems = isServerPaginated
+    ? (paginatedData?.items || [])
+    : paginatedItems;
+
+  // Unique clients for dropdown
+  const uniqueClients = useMemo(() => {
+    const map = new Map<string, string>();
+    displayItems.forEach((item) => {
+      const c = item.client || clients.find((cl) => cl.id === item.clientId);
+      if (c?.id && c?.name) map.set(c.id, c.name);
+    });
+    clients.forEach((c) => {
+      if (c.id && c.name && !map.has(c.id)) map.set(c.id, c.name);
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [displayItems, clients]);
+
+  // Unique projects for dropdown
+  const uniqueProjects = useMemo(() => {
+    const map = new Map<string, string>();
+    displayItems.forEach((item) => {
+      const p = item.project || allProjects.find((pr) => pr.id === item.projectId);
+      if (p?.id && p?.name) map.set(p.id, p.name);
+    });
+    allProjects.forEach((p) => {
+      if (p.id && p.name && !map.has(p.id)) map.set(p.id, p.name);
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [displayItems, allProjects]);
+
   const quickFilterOptions: QuickFilterItem[] = useMemo(() => [
     { key: 'Planned', label: t('statusPlanned'), color: 'warning' },
     { key: 'In Progress', label: t('statusInProgress'), color: 'info' },
@@ -531,93 +551,18 @@ export const WasteDisposalPanel: React.FC<Props> = ({
   const handleOpenNew = () => {
     setEditingItem(null);
     setIsViewMode(false);
-    // default to first waste service if available
-    const defaultServiceId = wasteServices.length > 0 ? wasteServices[0].id : (services[0]?.id || '');
-    setFormData({
-      serviceId: defaultServiceId,
-      clientId: '',
-      projectId: '',
-      invoiceId: '',
-      status: 'Planned',
-      scheduledDate: new Date().toISOString().slice(0, 10),
-      completionDate: '',
-      location: '',
-      notes: '',
-      customData: {},
-    });
     setIsDialogOpen(true);
-  };
-
-  const prepareCustomDataForForm = (item: ProvidedService) => {
-    const rawCustomData: Record<string, any> = item.customData ? { ...item.customData } : {};
-    const itemService = item.service || services.find((s) => String(s.id) === String(item.serviceId));
-    const serviceFields =
-      itemService?.customDataModel && Array.isArray(itemService.customDataModel)
-        ? itemService.customDataModel
-        : [];
-    const initialCustomData: Record<string, any> = {};
-
-    if (serviceFields.length > 0) {
-      serviceFields.forEach((field) => {
-        let val = rawCustomData[field.id];
-        const isValEmpty = val === undefined || val === null || val === '' || (Array.isArray(val) && val.length === 0);
-        if (isValEmpty) {
-          for (const [k, v] of Object.entries(rawCustomData)) {
-            if (v !== undefined && v !== null && v !== '' && (!Array.isArray(v) || v.length > 0) && isKeyMatch(k, field)) {
-              val = v;
-              break;
-            }
-          }
-        }
-        if (val !== undefined && val !== null && val !== '' && (!Array.isArray(val) || val.length > 0)) {
-          initialCustomData[field.id] = val;
-        }
-      });
-      // Preserve any other non-matched keys
-      for (const [k, v] of Object.entries(rawCustomData)) {
-        if (initialCustomData[k] === undefined && !serviceFields.some((f) => isKeyMatch(k, f))) {
-          initialCustomData[k] = v;
-        }
-      }
-    } else {
-      Object.assign(initialCustomData, rawCustomData);
-    }
-    return initialCustomData;
   };
 
   const handleOpenView = (item: ProvidedService) => {
     setEditingItem(item);
     setIsViewMode(true);
-    setFormData({
-      serviceId: item.serviceId || '',
-      clientId: item.clientId || '',
-      projectId: item.projectId || '',
-      invoiceId: item.invoiceId || '',
-      status: item.status || 'Planned',
-      scheduledDate: item.scheduledDate ? item.scheduledDate.slice(0, 10) : '',
-      completionDate: item.completionDate ? item.completionDate.slice(0, 10) : '',
-      location: item.location || '',
-      notes: item.notes || '',
-      customData: prepareCustomDataForForm(item),
-    });
     setIsDialogOpen(true);
   };
 
   const handleOpenEdit = (item: ProvidedService) => {
     setEditingItem(item);
     setIsViewMode(false);
-    setFormData({
-      serviceId: item.serviceId || '',
-      clientId: item.clientId || '',
-      projectId: item.projectId || '',
-      invoiceId: item.invoiceId || '',
-      status: item.status || 'Planned',
-      scheduledDate: item.scheduledDate ? item.scheduledDate.slice(0, 10) : '',
-      completionDate: item.completionDate ? item.completionDate.slice(0, 10) : '',
-      location: item.location || '',
-      notes: item.notes || '',
-      customData: prepareCustomDataForForm(item),
-    });
     setIsDialogOpen(true);
   };
 
@@ -645,32 +590,9 @@ export const WasteDisposalPanel: React.FC<Props> = ({
     }
   };
 
-  const handleSave = async () => {
-    if (!formData.serviceId) {
-      setErrorDialogState({ open: true, message: t('alertServiceRequired') });
-      return;
-    }
-    if (!formData.clientId) {
-      setErrorDialogState({ open: true, message: t('alertClientRequired') });
-      return;
-    }
-
+  const handleSave = async (payload: Partial<ProvidedService>) => {
     setIsSaving(true);
     try {
-      const payload: Partial<ProvidedService> = {
-        ...(editingItem?.id ? { id: editingItem.id } : {}),
-        serviceId: formData.serviceId,
-        clientId: formData.clientId,
-        projectId: formData.projectId || null,
-        invoiceId: formData.invoiceId || null,
-        status: formData.status,
-        scheduledDate: formData.scheduledDate ? new Date(formData.scheduledDate).toISOString() : null,
-        completionDate: formData.completionDate ? new Date(formData.completionDate).toISOString() : null,
-        location: formData.location || null,
-        notes: formData.notes || null,
-        customData: Object.keys(formData.customData).length > 0 ? formData.customData : null,
-      };
-
       if (onSaveProvidedService) {
         const result = await onSaveProvidedService(payload);
         if (result && !result.success && result.error) {
@@ -688,27 +610,6 @@ export const WasteDisposalPanel: React.FC<Props> = ({
       setIsSaving(false);
     }
   };
-
-  // Get current active custom model for the selected service
-  const selectedService = useMemo(() => {
-    return (
-      services.find((s) => String(s.id) === String(formData.serviceId)) ||
-      (editingItem?.serviceId === formData.serviceId ? editingItem?.service : undefined)
-    );
-  }, [services, formData.serviceId, editingItem]);
-
-  const activeCustomFields: CustomFieldDefinition[] = useMemo(() => {
-    if (selectedService?.customDataModel && Array.isArray(selectedService.customDataModel) && selectedService.customDataModel.length > 0) {
-      return selectedService.customDataModel;
-    }
-    // Standard waste fields fallback
-    return [
-      { id: 'vrsta_otpada', name: 'Vrsta otpada', type: 'text' },
-      { id: 'kolicina', name: 'Količina (kg)', type: 'number', unit: 'kg' },
-      { id: 'indeksni_broj', name: 'Indeksni broj otpada', type: 'text' },
-      { id: 'kretanje_otpada_br', name: 'Dokument o kretanju otpada br.', type: 'text' },
-    ];
-  }, [selectedService]);
 
   // Extract useful waste badges from customData for an item
   const renderWasteBadges = (item: ProvidedService) => {
@@ -765,10 +666,10 @@ export const WasteDisposalPanel: React.FC<Props> = ({
         icon={<DeleteSweepIcon sx={{ fontSize: 18 }} />}
         isFullHeight={isFullHeight}
         hideNotch={hideNotch}
-        isEmpty={filteredAndSortedItems.length === 0}
+        isEmpty={totalCount === 0 && !isPaginatedLoading}
         emptyMessage={t('emptyWasteDisposal')}
         paginationProps={{
-          count: filteredAndSortedItems.length,
+          count: totalCount,
           page,
           rowsPerPage: activeRowsPerPage,
           rowsPerPageOptions: activeRowsPerPageOptions,
@@ -789,11 +690,18 @@ export const WasteDisposalPanel: React.FC<Props> = ({
           selectedKeys: selectedQuickFilters,
           onChange: handleQuickFiltersChange,
         }}
-        refreshProps={onRefresh ? { onRefresh, isRefreshing } : undefined}
+        refreshProps={{
+          onRefresh: () => {
+            if (onRefresh) onRefresh();
+            if (isServerPaginated) refetchPaginated();
+          },
+          isRefreshing: isRefreshing || (isServerPaginated && isPaginatedRefetching),
+        }}
         filterSelector={
           <TableFilterSelector
             activeCount={activeFilterCount}
             onClear={handleClearAllFilters}
+            onOpen={() => setIsFilterOpen(true)}
             sortingContent={
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                 <Autocomplete
@@ -898,7 +806,13 @@ export const WasteDisposalPanel: React.FC<Props> = ({
             defaultRowsPerPageOptions={[5, 10, 20]}
           />
         }
-        listContent={paginatedItems.map((item) => {
+        listContent={
+          isPaginatedLoading && displayItems.length === 0 ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+              <CircularProgress size={32} />
+            </Box>
+          ) : (
+            displayItems.map((item) => {
           const srv = item.service || services.find((s) => s.id === item.serviceId);
           const cl = item.client || clients.find((c) => c.id === item.clientId);
           const pr = item.project || projects.find((p) => p.id === item.projectId);
@@ -1114,333 +1028,32 @@ export const WasteDisposalPanel: React.FC<Props> = ({
               </Box>
             </Box>
           );
-        })}
+        })
+      )}
       />
 
-      {/* CREATE / EDIT / VIEW DIALOG */}
-      <Dialog
+      {/* CREATE / EDIT / VIEW MODAL */}
+      <WasteDisposalModal
         open={isDialogOpen}
         onClose={() => setIsDialogOpen(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle sx={{ fontWeight: 700 }}>
-          {isViewMode
-            ? t('providedServicesSummary')
-            : editingItem
-            ? t('modalEditWasteDisposal')
-            : t('modalNewWasteDisposal')}
-        </DialogTitle>
-
-        <DialogContent dividers>
-          <Grid container spacing={2}>
-            {/* SERVICE SELECTOR */}
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Autocomplete
-                size="small"
-                readOnly
-                options={services}
-                getOptionLabel={(option) => getServiceLabel(option.code, services) || option.name}
-                isOptionEqualToValue={(option, val) => option.id === val.id}
-                value={services.find((s) => s.id === formData.serviceId) || null}
-                renderInput={(params) => <TextField {...params} label={t('colService')} required />}
-              />
-            </Grid>
-
-            {/* CLIENT SELECTOR */}
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Autocomplete
-                size="small"
-                disabled={isViewMode}
-                options={clients}
-                getOptionLabel={(option) => option.name}
-                value={clients.find((c) => c.id === formData.clientId) || null}
-                onChange={(_, newValue) =>
-                  setFormData((prev) => {
-                    const shouldPrefillCity = !prev.location || prev.location.trim() === '';
-                    return {
-                      ...prev,
-                      clientId: newValue ? newValue.id : '',
-                      projectId: '', // reset project if client changes
-                      location: shouldPrefillCity && newValue?.city ? newValue.city : prev.location,
-                    };
-                  })
-                }
-                renderInput={(params) => <TextField {...params} label={t('colClient')} required />}
-              />
-            </Grid>
-
-            {/* PROJECT SELECTOR (OPTIONAL) */}
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Autocomplete
-                size="small"
-                disabled={isViewMode}
-                options={
-                  formData.clientId
-                    ? projects.filter((p) => p.clientId === formData.clientId || p.clientName === clients.find((c) => c.id === formData.clientId)?.name)
-                    : projects
-                }
-                getOptionLabel={(option) => option.name}
-                value={projects.find((p) => p.id === formData.projectId) || null}
-                onChange={(_, newValue) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    projectId: newValue ? newValue.id : '',
-                  }))
-                }
-                renderInput={(params) => <TextField {...params} label={`${t('colProject')} ${t('lblNoneOptional')}`} />}
-              />
-            </Grid>
-
-            {/* STATUS SELECTOR */}
-            <Grid size={{ xs: 12, md: 6 }}>
-              <FormControl fullWidth size="small" disabled={isViewMode}>
-                <InputLabel>{t('colStatus')}</InputLabel>
-                <Select
-                  value={formData.status}
-                  label={t('colStatus')}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, status: e.target.value }))}
-                >
-                  <MenuItem value="Planned">{t('statusPlanned')}</MenuItem>
-                  <MenuItem value="In Progress">{t('statusInProgress')}</MenuItem>
-                  <MenuItem value="Completed">{t('statusCompleted')}</MenuItem>
-                  <MenuItem value="Cancelled">{t('statusCancelled')}</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-
-            {/* SCHEDULED DATE */}
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                size="small"
-                type="date"
-                label={t('colScheduledDate')}
-                slotProps={{ inputLabel: { shrink: true } }}
-                value={formData.scheduledDate}
-                disabled={isViewMode}
-                onChange={(e) => setFormData((prev) => ({ ...prev, scheduledDate: e.target.value }))}
-              />
-            </Grid>
-
-            {/* COMPLETION DATE */}
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                size="small"
-                type="date"
-                label={t('colCompletionDate')}
-                slotProps={{ inputLabel: { shrink: true } }}
-                value={formData.completionDate}
-                disabled={isViewMode}
-                onChange={(e) => setFormData((prev) => ({ ...prev, completionDate: e.target.value }))}
-              />
-            </Grid>
-
-            {/* LOCATION */}
-            <Grid size={{ xs: 12 }}>
-              <TextField
-                fullWidth
-                size="small"
-                label={t('colLocation')}
-                value={formData.location}
-                disabled={isViewMode}
-                onChange={(e) => setFormData((prev) => ({ ...prev, location: e.target.value }))}
-              />
-            </Grid>
-
-            {/* DYNAMIC CUSTOM FIELDS (Vrsta otpada, Količina, Indeksni broj, etc.) */}
-            {activeCustomFields.length > 0 && (
-              <Grid size={{ xs: 12 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.secondary' }}>
-                    {t('customDataSection')}
-                  </Typography>
-                  {!isViewMode && canManageServices && selectedService && (
-                    <Button
-                      size="small"
-                      variant="text"
-                      startIcon={<SettingsIcon sx={{ fontSize: '15px !important' }} />}
-                      onClick={() => setIsCustomModelModalOpen(true)}
-                      sx={{ textTransform: 'none', py: 0 }}
-                    >
-                      {t('btnDefineModel')}
-                    </Button>
-                  )}
-                </Box>
-                <Grid container spacing={2}>
-                  {activeCustomFields.map((field) => {
-                    let val = formData.customData[field.id] ?? formData.customData[field.name];
-                    if (val === undefined || val === null || val === '') {
-                      for (const [k, v] of Object.entries(formData.customData)) {
-                        if (v !== undefined && v !== null && v !== '' && isKeyMatch(k, field)) {
-                          val = v;
-                          break;
-                        }
-                      }
-                    }
-                    val = val ?? '';
-                    const isListOrClient = field.type === 'list' || field.type === 'client';
-                    const resolvedOptions = isListOrClient ? resolveListOptions(field) : [];
-                    const optionsToDisplay =
-                      val && typeof val === 'string' && !resolvedOptions.includes(val)
-                        ? [val, ...resolvedOptions]
-                        : resolvedOptions;
-                    return (
-                      <Grid size={{ xs: 12, md: 6 }} key={field.id}>
-                        {(field.type === 'list' && field.linkedList === 'index_number') || field.id === 'indeksni_broj' ? (
-                          <WasteCatalogAutocomplete
-                            multiple={true}
-                            size="small"
-                            fullWidth
-                            disabled={isViewMode}
-                            label={field.name}
-                            placeholder={t('lblNoneOptional')}
-                            value={val || []}
-                            onChange={(_, codes) => {
-                              setFormData((prev) => ({
-                                ...prev,
-                                customData: { ...prev.customData, [field.id]: codes || [] },
-                              }));
-                            }}
-                          />
-                        ) : isListOrClient && (optionsToDisplay.length > 0 || field.linkedList === 'clients' || field.type === 'client') ? (
-                          <Autocomplete
-                            size="small"
-                            fullWidth
-                            disabled={isViewMode}
-                            options={optionsToDisplay}
-                            value={val || null}
-                            onChange={(_, newValue) => {
-                              setFormData((prev) => ({
-                                ...prev,
-                                customData: { ...prev.customData, [field.id]: newValue || '' },
-                              }));
-                            }}
-                            renderInput={(params) => (
-                              <TextField
-                                {...params}
-                                label={field.name}
-                                placeholder={t('lblNoneOptional')}
-                                helperText={field.permitTypeFilter ? `${t('lblFilteredByPermit')}: ${getPermitTypeLabel(field.permitTypeFilter)}` : undefined}
-                              />
-                            )}
-                          />
-                        ) : field.type === 'number' ? (
-                          <TextField
-                            fullWidth
-                            size="small"
-                            type="number"
-                            label={field.unit ? `${field.name} (${field.unit})` : field.name}
-                            value={val}
-                            disabled={isViewMode}
-                            onChange={(e) =>
-                              setFormData((prev) => ({
-                                ...prev,
-                                customData: {
-                                  ...prev.customData,
-                                  [field.id]: e.target.value === '' ? '' : Number(e.target.value),
-                                },
-                              }))
-                            }
-                          />
-                        ) : (
-                          <TextField
-                            fullWidth
-                            size="small"
-                            label={field.name}
-                            value={val}
-                            disabled={isViewMode}
-                            onChange={(e) =>
-                              setFormData((prev) => ({
-                                ...prev,
-                                customData: { ...prev.customData, [field.id]: e.target.value },
-                              }))
-                            }
-                          />
-                        )}
-                      </Grid>
-                    );
-                  })}
-                </Grid>
-              </Grid>
-            )}
-
-            {/* INVOICE LINKING SECTION */}
-            <Grid size={{ xs: 12 }}>
-              <ProvidedServiceInvoiceSection
-                clientId={formData.clientId}
-                clientName={clients.find((c) => c.id === formData.clientId)?.name}
-                projectId={formData.projectId}
-                projectName={projects.find((p) => p.id === formData.projectId)?.name}
-                selectedInvoiceId={formData.invoiceId}
-                onSelectInvoiceId={(invId) => setFormData((prev) => ({ ...prev, invoiceId: invId }))}
-                invoices={invoices}
-                onSaveInvoice={onSaveInvoice}
-                onDeleteInvoice={onDeleteInvoice}
-                onStatusChangeInvoice={onStatusChangeInvoice}
-                setErrorDialogState={setErrorDialogState}
-                disabled={isViewMode}
-              />
-            </Grid>
-
-            {/* NOTES */}
-            <Grid size={{ xs: 12 }}>
-              <TextField
-                fullWidth
-                multiline
-                rows={3}
-                size="small"
-                label={t('lblNotes')}
-                value={formData.notes}
-                disabled={isViewMode}
-                onChange={(e) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
-              />
-            </Grid>
-          </Grid>
-        </DialogContent>
-
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          {isViewMode ? (
-            <>
-              {canEdit && (
-                <Button
-                  variant="outlined"
-                  onClick={() => setIsViewMode(false)}
-                  startIcon={<EditIcon />}
-                >
-                  {t('btnEdit')}
-                </Button>
-              )}
-              <Button onClick={() => setIsDialogOpen(false)}>{t('btnClose')}</Button>
-            </>
-          ) : (
-            <>
-              <Button onClick={() => setIsDialogOpen(false)} disabled={isSaving}>
-                {t('btnCancel')}
-              </Button>
-              <Button
-                variant="contained"
-                onClick={handleSave}
-                disabled={isSaving}
-              >
-                {t('btnSave')}
-              </Button>
-            </>
-          )}
-        </DialogActions>
-      </Dialog>
-
-      <CustomDataModelModal
-        isOpen={isCustomModelModalOpen}
-        onClose={() => setIsCustomModelModalOpen(false)}
-        service={selectedService || null}
-        initialFields={
-          selectedService?.customDataModel && Array.isArray(selectedService.customDataModel)
-            ? selectedService.customDataModel
-            : []
-        }
-        onSave={handleSaveCustomModel}
+        editingItem={editingItem}
+        isViewMode={isViewMode}
+        onEdit={() => setIsViewMode(false)}
+        onSave={handleSave}
+        isSaving={isSaving}
+        targetWasteService={targetWasteService}
+        isWasteServiceLoading={isWasteServiceLoading}
+        services={services}
+        clients={clients}
+        projects={projects}
+        invoices={invoices}
+        canEdit={canEdit}
+        canManageServices={canManageServices}
+        onSaveCustomModel={handleSaveCustomModel}
+        onSaveInvoice={onSaveInvoice}
+        onDeleteInvoice={onDeleteInvoice}
+        onStatusChangeInvoice={onStatusChangeInvoice}
+        setErrorDialogState={setErrorDialogState}
       />
 
       <ErrorDialog

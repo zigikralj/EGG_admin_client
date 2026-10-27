@@ -219,4 +219,60 @@ test.describe('Project Notes & TipTap Editor', () => {
     await expect(dialog.getByRole('button', { name: /Podebljano|Bold/i })).toBeVisible();
     await expect(dialog.getByRole('button', { name: /Kurziv|Italic/i })).toBeVisible();
   });
+
+  test('mentions a user in project notes when typing @ or clicking mention button', async ({ page }) => {
+    await page.goto('/');
+    await page.getByText('Eko Analiza Vazduha').first().click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+
+    const tiptapContent = dialog.locator('.tiptap.ProseMirror');
+    await expect(tiptapContent).toBeVisible();
+
+    // Click mention button in toolbar
+    const mentionButton = dialog.getByRole('button', { name: /Spomeni korisnika|Mention user/i });
+    await expect(mentionButton).toBeVisible();
+    await mentionButton.click();
+
+    // Verify mention suggestion item is visible
+    const suggestionItem = page.getByRole('button', { name: /Test User/i }).first();
+    await expect(suggestionItem).toBeVisible();
+
+    // Click on the user to insert mention
+    await suggestionItem.click();
+
+    // Verify mention tag is inserted into TipTap editor
+    const mentionTag = tiptapContent.locator('.mention-tag');
+    await expect(mentionTag).toBeVisible();
+    await expect(mentionTag).toContainText('@Test User');
+  });
+
+  test('mentions a user by typing @ and pressing Enter key', async ({ page }) => {
+    await page.goto('/');
+    await page.getByText('Eko Analiza Vazduha').first().click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+
+    const tiptapContent = dialog.locator('.tiptap.ProseMirror');
+    await expect(tiptapContent).toBeVisible();
+
+    // Focus editor and type space then @
+    await tiptapContent.click();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' @');
+
+    // Verify mention suggestion item is visible
+    const suggestionItem = page.getByRole('button', { name: /Test User/i }).first();
+    await expect(suggestionItem).toBeVisible();
+
+    // Select with Enter key
+    await page.keyboard.press('Enter');
+
+    // Verify mention tag is inserted into TipTap editor
+    const mentionTag = tiptapContent.locator('.mention-tag');
+    await expect(mentionTag).toBeVisible();
+    await expect(mentionTag).toContainText('@Test User');
+  });
 });

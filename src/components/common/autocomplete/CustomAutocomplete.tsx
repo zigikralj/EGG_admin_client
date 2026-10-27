@@ -5,6 +5,7 @@ import {
   CircularProgress,
   Box,
   Typography,
+  Button,
 } from '@mui/material';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useDebounce } from '../../../hooks/useDebounce';
@@ -104,6 +105,8 @@ export function CustomAutocomplete<
     fetchNextPage,
     isFetchingNextPage,
     isLoading,
+    isError,
+    refetch,
   } = useEntityAutocompleteInfiniteQuery<T>({
     entity,
     search: debouncedSearch,
@@ -122,6 +125,18 @@ export function CustomAutocomplete<
     if (initialOption) {
       const arr = Array.isArray(initialOption) ? (initialOption as T[]) : [initialOption as T];
       setCachedSelectedOptions((prev) => {
+        const allPresent = arr.every((item) =>
+          prev.some((p) => {
+            if (item.id && p.id) return item.id === p.id;
+            if (item.code && p.code) return item.code === p.code;
+            if ((item as any)?.name && (p as any)?.name) return (item as any).name === (p as any).name;
+            return false;
+          })
+        );
+        if (allPresent && prev.length >= arr.length) {
+          return prev;
+        }
+
         const map = new Map<string, T>();
         prev.forEach((item) => {
           const k = item.id || item.code || (item as any)?.name || JSON.stringify(item);
@@ -453,13 +468,16 @@ export function CustomAutocomplete<
         return t('emptyPermits');
       case 'categories':
         return t('emptyCategories');
+      case 'providedServices':
+        return t('emptyProvidedServices');
       default:
-        return 'Nema rezultata';
+        return t('emptyResults');
     }
   }, [entity, t]);
 
   return (
     <Autocomplete
+      key={groupBy ? 'grouped' : 'flat'}
       open={isOpen}
       onOpen={() => setIsOpen(true)}
       onClose={() => {
@@ -529,6 +547,35 @@ export function CustomAutocomplete<
             <Typography variant="body2" color="text.secondary">
               {t('loadingData') || 'Učitavanje...'}
             </Typography>
+          </Box>
+        ) : isError ? (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 1,
+              py: 1,
+            }}
+          >
+            <Typography variant="body2" color="error">
+              {t('errorLoadingOptions')}
+            </Typography>
+            <Button
+              size="small"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                refetch();
+              }}
+              sx={{ textTransform: 'none', minWidth: 'auto', p: 0.5, fontSize: '0.75rem' }}
+            >
+              {t('btnRetry')}
+            </Button>
           </Box>
         ) : (
           <Typography variant="body2" color="text.secondary">

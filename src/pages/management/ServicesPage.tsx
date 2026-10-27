@@ -20,10 +20,6 @@ import {
   DialogContent,
   DialogActions,
   Grid,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
   Autocomplete,
   Tooltip,
 } from '@mui/material';
@@ -53,6 +49,7 @@ const DEFAULT_COLUMNS = ['name', 'group', 'frequency', 'description', 'customDat
 
 import { useServicesQuery, useServicesMutations, useCategoriesQuery } from '../../queries';
 import { ConfirmDialog } from '../../components/dialogs/ConfirmDialog';
+import { CategoryAutocomplete } from '../../components/common/autocomplete';
 
 const ServicesPage: React.FC<Props> = ({
   visibleColumns = DEFAULT_COLUMNS,
@@ -724,28 +721,14 @@ const ServicesPage: React.FC<Props> = ({
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>{t('lblCategoryGroup')}</InputLabel>
-                  <Select
-                    value={group}
-                    label={t('lblCategoryGroup')}
-                    onChange={(e) => setGroup(e.target.value as string)}
-                  >
-                    {categories.length > 0
-                      ? categories.map((c) => (
-                          <MenuItem key={c.id} value={c.code}>
-                            {c.name}
-                          </MenuItem>
-                        ))
-                      : [
-                          <MenuItem key="grp-waste" value="grp-waste">{t('groupWaste')}</MenuItem>,
-                          <MenuItem key="grp-legal" value="grp-legal">{t('groupLegal')}</MenuItem>,
-                          <MenuItem key="grp-testing" value="grp-testing">{t('groupTesting')}</MenuItem>,
-                          <MenuItem key="grp-advisory" value="grp-advisory">{t('groupAdvisory')}</MenuItem>,
-                          <MenuItem key="grp-standards" value="grp-standards">{t('groupStandards')}</MenuItem>,
-                        ]}
-                  </Select>
-                </FormControl>
+                <CategoryAutocomplete
+                  size="small"
+                  fullWidth
+                  value={group}
+                  valueMode="code"
+                  onChange={(val) => setGroup(val || '')}
+                  label={t('lblCategoryGroup')}
+                />
               </Grid>
               <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField

@@ -42,7 +42,8 @@ interface ProvidedServiceInvoiceSectionProps {
   projectName?: string;
   selectedInvoiceId: string;
   onSelectInvoiceId: (invoiceId: string) => void;
-  invoices: Invoice[];
+  invoices?: Invoice[];
+  initialInvoice?: Invoice | null;
   onSaveInvoice?: (invoice: Partial<Invoice>) => Promise<SaveResult | void> | void;
   onDeleteInvoice?: (id: string) => void;
   onStatusChangeInvoice?: (id: string, status: string, paymentDate?: string) => void;
@@ -50,14 +51,15 @@ interface ProvidedServiceInvoiceSectionProps {
   disabled?: boolean;
 }
 
-export const ProvidedServiceInvoiceSection: React.FC<ProvidedServiceInvoiceSectionProps> = ({
+export const ProvidedServiceInvoiceSection: React.FC<ProvidedServiceInvoiceSectionProps> = React.memo(({
   clientId,
   clientName,
   projectId,
   projectName,
   selectedInvoiceId,
   onSelectInvoiceId,
-  invoices,
+  invoices = [],
+  initialInvoice,
   onSaveInvoice,
   onDeleteInvoice,
   onStatusChangeInvoice,
@@ -120,8 +122,11 @@ export const ProvidedServiceInvoiceSection: React.FC<ProvidedServiceInvoiceSecti
     if (createdInvoiceFallback && createdInvoiceFallback.id === selectedInvoiceId) {
       return createdInvoiceFallback;
     }
+    if (initialInvoice && initialInvoice.id === selectedInvoiceId) {
+      return initialInvoice;
+    }
     return null;
-  }, [selectedInvoiceId, linkedInvoicesList, createdInvoiceFallback]);
+  }, [selectedInvoiceId, linkedInvoicesList, createdInvoiceFallback, initialInvoice]);
 
   const availableExistingInvoices = useMemo(() => {
     return linkedInvoicesList;
@@ -397,7 +402,10 @@ export const ProvidedServiceInvoiceSection: React.FC<ProvidedServiceInvoiceSecti
                 <InvoiceAutocomplete
                   size="small"
                   value={selectedExistingInvoiceId}
-                  onChange={(val) => setSelectedExistingInvoiceId(val || '')}
+                  onChange={(val, opt) => {
+                    setSelectedExistingInvoiceId(val || '');
+                    if (opt) setCreatedInvoiceFallback(opt);
+                  }}
                   prioritizeClientId={clientId}
                   prioritizeClientName={clientName}
                   excludeIds={linkedInvoice ? [linkedInvoice.id] : undefined}
@@ -607,4 +615,4 @@ export const ProvidedServiceInvoiceSection: React.FC<ProvidedServiceInvoiceSecti
       )}
     </>
   );
-};
+});
