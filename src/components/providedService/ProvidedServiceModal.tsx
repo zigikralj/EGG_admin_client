@@ -1,9 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Button,
   TextField,
   FormControl,
@@ -15,8 +11,9 @@ import {
   Box,
   Autocomplete,
   Grid,
+  Chip,
 } from '@mui/material';
-import { DeleteIcon, SettingsIcon, AddIcon } from '../icons';
+import { SettingsIcon, AddIcon } from '../icons';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useLinkedListOptions } from '../../hooks/useLinkedListOptions';
@@ -27,12 +24,14 @@ import {
   ProjectAutocomplete,
   ServiceAutocomplete,
 } from '../common/autocomplete';
+import { ViewEditModalBase, type ModalMode } from '../common/modal/ViewEditModalBase';
 import type {
   ProvidedService,
   Service,
   Client,
   CustomFieldDefinition,
   SaveResult,
+  Invoice,
 } from '../../types';
 
 export interface ProvidedServiceModalProps {
@@ -41,7 +40,14 @@ export interface ProvidedServiceModalProps {
   editingItem: ProvidedService | null;
   services: Service[];
   clients: Client[];
+  invoices?: Invoice[];
   canCreate?: boolean;
+  canEdit?: boolean;
+  canDelete?: boolean;
+  isViewMode?: boolean;
+  mode?: ModalMode;
+  initialMode?: ModalMode;
+  onModeChange?: (mode: ModalMode) => void;
   onDeleteProvidedService?: (id: string) => void;
   onSaveProvidedService: (payload: Partial<ProvidedService>) => Promise<SaveResult>;
   onSaveInvoice: (invoice: any) => Promise<SaveResult>;
@@ -59,6 +65,12 @@ export const ProvidedServiceModal: React.FC<ProvidedServiceModalProps> = ({
   services,
   clients,
   canCreate = true,
+  canEdit: canEditProp,
+  canDelete: canDeleteProp,
+  isViewMode,
+  mode: controlledMode,
+  initialMode,
+  onModeChange: onModeChangeProp,
   onDeleteProvidedService,
   onSaveProvidedService,
   onSaveInvoice,
@@ -70,6 +82,36 @@ export const ProvidedServiceModal: React.FC<ProvidedServiceModalProps> = ({
 }) => {
   const { t } = useLanguage();
   const { hasPermission } = useAuth();
+
+  // Mode state: 'view' | 'edit' | 'create'
+  const [internalMode, setInternalMode] = useState<ModalMode>(() => {
+    if (controlledMode) return controlledMode;
+    if (initialMode) return initialMode;
+    if (isViewMode !== undefined) return isViewMode ? 'view' : (editingItem ? 'edit' : 'create');
+    return editingItem ? 'view' : 'create';
+  });
+
+  const currentMode = controlledMode || internalMode;
+  const isView = currentMode === 'view';
+
+  const handleModeChange = (newMode: ModalMode) => {
+    setInternalMode(newMode);
+    onModeChangeProp?.(newMode);
+  };
+
+  useEffect(() => {
+    if (open) {
+      if (controlledMode) {
+        setInternalMode(controlledMode);
+      } else if (initialMode) {
+        setInternalMode(initialMode);
+      } else if (isViewMode !== undefined) {
+        setInternalMode(isViewMode ? 'view' : (editingItem ? 'edit' : 'create'));
+      } else {
+        setInternalMode(editingItem ? 'view' : 'create');
+      }
+    }
+  }, [open, editingItem?.id, isViewMode, initialMode, controlledMode]);
 
   const [selectedServiceId, setSelectedServiceId] = useState<string>('');
   const [selectedClientId, setSelectedClientId] = useState<string>('');
@@ -106,65 +148,87 @@ export const ProvidedServiceModal: React.FC<ProvidedServiceModalProps> = ({
     if (!item) return { canEdit: canCreate, canDelete: false };
     const srv = item.service || services.find((s) => s.id === item.serviceId);
     const isWaste = srv?.group === 'grp-waste' || srv?.code?.toLowerCase().includes('waste');
-    const canEdit = hasPermission('providedServices', 'edit') || (Boolean(isWaste) && hasPermission('wasteDisposal', 'edit'));
-    const canDelete = hasPermission('providedServices', 'delete') || (Boolean(isWaste) && hasPermission('wasteDisposal', 'delete'));
+    const canEdit = canEditProp ?? (hasPermission('providedServices', 'edit') || (Boolean(isWaste) && hasPermission('wasteDisposal', 'edit')));
+    const canDelete = canDeleteProp ?? (hasPermission('providedServices', 'delete') || (Boolean(isWaste) && hasPermission('wasteDisposal', 'delete')));
     return { canEdit, canDelete };
-  }, [hasPermission, services, canCreate]);
+  }, [hasPermission, services, canCreate, canEditProp, canDeleteProp]);
+
+  const resetFormToItem = useCallback((item: ProvidedService | null) => {
+    if (item) {
+      setSelectedServiceId(item.serviceId);
+      setSelectedClientId(item.clientId);
+      setSelectedClientName(item.client?.name || '');
+      setSelectedProjectId(item.projectId || '');
+      setSelectedProjectName(item.project?.name || '');
+      setSelectedInvoiceId(item.invoiceId || '');
+      setStatus(item.status);
+      setLocation(item.location || '');
+      setScheduledDate(item.scheduledDate ? item.scheduledDate.substring(0, 10) : '');
+      setCompletionDate(item.completionDate ? item.completionDate.substring(0, 10) : '');
+      setNotes(item.notes || '');
+
+      const initialCustomData: Record<string, any> = {};
+      const fields = getCustomModelForService(item.serviceId);
+      const savedCustomData = item.customData || {};
+
+      fields.forEach((f) => {
+        let val: any;
+        if (savedCustomData[f.id] !== undefined) {
+          val = savedCustomData[f.id];
+        } else {
+          const legacyKey = f.name.toLowerCase().replace(/\s+/g, '_');
+          if (savedCustomData[legacyKey] !== undefined) {
+            val = savedCustomData[legacyKey];
+          } else {
+            val = f.type === 'number' ? '' : f.type === 'list' && (f.linkedList === 'index_number' || f.id === 'indeksni_broj') ? [] : '';
+          }
+        }
+        if (typeof val === 'object' && val !== null && !Array.isArray(val) && val.name) {
+          val = val.name;
+        }
+        initialCustomData[f.id] = val;
+      });
+
+      for (const [k, v] of Object.entries(savedCustomData)) {
+        if (initialCustomData[k] === undefined) {
+          let cleanV = v;
+          if (typeof cleanV === 'object' && cleanV !== null && !Array.isArray(cleanV) && (cleanV as any).name) {
+            cleanV = (cleanV as any).name;
+          }
+          initialCustomData[k] = cleanV;
+        }
+      }
+      setCustomData(initialCustomData);
+    } else {
+      setSelectedServiceId('');
+      setSelectedClientId('');
+      setSelectedClientName('');
+      setSelectedProjectId('');
+      setSelectedProjectName('');
+      setSelectedInvoiceId('');
+      setStatus('Planned');
+      setLocation('');
+      setScheduledDate('');
+      setCompletionDate('');
+      setNotes('');
+      setCustomData({});
+    }
+  }, [getCustomModelForService]);
 
   useEffect(() => {
     if (open) {
-      if (editingItem) {
-        setSelectedServiceId(editingItem.serviceId);
-        setSelectedClientId(editingItem.clientId);
-        setSelectedClientName(editingItem.client?.name || '');
-        setSelectedProjectId(editingItem.projectId || '');
-        setSelectedProjectName(editingItem.project?.name || '');
-        setSelectedInvoiceId(editingItem.invoiceId || '');
-        setStatus(editingItem.status);
-        setLocation(editingItem.location || '');
-        setScheduledDate(editingItem.scheduledDate ? editingItem.scheduledDate.substring(0, 10) : '');
-        setCompletionDate(editingItem.completionDate ? editingItem.completionDate.substring(0, 10) : '');
-        setNotes(editingItem.notes || '');
-
-        const initialCustomData: Record<string, any> = {};
-        const fields = getCustomModelForService(editingItem.serviceId);
-        const savedCustomData = editingItem.customData || {};
-
-        fields.forEach((f) => {
-          if (savedCustomData[f.id] !== undefined) {
-            initialCustomData[f.id] = savedCustomData[f.id];
-          } else {
-            const legacyKey = f.name.toLowerCase().replace(/\s+/g, '_');
-            if (savedCustomData[legacyKey] !== undefined) {
-              initialCustomData[f.id] = savedCustomData[legacyKey];
-            } else {
-              initialCustomData[f.id] = f.type === 'number' ? '' : f.type === 'list' && (f.linkedList === 'index_number' || f.id === 'indeksni_broj') ? [] : '';
-            }
-          }
-        });
-
-        for (const [k, v] of Object.entries(savedCustomData)) {
-          if (initialCustomData[k] === undefined) {
-            initialCustomData[k] = v;
-          }
-        }
-        setCustomData(initialCustomData);
-      } else {
-        setSelectedServiceId('');
-        setSelectedClientId('');
-        setSelectedClientName('');
-        setSelectedProjectId('');
-        setSelectedProjectName('');
-        setSelectedInvoiceId('');
-        setStatus('Planned');
-        setLocation('');
-        setScheduledDate('');
-        setCompletionDate('');
-        setNotes('');
-        setCustomData({});
-      }
+      resetFormToItem(editingItem);
     }
-  }, [open, editingItem, getCustomModelForService]);
+  }, [open, editingItem, resetFormToItem]);
+
+  const handleCancel = () => {
+    if (currentMode === 'edit' && editingItem) {
+      resetFormToItem(editingItem);
+      handleModeChange('view');
+    } else {
+      onClose();
+    }
+  };
 
   const getPermitTypeLabel = (pType: string) => {
     const key = `permitType${pType}`;
@@ -172,8 +236,9 @@ export const ProvidedServiceModal: React.FC<ProvidedServiceModalProps> = ({
     return translated !== key ? translated : pType;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (isView) return;
     if (editingItem && !getItemPermissions(editingItem).canEdit) return;
     if (!editingItem && !canCreate) return;
     if (!selectedServiceId.trim()) {
@@ -190,12 +255,16 @@ export const ProvidedServiceModal: React.FC<ProvidedServiceModalProps> = ({
       const cleaned: Record<string, any> = {};
       for (const [k, v] of Object.entries(customData)) {
         if (v !== undefined && v !== null && v !== '' && (!Array.isArray(v) || v.length > 0)) {
+          let cleanVal = v;
+          if (typeof cleanVal === 'object' && cleanVal !== null && !Array.isArray(cleanVal) && cleanVal.name) {
+            cleanVal = cleanVal.name;
+          }
           if (currentCustomFields.length > 0) {
             if (currentCustomFields.some((f) => f.id === k)) {
-              cleaned[k] = v;
+              cleaned[k] = cleanVal;
             }
           } else if (!k.startsWith('field_')) {
-            cleaned[k] = v;
+            cleaned[k] = cleanVal;
           }
         }
       }
@@ -211,6 +280,7 @@ export const ProvidedServiceModal: React.FC<ProvidedServiceModalProps> = ({
         serviceId: selectedServiceId || undefined,
         clientId: selectedClientId || undefined,
         projectId: selectedProjectId.trim() ? selectedProjectId : null,
+        invoiceId: selectedInvoiceId.trim() ? selectedInvoiceId : null,
         status: status || 'PENDING',
         scheduledDate: scheduledDate ? scheduledDate : null,
         completionDate: completionDate ? completionDate : null,
@@ -222,391 +292,417 @@ export const ProvidedServiceModal: React.FC<ProvidedServiceModalProps> = ({
       const res = await onSaveProvidedService(payload);
 
       if (res.success) {
-        onClose();
+        if (editingItem && currentMode === 'edit') {
+          handleModeChange('view');
+        } else {
+          onClose();
+        }
       } else if (res.error) {
-        onError?.(res.error || t('errorSaving' as any));
+        onError?.(res.error || (t('errorSaving' as any)));
       }
     } catch (err: any) {
-      onError?.(err?.message || t('errorSaving' as any));
+      onError?.(err?.message || (t('errorSaving' as any)));
     } finally {
       setIsSaving(false);
     }
   };
 
+  const getStatusChip = (st: string) => {
+    switch (st) {
+      case 'Completed':
+        return <Chip label={t('statusCompleted')} color="success" size="small" sx={{ fontWeight: 600 }} />;
+      case 'In Progress':
+        return <Chip label={t('statusInProgress')} color="info" size="small" sx={{ fontWeight: 600 }} />;
+      case 'Cancelled':
+        return <Chip label={t('statusCancelled')} color="error" size="small" sx={{ fontWeight: 600 }} />;
+      case 'Planned':
+      default:
+        return <Chip label={t('statusPlanned')} color="warning" size="small" sx={{ fontWeight: 600 }} />;
+    }
+  };
+
+  const selectedServiceObj = services.find((s) => s.id === selectedServiceId) || editingItem?.service;
+
+  const modalTitle = (m: ModalMode) => {
+    if (m === 'view') return selectedServiceObj?.name || t('providedServicesSummary');
+    if (m === 'edit') return t('modalEditProvidedService');
+    return t('modalNewProvidedService');
+  };
+
+  const modalSubtitle = () => {
+    if (!isView || !editingItem) return undefined;
+    const parts = [selectedClientName, selectedProjectName].filter(Boolean);
+    return parts.length > 0 ? parts.join(' • ') : undefined;
+  };
+
+  const canEditItem = getItemPermissions(editingItem).canEdit;
+  const canDeleteItem = Boolean(editingItem?.id && getItemPermissions(editingItem).canDelete && onDeleteProvidedService);
+
   return (
-    <Dialog
+    <ViewEditModalBase
       open={open}
-      onClose={onClose}
+      onClose={() => !isSaving && onClose()}
+      mode={currentMode}
+      onModeChange={handleModeChange}
+      title={modalTitle}
+      subtitle={modalSubtitle()}
+      statusChip={isView ? getStatusChip(status) : undefined}
       maxWidth="md"
-      fullWidth
-      slotProps={{
-        paper: {
-          component: 'form',
-          onSubmit: handleSubmit,
-          sx: {
-            maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
-            display: 'flex',
-            flexDirection: 'column',
-          },
-        },
-      }}
+      canEdit={canEditItem}
+      canDelete={canDeleteItem}
+      onDelete={onDeleteProvidedService && editingItem ? () => { onDeleteProvidedService(editingItem.id); onClose(); } : undefined}
+      onSave={handleSubmit}
+      onCancel={handleCancel}
+      isSaving={isSaving}
     >
-      <DialogTitle component="div" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>
-          {editingItem ? t('modalEditProvidedService') : t('modalNewProvidedService')}
-        </Typography>
-        {editingItem && getItemPermissions(editingItem).canDelete && onDeleteProvidedService && (
-          <Button
-            color="error"
+      <Grid container spacing={2}>
+        {/* Service Selection */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <ServiceAutocomplete
             size="small"
-            variant="outlined"
-            startIcon={<DeleteIcon />}
-            onClick={() => {
-              onDeleteProvidedService(editingItem.id);
-              onClose();
+            fullWidth
+            valueMode="id"
+            value={selectedServiceId || null}
+            initialOption={editingItem?.service || (editingItem?.serviceId ? services.find((s) => s.id === editingItem.serviceId) : undefined)}
+            onChange={(val) => setSelectedServiceId(val || '')}
+            label={t('colService')}
+            disabled={isView}
+            required
+          />
+        </Grid>
+
+        {/* Client Selection */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <ClientAutocomplete
+            size="small"
+            fullWidth
+            valueMode="id"
+            value={selectedClientId || null}
+            initialOption={editingItem?.client || (selectedClientId && selectedClientName ? { id: selectedClientId, name: selectedClientName } as any : undefined)}
+            onChange={(val, opt) => {
+              setSelectedClientId(val || '');
+              setSelectedClientName(opt?.name || '');
+              if (val !== selectedClientId) {
+                setSelectedProjectId('');
+                setSelectedProjectName('');
+                setSelectedInvoiceId('');
+              }
+            }}
+            label={t('colClient')}
+            disabled={isView}
+            required
+          />
+        </Grid>
+
+        {/* Project Selection (Optional) */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <ProjectAutocomplete
+            size="small"
+            fullWidth
+            valueMode="id"
+            value={selectedProjectId || null}
+            clientId={selectedClientId || undefined}
+            initialOption={editingItem?.project || (selectedProjectId && selectedProjectName ? { id: selectedProjectId, name: selectedProjectName } as any : undefined)}
+            onChange={(val, opt) => {
+              setSelectedProjectId(val || '');
+              setSelectedProjectName(opt?.name || '');
+            }}
+            label={t('colProject')}
+            placeholder={t('lblNoneOptional')}
+            disabled={isView}
+          />
+        </Grid>
+
+        {/* Status */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <FormControl fullWidth size="small" disabled={isView}>
+            <InputLabel>{t('lblInvoiceStatus')}</InputLabel>
+            <Select
+              value={status}
+              label={t('lblInvoiceStatus')}
+              onChange={(e) => setStatus(e.target.value as string)}
+            >
+              {statusOptions.map((opt) => (
+                <MenuItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Grid>
+
+        {/* Location */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <TextField
+            fullWidth
+            size="small"
+            label={t('lblLocation')}
+            placeholder={t('phLocation')}
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            disabled={isView}
+          />
+        </Grid>
+
+        {/* Scheduled Date */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <TextField
+            fullWidth
+            size="small"
+            type="date"
+            label={t('lblScheduledDate')}
+            value={scheduledDate}
+            onChange={(e) => setScheduledDate(e.target.value)}
+            slotProps={{ inputLabel: { shrink: true } }}
+            disabled={isView}
+          />
+        </Grid>
+
+        {/* Completion Date */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <TextField
+            fullWidth
+            size="small"
+            type="date"
+            label={t('lblCompletionDate')}
+            value={completionDate}
+            onChange={(e) => setCompletionDate(e.target.value)}
+            slotProps={{ inputLabel: { shrink: true } }}
+            disabled={isView}
+          />
+        </Grid>
+
+        {/* INVOICE SECTION */}
+        <Grid size={{ xs: 12 }}>
+          <ProvidedServiceInvoiceSection
+            clientId={selectedClientId}
+            clientName={selectedClientName || editingItem?.client?.name}
+            projectId={selectedProjectId}
+            projectName={selectedProjectName || editingItem?.project?.name}
+            selectedInvoiceId={selectedInvoiceId}
+            onSelectInvoiceId={(invId) => setSelectedInvoiceId(invId)}
+            initialInvoice={editingItem?.invoice}
+            invoices={editingItem?.invoice ? [editingItem.invoice] : []}
+            onSaveInvoice={onSaveInvoice}
+            onDeleteInvoice={onDeleteInvoice}
+            onStatusChangeInvoice={onStatusChangeInvoice}
+            setErrorDialogState={(dialogState: any) => {
+              if (typeof dialogState === 'function') {
+                const resolved = dialogState({ open: false, message: '' });
+                if (resolved.open && resolved.message) onError?.(resolved.message);
+              } else if (dialogState.open && dialogState.message) {
+                onError?.(dialogState.message);
+              }
+            }}
+            disabled={isView || !getItemPermissions(editingItem).canEdit}
+          />
+        </Grid>
+
+        {/* CUSTOM DATA SECTION */}
+        <Grid size={{ xs: 12 }}>
+          <Box
+            sx={{
+              mt: 1,
+              mb: 1,
+              p: 2,
+              bgcolor: 'action.hover',
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: 'divider',
             }}
           >
-            {t('btnDelete')}
-          </Button>
-        )}
-      </DialogTitle>
-      <DialogContent dividers sx={{ flex: 1, overflowY: 'auto' }}>
-        <Grid container spacing={2} sx={{ pt: 1 }}>
-          {/* Service Selection */}
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <ServiceAutocomplete
-              size="small"
-              fullWidth
-              valueMode="id"
-              value={selectedServiceId || null}
-              initialOption={editingItem?.service || (editingItem?.serviceId ? services.find((s) => s.id === editingItem.serviceId) : undefined)}
-              onChange={(val) => setSelectedServiceId(val || '')}
-              label={t('colService')}
-              required
-            />
-          </Grid>
-
-          {/* Client Selection */}
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <ClientAutocomplete
-              size="small"
-              fullWidth
-              valueMode="id"
-              value={selectedClientId || null}
-              initialOption={editingItem?.client || (selectedClientId && selectedClientName ? { id: selectedClientId, name: selectedClientName } as any : undefined)}
-              onChange={(val, opt) => {
-                setSelectedClientId(val || '');
-                setSelectedClientName(opt?.name || '');
-                if (val !== selectedClientId) {
-                  setSelectedProjectId('');
-                  setSelectedProjectName('');
-                  setSelectedInvoiceId('');
-                }
-              }}
-              label={t('colClient')}
-              required
-            />
-          </Grid>
-
-          {/* Project Selection (Optional) */}
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <ProjectAutocomplete
-              size="small"
-              fullWidth
-              valueMode="id"
-              value={selectedProjectId || null}
-              clientId={selectedClientId || undefined}
-              initialOption={editingItem?.project || (selectedProjectId && selectedProjectName ? { id: selectedProjectId, name: selectedProjectName } as any : undefined)}
-              onChange={(val, opt) => {
-                setSelectedProjectId(val || '');
-                setSelectedProjectName(opt?.name || '');
-              }}
-              label={t('colProject')}
-              placeholder={t('lblNoneOptional')}
-            />
-          </Grid>
-
-          {/* Status */}
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <FormControl fullWidth size="small">
-              <InputLabel>{t('lblInvoiceStatus')}</InputLabel>
-              <Select
-                value={status}
-                label={t('lblInvoiceStatus')}
-                onChange={(e) => setStatus(e.target.value as string)}
-              >
-                {statusOptions.map((opt) => (
-                  <MenuItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-
-          {/* Location */}
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField
-              fullWidth
-              size="small"
-              label={t('lblLocation')}
-              placeholder={t('phLocation')}
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-            />
-          </Grid>
-
-          {/* Scheduled Date */}
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField
-              fullWidth
-              size="small"
-              type="date"
-              label={t('lblScheduledDate')}
-              value={scheduledDate}
-              onChange={(e) => setScheduledDate(e.target.value)}
-              slotProps={{ inputLabel: { shrink: true } }}
-            />
-          </Grid>
-
-          {/* Completion Date */}
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <TextField
-              fullWidth
-              size="small"
-              type="date"
-              label={t('lblCompletionDate')}
-              value={completionDate}
-              onChange={(e) => setCompletionDate(e.target.value)}
-              slotProps={{ inputLabel: { shrink: true } }}
-            />
-          </Grid>
-
-          {/* INVOICE SECTION */}
-          <Grid size={{ xs: 12 }}>
-            <ProvidedServiceInvoiceSection
-              clientId={selectedClientId}
-              clientName={selectedClientName || editingItem?.client?.name}
-              projectId={selectedProjectId}
-              projectName={selectedProjectName || editingItem?.project?.name}
-              selectedInvoiceId={selectedInvoiceId}
-              onSelectInvoiceId={(invId) => setSelectedInvoiceId(invId)}
-              initialInvoice={editingItem?.invoice}
-              invoices={editingItem?.invoice ? [editingItem.invoice] : []}
-              onSaveInvoice={onSaveInvoice}
-              onDeleteInvoice={onDeleteInvoice}
-              onStatusChangeInvoice={onStatusChangeInvoice}
-              setErrorDialogState={(dialogState: any) => {
-                if (typeof dialogState === 'function') {
-                  const resolved = dialogState({ open: false, message: '' });
-                  if (resolved.open && resolved.message) onError?.(resolved.message);
-                } else if (dialogState.open && dialogState.message) {
-                  onError?.(dialogState.message);
-                }
-              }}
-              disabled={!getItemPermissions(editingItem).canEdit}
-            />
-          </Grid>
-
-          {/* CUSTOM DATA SECTION */}
-          <Grid size={{ xs: 12 }}>
             <Box
               sx={{
-                mt: 1,
-                mb: 1,
-                p: 2,
-                bgcolor: 'action.hover',
-                borderRadius: 2,
-                border: '1px solid',
-                borderColor: 'divider',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                mb: currentCustomFields.length ? 1.5 : 0,
               }}
             >
-              <Box
-                sx={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  mb: currentCustomFields.length ? 1.5 : 0,
-                }}
-              >
-                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                  {t('customDataSection')}
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                {t('customDataSection')}
+              </Typography>
+              {!isView && getItemPermissions(editingItem).canEdit && onOpenCustomModelModal && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<SettingsIcon />}
+                  onClick={() => {
+                    const srv = services.find((s) => s.id === selectedServiceId);
+                    if (srv) onOpenCustomModelModal(srv);
+                  }}
+                  sx={{ textTransform: 'none' }}
+                >
+                  {t('btnEditCustomDataModel')}
+                </Button>
+              )}
+            </Box>
+
+            {currentCustomFields.length === 0 ? (
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 0.5 }}>
+                <Typography variant="body2" color="text.secondary">
+                  {t('noCustomFieldsDefined')}
                 </Typography>
-                {getItemPermissions(editingItem).canEdit && onOpenCustomModelModal && (
+                {!isView && getItemPermissions(editingItem).canEdit && onOpenCustomModelModal && (
                   <Button
                     size="small"
-                    variant="outlined"
-                    startIcon={<SettingsIcon />}
+                    variant="text"
+                    color="primary"
+                    startIcon={<AddIcon />}
                     onClick={() => {
                       const srv = services.find((s) => s.id === selectedServiceId);
                       if (srv) onOpenCustomModelModal(srv);
                     }}
                     sx={{ textTransform: 'none' }}
                   >
-                    {t('btnEditCustomDataModel')}
+                    {t('btnDefineModel')}
                   </Button>
                 )}
               </Box>
-
-              {currentCustomFields.length === 0 ? (
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 0.5 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    {t('noCustomFieldsDefined')}
-                  </Typography>
-                  {getItemPermissions(editingItem).canEdit && onOpenCustomModelModal && (
-                    <Button
-                      size="small"
-                      variant="text"
-                      color="primary"
-                      startIcon={<AddIcon />}
-                      onClick={() => {
-                        const srv = services.find((s) => s.id === selectedServiceId);
-                        if (srv) onOpenCustomModelModal(srv);
-                      }}
-                      sx={{ textTransform: 'none' }}
-                    >
-                      {t('btnDefineModel')}
-                    </Button>
-                  )}
-                </Box>
-              ) : (
-                <Grid container spacing={2} sx={{ mt: 0.5 }}>
-                  {currentCustomFields.map((field) => (
-                    <Grid key={field.id} size={{ xs: 12, sm: 6 }}>
-                      {field.type === 'text' && (
-                        <TextField
-                          fullWidth
+            ) : (
+              <Grid container spacing={2} sx={{ mt: 0.5 }}>
+                {currentCustomFields.map((field) => (
+                  <Grid key={field.id} size={{ xs: 12, sm: 6 }}>
+                    {field.type === 'text' && (
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label={field.name}
+                        value={customData[field.id] || ''}
+                        disabled={isView}
+                        onChange={(e) =>
+                          setCustomData((prev) => ({ ...prev, [field.id]: e.target.value }))
+                        }
+                      />
+                    )}
+                    {field.type === 'number' && (
+                      <TextField
+                        fullWidth
+                        size="small"
+                        type="number"
+                        label={field.unit ? `${field.name} (${field.unit})` : field.name}
+                        value={customData[field.id] ?? ''}
+                        disabled={isView}
+                        onChange={(e) =>
+                          setCustomData((prev) => ({
+                            ...prev,
+                            [field.id]: e.target.value === '' ? '' : Number(e.target.value),
+                          }))
+                        }
+                        slotProps={{
+                          htmlInput: { step: 'any' },
+                          input: field.unit
+                            ? {
+                                endAdornment: (
+                                  <InputAdornment position="end">{field.unit}</InputAdornment>
+                                ),
+                              }
+                            : undefined,
+                        }}
+                      />
+                    )}
+                    {(field.type === 'list' || field.type === 'client') && (
+                      (field.type === 'list' && field.linkedList === 'index_number') || field.id === 'indeksni_broj' ? (
+                        <WasteCatalogAutocomplete
+                          multiple={true}
                           size="small"
+                          fullWidth
                           label={field.name}
-                          value={customData[field.id] || ''}
-                          onChange={(e) =>
-                            setCustomData((prev) => ({ ...prev, [field.id]: e.target.value }))
-                          }
-                        />
-                      )}
-                      {field.type === 'number' && (
-                        <TextField
-                          fullWidth
-                          size="small"
-                          type="number"
-                          label={field.unit ? `${field.name} (${field.unit})` : field.name}
-                          value={customData[field.id] ?? ''}
-                          onChange={(e) =>
-                            setCustomData((prev) => ({
-                              ...prev,
-                              [field.id]: e.target.value === '' ? '' : Number(e.target.value),
-                            }))
-                          }
-                          slotProps={{
-                            htmlInput: { step: 'any' },
-                            input: field.unit
-                              ? {
-                                  endAdornment: (
-                                    <InputAdornment position="end">{field.unit}</InputAdornment>
-                                  ),
-                                }
-                              : undefined,
+                          placeholder={t('lblNoneOptional')}
+                          value={customData[field.id] || []}
+                          disabled={isView}
+                          onChange={(_, codes) => {
+                            setCustomData((prev) => ({ ...prev, [field.id]: codes || [] }));
                           }}
                         />
-                      )}
-                      {(field.type === 'list' || field.type === 'client') && (
-                        (field.type === 'list' && field.linkedList === 'index_number') || field.id === 'indeksni_broj' ? (
-                          <WasteCatalogAutocomplete
-                            multiple={true}
-                            size="small"
-                            fullWidth
-                            label={field.name}
-                            placeholder={t('lblNoneOptional')}
-                            value={customData[field.id] || []}
-                            onChange={(_, codes) => {
-                              setCustomData((prev) => ({ ...prev, [field.id]: codes || [] }));
-                            }}
-                          />
-                        ) : field.type === 'client' || field.linkedList === 'clients' ? (
-                          <ClientAutocomplete
-                            size="small"
-                            fullWidth
-                            label={field.name}
-                            placeholder={t('lblNoneOptional')}
-                            permitTypeFilter={field.permitTypeFilter}
-                            valueMode="name"
-                            value={customData[field.id] || null}
-                            onChange={(_, selectedName) => {
-                              setCustomData((prev) => ({ ...prev, [field.id]: selectedName || '' }));
-                            }}
-                            helperText={field.permitTypeFilter ? `${t('lblFilteredByPermit')}: ${getPermitTypeLabel(field.permitTypeFilter)}` : undefined}
-                          />
-                        ) : (
-                          <Autocomplete
-                            size="small"
-                            fullWidth
-                            options={(() => {
-                              const opts = resolveListOptions(field);
-                              const currentVal = customData[field.id];
-                              if (currentVal && typeof currentVal === 'string' && !opts.includes(currentVal)) {
-                                return [currentVal, ...opts];
-                              }
-                              return opts;
-                            })()}
-                            value={customData[field.id] || null}
-                            onChange={(_, newValue) => {
-                              setCustomData((prev) => ({ ...prev, [field.id]: newValue || '' }));
-                            }}
-                            renderInput={(params) => (
-                              <TextField
-                                {...params}
-                                label={field.name}
-                                placeholder={t('lblNoneOptional')}
-                                helperText={field.permitTypeFilter ? `${t('lblFilteredByPermit')}: ${getPermitTypeLabel(field.permitTypeFilter)}` : undefined}
-                              />
-                            )}
-                          />
-                        )
-                      )}
-                      {(field.type === 'datetime' || field.type === 'date') && (
-                        <TextField
-                          fullWidth
+                      ) : field.type === 'client' || field.linkedList === 'clients' ? (
+                        <ClientAutocomplete
                           size="small"
-                          type={field.type === 'datetime' ? 'datetime-local' : 'date'}
+                          fullWidth
                           label={field.name}
-                          value={customData[field.id] || ''}
-                          onChange={(e) =>
-                            setCustomData((prev) => ({ ...prev, [field.id]: e.target.value }))
+                          placeholder={t('lblNoneOptional')}
+                          permitTypeFilter={field.permitTypeFilter}
+                          valueMode="name"
+                          disabled={isView}
+                          value={
+                            typeof customData[field.id] === 'object' && customData[field.id] !== null
+                              ? customData[field.id].name || ''
+                              : customData[field.id] || null
                           }
-                          slotProps={{ inputLabel: { shrink: true } }}
+                          onChange={(selectedVal, selectedOption) => {
+                            const finalName =
+                              typeof selectedVal === 'string'
+                                ? selectedVal
+                                : selectedOption?.name || selectedVal?.name || '';
+                            setCustomData((prev) => ({ ...prev, [field.id]: finalName }));
+                          }}
+                          helperText={field.permitTypeFilter ? `${t('lblFilteredByPermit')}: ${getPermitTypeLabel(field.permitTypeFilter)}` : undefined}
                         />
-                      )}
-                    </Grid>
-                  ))}
-                </Grid>
-              )}
-            </Box>
-          </Grid>
-
-          {/* Notes */}
-          <Grid size={{ xs: 12 }}>
-            <TextField
-              fullWidth
-              size="small"
-              multiline
-              rows={3}
-              label={t('lblDescription')}
-              placeholder={t('phDescription')}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </Grid>
+                      ) : (
+                        <Autocomplete
+                          size="small"
+                          fullWidth
+                          disabled={isView}
+                          options={(() => {
+                            const opts = resolveListOptions(field);
+                            const currentVal = customData[field.id];
+                            if (currentVal && typeof currentVal === 'string' && !opts.includes(currentVal)) {
+                              return [currentVal, ...opts];
+                            }
+                            return opts;
+                          })()}
+                          value={customData[field.id] || null}
+                          onChange={(_, newValue) => {
+                            setCustomData((prev) => ({ ...prev, [field.id]: newValue || '' }));
+                          }}
+                          renderInput={(params) => (
+                            <TextField
+                              {...params}
+                              label={field.name}
+                              placeholder={t('lblNoneOptional')}
+                              helperText={field.permitTypeFilter ? `${t('lblFilteredByPermit')}: ${getPermitTypeLabel(field.permitTypeFilter)}` : undefined}
+                            />
+                          )}
+                        />
+                      )
+                    )}
+                    {(field.type === 'datetime' || field.type === 'date') && (
+                      <TextField
+                        fullWidth
+                        size="small"
+                        type={field.type === 'datetime' ? 'datetime-local' : 'date'}
+                        label={field.name}
+                        value={customData[field.id] || ''}
+                        disabled={isView}
+                        onChange={(e) =>
+                          setCustomData((prev) => ({ ...prev, [field.id]: e.target.value }))
+                        }
+                        slotProps={{ inputLabel: { shrink: true } }}
+                      />
+                    )}
+                  </Grid>
+                ))}
+              </Grid>
+            )}
+          </Box>
         </Grid>
-      </DialogContent>
-      <DialogActions sx={{ p: 2, flexShrink: 0 }}>
-        <Button onClick={onClose} variant="outlined" disabled={isSaving}>
-          {t('btnCancel')}
-        </Button>
-        <Button type="submit" variant="contained" color="primary" disabled={isSaving}>
-          {isSaving ? '...' : t('btnSave')}
-        </Button>
-      </DialogActions>
-    </Dialog>
+
+        {/* Notes */}
+        <Grid size={{ xs: 12 }}>
+          <TextField
+            fullWidth
+            size="small"
+            multiline
+            rows={3}
+            label={t('lblDescription')}
+            placeholder={t('phDescription')}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            disabled={isView}
+          />
+        </Grid>
+      </Grid>
+    </ViewEditModalBase>
   );
 };
 

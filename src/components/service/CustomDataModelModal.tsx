@@ -1,9 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Button,
   IconButton,
   Typography,
@@ -22,6 +18,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useClientsQuery, usePermitsQuery } from '../../queries';
 import { clientHasPermitType } from '../../hooks/useLinkedListOptions';
 import { AddIcon, DeleteIcon } from '../icons';
+import { BaseModal } from '../common/modal/BaseModal';
 
 interface Props {
   isOpen: boolean;
@@ -112,261 +109,243 @@ export const CustomDataModelModal: React.FC<Props> = ({
   const serviceTitle = service ? (service.name || getServiceLabel(service.code)) : '';
 
   return (
-    <Dialog
+    <BaseModal
       open={isOpen}
       onClose={onClose}
+      title={t('modalCustomDataModelTitle')}
+      subtitle={serviceTitle ? `${t('modalCustomDataModelDesc')}: ${serviceTitle}` : t('modalCustomDataModelDesc')}
       maxWidth="md"
-      fullWidth
-      slotProps={{
-        paper: {
-          component: 'form',
-          onSubmit: handleSubmit,
-          sx: {
-            maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
-            display: 'flex',
-            flexDirection: 'column',
-          },
-        },
-      }}
-    >
-      <DialogTitle component="div" sx={{ pb: 1, flexShrink: 0 }}>
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>
-          {t('modalCustomDataModelTitle')}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {serviceTitle ? `${t('modalCustomDataModelDesc')}: ${serviceTitle}` : t('modalCustomDataModelDesc')}
-        </Typography>
-      </DialogTitle>
-
-      <DialogContent dividers sx={{ p: 2.5, flex: 1, overflowY: 'auto' }}>
-          {error && (
-            <Box sx={{ mb: 2, p: 1.5, bgcolor: 'error.main', color: 'error.contrastText', borderRadius: 1 }}>
-              <Typography variant="body2">{error}</Typography>
-            </Box>
-          )}
-
-          {fields.length === 0 ? (
-            <Box
-              sx={{
-                p: 4,
-                textAlign: 'center',
-                bgcolor: 'action.hover',
-                borderRadius: 2,
-                border: '1px dashed',
-                borderColor: 'divider',
-              }}
-            >
-              <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-                {t('noCustomFieldsDefined')}
-              </Typography>
-              <Button variant="outlined" startIcon={<AddIcon />} onClick={handleAddField}>
-                {t('btnAddField')}
-              </Button>
-            </Box>
-          ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {fields.map((field, idx) => (
-                <Paper
-                  key={field.id || idx}
-                  variant="outlined"
-                  sx={{
-                    p: 2,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 1.5,
-                    bgcolor: 'background.paper',
-                    borderRadius: 2,
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'primary.main' }}>
-                      #{idx + 1}
-                    </Typography>
-                    <IconButton size="small" color="error" onClick={() => handleDeleteField(idx)}>
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
-
-                  <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label={t('lblFieldName')}
-                      placeholder={t('phFieldName')}
-                      value={field.name}
-                      onChange={(e) => handleUpdateField(idx, { name: e.target.value })}
-                      required
-                    />
-
-                    <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 180 } }}>
-                      <InputLabel>{t('lblFieldType')}</InputLabel>
-                      <Select
-                        value={field.type}
-                        label={t('lblFieldType')}
-                        onChange={(e) => {
-                          const newType = e.target.value as CustomFieldType;
-                          handleUpdateField(idx, {
-                            type: newType,
-                            options:
-                              newType === 'list'
-                                ? field.options?.length
-                                  ? field.options
-                                  : ['Opcija 1', 'Opcija 2']
-                                : undefined,
-                            linkedList:
-                              newType === 'list'
-                                ? field.linkedList
-                                : newType === 'client'
-                                ? 'clients'
-                                : undefined,
-                            permitTypeFilter:
-                              newType === 'client' || (newType === 'list' && field.linkedList === 'clients')
-                                ? field.permitTypeFilter
-                                : undefined,
-                            unit: newType === 'number' ? field.unit || '' : undefined,
-                          });
-                        }}
-                      >
-                        <MenuItem value="text">{t('typeText')}</MenuItem>
-                        <MenuItem value="number">{t('typeNumber')}</MenuItem>
-                        <MenuItem value="list">{t('typeList')}</MenuItem>
-                        <MenuItem value="client">{t('typeClient')}</MenuItem>
-                        <MenuItem value="datetime">{t('typeDateTime')}</MenuItem>
-                        <MenuItem value="date">{t('typeDate')}</MenuItem>
-                      </Select>
-                    </FormControl>
-
-                    {field.type === 'number' && (
-                      <TextField
-                        size="small"
-                        label={t('lblUnit')}
-                        placeholder={t('phUnit')}
-                        value={field.unit || ''}
-                        onChange={(e) => handleUpdateField(idx, { unit: e.target.value })}
-                        sx={{ minWidth: { xs: '100%', sm: 150 } }}
-                      />
-                    )}
-                  </Box>
-
-                  {field.type === 'client' && (
-                    <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
-                      <FormControl size="small" fullWidth>
-                        <InputLabel>{t('lblFilterByPermitType')}</InputLabel>
-                        <Select
-                          value={field.permitTypeFilter || 'all'}
-                          label={t('lblFilterByPermitType')}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            handleUpdateField(idx, { permitTypeFilter: val === 'all' ? undefined : val });
-                          }}
-                        >
-                          <MenuItem value="all">
-                            {t('optAllClients')} ({clients.length})
-                          </MenuItem>
-                          {PERMIT_TYPE_OPTIONS.map((pt) => {
-                            const count = getClientCountForPermitType(pt);
-                            return (
-                              <MenuItem key={pt} value={pt}>
-                                {getPermitTypeLabel(pt)} ({count})
-                              </MenuItem>
-                            );
-                          })}
-                        </Select>
-                        <FormHelperText>{t('helperFilterByPermitType')}</FormHelperText>
-                      </FormControl>
-                    </Box>
-                  )}
-
-                  {field.type === 'list' && (
-                    <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
-                      <FormControl size="small" fullWidth>
-                        <InputLabel>{t('lblLinkedList') || 'Link to existing list'}</InputLabel>
-                        <Select
-                          value={field.linkedList || 'none'}
-                          label={t('lblLinkedList') || 'Link to existing list'}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            handleUpdateField(idx, { 
-                              linkedList: val === 'none' ? undefined : val,
-                              permitTypeFilter: val === 'clients' ? field.permitTypeFilter : undefined,
-                              options: val === 'none' ? field.options || ['Opcija 1', 'Opcija 2'] : []
-                            });
-                          }}
-                        >
-                          <MenuItem value="none">{t('valNone') || 'Custom list (None)'}</MenuItem>
-                          <MenuItem value="clients">{t('valClients') || 'Clients'}</MenuItem>
-                          <MenuItem value="index_number">{t('valIndexNumber') || 'Index Number'}</MenuItem>
-                          <MenuItem value="permit_type">{t('valPermitType') || 'Permit Type'}</MenuItem>
-                          <MenuItem value="users">{t('valUsers') || 'Users'}</MenuItem>
-                          <MenuItem value="category">{t('valCategory') || 'Category'}</MenuItem>
-                        </Select>
-                      </FormControl>
-
-                      {field.linkedList === 'clients' && (
-                        <FormControl size="small" fullWidth>
-                          <InputLabel>{t('lblFilterByPermitType')}</InputLabel>
-                          <Select
-                            value={field.permitTypeFilter || 'all'}
-                            label={t('lblFilterByPermitType')}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              handleUpdateField(idx, { permitTypeFilter: val === 'all' ? undefined : val });
-                            }}
-                          >
-                            <MenuItem value="all">
-                              {t('optAllClients')} ({clients.length})
-                            </MenuItem>
-                            {PERMIT_TYPE_OPTIONS.map((pt) => {
-                              const count = getClientCountForPermitType(pt);
-                              return (
-                                <MenuItem key={pt} value={pt}>
-                                  {getPermitTypeLabel(pt)} ({count})
-                                </MenuItem>
-                              );
-                            })}
-                          </Select>
-                          <FormHelperText>{t('helperFilterByPermitType')}</FormHelperText>
-                        </FormControl>
-                      )}
-                      
-                      {(!field.linkedList || field.linkedList === 'none') && (
-                        <TextField
-                          fullWidth
-                          size="small"
-                          label={t('lblListOptions')}
-                          placeholder={t('phListOptions')}
-                          value={(field.options || []).join(', ')}
-                          onChange={(e) => {
-                            const raw = e.target.value;
-                            const opts = raw.split(',').map((s) => s.trim()).filter(Boolean);
-                            handleUpdateField(idx, { options: opts });
-                          }}
-                          helperText={t('phListOptions')}
-                        />
-                      )}
-                    </Box>
-                  )}
-                </Paper>
-              ))}
-
-              <Box sx={{ display: 'flex', justifyContent: 'flex-start', mt: 1 }}>
-                <Button variant="outlined" startIcon={<AddIcon />} onClick={handleAddField}>
-                  {t('btnAddField')}
-                </Button>
-              </Box>
-            </Box>
-          )}
-        </DialogContent>
-
-        <DialogActions sx={{ p: 2, flexShrink: 0 }}>
+      onSubmit={handleSubmit}
+      actions={
+        <>
           <Button onClick={onClose} variant="outlined" disabled={isSaving}>
             {t('btnCancel')}
           </Button>
           <Button type="submit" variant="contained" color="primary" disabled={isSaving}>
             {isSaving ? '...' : t('btnSave')}
           </Button>
-        </DialogActions>
-    </Dialog>
+        </>
+      }
+    >
+      {error && (
+        <Box sx={{ mb: 2, p: 1.5, bgcolor: 'error.main', color: 'error.contrastText', borderRadius: 1 }}>
+          <Typography variant="body2">{error}</Typography>
+        </Box>
+      )}
+
+      {fields.length === 0 ? (
+        <Box
+          sx={{
+            p: 4,
+            textAlign: 'center',
+            bgcolor: 'action.hover',
+            borderRadius: 2,
+            border: '1px dashed',
+            borderColor: 'divider',
+          }}
+        >
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+            {t('noCustomFieldsDefined')}
+          </Typography>
+          <Button variant="outlined" startIcon={<AddIcon />} onClick={handleAddField}>
+            {t('btnAddField')}
+          </Button>
+        </Box>
+      ) : (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {fields.map((field, idx) => (
+            <Paper
+              key={field.id || idx}
+              variant="outlined"
+              sx={{
+                p: 2,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1.5,
+                bgcolor: 'background.paper',
+                borderRadius: 2,
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'primary.main' }}>
+                  #{idx + 1}
+                </Typography>
+                <IconButton size="small" color="error" onClick={() => handleDeleteField(idx)}>
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Box>
+
+              <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label={t('lblFieldName')}
+                  placeholder={t('phFieldName')}
+                  value={field.name}
+                  onChange={(e) => handleUpdateField(idx, { name: e.target.value })}
+                  required
+                />
+
+                <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 180 } }}>
+                  <InputLabel>{t('lblFieldType')}</InputLabel>
+                  <Select
+                    value={field.type}
+                    label={t('lblFieldType')}
+                    onChange={(e) => {
+                      const newType = e.target.value as CustomFieldType;
+                      handleUpdateField(idx, {
+                        type: newType,
+                        options:
+                          newType === 'list'
+                            ? field.options?.length
+                              ? field.options
+                              : ['Opcija 1', 'Opcija 2']
+                            : undefined,
+                        linkedList:
+                          newType === 'list'
+                            ? field.linkedList
+                            : newType === 'client'
+                            ? 'clients'
+                            : undefined,
+                        permitTypeFilter:
+                          newType === 'client' || (newType === 'list' && field.linkedList === 'clients')
+                            ? field.permitTypeFilter
+                            : undefined,
+                        unit: newType === 'number' ? field.unit || '' : undefined,
+                      });
+                    }}
+                  >
+                    <MenuItem value="text">{t('typeText')}</MenuItem>
+                    <MenuItem value="number">{t('typeNumber')}</MenuItem>
+                    <MenuItem value="list">{t('typeList')}</MenuItem>
+                    <MenuItem value="client">{t('typeClient')}</MenuItem>
+                    <MenuItem value="datetime">{t('typeDateTime')}</MenuItem>
+                    <MenuItem value="date">{t('typeDate')}</MenuItem>
+                  </Select>
+                </FormControl>
+
+                {field.type === 'number' && (
+                  <TextField
+                    size="small"
+                    label={t('lblUnit')}
+                    placeholder={t('phUnit')}
+                    value={field.unit || ''}
+                    onChange={(e) => handleUpdateField(idx, { unit: e.target.value })}
+                    sx={{ minWidth: { xs: '100%', sm: 150 } }}
+                  />
+                )}
+              </Box>
+
+              {field.type === 'client' && (
+                <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
+                  <FormControl size="small" fullWidth>
+                    <InputLabel>{t('lblFilterByPermitType')}</InputLabel>
+                    <Select
+                      value={field.permitTypeFilter || 'all'}
+                      label={t('lblFilterByPermitType')}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        handleUpdateField(idx, { permitTypeFilter: val === 'all' ? undefined : val });
+                      }}
+                    >
+                      <MenuItem value="all">
+                        {t('optAllClients')} ({clients.length})
+                      </MenuItem>
+                      {PERMIT_TYPE_OPTIONS.map((pt) => {
+                        const count = getClientCountForPermitType(pt);
+                        return (
+                          <MenuItem key={pt} value={pt}>
+                            {getPermitTypeLabel(pt)} ({count})
+                          </MenuItem>
+                        );
+                      })}
+                    </Select>
+                    <FormHelperText>{t('helperFilterByPermitType')}</FormHelperText>
+                  </FormControl>
+                </Box>
+              )}
+
+              {field.type === 'list' && (
+                <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
+                  <FormControl size="small" fullWidth>
+                    <InputLabel>{t('lblLinkedList') || 'Link to existing list'}</InputLabel>
+                    <Select
+                      value={field.linkedList || 'none'}
+                      label={t('lblLinkedList') || 'Link to existing list'}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        handleUpdateField(idx, { 
+                          linkedList: val === 'none' ? undefined : val,
+                          permitTypeFilter: val === 'clients' ? field.permitTypeFilter : undefined,
+                          options: val === 'none' ? field.options || ['Opcija 1', 'Opcija 2'] : []
+                        });
+                      }}
+                    >
+                      <MenuItem value="none">{t('valNone') || 'Custom list (None)'}</MenuItem>
+                      <MenuItem value="clients">{t('valClients') || 'Clients'}</MenuItem>
+                      <MenuItem value="index_number">{t('valIndexNumber') || 'Index Number'}</MenuItem>
+                      <MenuItem value="permit_type">{t('valPermitType') || 'Permit Type'}</MenuItem>
+                      <MenuItem value="users">{t('valUsers') || 'Users'}</MenuItem>
+                      <MenuItem value="category">{t('valCategory') || 'Category'}</MenuItem>
+                    </Select>
+                  </FormControl>
+
+                  {field.linkedList === 'clients' && (
+                    <FormControl size="small" fullWidth>
+                      <InputLabel>{t('lblFilterByPermitType')}</InputLabel>
+                      <Select
+                        value={field.permitTypeFilter || 'all'}
+                        label={t('lblFilterByPermitType')}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          handleUpdateField(idx, { permitTypeFilter: val === 'all' ? undefined : val });
+                        }}
+                      >
+                        <MenuItem value="all">
+                          {t('optAllClients')} ({clients.length})
+                        </MenuItem>
+                        {PERMIT_TYPE_OPTIONS.map((pt) => {
+                          const count = getClientCountForPermitType(pt);
+                          return (
+                            <MenuItem key={pt} value={pt}>
+                              {getPermitTypeLabel(pt)} ({count})
+                            </MenuItem>
+                          );
+                        })}
+                      </Select>
+                      <FormHelperText>{t('helperFilterByPermitType')}</FormHelperText>
+                    </FormControl>
+                  )}
+                  
+                  {(!field.linkedList || field.linkedList === 'none') && (
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label={t('lblListOptions')}
+                      placeholder={t('phListOptions')}
+                      value={(field.options || []).join(', ')}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        const opts = raw.split(',').map((s) => s.trim()).filter(Boolean);
+                        handleUpdateField(idx, { options: opts });
+                      }}
+                      helperText={t('phListOptions')}
+                    />
+                  )}
+                </Box>
+              )}
+            </Paper>
+          ))}
+
+          <Box sx={{ display: 'flex', justifyContent: 'flex-start', mt: 1 }}>
+            <Button variant="outlined" startIcon={<AddIcon />} onClick={handleAddField}>
+              {t('btnAddField')}
+            </Button>
+          </Box>
+        </Box>
+      )}
+    </BaseModal>
   );
 };
+
 export default CustomDataModelModal;

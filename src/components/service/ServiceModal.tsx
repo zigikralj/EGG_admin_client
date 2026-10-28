@@ -1,25 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
   TextField,
   Typography,
   Box,
   Chip,
   Grid,
+  Button,
 } from '@mui/material';
-import { DeleteIcon, SettingsIcon, AddIcon } from '../icons';
+import { SettingsIcon, AddIcon } from '../icons';
 import { useLanguage } from '../../context/LanguageContext';
 import { CategoryAutocomplete } from '../common/autocomplete';
+import { ViewEditModalBase, type ModalMode } from '../common/modal/ViewEditModalBase';
+import { ViewEditField } from '../common/modal/ViewEditField';
 import type { Service, Category, CustomFieldDefinition } from '../../types';
 
 export interface ServiceModalProps {
   open: boolean;
   onClose: () => void;
   editingService: Service | null;
+  mode?: ModalMode;
+  initialMode?: ModalMode;
+  onModeChange?: (mode: ModalMode) => void;
   categories: Category[];
   getServiceLabel?: (code: string) => string;
   canDelete?: boolean;
@@ -36,6 +37,9 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
   open,
   onClose,
   editingService,
+  mode: controlledMode,
+  initialMode,
+  onModeChange: onModeChangeProp,
   categories,
   getServiceLabel,
   canDelete = false,
@@ -49,6 +53,32 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
 }) => {
   const { t } = useLanguage();
 
+  const [internalMode, setInternalMode] = useState<ModalMode>(() => {
+    if (controlledMode) return controlledMode;
+    if (initialMode) return initialMode;
+    return editingService ? 'view' : 'create';
+  });
+
+  const currentMode = controlledMode || internalMode;
+  const isView = currentMode === 'view';
+
+  const handleModeChange = (newMode: ModalMode) => {
+    setInternalMode(newMode);
+    onModeChangeProp?.(newMode);
+  };
+
+  useEffect(() => {
+    if (open) {
+      if (controlledMode) {
+        setInternalMode(controlledMode);
+      } else if (initialMode) {
+        setInternalMode(initialMode);
+      } else {
+        setInternalMode(editingService ? 'view' : 'create');
+      }
+    }
+  }, [open, editingService?.id, initialMode, controlledMode]);
+
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [group, setGroup] = useState('grp-legal');
@@ -56,26 +86,58 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
   const [description, setDescription] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
+  const populateFromService = useCallback((s: Service | null) => {
+    if (s) {
+      setCode(s.code || '');
+      setName(s.name || (getServiceLabel ? getServiceLabel(s.code) : s.code) || '');
+      setGroup(s.group || categories[0]?.code || 'grp-legal');
+      setFrequency(s.frequency || 0);
+      setDescription(s.description || '');
+    } else {
+      setCode('');
+      setName('');
+      setGroup(categories[0]?.code || 'grp-legal');
+      setFrequency(0);
+      setDescription('');
+    }
+  }, [categories, getServiceLabel]);
+
   useEffect(() => {
     if (open) {
-      if (editingService) {
-        setCode(editingService.code);
-        setName(editingService.name || (getServiceLabel ? getServiceLabel(editingService.code) : editingService.code));
-        setGroup(editingService.group);
-        setFrequency(editingService.frequency || 0);
-        setDescription(editingService.description || '');
-      } else {
-        setCode('');
-        setName('');
-        setGroup(categories[0]?.code || 'grp-legal');
-        setFrequency(0);
-        setDescription('');
-      }
+      populateFromService(editingService);
     }
-  }, [open, editingService, categories, getServiceLabel]);
+  }, [open, editingService, populateFromService]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCancel = () => {
+    if (currentMode === 'edit' && editingService) {
+      populateFromService(editingService);
+      handleModeChange('view');
+    } else {
+      onClose();
+    }
+  };
+
+  const getCategoryName = useCallback(
+    (grpCode: string) => {
+      const found = categories.find((c) => c.code === grpCode);
+      return found ? found.name : grpCode;
+    },
+    [categories]
+  );
+
+  const formatFrequency = useCallback(
+    (freq: number) => {
+      if (freq === 0) return t('freqNoReminder');
+      if (freq === 3) return t('freqQuarterly');
+      if (freq === 6) return t('freqSemiAnnually');
+      return t('freqEveryXMonths', { freq });
+    },
+    [t]
+  );
+
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (isView) return;
     if (!canEdit && !canCreate) return;
     if (!name.trim()) {
       onError?.(t('alertServiceNameRequired'));
@@ -109,49 +171,59 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
     }
   };
 
+  const modalTitle = currentMode === 'create'
+    ? t('modalNewService')
+    : currentMode === 'edit'
+    ? t('modalEditService')
+    : (editingService?.name || t('btnDetails'));
+
+  const customFields = useMemo(() => {
+    if (!editingService || !getCustomModelForService) return [];
+    return getCustomModelForService(editingService.id);
+  }, [editingService, getCustomModelForService]);
+
   return (
-    <Dialog
+    <ViewEditModalBase
       open={open}
       onClose={onClose}
-      maxWidth="sm"
-      fullWidth
-      slotProps={{
-        paper: {
-          component: 'form',
-          onSubmit: handleSubmit,
-          sx: {
-            maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
-            display: 'flex',
-            flexDirection: 'column',
-          },
-        },
+      mode={currentMode}
+      onModeChange={handleModeChange}
+      title={modalTitle}
+      subtitle={editingService?.code}
+      statusChip={editingService ? (
+        <Chip
+          label={getCategoryName(group)}
+          size="small"
+          color="primary"
+          variant="outlined"
+        />
+      ) : undefined}
+      canEdit={canEdit}
+      canDelete={Boolean(editingService && canDelete && onDeleteService)}
+      onDelete={() => {
+        if (editingService) {
+          onDeleteService?.(editingService.id);
+          onClose();
+        }
       }}
+      isSaving={isSaving}
+      onSave={handleSubmit}
+      onCancel={handleCancel}
+      maxWidth="sm"
     >
-      <DialogTitle
-        component="div"
-        sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}
-      >
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>
-          {editingService ? t('modalEditService') : t('modalNewService')}
-        </Typography>
-        {editingService && canDelete && onDeleteService && (
-          <Button
-            color="error"
-            size="small"
-            variant="outlined"
-            startIcon={<DeleteIcon />}
-            onClick={() => {
-              onDeleteService(editingService.id);
-              onClose();
-            }}
+      <Grid container spacing={2}>
+        {/* Service Code */}
+        <Grid size={{ xs: 12 }}>
+          <ViewEditField
+            mode={currentMode}
+            label={t('lblServiceCode')}
+            value={code}
+            viewRender={() => (
+              <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                {code || '—'}
+              </Typography>
+            )}
           >
-            {t('btnDelete')}
-          </Button>
-        )}
-      </DialogTitle>
-      <DialogContent dividers sx={{ flex: 1, overflowY: 'auto' }}>
-        <Grid container spacing={2} sx={{ pt: 1 }}>
-          <Grid size={{ xs: 12 }}>
             <TextField
               fullWidth
               size="small"
@@ -162,8 +234,21 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
               disabled={Boolean(editingService)}
               required
             />
-          </Grid>
-          <Grid size={{ xs: 12 }}>
+          </ViewEditField>
+        </Grid>
+
+        {/* Service Name */}
+        <Grid size={{ xs: 12 }}>
+          <ViewEditField
+            mode={currentMode}
+            label={t('lblServiceName')}
+            value={name}
+            viewRender={() => (
+              <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                {name || '—'}
+              </Typography>
+            )}
+          >
             <TextField
               fullWidth
               size="small"
@@ -173,8 +258,24 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
               onChange={(e) => setName(e.target.value)}
               required
             />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
+          </ViewEditField>
+        </Grid>
+
+        {/* Category Group */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <ViewEditField
+            mode={currentMode}
+            label={t('lblCategoryGroup')}
+            value={getCategoryName(group)}
+            viewRender={() => (
+              <Chip
+                label={getCategoryName(group)}
+                size="small"
+                color="primary"
+                variant="outlined"
+              />
+            )}
+          >
             <CategoryAutocomplete
               size="small"
               fullWidth
@@ -183,8 +284,21 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
               onChange={(val) => setGroup(val || '')}
               label={t('lblCategoryGroup')}
             />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
+          </ViewEditField>
+        </Grid>
+
+        {/* Frequency */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <ViewEditField
+            mode={currentMode}
+            label={t('lblFrequencyMonths')}
+            value={formatFrequency(frequency)}
+            viewRender={() => (
+              <Typography variant="body2">
+                {formatFrequency(frequency)}
+              </Typography>
+            )}
+          >
             <TextField
               fullWidth
               size="small"
@@ -195,8 +309,21 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
               onChange={(e) => setFrequency(Number(e.target.value))}
               helperText={t('hintFrequencyZero')}
             />
-          </Grid>
-          <Grid size={{ xs: 12 }}>
+          </ViewEditField>
+        </Grid>
+
+        {/* Description */}
+        <Grid size={{ xs: 12 }}>
+          <ViewEditField
+            mode={currentMode}
+            label={t('lblDescription')}
+            value={description}
+            viewRender={() => (
+              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: description ? 'text.primary' : 'text.secondary' }}>
+                {description || '—'}
+              </Typography>
+            )}
+          >
             <TextField
               fullWidth
               size="small"
@@ -207,89 +334,75 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
-          </Grid>
+          </ViewEditField>
+        </Grid>
 
-          {/* CUSTOM DATA MODEL SECTION IN EDIT DIALOG */}
-          {editingService && (
-            <Grid size={{ xs: 12 }}>
-              <Box
-                sx={{
-                  mt: 1,
-                  p: 2,
-                  bgcolor: 'action.hover',
-                  borderRadius: 2,
-                  border: '1px solid',
-                  borderColor: 'divider',
-                }}
-              >
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                    {t('customDataSection')}
+        {/* CUSTOM DATA MODEL SECTION IN EDIT / VIEW DIALOG */}
+        {editingService && (
+          <Grid size={{ xs: 12 }}>
+            <Box
+              sx={{
+                mt: 1,
+                p: 2,
+                bgcolor: 'action.hover',
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: 'divider',
+              }}
+            >
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  {t('customDataSection')}
+                </Typography>
+                {!isView && canEdit && onOpenCustomModelModal && (
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<SettingsIcon />}
+                    onClick={() => onOpenCustomModelModal(editingService)}
+                    sx={{ textTransform: 'none' }}
+                  >
+                    {t('btnEditCustomDataModel')}
+                  </Button>
+                )}
+              </Box>
+
+              {customFields.length === 0 ? (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 1 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    {t('noCustomFieldsDefined')}
                   </Typography>
-                  {canEdit && onOpenCustomModelModal && (
+                  {!isView && canEdit && onOpenCustomModelModal && (
                     <Button
                       size="small"
-                      variant="outlined"
-                      startIcon={<SettingsIcon />}
+                      variant="text"
+                      color="primary"
+                      startIcon={<AddIcon />}
                       onClick={() => onOpenCustomModelModal(editingService)}
                       sx={{ textTransform: 'none' }}
                     >
-                      {t('btnEditCustomDataModel')}
+                      {t('btnDefineModel')}
                     </Button>
                   )}
                 </Box>
-
-                {(() => {
-                  const fields = getCustomModelForService ? getCustomModelForService(editingService.id) : [];
-                  if (fields.length === 0) {
-                    return (
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 1 }}>
-                        <Typography variant="body2" color="text.secondary">
-                          {t('noCustomFieldsDefined')}
-                        </Typography>
-                        {canEdit && onOpenCustomModelModal && (
-                          <Button
-                            size="small"
-                            variant="text"
-                            color="primary"
-                            startIcon={<AddIcon />}
-                            onClick={() => onOpenCustomModelModal(editingService)}
-                            sx={{ textTransform: 'none' }}
-                          >
-                            {t('btnDefineModel')}
-                          </Button>
-                        )}
-                      </Box>
-                    );
-                  }
-                  return (
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 1.5 }}>
-                      {fields.map((f) => (
-                        <Chip
-                          key={f.id}
-                          size="small"
-                          variant="outlined"
-                          color="primary"
-                          label={`${f.name} (${f.type}${f.unit ? ` - ${f.unit}` : ''})`}
-                        />
-                      ))}
-                    </Box>
-                  );
-                })()}
-              </Box>
-            </Grid>
-          )}
-        </Grid>
-      </DialogContent>
-      <DialogActions sx={{ p: 2, flexShrink: 0 }}>
-        <Button onClick={onClose} variant="outlined" disabled={isSaving}>
-          {t('btnCancel')}
-        </Button>
-        <Button type="submit" variant="contained" color="primary" disabled={isSaving}>
-          {isSaving ? '...' : t('btnSave')}
-        </Button>
-      </DialogActions>
-    </Dialog>
+              ) : (
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 1.5 }}>
+                  {customFields.map((f) => (
+                    <Chip
+                      key={f.id}
+                      size="small"
+                      variant="outlined"
+                      color="primary"
+                      label={`${f.name} (${f.type}${f.unit ? ` - ${f.unit}` : ''})`}
+                    />
+                  ))}
+                </Box>
+              )}
+            </Box>
+          </Grid>
+        )}
+      </Grid>
+    </ViewEditModalBase>
   );
 };
 

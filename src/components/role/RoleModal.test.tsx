@@ -73,4 +73,48 @@ describe('RoleModal', () => {
       }),
     }));
   });
+
+  it('renders in view mode by default when role is provided', () => {
+    const existingRole = {
+      id: 'role-1',
+      name: 'Auditor',
+      description: 'Audit only role',
+      isSystemAdmin: false,
+      permissions: {
+        tracker_projects: ['view'],
+      },
+    };
+
+    renderModal({ role: existingRole });
+
+    expect(screen.getAllByText('Auditor').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Audit only role').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole('button', { name: /^Edit$/i })).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Role Name/i)).not.toBeInTheDocument();
+  });
+
+  it('switches between view and edit mode in-place', () => {
+    const existingRole = {
+      id: 'role-1',
+      name: 'Auditor',
+      description: 'Audit only role',
+      isSystemAdmin: false,
+      permissions: {
+        tracker_projects: ['view'],
+      },
+    };
+
+    renderModal({ role: existingRole });
+
+    // Click edit
+    fireEvent.click(screen.getByRole('button', { name: /^Edit$/i }));
+
+    expect(screen.getByLabelText(/Role Name/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Save$/i })).toBeInTheDocument();
+
+    // Click cancel reverts to view
+    fireEvent.click(screen.getByRole('button', { name: /^Cancel$/i }));
+    expect(screen.queryByLabelText(/Role Name/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Edit$/i })).toBeInTheDocument();
+  });
 });

@@ -12,6 +12,7 @@ describe('TrackerWasteDisposalPage', () => {
     renderWithProviders(<TrackerWasteDisposalPage />);
     await waitFor(() => {
       expect(screen.getByText('statusCompleted')).toBeInTheDocument();
+      expect(screen.getByText('btnNewWasteDisposal')).toBeInTheDocument();
     });
   });
 });

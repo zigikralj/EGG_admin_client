@@ -367,9 +367,13 @@ export const WasteDisposalPanel: React.FC<Props> = ({
           match = Object.values(item.customData).some((val) => {
             if (val === null || val === undefined) return false;
             if (Array.isArray(val)) {
-              return val.some((v) => String(v).toLowerCase().includes(q));
+              return val.some((v) => {
+                const s = typeof v === 'object' && v !== null ? (v.name || v.label || v.title || v.code || '') : String(v);
+                return s.toLowerCase().includes(q);
+              });
             }
-            return String(val).toLowerCase().includes(q);
+            const s = typeof val === 'object' && val !== null ? (val.name || val.label || val.title || val.code || '') : String(val);
+            return s.toLowerCase().includes(q);
           });
         }
 
@@ -613,7 +617,7 @@ export const WasteDisposalPanel: React.FC<Props> = ({
 
   // Extract useful waste badges from customData for an item
   const renderWasteBadges = (item: ProvidedService) => {
-    const badges = resolveCustomFieldBadges(item, services);
+    const badges = resolveCustomFieldBadges(item, services, clients);
     if (badges.length === 0) return null;
 
     return (

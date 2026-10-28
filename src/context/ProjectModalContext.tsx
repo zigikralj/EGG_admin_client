@@ -4,7 +4,6 @@ import { apiFetch } from '../api';
 import { API_ROUTES } from '../constants';
 
 const ProjectModal = React.lazy(() => import('../components/project/ProjectModal'));
-const ProjectViewModal = React.lazy(() => import('../components/project/ProjectViewModal'));
 
 export interface ProjectModalContextType {
   openViewProject: (project: Project, diffRange?: { dateFrom: string; dateTo: string } | null) => void;
@@ -18,23 +17,34 @@ export interface ProjectModalContextType {
 const ProjectModalContext = createContext<ProjectModalContextType | undefined>(undefined);
 
 export const ProjectModalProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
-  const [editingProject, setEditingProject] = useState<Project | null>(null);
-  const [isProjectViewModalOpen, setIsProjectViewModalOpen] = useState(false);
-  const [viewingProject, setViewingProject] = useState<Project | null>(null);
-  const [projectDiffRange, setProjectDiffRange] = useState<{ dateFrom: string; dateTo: string } | null>(null);
+  const [modalState, setModalState] = useState<{
+    isOpen: boolean;
+    project: Project | null;
+    initialMode: 'view' | 'edit' | 'create';
+    diffRange?: { dateFrom: string; dateTo: string } | null;
+  }>({
+    isOpen: false,
+    project: null,
+    initialMode: 'view',
+    diffRange: null,
+  });
 
   const openViewProject = useCallback((project: Project, diffRange?: { dateFrom: string; dateTo: string } | null) => {
-    setViewingProject(project);
-    setProjectDiffRange(diffRange || null);
-    setIsProjectViewModalOpen(true);
+    setModalState({
+      isOpen: true,
+      project,
+      initialMode: 'view',
+      diffRange: diffRange || null,
+    });
   }, []);
 
   const openEditProject = useCallback((project: Project | null) => {
-    setIsProjectViewModalOpen(false);
-    setViewingProject(null);
-    setEditingProject(project);
-    setIsProjectModalOpen(true);
+    setModalState({
+      isOpen: true,
+      project,
+      initialMode: project ? 'edit' : 'create',
+      diffRange: null,
+    });
   }, []);
 
   const openNewProject = useCallback(() => {
@@ -46,23 +56,23 @@ export const ProjectModalProvider: React.FC<{ children: React.ReactNode }> = ({ 
       const res = await apiFetch(`${API_ROUTES.PROJECTS.BASE}/${projectId}`);
       if (res.ok) {
         const target: Project = await res.json();
-        setViewingProject(target);
-        setIsProjectViewModalOpen(true);
+        setModalState({
+          isOpen: true,
+          project: target,
+          initialMode: 'view',
+          diffRange: null,
+        });
       }
     } catch (e) {
       console.error('Error fetching project by id:', e);
     }
   }, []);
 
-  const closeProjectModal = useCallback(() => {
-    setIsProjectModalOpen(false);
-    setEditingProject(null);
-  }, []);
-
-  const closeProjectViewModal = useCallback(() => {
-    setIsProjectViewModalOpen(false);
-    setViewingProject(null);
-    setProjectDiffRange(null);
+  const closeModal = useCallback(() => {
+    setModalState((prev) => ({
+      ...prev,
+      isOpen: false,
+    }));
   }, []);
 
   const contextValue = React.useMemo<ProjectModalContextType>(() => ({
@@ -70,32 +80,29 @@ export const ProjectModalProvider: React.FC<{ children: React.ReactNode }> = ({ 
     openEditProject,
     openNewProject,
     openProjectById,
-    closeProjectModal,
-    closeProjectViewModal,
-  }), [openViewProject, openEditProject, openNewProject, openProjectById, closeProjectModal, closeProjectViewModal]);
+    closeProjectModal: closeModal,
+    closeProjectViewModal: closeModal,
+  }), [openViewProject, openEditProject, openNewProject, openProjectById, closeModal]);
 
   return (
     <ProjectModalContext.Provider value={contextValue}>
       {children}
 
-      {isProjectViewModalOpen && viewingProject && (
-        <Suspense fallback={null}>
-          <ProjectViewModal
-            isOpen={isProjectViewModalOpen}
-            project={viewingProject}
-            diffRange={projectDiffRange}
-            onClose={closeProjectViewModal}
-            onEdit={openEditProject}
-          />
-        </Suspense>
-      )}
-
-      {isProjectModalOpen && (
+      {modalState.isOpen && (
         <Suspense fallback={null}>
           <ProjectModal
-            isOpen={isProjectModalOpen}
-            projectToEdit={editingProject}
-            onClose={closeProjectModal}
+            isOpen={modalState.isOpen}
+            project={modalState.project}
+            initialMode={modalState.initialMode}
+            diffRange={modalState.diffRange}
+            onClose={closeModal}
+            onEdit={(proj) => {
+              setModalState((prev) => ({
+                ...prev,
+                project: proj,
+                initialMode: 'edit',
+              }));
+            }}
           />
         </Suspense>
       )}

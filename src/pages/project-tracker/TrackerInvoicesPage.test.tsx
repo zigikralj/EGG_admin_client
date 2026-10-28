@@ -12,6 +12,7 @@ describe('TrackerInvoicesPage', () => {
     renderWithProviders(<TrackerInvoicesPage />);
     await waitFor(() => {
       expect(screen.getByText('statusUnpaid')).toBeInTheDocument();
+      expect(screen.getByText('modalNewInvoice')).toBeInTheDocument();
     });
   });
 });

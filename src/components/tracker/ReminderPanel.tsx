@@ -3,30 +3,12 @@ import {
   Typography,
   IconButton,
   Tooltip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Grid,
-  TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Box,
   Chip,
+  Button,
+  TextField,
   Autocomplete,
 } from '@mui/material';
-
-
-
-
-
-
-
-
-
 import type { Project, Reminder, Client, User, SaveResult } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -38,10 +20,10 @@ import { NotificationsActiveIcon, EditIcon, DeleteIcon, CheckIcon, CalendarToday
 import { DashboardPanelSkeleton } from '../common/DashboardPanelSkeleton';
 import { useTableView } from '../../hooks/useTableView';
 import {
-  ProjectAutocomplete,
   ClientAutocomplete,
   UserAutocomplete,
 } from '../common/autocomplete';
+import { ReminderModal } from '../reminder';
 
 interface Props {
   projects?: Project[];
@@ -199,18 +181,6 @@ export const ReminderPanel: React.FC<Props> = ({
     open: false,
     message: '',
   });
-
-  // Form states for create / edit dialog
-  const [title, setTitle] = useState('');
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
-  const [projectName, setProjectName] = useState('');
-  const [selectedClientId, setSelectedClientId] = useState<string>('');
-  const [clientName, setClientName] = useState('');
-  const [selectedResponsibleId, setSelectedResponsibleId] = useState<string>('');
-  const [responsible, setResponsible] = useState('');
-  const [status, setStatus] = useState('Pending');
-  const [dueDate, setDueDate] = useState('');
-  const [notes, setNotes] = useState('');
 
   // Reset pagination when filters change
   useEffect(() => {
@@ -442,33 +412,26 @@ export const ReminderPanel: React.FC<Props> = ({
     return true;
   }, [hasPermission, isRestrictedToOwn, currentUser, selectedReminder, canCreate]);
 
+  const canDeleteSelected = useMemo(() => {
+    if (!selectedReminder || !onDeleteReminder) return false;
+    if (!hasPermission('reminders', 'delete') && !hasPermission('tracker_reminders', 'delete')) return false;
+    if (isRestrictedToOwn('reminders') || isRestrictedToOwn('tracker_reminders')) {
+      if (!currentUser) return false;
+      const respName = (selectedReminder.responsible || '').trim().toLowerCase();
+      const curName = (currentUser.name || '').trim().toLowerCase();
+      const isIdMatch = Boolean(selectedReminder.responsibleId && selectedReminder.responsibleId === currentUser.id);
+      return (respName !== '' && respName === curName) || isIdMatch;
+    }
+    return true;
+  }, [hasPermission, isRestrictedToOwn, currentUser, selectedReminder, onDeleteReminder]);
+
   const handleOpenNew = () => {
     setSelectedReminder(null);
-    setTitle('');
-    setSelectedProjectId('');
-    setProjectName('');
-    setSelectedClientId('');
-    setClientName('');
-    setSelectedResponsibleId(currentUser?.id || '');
-    setResponsible(currentUser?.name || '');
-    setStatus('Pending');
-    setDueDate('');
-    setNotes('');
     setIsDialogOpen(true);
   };
 
   const handleOpenDetails = (item: ReminderItem) => {
     setSelectedReminder(item);
-    setTitle(item.title || item.projectName || '');
-    setSelectedProjectId(item.projectId || '');
-    setProjectName(item.projectName);
-    setSelectedClientId(item.clientId || '');
-    setClientName(item.clientName);
-    setSelectedResponsibleId(item.responsibleId || '');
-    setResponsible(item.responsible === '—' ? '' : item.responsible);
-    setStatus(item.status || 'Pending');
-    setDueDate(item.dueDate ? item.dueDate.split('T')[0] : '');
-    setNotes(item.notes || '');
     setIsDialogOpen(true);
   };
 
@@ -477,79 +440,47 @@ export const ReminderPanel: React.FC<Props> = ({
     setSelectedReminder(null);
   };
 
-  const handleProjectSelect = (projId: string, projObj?: Project | null) => {
-    setSelectedProjectId(projId);
-    if (!projId && !projObj) return;
-    const proj = projObj || projects.find((p) => p.id === projId);
-    if (proj) {
-      if (!title) {
-        setTitle(proj.name);
-      }
-      setProjectName(proj.name);
-      if (proj.clientId) {
-        setSelectedClientId(proj.clientId);
-        setClientName(proj.clientName);
-      } else {
-        setClientName(proj.clientName || '');
-      }
-      if (proj.responsible) {
-        setResponsible(proj.responsible);
-        const usr = users.find((u) => u.name === proj.responsible);
-        if (usr) setSelectedResponsibleId(usr.id);
-      }
-    }
-  };
-
-  const handleSubmitDetails = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!canEditSelected) return;
-    const finalTitle = title.trim() || projectName.trim();
+  const handleSaveReminder = async (reminderData: Partial<Reminder>) => {
+    const finalTitle = reminderData.title?.trim() || reminderData.projectName?.trim();
     if (!finalTitle) {
       setErrorDialogState({
         open: true,
         message: t('alertReminderTitleRequired'),
       });
-      return;
+      return false;
     }
     if (onSaveReminder) {
       setIsSaving(true);
       try {
-        const res = await onSaveReminder({
-          id: selectedReminder?.id,
-          title: finalTitle,
-          projectId: selectedProjectId || null,
-          projectName: projectName.trim() || null,
-          clientId: selectedClientId || null,
-          clientName: clientName.trim() || null,
-          responsibleId: selectedResponsibleId || null,
-          responsible: responsible || null,
-          status,
-          dueDate: dueDate || null,
-          notes: notes || null,
-        });
+        const res = await onSaveReminder(reminderData);
 
         if (res && typeof res === 'object' && 'success' in res) {
           if (res.success) {
             handleCloseDialog();
+            return true;
           } else {
             setErrorDialogState({
               open: true,
               message: res.error || t('errorSavingReminder'),
             });
+            return false;
           }
         } else {
           handleCloseDialog();
+          return true;
         }
       } catch (err: any) {
         setErrorDialogState({
           open: true,
           message: err?.message || t('errorSavingReminder'),
         });
+        return false;
       } finally {
         setIsSaving(false);
       }
     } else {
       handleCloseDialog();
+      return true;
     }
   };
 
@@ -885,184 +816,23 @@ export const ReminderPanel: React.FC<Props> = ({
       />
 
       {/* REMINDER DETAILS / EDIT / CREATE DIALOG */}
-      <Dialog open={isDialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <form onSubmit={handleSubmitDetails}>
-          <DialogTitle sx={{ fontWeight: 700 }}>
-            {selectedReminder
-              ? canEditSelected
-                ? t('modalEditReminder')
-                : t('modalReminderDetails')
-              : t('modalNewReminder')}
-          </DialogTitle>
-          <DialogContent dividers>
-            <Grid container spacing={2} sx={{ pt: 1 }}>
-              {/* Reminder Title */}
-              <Grid size={{ xs: 12 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label={t('lblReminderTitle')}
-                  placeholder={t('phReminderTitle')}
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  disabled={!canEditSelected}
-                  required
-                  autoFocus
-                />
-              </Grid>
-
-              {/* Project Selection / Custom Name */}
-              <Grid size={{ xs: 12 }}>
-                <ProjectAutocomplete
-                  freeSolo
-                  size="small"
-                  disabled={!canEditSelected}
-                  value={
-                    selectedProjectId
-                      ? { id: selectedProjectId, name: projectName }
-                      : projectName || null
-                  }
-                  initialOption={
-                    selectedProjectId ? ({ id: selectedProjectId, name: projectName } as any) : null
-                  }
-                  onChange={(newValue, opt) => {
-                    if (typeof newValue === 'string') {
-                      setSelectedProjectId('');
-                      setProjectName(newValue);
-                    } else if (opt) {
-                      handleProjectSelect(opt.id, opt);
-                    } else {
-                      setSelectedProjectId('');
-                      setProjectName('');
-                    }
-                  }}
-                  label={t('colProject')}
-                  placeholder={t('phProjectName')}
-                />
-              </Grid>
-
-              {/* Client Selection / Custom Name */}
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <ClientAutocomplete
-                  freeSolo
-                  size="small"
-                  disabled={!canEditSelected}
-                  value={
-                    selectedClientId
-                      ? { id: selectedClientId, name: clientName }
-                      : clientName || null
-                  }
-                  initialOption={
-                    selectedClientId ? ({ id: selectedClientId, name: clientName } as any) : null
-                  }
-                  onChange={(newValue, opt) => {
-                    if (typeof newValue === 'string') {
-                      setSelectedClientId('');
-                      setClientName(newValue);
-                    } else if (opt) {
-                      setSelectedClientId(opt.id || '');
-                      setClientName(opt.name || '');
-                    } else {
-                      setSelectedClientId('');
-                      setClientName('');
-                    }
-                  }}
-                  label={t('colClient')}
-                  placeholder={t('phClient')}
-                />
-              </Grid>
-
-              {/* Responsible Person */}
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <UserAutocomplete
-                  freeSolo
-                  size="small"
-                  disabled={!canEditSelected || isRemindersRestricted}
-                  value={
-                    selectedResponsibleId
-                      ? { id: selectedResponsibleId, name: responsible }
-                      : responsible || null
-                  }
-                  initialOption={
-                    selectedResponsibleId ? ({ id: selectedResponsibleId, name: responsible } as any) : null
-                  }
-                  valueMode="name"
-                  onChange={(val, opt) => {
-                    if (typeof val === 'string') {
-                      setResponsible(val);
-                      setSelectedResponsibleId(opt?.id || '');
-                    } else if (opt) {
-                      setSelectedResponsibleId(opt.id || '');
-                      setResponsible(opt.name || '');
-                    } else {
-                      setSelectedResponsibleId('');
-                      setResponsible('');
-                    }
-                  }}
-                  label={t('colResponsible')}
-                  placeholder={currentUser?.name || ''}
-                />
-              </Grid>
-
-              {/* Status & Due Date */}
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <FormControl fullWidth size="small" disabled={!canEditSelected}>
-                  <InputLabel>{t('lblStatus')}</InputLabel>
-                  <Select value={status} label={t('lblStatus')} onChange={(e) => setStatus(e.target.value)}>
-                    <MenuItem value="Pending">{t('statusPending')}</MenuItem>
-                    <MenuItem value="In Progress">{t('statusInProgress')}</MenuItem>
-                    <MenuItem value="Completed">{t('statusCompleted')}</MenuItem>
-                    <MenuItem value="Overdue">{t('statusOverdue')}</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="date"
-                  label={t('lblDueDate')}
-                  slotProps={{ inputLabel: { shrink: true } }}
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  disabled={!canEditSelected}
-                />
-              </Grid>
-
-              {/* Notes */}
-              <Grid size={{ xs: 12 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  multiline
-                  rows={3}
-                  label={t('lblNotes')}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  disabled={!canEditSelected}
-                />
-              </Grid>
-            </Grid>
-          </DialogContent>
-          <DialogActions>
-            {canEditSelected ? (
-              <>
-                <Button onClick={handleCloseDialog} color="inherit" disabled={isSaving}>
-                  {t('btnCancel')}
-                </Button>
-                <Button type="submit" variant="contained" color="primary" disabled={isSaving}>
-                  {isSaving ? '...' : t('btnSave')}
-                </Button>
-              </>
-            ) : (
-              <Button onClick={handleCloseDialog} color="primary" variant="contained">
-                {t('btnClose')}
-              </Button>
-            )}
-          </DialogActions>
-        </form>
-      </Dialog>
+      <ReminderModal
+        open={isDialogOpen}
+        onClose={handleCloseDialog}
+        editingReminder={selectedReminder}
+        initialMode={selectedReminder ? 'view' : 'create'}
+        canCreate={canCreate}
+        canEdit={canEditSelected}
+        canDelete={canDeleteSelected}
+        onDelete={onDeleteReminder ? (id) => { handleCloseDialog(); onDeleteReminder(id); } : undefined}
+        isRestricted={isRemindersRestricted}
+        currentUser={currentUser}
+        projects={projects}
+        clients={clients}
+        users={users}
+        onSave={handleSaveReminder}
+        isSaving={isSaving}
+      />
 
       <ErrorDialog
         open={errorDialogState.open}

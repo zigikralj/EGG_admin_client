@@ -1,16 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Grid,
   TextField,
-  Button,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
+  Chip,
+  Typography,
 } from '@mui/material';
 import type { Reminder, Project, Client, Permit, User } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
@@ -20,39 +17,86 @@ import {
   PermitAutocomplete,
   UserAutocomplete,
 } from '../common/autocomplete';
+import { ViewEditModalBase, type ModalMode } from '../common/modal/ViewEditModalBase';
+import { ViewEditField } from '../common/modal/ViewEditField';
 
 export interface ReminderModalProps {
   open: boolean;
   onClose: () => void;
-  editingReminder: Reminder | null;
+  editingReminder?: Reminder | (Partial<Reminder> & { id: string }) | null;
   projects?: Project[];
   clients?: Client[];
   permits?: Permit[];
   users?: User[];
-  canCreate: boolean;
-  canEdit: boolean;
-  isRestricted: boolean;
-  currentUser: User | null;
+  canCreate?: boolean;
+  canEdit?: boolean;
+  canDelete?: boolean;
+  onDelete?: (id: string) => void;
+  isRestricted?: boolean;
+  currentUser?: User | null;
   onSave: (reminderData: Partial<Reminder>) => Promise<boolean | void>;
   isSaving?: boolean;
+  initialMode?: ModalMode;
+  mode?: ModalMode;
+  onModeChange?: (mode: ModalMode) => void;
+  // Backward compatibility
+  isViewMode?: boolean;
+  onToggleEditMode?: () => void;
 }
+
+const fmtDate = (d: string | null | undefined): string => {
+  if (!d) return '—';
+  const clean = d.split('T')[0];
+  const parts = clean.split('-');
+  if (parts.length === 3) {
+    const [y, m, day] = parts;
+    return `${day}.${m}.${y}.`;
+  }
+  return d;
+};
 
 export const ReminderModal: React.FC<ReminderModalProps> = ({
   open,
   onClose,
-  editingReminder,
+  editingReminder = null,
   projects: _projects = [],
   clients: _clients = [],
   permits: _permits = [],
   users: _users = [],
-  canCreate,
-  canEdit,
-  isRestricted,
-  currentUser,
+  canCreate = true,
+  canEdit = true,
+  canDelete = false,
+  onDelete,
+  isRestricted = false,
+  currentUser = null,
   onSave,
   isSaving = false,
+  initialMode,
+  mode: controlledMode,
+  onModeChange: onModeChangeProp,
+  isViewMode,
+  onToggleEditMode,
 }) => {
   const { t } = useLanguage();
+
+  // Mode state: 'view' | 'edit' | 'create'
+  const [internalMode, setInternalMode] = useState<ModalMode>(() => {
+    if (controlledMode) return controlledMode;
+    if (initialMode) return initialMode;
+    if (isViewMode !== undefined) return isViewMode ? 'view' : 'edit';
+    return editingReminder ? 'view' : 'create';
+  });
+
+  const currentMode = controlledMode || internalMode;
+  const isView = currentMode === 'view';
+
+  const handleModeChange = (newMode: ModalMode) => {
+    setInternalMode(newMode);
+    onModeChangeProp?.(newMode);
+    if (onToggleEditMode && ((isView && newMode === 'edit') || (!isView && newMode === 'view'))) {
+      onToggleEditMode();
+    }
+  };
 
   const [title, setTitle] = useState('');
   const [selectedProjectId, setSelectedProjectId] = useState('');
@@ -67,8 +111,20 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
   const [dueDate, setDueDate] = useState('');
   const [notes, setNotes] = useState('');
 
+  // Reset / populate form on modal open or editingReminder / initialMode change
   useEffect(() => {
     if (!open) return;
+
+    if (controlledMode) {
+      setInternalMode(controlledMode);
+    } else if (initialMode) {
+      setInternalMode(initialMode);
+    } else if (isViewMode !== undefined) {
+      setInternalMode(isViewMode ? 'view' : 'edit');
+    } else {
+      setInternalMode(editingReminder ? 'view' : 'create');
+    }
+
     if (editingReminder) {
       setTitle(editingReminder.title || '');
       setSelectedProjectId(editingReminder.projectId || '');
@@ -101,15 +157,43 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
       setDueDate('');
       setNotes('');
     }
-  }, [editingReminder, open]);
+  }, [editingReminder, open, initialMode, controlledMode, isViewMode, isRestricted, currentUser]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const resetToEditingReminder = () => {
+    if (editingReminder) {
+      setTitle(editingReminder.title || '');
+      setSelectedProjectId(editingReminder.projectId || '');
+      setProjectName(editingReminder.projectName || '');
+      setSelectedClientId(editingReminder.clientId || '');
+      setClientName(editingReminder.clientName || '');
+      setSelectedPermitId(editingReminder.permitId || '');
+      setPermitNumber(editingReminder.permitNumber || '');
+      setSelectedResponsibleId(editingReminder.responsibleId || '');
+      setResponsible(editingReminder.responsible || '');
+      setStatus(editingReminder.status || 'Pending');
+      setDueDate(editingReminder.dueDate ? editingReminder.dueDate.split('T')[0] : '');
+      setNotes(editingReminder.notes || '');
+    }
+  };
+
+  const handleCancel = () => {
+    if (currentMode === 'edit' && editingReminder) {
+      resetToEditingReminder();
+      handleModeChange('view');
+    } else {
+      onClose();
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!title.trim() || isSaving) return;
+    if (isView) return;
+    const finalTitle = title.trim() || projectName.trim();
+    if (!finalTitle || isSaving) return;
 
-    await onSave({
+    const res = await onSave({
       id: editingReminder ? editingReminder.id : undefined,
-      title: title.trim(),
+      title: finalTitle,
       projectId: selectedProjectId || null,
       projectName: projectName.trim() || null,
       clientId: selectedClientId || null,
@@ -122,222 +206,316 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
       dueDate: dueDate || null,
       notes: notes.trim() || null,
     });
+
+    if (res !== false) {
+      if (editingReminder && currentMode === 'edit') {
+        handleModeChange('view');
+      }
+    }
   };
 
   const isResponsibleDisabled = isRestricted || (!editingReminder ? !canCreate : !canEdit);
 
+  const getStatusChip = (st: string) => {
+    switch (st.toLowerCase()) {
+      case 'completed':
+      case 'završeno':
+      case 'завршено':
+        return <Chip label={t('statusCompleted')} color="success" size="small" sx={{ fontWeight: 600 }} />;
+      case 'in progress':
+      case 'u toku':
+      case 'у току':
+        return <Chip label={t('statusInProgress')} color="info" size="small" sx={{ fontWeight: 600 }} />;
+      case 'overdue':
+      case 'prekoračeno':
+      case 'прекорачено':
+      case 'kasni':
+      case 'касни':
+        return <Chip label={t('statusOverdue')} color="error" size="small" sx={{ fontWeight: 600 }} />;
+      case 'pending':
+      case 'na čekanju':
+      case 'на чекању':
+      default:
+        return <Chip label={t('statusPending')} color="warning" size="small" sx={{ fontWeight: 600 }} />;
+    }
+  };
+
+  const modalTitle = (m: ModalMode) => {
+    if (m === 'create') return t('modalNewReminder');
+    if (m === 'edit') return t('modalEditReminder');
+    return editingReminder?.title || t('modalReminderDetails');
+  };
+
+  const modalSubtitle = () => {
+    if (!isView || !editingReminder) return undefined;
+    const parts = [editingReminder.projectName, editingReminder.clientName].filter(Boolean);
+    return parts.length > 0 ? parts.join(' • ') : undefined;
+  };
+
   return (
-    <Dialog
+    <ViewEditModalBase
       open={open}
       onClose={() => !isSaving && onClose()}
+      mode={currentMode}
+      onModeChange={handleModeChange}
+      title={modalTitle}
+      subtitle={modalSubtitle()}
+      statusChip={isView ? getStatusChip(status) : undefined}
       maxWidth="sm"
-      fullWidth
-      slotProps={{
-        paper: {
-          component: 'form',
-          onSubmit: handleSubmit,
-          sx: {
-            maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
-            display: 'flex',
-            flexDirection: 'column',
-          },
-        },
-      }}
+      canEdit={canEdit}
+      canDelete={canDelete && Boolean(editingReminder?.id)}
+      onDelete={onDelete && editingReminder ? () => onDelete(editingReminder.id) : undefined}
+      onSave={handleSubmit}
+      onCancel={handleCancel}
+      isSaving={isSaving}
     >
-      <DialogTitle sx={{ flexShrink: 0 }}>{editingReminder ? t('modalEditReminder') : t('modalNewReminder')}</DialogTitle>
-      <DialogContent dividers sx={{ flex: 1, overflowY: 'auto' }}>
-          <Grid container spacing={2} sx={{ pt: 1 }}>
-            {/* Reminder Title */}
-            <Grid size={{ xs: 12 }}>
-              <TextField
-                fullWidth
-                size="small"
-                label={t('lblReminderTitle')}
-                placeholder={t('phReminderTitle')}
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                required
-                autoFocus
-              />
-            </Grid>
+      <Grid container spacing={2}>
+        {/* Reminder Title */}
+        <Grid size={{ xs: 12 }}>
+          <ViewEditField
+            label={t('lblReminderTitle')}
+            isViewMode={isView}
+            viewValue={
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                {title || '—'}
+              </Typography>
+            }
+          >
+            <TextField
+              fullWidth
+              size="small"
+              label={t('lblReminderTitle')}
+              placeholder={t('phReminderTitle')}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              required
+              autoFocus
+            />
+          </ViewEditField>
+        </Grid>
 
-            {/* Project Selection / Custom Name */}
-            <Grid size={{ xs: 12 }}>
-              <ProjectAutocomplete
-                freeSolo
-                size="small"
-                value={
-                  selectedProjectId
-                    ? { id: selectedProjectId, name: projectName }
-                    : projectName || null
-                }
-                initialOption={
-                  selectedProjectId ? ({ id: selectedProjectId, name: projectName } as any) : null
-                }
-                onChange={(newValue, opt) => {
-                  if (typeof newValue === 'string') {
-                    setSelectedProjectId('');
-                    setProjectName(newValue);
-                  } else if (opt) {
-                    setSelectedProjectId(opt.id || '');
-                    setProjectName(opt.name || (opt as any).projectName || '');
-                    if (opt.clientId) {
-                      setSelectedClientId(opt.clientId);
-                      if (opt.clientName) setClientName(opt.clientName);
-                    }
-                  } else {
-                    setSelectedProjectId('');
-                    setProjectName('');
+        {/* Project Selection / Custom Name */}
+        <Grid size={{ xs: 12 }}>
+          <ViewEditField
+            label={t('colProject')}
+            isViewMode={isView}
+            viewValue={projectName}
+          >
+            <ProjectAutocomplete
+              freeSolo
+              size="small"
+              value={
+                selectedProjectId
+                  ? { id: selectedProjectId, name: projectName }
+                  : projectName || null
+              }
+              initialOption={
+                selectedProjectId ? ({ id: selectedProjectId, name: projectName } as any) : null
+              }
+              onChange={(newValue, opt) => {
+                if (typeof newValue === 'string') {
+                  setSelectedProjectId('');
+                  setProjectName(newValue);
+                } else if (opt) {
+                  setSelectedProjectId(opt.id || '');
+                  setProjectName(opt.name || (opt as any).projectName || '');
+                  if (opt.clientId) {
+                    setSelectedClientId(opt.clientId);
+                    if (opt.clientName) setClientName(opt.clientName);
                   }
-                }}
-                label={t('colProject')}
-                placeholder={t('phProjectName')}
-              />
-            </Grid>
+                } else {
+                  setSelectedProjectId('');
+                  setProjectName('');
+                }
+              }}
+              label={t('colProject')}
+              placeholder={t('phProjectName')}
+            />
+          </ViewEditField>
+        </Grid>
 
-            {/* Client Selection / Custom Name */}
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <ClientAutocomplete
-                freeSolo
-                size="small"
-                value={
-                  selectedClientId
-                    ? { id: selectedClientId, name: clientName }
-                    : clientName || null
+        {/* Client Selection / Custom Name */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <ViewEditField
+            label={t('colClient')}
+            isViewMode={isView}
+            viewValue={clientName}
+          >
+            <ClientAutocomplete
+              freeSolo
+              size="small"
+              value={
+                selectedClientId
+                  ? { id: selectedClientId, name: clientName }
+                  : clientName || null
+              }
+              initialOption={
+                selectedClientId ? ({ id: selectedClientId, name: clientName } as any) : null
+              }
+              onChange={(newValue, opt) => {
+                if (typeof newValue === 'string') {
+                  setSelectedClientId('');
+                  setClientName(newValue);
+                } else if (opt) {
+                  setSelectedClientId(opt.id || '');
+                  setClientName(opt.name || '');
+                } else {
+                  setSelectedClientId('');
+                  setClientName('');
                 }
-                initialOption={
-                  selectedClientId ? ({ id: selectedClientId, name: clientName } as any) : null
-                }
-                onChange={(newValue, opt) => {
-                  if (typeof newValue === 'string') {
-                    setSelectedClientId('');
-                    setClientName(newValue);
-                  } else if (opt) {
-                    setSelectedClientId(opt.id || '');
-                    setClientName(opt.name || '');
-                  } else {
-                    setSelectedClientId('');
-                    setClientName('');
+              }}
+              label={t('lblClient')}
+              placeholder={t('phClient')}
+            />
+          </ViewEditField>
+        </Grid>
+
+        {/* Permit Selection (Optional) */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <ViewEditField
+            label={t('lblPermit')}
+            isViewMode={isView}
+            viewValue={
+              permitNumber ? (
+                <Chip label={permitNumber} size="small" variant="outlined" color="primary" />
+              ) : undefined
+            }
+          >
+            <PermitAutocomplete
+              freeSolo
+              size="small"
+              clientId={selectedClientId || undefined}
+              value={
+                selectedPermitId
+                  ? { id: selectedPermitId, permitNumber }
+                  : permitNumber || null
+              }
+              initialOption={
+                selectedPermitId ? ({ id: selectedPermitId, permitNumber } as any) : null
+              }
+              onChange={(newValue, opt) => {
+                if (typeof newValue === 'string') {
+                  setSelectedPermitId('');
+                  setPermitNumber(newValue);
+                } else if (opt) {
+                  setSelectedPermitId(opt.id || '');
+                  setPermitNumber(opt.permitNumber || '');
+                  if (opt.clientId && !selectedClientId) {
+                    setSelectedClientId(opt.clientId);
+                    if (opt.clientName) setClientName(opt.clientName);
                   }
-                }}
-                label={t('lblClient')}
-                placeholder={t('phClient')}
-              />
-            </Grid>
-
-            {/* Permit Selection (Optional) */}
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <PermitAutocomplete
-                freeSolo
-                size="small"
-                clientId={selectedClientId || undefined}
-                value={
-                  selectedPermitId
-                    ? { id: selectedPermitId, permitNumber }
-                    : permitNumber || null
+                } else {
+                  setSelectedPermitId('');
+                  setPermitNumber('');
                 }
-                initialOption={
-                  selectedPermitId ? ({ id: selectedPermitId, permitNumber } as any) : null
+              }}
+              label={t('lblPermit')}
+              placeholder={t('phSelectPermit')}
+            />
+          </ViewEditField>
+        </Grid>
+
+        {/* Responsible Selection / Custom Name */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <ViewEditField
+            label={t('colResponsible')}
+            isViewMode={isView}
+            viewValue={responsible}
+          >
+            <UserAutocomplete
+              freeSolo
+              size="small"
+              disabled={isResponsibleDisabled}
+              value={
+                selectedResponsibleId
+                  ? { id: selectedResponsibleId, name: responsible }
+                  : responsible || null
+              }
+              initialOption={
+                selectedResponsibleId ? ({ id: selectedResponsibleId, name: responsible } as any) : null
+              }
+              valueMode="name"
+              onChange={(val, opt) => {
+                if (typeof val === 'string') {
+                  setResponsible(val);
+                  setSelectedResponsibleId(opt?.id || '');
+                } else if (opt) {
+                  setSelectedResponsibleId(opt.id || '');
+                  setResponsible(opt.name || '');
+                } else {
+                  setSelectedResponsibleId('');
+                  setResponsible('');
                 }
-                onChange={(newValue, opt) => {
-                  if (typeof newValue === 'string') {
-                    setSelectedPermitId('');
-                    setPermitNumber(newValue);
-                  } else if (opt) {
-                    setSelectedPermitId(opt.id || '');
-                    setPermitNumber(opt.permitNumber || '');
-                    if (opt.clientId && !selectedClientId) {
-                      setSelectedClientId(opt.clientId);
-                      if (opt.clientName) setClientName(opt.clientName);
-                    }
-                  } else {
-                    setSelectedPermitId('');
-                    setPermitNumber('');
-                  }
-                }}
-                label={t('lblPermit')}
-                placeholder={t('phSelectPermit')}
-              />
-            </Grid>
+              }}
+              label={t('colResponsible')}
+              placeholder={currentUser?.name || ''}
+            />
+          </ViewEditField>
+        </Grid>
 
-            {/* Responsible Selection / Custom Name */}
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <UserAutocomplete
-                freeSolo
-                size="small"
-                disabled={isResponsibleDisabled}
-                value={
-                  selectedResponsibleId
-                    ? { id: selectedResponsibleId, name: responsible }
-                    : responsible || null
-                }
-                initialOption={
-                  selectedResponsibleId ? ({ id: selectedResponsibleId, name: responsible } as any) : null
-                }
-                valueMode="name"
-                onChange={(val, opt) => {
-                  if (typeof val === 'string') {
-                    setResponsible(val);
-                    setSelectedResponsibleId(opt?.id || '');
-                  } else if (opt) {
-                    setSelectedResponsibleId(opt.id || '');
-                    setResponsible(opt.name || '');
-                  } else {
-                    setSelectedResponsibleId('');
-                    setResponsible('');
-                  }
-                }}
-                placeholder={currentUser?.name || ''}
-              />
-            </Grid>
+        {/* Status */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <ViewEditField
+            label={t('lblStatus')}
+            isViewMode={isView}
+            viewValue={getStatusChip(status)}
+          >
+            <FormControl fullWidth size="small">
+              <InputLabel>{t('lblStatus')}</InputLabel>
+              <Select value={status} label={t('lblStatus')} onChange={(e) => setStatus(e.target.value)}>
+                <MenuItem value="Pending">{t('statusPending')}</MenuItem>
+                <MenuItem value="In Progress">{t('statusInProgress')}</MenuItem>
+                <MenuItem value="Completed">{t('statusCompleted')}</MenuItem>
+                <MenuItem value="Overdue">{t('statusOverdue')}</MenuItem>
+              </Select>
+            </FormControl>
+          </ViewEditField>
+        </Grid>
 
-            {/* Status & Due Date */}
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <FormControl fullWidth size="small">
-                <InputLabel>{t('lblStatus')}</InputLabel>
-                <Select value={status} label={t('lblStatus')} onChange={(e) => setStatus(e.target.value)}>
-                  <MenuItem value="Pending">{t('statusPending')}</MenuItem>
-                  <MenuItem value="In Progress">{t('statusInProgress')}</MenuItem>
-                  <MenuItem value="Completed">{t('statusCompleted')}</MenuItem>
-                  <MenuItem value="Overdue">{t('statusOverdue')}</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
+        {/* Due Date */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <ViewEditField
+            label={t('lblDueDate')}
+            isViewMode={isView}
+            viewValue={dueDate ? fmtDate(dueDate) : undefined}
+          >
+            <TextField
+              fullWidth
+              size="small"
+              type="date"
+              label={t('lblDueDate')}
+              slotProps={{ inputLabel: { shrink: true } }}
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+            />
+          </ViewEditField>
+        </Grid>
 
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
-                fullWidth
-                size="small"
-                type="date"
-                label={t('lblDueDate')}
-                slotProps={{ inputLabel: { shrink: true } }}
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-              />
-            </Grid>
-
-            {/* Notes */}
-            <Grid size={{ xs: 12 }}>
-              <TextField
-                fullWidth
-                size="small"
-                multiline
-                rows={3}
-                label={t('lblNotes')}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-              />
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions sx={{ p: 2, flexShrink: 0 }}>
-          <Button onClick={onClose} color="inherit" disabled={isSaving}>
-            {t('btnCancel')}
-          </Button>
-          <Button type="submit" variant="contained" color="primary" disabled={isSaving}>
-            {isSaving ? '...' : t('btnSave')}
-          </Button>
-        </DialogActions>
-    </Dialog>
+        {/* Notes */}
+        <Grid size={{ xs: 12 }}>
+          <ViewEditField
+            label={t('lblNotes')}
+            isViewMode={isView}
+            viewValue={
+              notes ? (
+                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                  {notes}
+                </Typography>
+              ) : undefined
+            }
+          >
+            <TextField
+              fullWidth
+              size="small"
+              multiline
+              rows={3}
+              label={t('lblNotes')}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </ViewEditField>
+        </Grid>
+      </Grid>
+    </ViewEditModalBase>
   );
 };

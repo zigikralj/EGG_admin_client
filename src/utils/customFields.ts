@@ -1,4 +1,4 @@
-import type { CustomFieldDefinition, ProvidedService, Service, CustomFieldType } from '../types';
+import type { CustomFieldDefinition, ProvidedService, Service, CustomFieldType, Client } from '../types';
 
 /**
  * Normalizes a string for loose key matching (removes diacritics, lowercase, replaces symbols with underscores)
@@ -60,7 +60,23 @@ export const buildCustomFieldsMap = (services: Service[] = []): Map<string, Cust
 export const formatCustomFieldValue = (val: any, type?: CustomFieldType): string => {
   if (val === null || val === undefined) return '';
   if (Array.isArray(val)) {
-    return val.map((v) => (typeof v === 'object' && v?.code ? v.code : String(v))).join(', ');
+    return val
+      .map((v) => {
+        if (typeof v === 'object' && v !== null) {
+          return v.name || v.label || v.title || v.code || '';
+        }
+        return String(v);
+      })
+      .filter(Boolean)
+      .join(', ');
+  }
+  if (typeof val === 'object' && val !== null) {
+    if (val.name) return String(val.name).trim();
+    if (val.label) return String(val.label).trim();
+    if (val.title) return String(val.title).trim();
+    if (val.code) return String(val.code).trim();
+    if (val.value !== undefined) return formatCustomFieldValue(val.value, type);
+    return '';
   }
   let str = String(val).trim();
   if (type === 'datetime' && str.includes('T')) {
@@ -84,7 +100,8 @@ export interface CustomFieldBadge {
  */
 export const resolveCustomFieldBadges = (
   item: ProvidedService,
-  services: Service[] = []
+  services: Service[] = [],
+  clients: Client[] = []
 ): CustomFieldBadge[] => {
   if (!item.customData || typeof item.customData !== 'object') return [];
 
@@ -126,10 +143,17 @@ export const resolveCustomFieldBadges = (
       if (val !== undefined && val !== null && (Array.isArray(val) ? val.length > 0 : String(val).trim() !== '')) {
         handledKeys.add(fieldDef.id);
         handledKeys.add(matchedKey);
+        let displayVal = formatCustomFieldValue(val, fieldDef.type);
+        if ((fieldDef.type === 'client' || fieldDef.linkedList === 'clients') && clients && clients.length > 0) {
+          if (typeof val === 'string' && val.length > 0) {
+            const matchClient = clients.find((c) => String(c.id) === String(val));
+            if (matchClient) displayVal = matchClient.name;
+          }
+        }
         badges.push({
           id: fieldDef.id,
           label: fieldDef.name || fieldDef.id,
-          value: formatCustomFieldValue(val, fieldDef.type),
+          value: displayVal,
           unit: fieldDef.unit,
           rawValue: val,
         });
@@ -145,10 +169,17 @@ export const resolveCustomFieldBadges = (
     const fieldDef = allFieldsMap.get(key) || allFieldsMap.get(key.toLowerCase());
     if (fieldDef) {
       handledKeys.add(key);
+      let displayVal = formatCustomFieldValue(val, fieldDef.type);
+      if ((fieldDef.type === 'client' || fieldDef.linkedList === 'clients') && clients && clients.length > 0) {
+        if (typeof val === 'string' && val.length > 0) {
+          const matchClient = clients.find((c) => String(c.id) === String(val));
+          if (matchClient) displayVal = matchClient.name;
+        }
+      }
       badges.push({
         id: key,
         label: fieldDef.name || key,
-        value: formatCustomFieldValue(val, fieldDef.type),
+        value: displayVal,
         unit: fieldDef.unit,
         rawValue: val,
       });
@@ -171,10 +202,22 @@ export const resolveCustomFieldBadges = (
       continue;
     }
 
+    let displayVal = formatCustomFieldValue(val);
+    if (
+      (lowerKey.includes('transport') || lowerKey.includes('prevoz') || lowerKey.includes('operat')) &&
+      clients &&
+      clients.length > 0 &&
+      typeof val === 'string' &&
+      val.length > 0
+    ) {
+      const matchClient = clients.find((c) => String(c.id) === String(val));
+      if (matchClient) displayVal = matchClient.name;
+    }
+
     badges.push({
       id: key,
       label: cleanKey,
-      value: formatCustomFieldValue(val),
+      value: displayVal,
       rawValue: val,
     });
   }

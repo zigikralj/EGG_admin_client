@@ -1,9 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Button,
   Box,
   Typography,
@@ -25,7 +21,6 @@ import {
   Paper,
 } from '@mui/material';
 import {
-  CloseIcon,
   HistoryIcon,
   RestoreIcon,
   RefreshIcon,
@@ -33,6 +28,7 @@ import {
   PersonIcon,
   AccessTimeIcon,
 } from '../icons';
+import { BaseModal } from '../common/modal/BaseModal';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -398,49 +394,17 @@ export const HistoryTimelineModal: React.FC<HistoryTimelineModalProps> = ({
 
   return (
     <>
-      <Dialog
+      <BaseModal
         open={open}
         onClose={onClose}
-        maxWidth="md"
-        fullWidth
-        slotProps={{
-          paper: {
-            sx: {
-              borderRadius: 3,
-              maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
-              display: 'flex',
-              flexDirection: 'column',
-            },
-          },
-        }}
-      >
-        <DialogTitle
-          component="div"
-          sx={{
-            flexShrink: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            pb: 1.5,
-            borderBottom: '1px solid',
-            borderColor: 'divider',
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <HistoryIcon color="primary" />
-            <Typography variant="h6" component="h2" sx={{ fontWeight: 700 }}>
-              {t('historyModalTitle')}
-            </Typography>
-            {entityTitle && (
-              <Typography variant="subtitle1" color="text.secondary" sx={{ fontWeight: 500 }}>
-                — {entityTitle}
-              </Typography>
-            )}
-            {versions.length > 0 && (
-              <Chip label={`${versions.length} versions`} size="small" sx={{ ml: 1, fontWeight: 600 }} />
-            )}
-          </Box>
+        title={t('historyModalTitle')}
+        subtitle={entityTitle ? `— ${entityTitle}` : undefined}
+        headerAdornment={<HistoryIcon color="primary" />}
+        headerActions={
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            {versions.length > 0 && (
+              <Chip label={`${versions.length} versions`} size="small" sx={{ mr: 1, fontWeight: 600 }} />
+            )}
             <Tooltip title={t('btnRefresh') || 'Refresh'}>
               <span>
                 <IconButton
@@ -462,12 +426,17 @@ export const HistoryTimelineModal: React.FC<HistoryTimelineModalProps> = ({
                 </IconButton>
               </span>
             </Tooltip>
-            <IconButton onClick={onClose} size="small" aria-label="close">
-              <CloseIcon fontSize="small" />
-            </IconButton>
           </Box>
-        </DialogTitle>
-
+        }
+        maxWidth="md"
+        fullWidth
+        contentSx={{ p: 0 }}
+        actions={
+          <Button onClick={onClose} variant="outlined" color="inherit">
+            {t('btnClose')}
+          </Button>
+        }
+      >
         {/* View Mode Toggle: Timeline vs Date-to-Date Comparison */}
         <Box
           sx={{
@@ -496,7 +465,7 @@ export const HistoryTimelineModal: React.FC<HistoryTimelineModalProps> = ({
           </ToggleButtonGroup>
         </Box>
 
-        <DialogContent sx={{ p: 2.5, flex: 1, overflowY: 'auto' }}>
+        <Box sx={{ p: 2.5 }}>
           {successMessage && (
             <Alert severity="success" onClose={() => setSuccessMessage(null)} sx={{ mb: 2 }}>
               {successMessage}
@@ -657,50 +626,41 @@ export const HistoryTimelineModal: React.FC<HistoryTimelineModalProps> = ({
               )}
             </>
           )}
-        </DialogContent>
-
-        <DialogActions sx={{ px: 2.5, py: 1.5, borderTop: '1px solid', borderColor: 'divider', flexShrink: 0 }}>
-          <Button onClick={onClose} variant="outlined" color="inherit">
-            {t('btnClose')}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        </Box>
+      </BaseModal>
 
       {/* Confirmation Dialog for Restore */}
-      <Dialog
+      <BaseModal
         open={confirmVersion !== null}
         onClose={() => setConfirmVersion(null)}
+        title={t('historyRestoreConfirmTitle')}
         maxWidth="xs"
         fullWidth
-        slotProps={{ paper: { sx: { borderRadius: 2.5 } } }}
+        actions={
+          <>
+            <Button
+              onClick={() => setConfirmVersion(null)}
+              color="inherit"
+              disabled={restoreMutation.isPending}
+            >
+              {t('btnCancel')}
+            </Button>
+            <Button
+              onClick={handleConfirmRestore}
+              variant="contained"
+              color="warning"
+              disabled={restoreMutation.isPending}
+              startIcon={restoreMutation.isPending ? <CircularProgress size={16} /> : <RestoreIcon />}
+            >
+              {restoreMutation.isPending ? 'Restoring...' : t('historyRestore')}
+            </Button>
+          </>
+        }
       >
-        <DialogTitle sx={{ fontWeight: 700 }}>
-          {t('historyRestoreConfirmTitle')}
-        </DialogTitle>
-        <DialogContent>
-          <Typography variant="body2">
-            {t('historyRestoreConfirmMessage').replace('{version}', String(confirmVersion ?? ''))}
-          </Typography>
-        </DialogContent>
-        <DialogActions sx={{ px: 2.5, pb: 2 }}>
-          <Button
-            onClick={() => setConfirmVersion(null)}
-            color="inherit"
-            disabled={restoreMutation.isPending}
-          >
-            {t('btnCancel')}
-          </Button>
-          <Button
-            onClick={handleConfirmRestore}
-            variant="contained"
-            color="warning"
-            disabled={restoreMutation.isPending}
-            startIcon={restoreMutation.isPending ? <CircularProgress size={16} /> : <RestoreIcon />}
-          >
-            {restoreMutation.isPending ? 'Restoring...' : t('historyRestore')}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        <Typography variant="body2">
+          {t('historyRestoreConfirmMessage').replace('{version}', String(confirmVersion ?? ''))}
+        </Typography>
+      </BaseModal>
     </>
   );
 };

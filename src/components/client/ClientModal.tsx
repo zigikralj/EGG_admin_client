@@ -1,23 +1,23 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
   TextField,
-  Typography,
   Grid,
+  Chip,
+  Box,
 } from '@mui/material';
-import { DeleteIcon } from '../icons';
 import { useLanguage } from '../../context/LanguageContext';
 import { PermitAutocomplete } from '../common/autocomplete';
+import { ViewEditModalBase, type ModalMode } from '../common/modal/ViewEditModalBase';
+import { ViewEditField } from '../common/modal/ViewEditField';
 import type { Client, Permit } from '../../types';
 
 export interface ClientModalProps {
   open: boolean;
   onClose: () => void;
   editingClient: Client | null;
+  mode?: ModalMode;
+  initialMode?: ModalMode;
+  onModeChange?: (mode: ModalMode) => void;
   canDelete?: boolean;
   canEdit?: boolean;
   canCreate?: boolean;
@@ -30,6 +30,9 @@ export const ClientModal: React.FC<ClientModalProps> = ({
   open,
   onClose,
   editingClient,
+  mode: controlledMode,
+  initialMode,
+  onModeChange: onModeChangeProp,
   canDelete = false,
   canEdit = true,
   canCreate = true,
@@ -38,6 +41,33 @@ export const ClientModal: React.FC<ClientModalProps> = ({
   onError,
 }) => {
   const { t } = useLanguage();
+
+  // Mode state: 'view' | 'edit' | 'create'
+  const [internalMode, setInternalMode] = useState<ModalMode>(() => {
+    if (controlledMode) return controlledMode;
+    if (initialMode) return initialMode;
+    return editingClient ? 'view' : 'create';
+  });
+
+  const currentMode = controlledMode || internalMode;
+  const isView = currentMode === 'view';
+
+  const handleModeChange = (newMode: ModalMode) => {
+    setInternalMode(newMode);
+    onModeChangeProp?.(newMode);
+  };
+
+  useEffect(() => {
+    if (open) {
+      if (controlledMode) {
+        setInternalMode(controlledMode);
+      } else if (initialMode) {
+        setInternalMode(initialMode);
+      } else {
+        setInternalMode(editingClient ? 'view' : 'create');
+      }
+    }
+  }, [open, editingClient?.id, initialMode, controlledMode]);
 
   const [name, setName] = useState('');
   const [contactPerson, setContactPerson] = useState('');
@@ -53,29 +83,43 @@ export const ClientModal: React.FC<ClientModalProps> = ({
     return [];
   }, []);
 
+  const resetFormToClient = useCallback((client: Client | null) => {
+    if (client) {
+      setName(client.name || '');
+      setContactPerson(client.contactPerson || '');
+      setEmail(client.email || '');
+      setPhone(client.phone || '');
+      setCity(client.city || '');
+      const clientPermits = getClientPermits(client);
+      setSelectedPermitIds(clientPermits.map((p) => p.id));
+    } else {
+      setName('');
+      setContactPerson('');
+      setEmail('');
+      setPhone('');
+      setCity('');
+      setSelectedPermitIds([]);
+    }
+  }, [getClientPermits]);
+
   useEffect(() => {
     if (open) {
-      if (editingClient) {
-        setName(editingClient.name || '');
-        setContactPerson(editingClient.contactPerson || '');
-        setEmail(editingClient.email || '');
-        setPhone(editingClient.phone || '');
-        setCity(editingClient.city || '');
-        const clientPermits = getClientPermits(editingClient);
-        setSelectedPermitIds(clientPermits.map((p) => p.id));
-      } else {
-        setName('');
-        setContactPerson('');
-        setEmail('');
-        setPhone('');
-        setCity('');
-        setSelectedPermitIds([]);
-      }
+      resetFormToClient(editingClient);
     }
-  }, [open, editingClient, getClientPermits]);
+  }, [open, editingClient, resetFormToClient]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCancel = () => {
+    if (currentMode === 'edit' && editingClient) {
+      resetFormToClient(editingClient);
+      handleModeChange('view');
+    } else {
+      onClose();
+    }
+  };
+
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (isView) return;
     if (!canEdit && !canCreate) return;
     if (!name.trim()) {
       onError?.(t('alertClientNameRequired'));
@@ -95,7 +139,11 @@ export const ClientModal: React.FC<ClientModalProps> = ({
       } as any);
 
       if (res.success) {
-        onClose();
+        if (editingClient && currentMode === 'edit') {
+          handleModeChange('view');
+        } else {
+          onClose();
+        }
       } else if (res.error) {
         onError?.(res.error || t('errorSavingClient'));
       }
@@ -104,49 +152,43 @@ export const ClientModal: React.FC<ClientModalProps> = ({
     }
   };
 
+  const modalTitle = (m: ModalMode) => {
+    if (m === 'view') return editingClient?.name || t('btnDetails');
+    if (m === 'edit') return t('modalEditClient');
+    return t('modalNewClient');
+  };
+
+  const modalSubtitle = () => {
+    if (!isView || !editingClient) return undefined;
+    return city || undefined;
+  };
+
+  const clientPermits = editingClient ? getClientPermits(editingClient) : [];
+
   return (
-    <Dialog
+    <ViewEditModalBase
       open={open}
       onClose={onClose}
+      mode={currentMode}
+      onModeChange={handleModeChange}
+      title={modalTitle}
+      subtitle={modalSubtitle()}
       maxWidth="sm"
-      fullWidth
-      slotProps={{
-        paper: {
-          component: 'form',
-          onSubmit: handleSubmit,
-          sx: {
-            maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
-            display: 'flex',
-            flexDirection: 'column',
-          },
-        },
-      }}
+      canEdit={canEdit}
+      canDelete={canDelete && Boolean(editingClient?.id)}
+      onDelete={onDeleteClient && editingClient ? () => { onDeleteClient(editingClient.id); onClose(); } : undefined}
+      onSave={handleSubmit}
+      onCancel={handleCancel}
+      isSaving={isSaving}
     >
-      <DialogTitle
-        component="div"
-        sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}
-      >
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>
-          {editingClient ? t('modalEditClient') : t('modalNewClient')}
-        </Typography>
-        {editingClient && canDelete && onDeleteClient && (
-          <Button
-            color="error"
-            size="small"
-            variant="outlined"
-            startIcon={<DeleteIcon />}
-            onClick={() => {
-              onDeleteClient(editingClient.id);
-              onClose();
-            }}
+      <Grid container spacing={2}>
+        {/* Client Name */}
+        <Grid size={{ xs: 12 }}>
+          <ViewEditField
+            label={t('lblClientCompany')}
+            isViewMode={isView}
+            viewValue={name}
           >
-            {t('btnDelete')}
-          </Button>
-        )}
-      </DialogTitle>
-      <DialogContent dividers sx={{ flex: 1, overflowY: 'auto' }}>
-        <Grid container spacing={2} sx={{ pt: 1 }}>
-          <Grid size={{ xs: 12 }}>
             <TextField
               fullWidth
               size="small"
@@ -155,9 +197,18 @@ export const ClientModal: React.FC<ClientModalProps> = ({
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
+              autoFocus
             />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
+          </ViewEditField>
+        </Grid>
+
+        {/* City */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <ViewEditField
+            label={t('lblCity')}
+            isViewMode={isView}
+            viewValue={city}
+          >
             <TextField
               fullWidth
               size="small"
@@ -166,8 +217,16 @@ export const ClientModal: React.FC<ClientModalProps> = ({
               value={city}
               onChange={(e) => setCity(e.target.value)}
             />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
+          </ViewEditField>
+        </Grid>
+
+        {/* Contact Person */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <ViewEditField
+            label={t('lblContactPerson')}
+            isViewMode={isView}
+            viewValue={contactPerson}
+          >
             <TextField
               fullWidth
               size="small"
@@ -176,8 +235,16 @@ export const ClientModal: React.FC<ClientModalProps> = ({
               value={contactPerson}
               onChange={(e) => setContactPerson(e.target.value)}
             />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
+          </ViewEditField>
+        </Grid>
+
+        {/* Email */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <ViewEditField
+            label={t('lblEmail')}
+            isViewMode={isView}
+            viewValue={email}
+          >
             <TextField
               fullWidth
               size="small"
@@ -187,8 +254,16 @@ export const ClientModal: React.FC<ClientModalProps> = ({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
+          </ViewEditField>
+        </Grid>
+
+        {/* Phone */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <ViewEditField
+            label={t('lblPhone')}
+            isViewMode={isView}
+            viewValue={phone}
+          >
             <TextField
               fullWidth
               size="small"
@@ -197,8 +272,24 @@ export const ClientModal: React.FC<ClientModalProps> = ({
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
             />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
+          </ViewEditField>
+        </Grid>
+
+        {/* Permits */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <ViewEditField
+            label={t('lblPermit')}
+            isViewMode={isView}
+            viewValue={
+              clientPermits.length > 0 ? (
+                <Box sx={{ display: 'inline-flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  {clientPermits.map((p) => (
+                    <Chip key={p.id} label={p.permitNumber} size="small" variant="outlined" color="primary" />
+                  ))}
+                </Box>
+              ) : undefined
+            }
+          >
             <PermitAutocomplete
               multiple
               size="small"
@@ -210,18 +301,10 @@ export const ClientModal: React.FC<ClientModalProps> = ({
               label={t('lblPermit')}
               placeholder={t('phSelectPermit')}
             />
-          </Grid>
+          </ViewEditField>
         </Grid>
-      </DialogContent>
-      <DialogActions sx={{ p: 2, flexShrink: 0 }}>
-        <Button onClick={onClose} variant="outlined" disabled={isSaving}>
-          {t('btnCancel')}
-        </Button>
-        <Button type="submit" variant="contained" color="primary" disabled={isSaving}>
-          {isSaving ? '...' : t('btnSave')}
-        </Button>
-      </DialogActions>
-    </Dialog>
+      </Grid>
+    </ViewEditModalBase>
   );
 };
 
