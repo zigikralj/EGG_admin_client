@@ -261,6 +261,22 @@ const CustomFieldItem: React.FC<CustomFieldItemProps> = React.memo(({
     );
   }
 
+  if (field.type === 'date' || field.type === 'datetime') {
+    return (
+      <FastTextField
+        fullWidth
+        size="small"
+        type={field.type === 'datetime' ? 'datetime-local' : 'date'}
+        label={field.name}
+        value={val}
+        disabled={disabled}
+        slotProps={{ inputLabel: { shrink: true } }}
+        onFastChange={handleFastTextOrNumber}
+        onChange={handleCommitValue}
+      />
+    );
+  }
+
   return (
     <FastTextField
       fullWidth
@@ -763,6 +779,8 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
     if (res !== false) {
       if (editingItem && currentMode === 'edit') {
         handleModeChange('view');
+      } else {
+        onClose();
       }
     }
   };

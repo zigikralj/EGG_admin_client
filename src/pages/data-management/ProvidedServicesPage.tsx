@@ -865,7 +865,8 @@ const ProvidedServicesPage: React.FC<Props> = ({
         open={isOpen}
         onClose={() => setIsOpen(false)}
         editingItem={editingItem}
-        initialMode={modalMode}
+        mode={modalMode}
+        onModeChange={setModalMode}
         services={services}
         clients={clients}
         canCreate={canCreate}

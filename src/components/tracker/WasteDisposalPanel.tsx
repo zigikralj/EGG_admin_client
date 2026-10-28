@@ -56,6 +56,7 @@ import {
 } from '../../queries';
 import { isWasteDisposalService } from '../../utils/serviceUtils';
 import { WasteDisposalModal } from '../waste/WasteDisposalModal';
+import type { ModalMode } from '../common/modal/ViewEditModalBase';
 import { useDebounce } from '../../hooks/useDebounce';
 
 interface Props {
@@ -132,7 +133,7 @@ export const WasteDisposalPanel: React.FC<Props> = ({
   // Filter Popover & Dialog State
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isViewMode, setIsViewMode] = useState(false);
+  const [modalMode, setModalMode] = useState<ModalMode>('create');
   const [editingItem, setEditingItem] = useState<ProvidedService | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [errorDialogState, setErrorDialogState] = useState<{ open: boolean; message: string }>({
@@ -554,19 +555,19 @@ export const WasteDisposalPanel: React.FC<Props> = ({
   // Dialog handlers
   const handleOpenNew = () => {
     setEditingItem(null);
-    setIsViewMode(false);
+    setModalMode('create');
     setIsDialogOpen(true);
   };
 
   const handleOpenView = (item: ProvidedService) => {
     setEditingItem(item);
-    setIsViewMode(true);
+    setModalMode('view');
     setIsDialogOpen(true);
   };
 
   const handleOpenEdit = (item: ProvidedService) => {
     setEditingItem(item);
-    setIsViewMode(false);
+    setModalMode('edit');
     setIsDialogOpen(true);
   };
 
@@ -601,15 +602,16 @@ export const WasteDisposalPanel: React.FC<Props> = ({
         const result = await onSaveProvidedService(payload);
         if (result && !result.success && result.error) {
           setErrorDialogState({ open: true, message: result.error });
-          return;
+          return false;
         }
       }
-      setIsDialogOpen(false);
+      return true;
     } catch (err: any) {
       setErrorDialogState({
         open: true,
         message: err?.message || t('errorSavingProject'),
       });
+      return false;
     } finally {
       setIsSaving(false);
     }
@@ -1041,8 +1043,8 @@ export const WasteDisposalPanel: React.FC<Props> = ({
         open={isDialogOpen}
         onClose={() => setIsDialogOpen(false)}
         editingItem={editingItem}
-        isViewMode={isViewMode}
-        onEdit={() => setIsViewMode(false)}
+        mode={modalMode}
+        onModeChange={setModalMode}
         onSave={handleSave}
         isSaving={isSaving}
         targetWasteService={targetWasteService}
