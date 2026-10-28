@@ -1,0 +1,12 @@
+export { default as ProjectsPage } from './ProjectsPage';
+export { default as ClientsPage } from './ClientsPage';
+export { default as PermitsPage } from './PermitsPage';
+export { default as UsersPage } from './UsersPage';
+export { default as RolesPage } from './RolesPage';
+export { default as ServicesPage } from './ServicesPage';
+export { default as ProvidedServicesPage } from './ProvidedServicesPage';
+export { default as CategoriesPage } from './CategoriesPage';
+export { default as InvoicesPage } from './InvoicesPage';
+export { default as RemindersPage } from './RemindersPage';
+export { default as ActivityLogsPage } from './ActivityLogsPage';
+export { default as ActivityAnalyticsPage } from './ActivityAnalyticsPage';

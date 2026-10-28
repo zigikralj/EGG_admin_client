@@ -9,8 +9,9 @@ import { Sidebar } from './Sidebar';
 import { AppHeader } from './AppHeader';
 import { UserProfileDialog } from './UserProfileDialog';
 import { SettingsDialog } from './SettingsDialog';
-import { CompanyInfoModal } from '../dialogs/CompanyInfoModal';
+import { CompanyInfoModal } from '../company/CompanyInfoModal';
 import { DashboardIcon, FolderIcon, BusinessIcon, AssignmentTurnedInIcon, PeopleIcon, BuildIcon, HandymanIcon, CategoryIcon, NotificationsActiveIcon, ReceiptLongIcon, SecurityIcon, AccessTimeIcon } from '../icons';
+import { useProjectModal } from '../../context/ProjectModalContext';
 
 interface Props {
   userPreferences?: Record<string, any>;
@@ -25,6 +26,8 @@ export const AdminLayout: React.FC<Props> = ({
   onOpenProject,
   children,
 }) => {
+  const { openProjectById } = useProjectModal();
+  const effectiveOpenProject = onOpenProject || openProjectById;
   const { t } = useLanguage();
   const {
     role,
@@ -163,7 +166,7 @@ export const AdminLayout: React.FC<Props> = ({
         handleOpenPreferences={() => setIsPreferencesOpen(true)}
         handleLogoutClick={logout}
         setIsCompanyInfoOpen={setIsCompanyInfoOpen}
-        onOpenProject={onOpenProject}
+        onOpenProject={effectiveOpenProject}
       />
 
       <Sidebar

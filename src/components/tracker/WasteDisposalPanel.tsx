@@ -25,7 +25,7 @@ import { useAuth } from '../../context/AuthContext';
 import { TableFilterSelector } from '../common/TableFilterSelector';
 import { TableOptionsSelector } from '../common/ColumnSelector';
 import { DateRangeFilter } from '../common/DateRangeFilter';
-import { ErrorDialog } from '../dialogs/ErrorDialog';
+import { ErrorDialog } from '../common/dialogs/ErrorDialog';
 import {
   DeleteSweepIcon,
   CalendarTodayIcon,
@@ -39,7 +39,7 @@ import {
   EditIcon,
   DeleteIcon,
 } from '../icons';
-import { DashboardPanelSkeleton } from '../tracker/DashboardPanelSkeleton';
+import { DashboardPanelSkeleton } from '../common/DashboardPanelSkeleton';
 import { type QuickFilterItem } from '../common/TableQuickFilters';
 import { useTableView } from '../../hooks/useTableView';
 import {
@@ -55,7 +55,7 @@ import {
   useWasteDisposalServiceQuery,
 } from '../../queries';
 import { isWasteDisposalService } from '../../utils/serviceUtils';
-import { WasteDisposalModal } from './WasteDisposalModal';
+import { WasteDisposalModal } from '../waste/WasteDisposalModal';
 import { useDebounce } from '../../hooks/useDebounce';
 
 interface Props {
@@ -673,8 +673,8 @@ export const WasteDisposalPanel: React.FC<Props> = ({
           page,
           rowsPerPage: activeRowsPerPage,
           rowsPerPageOptions: activeRowsPerPageOptions,
-          onPageChange: (_, newPage) => setPage(newPage),
-          onRowsPerPageChange: (e) => {
+          onPageChange: (_: unknown, newPage: number) => setPage(newPage),
+          onRowsPerPageChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
             const rpp = parseInt(e.target.value, 10);
             setRowsPerPageValue(rpp);
             setPage(0);
