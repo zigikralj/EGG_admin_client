@@ -10,13 +10,17 @@ import {
 import { PAGE_ROUTES } from '../../constants';
 import type { Project } from '../../types';
 
+import { useProjectModal } from '../../context/ProjectModalContext';
+
 export interface TrackerInvoicesPageProps {
   onViewProject?: (project: Project) => void;
 }
 
 export const TrackerInvoicesPage: React.FC<TrackerInvoicesPageProps> = ({
-  onViewProject,
+  onViewProject: propOnViewProject,
 }) => {
+  const projectModal = useProjectModal();
+  const onViewProject = propOnViewProject || projectModal.openViewProject;
   const navigate = useNavigate();
 
   const {

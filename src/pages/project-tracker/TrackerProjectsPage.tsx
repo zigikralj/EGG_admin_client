@@ -40,15 +40,20 @@ import {
 } from '../../queries';
 import { useDebounce } from '../../hooks/useDebounce';
 
+import { useProjectModal } from '../../context/ProjectModalContext';
+
 export interface TrackerProjectsPageProps {
   onViewProject?: (project: Project, diffRange?: { dateFrom: string; dateTo: string } | null) => void;
   onEditProject?: (project: Project) => void;
 }
 
 export const TrackerProjectsPage: React.FC<TrackerProjectsPageProps> = ({
-  onViewProject,
-  onEditProject,
+  onViewProject: propOnViewProject,
+  onEditProject: propOnEditProject,
 }) => {
+  const projectModal = useProjectModal();
+  const onViewProject = propOnViewProject || projectModal.openViewProject;
+  const onEditProject = propOnEditProject || projectModal.openEditProject;
   const { t } = useLanguage();
   const { currentUser, isRestrictedToOwn } = useAuth();
   const isProjectsRestricted = isRestrictedToOwn('projects') || isRestrictedToOwn('tracker_projects');
@@ -456,8 +461,8 @@ export const TrackerProjectsPage: React.FC<TrackerProjectsPageProps> = ({
                   services={services}
                   reminders={reminders}
                   invoices={invoices}
-                  onView={() => onViewProject?.(p)}
-                  onEdit={() => onEditProject?.(p)}
+                  onView={() => onViewProject(p)}
+                  onEdit={() => onEditProject(p)}
                   onDelete={() => wrappedOnDelete(p.id)}
                   onToggleDone={() => toggleDoneMutation.mutate({ id: p.id, isCompleting: !p.done })}
                 />
