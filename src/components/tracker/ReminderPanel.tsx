@@ -33,9 +33,9 @@ import { useAuth } from '../../context/AuthContext';
 import { TableFilterSelector } from '../common/TableFilterSelector';
 import { TableOptionsSelector } from '../common/ColumnSelector';
 import { DateRangeFilter } from '../common/DateRangeFilter';
-import { ErrorDialog } from '../dialogs/ErrorDialog';
+import { ErrorDialog } from '../common/dialogs/ErrorDialog';
 import { NotificationsActiveIcon, EditIcon, DeleteIcon, CheckIcon, CalendarTodayIcon, AddIcon, ArrowUpwardIcon, ArrowDownwardIcon, VisibilityIcon } from '../icons';
-import { DashboardPanelSkeleton } from '../tracker/DashboardPanelSkeleton';
+import { DashboardPanelSkeleton } from '../common/DashboardPanelSkeleton';
 import { useTableView } from '../../hooks/useTableView';
 import {
   ProjectAutocomplete,
@@ -635,7 +635,7 @@ export const ReminderPanel: React.FC<Props> = ({
             },
           ],
           selectedKeys: !isRemindersRestricted && myRemindersOnly ? ['my'] : [],
-          onChange: (keys) => handleToggleMyReminders(keys.includes('my')),
+          onChange: (keys: string[]) => handleToggleMyReminders(keys.includes('my')),
         }}
         refreshProps={onRefresh ? { onRefresh, isRefreshing } : undefined}
         filterSelector={

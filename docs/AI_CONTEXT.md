@@ -7,9 +7,13 @@
 
 ## What Is This Project?
 
-A **React 19 + TypeScript + MUI v9 SPA** for managing environmental services projects (waste management, permits, reminders, invoicing) for Ekos Green Group, a Serbian environmental company. Built with **Vite 8** and deployed to GitHub Pages.
+A **React 19 + TypeScript + MUI v9 SPA** for managing environmental services projects (waste management, permits, reminders, invoicing) for Ekos Green Group, a Serbian environmental company. Built with **Vite 8** and deployed to GitHub Pages or custom domain.
 
-The client talks to a separate Express 5 REST API server (see `../server/`).
+The client is organized into two primary applications sharing a common authenticated shell (`AdminLayout`):
+1. **Project Tracker** (`/project-tracker/*`): Operational dashboards, real-time activity updates, Approaching Invoices, Active Reminders, Waste Disposal tracking, and visual analytics.
+2. **Data Management** (`/data-management/*`): Full-featured administration and CRUD tables for Projects, Clients, Permits, Users, Roles, Services, Provided Services, Categories, Invoices, Reminders, Activity Audit Logs, and Analytics.
+
+The client communicates with a separate Express 5 REST API server (see `../server/`).
 
 ---
 
@@ -20,15 +24,26 @@ The client talks to a separate Express 5 REST API server (see `../server/`).
 |---|---|
 | `index.html` | HTML shell — mounts `#root` |
 | `src/main.tsx` | ReactDOM entry. Wraps `<App />` in StrictMode, QueryClientProvider, and `<BrowserRouter>` with dynamic basename (`getRouterBasename()`). |
-| `src/App.tsx` | **Root orchestrator** (~390 lines). Provider wiring, React Query hooks, view routing (`<Routes>`, `<Route>`), and modal management. |
+| `src/App.tsx` | **Lightweight root orchestrator** (~65 lines). Wraps providers (`LanguageProvider`, `AuthProvider`, `NotificationProvider`, `LoadingProvider`, `CustomThemeProvider`, `ProjectModalProvider`), renders `AdminLayout`, `AppRoutes`, `LoadingMask`, and `VersionUpdatePrompt`. |
+| `src/routes/AppRoutes.tsx` | **Centralized routing** with React 19 / Vite lazy-loaded chunks for each of the 19 dedicated pages. |
 | `vite.config.ts` | Vite + React plugin, dev proxy `/api` → `:5000`, manual chunk splitting, version.json generation, SPA 404 fallback, and dynamic base path resolution. |
 | `playwright.config.ts` | Playwright E2E configuration — base URL `http://localhost:3000`, webServer auto-start (`npm run dev`), auth state fixture (`playwright/.auth/user.json`). |
 | `e2e/` | Playwright E2E test suites (`auth/`, `tracker/`, `management/`, `auth.setup.ts`). |
 
-### Type Definitions
-| File | Purpose |
+### Type Definitions (`src/types/`)
+Modularized domain types defined in `src/types/` (re-exported via `src/types/index.ts`):
+| File | Types |
 |---|---|
-| `src/types.ts` | **All TypeScript interfaces and types.** `Project`, `Client`, `Invoice`, `Service`, `Permit`, `WasteCatalog`, `User`, `Reminder`, `ProvidedService`, `Category`, `CompanyInfo`, `AppNotification`, plus `UserRole`, `InvoiceStatus`, `InvoiceCurrency`, `InvoiceType`, `ActiveTab`, `DashboardSubTab`, `ProvidedServicesSubTab`, `CustomFieldDefinition`, `SortState`, `TableViewProps`, `AppFetchers`, `SaveResult`, and the `typeGroup` service-category map. Global `__APP_VERSION__`, `__COMMIT_HASH__`, `__BUILD_TIME__` declarations. |
+| `common.types.ts` | `ActiveTab`, `DashboardSubTab`, `ProvidedServicesSubTab`, `CustomFieldDefinition`, `SortState`, `TableViewProps`, `AppFetchers`, `SaveResult` |
+| `auth.types.ts` | `UserRole`, `User`, `Role` |
+| `project.types.ts` | `Project`, `ProjectStatus`, `ProjectNote` |
+| `client.types.ts` | `Client`, `CompanyInfo` |
+| `permit.types.ts` | `Permit`, `WasteCatalog`, `PermitStatusResult` |
+| `invoice.types.ts` | `Invoice`, `InvoiceStatus`, `InvoiceCurrency`, `InvoiceType`, `InvoiceItem` |
+| `reminder.types.ts` | `Reminder`, `ReminderStatus` |
+| `service.types.ts` | `Service`, `Category`, `ProvidedService` |
+| `activity.types.ts` | `AppNotification`, `ActivityLog`, `ActivityAnalytics` |
+| `globals.d.ts` | `__APP_VERSION__`, `__COMMIT_HASH__`, `__BUILD_TIME__` declarations |
 
 ### API Layer
 | File | Purpose |
@@ -39,9 +54,11 @@ The client talks to a separate Express 5 REST API server (see `../server/`).
 | File | Provider | Hook | Key Responsibilities |
 |---|---|---|---|
 | `AuthContext.tsx` | `AuthProvider` | `useAuth()` | Login/register/logout, JWT token & session expiry, dynamic role resolution, granular permissions (`hasPermission()`, `canManage*`), resource-level scoping (`isRestrictedToOwn()`), `canEditUser()`, `canEditProject()`, periodic auth polling with Page Visibility API. |
+| `ProjectModalContext.tsx` | `ProjectModalProvider` | `useProjectModal()` | Global modal orchestration for Projects (`openViewProject`, `openEditProject`, `openNewProject`, `openProjectById`). Mounts lazy-loaded `<ProjectViewModal />` and `<ProjectModal />` without prop-drilling through `App.tsx`. |
 | `LanguageContext.tsx` | `LanguageProvider` | `useLanguage()` | `t(key, params)` translation, `getServiceLabel()`, `getResponsibleLabel()` (gender-aware), `getErrorMessage()` — lazy-loads locale dictionaries. Default language: `sr-Latn`. |
 | `ThemeContext.tsx` | `CustomThemeProvider` | `useThemeContext()` | Light/dark/system theme mode, system preference listener via `matchMedia`, syncs `data-theme` attribute on `<html>`. |
 | `NotificationContext.tsx` | `NotificationProvider` | `useNotifications()` | Fetches, polls (25s intervals with Page Visibility pausing), and manages @mention notifications. Optimistic UI for mark-read/delete/clear-all. |
+| `LoadingContext.tsx` | `LoadingProvider` | `useLoading()` | Global async loading spinner state. |
 
 ### Constants (`src/constants/`)
 | File | Purpose |
@@ -52,232 +69,147 @@ The client talks to a separate Express 5 REST API server (see `../server/`).
 ### Custom Hooks (`src/hooks/`)
 | Hook | Purpose |
 |---|---|
+| `useTableView.ts` | **Shared table infrastructure.** Column visibility, pagination (rows-per-page + options), sorting (field + direction), refresh with spinner, error dialogs. Syncs local state ↔ controlled props from user preferences. |
 | `useProjectForm.ts` | Complex form state for project create/edit modal — manages name, client, responsible, type, dates, progress, notes, nested reminder/invoice sub-forms. |
-| `useInvoiceFormState.ts` | Isolated form state for invoice create/edit — new/edit modes, line items, parent linking, currency, status. |
-| `useTableView.ts` | **Shared table infrastructure.** Column visibility, pagination (rows-per-page + options), sorting (field + direction), refresh with spinner, error dialogs. Syncs local state ↔ controlled props from user preferences. Used by all 11 table-based views/panels. |
+| `useInvoiceFormState.ts` | Form state for invoice create/edit — new/edit modes, line items, parent linking, currency, status. |
 | `useVersionCheck.ts` | Polls `/version.json` to detect new deployments, shows update banner. Uses Page Visibility API. |
 | `useRoleLabels.ts` | Maps `UserRole` strings to translated labels. |
-| `useStatusUpdate.ts` | Generic status-change helper (PATCH to arbitrary endpoint). Used by reminders, invoices, user management. |
-| `useLinkedListOptions.ts` | Handles dynamic hierarchical options fetching and dependency resolution for custom fields (e.g., linked list cascaded selects). |
-| `useActivityTracker.ts` | Non-intrusive batched page activity tracker with advanced idle detection, session timeouts, multi-tab synchronization, and short-session purge. Sends batched events on 30s idle intervals and flush on unload/visibility change. Automatically pauses when activity logging is globally deactivated. |
+| `useStatusUpdate.ts` | Generic status-change helper (PATCH to arbitrary endpoint). |
+| `useLinkedListOptions.ts` | Handles dynamic hierarchical options fetching and dependency resolution for custom fields. |
+| `useActivityTracker.ts` | Non-intrusive batched page activity tracker with idle detection, session timeouts, multi-tab sync, and short-session purge. |
 
 ### React Query Hooks (`src/queries/`)
-| File | Purpose |
+Modularized domain query modules re-exported through barrel `src/queries/index.ts`:
+| File | Hooks |
 |---|---|
-| `index.ts` | Exports all React Query hooks for fetching (`useProjectsQuery`, `useRemindersQuery`, etc.) and mutations (`useProjectMutations`, `usePreferencesMutations`, etc.) |
-
-### Components
-
-#### Layout Shell (`src/components/layout/`)
-| File | Purpose |
-|---|---|
-| `AppHeader.tsx` | Top app bar — branding, user avatar menu, notification bell, pending users badge, mobile hamburger. |
-| `Sidebar.tsx` | Permanent sidebar (desktop) / temporary drawer (mobile). Nav items, dashboard sub-tabs, version chip. |
-| `SettingsDialog.tsx` | User preferences — theme, language, entity work mode, rows-per-page customization. |
-| `UserProfileDialog.tsx` | Profile view/edit — name, email, phone, gender, avatar, password change. |
-| `NotificationsMenu.tsx` | Notification dropdown — mark read, delete, clear all, navigate to linked project. |
-
-#### View Pages (`src/pages/`)
-| File | View | Notes |
-|---|---|---|
-| `tracker/TrackerPage.tsx` | Dashboard | KPI header stats, sub-tabs (Projects, Reminders, Invoices, Waste Disposal, Statistics [Projects, Waste Disposal]). Role-tailored: accountants see invoice-focused default. |
-| `management/ProjectsPage.tsx` | Projects | Table + card list, quick filters (Active, Missing Invoice, Stale, Late), column selector. |
-| `management/ClientsPage.tsx` | Clients | Table with permit linking, inline project/invoice counts. |
-| `management/PermitsPage.tsx` | Permits | Environmental permits table, permit types filter, validity dates, waste catalog multi-picker, inline reminder creation. |
-| `management/ActivityLogsPage.tsx` | Activity Logs | Administrator-only view for audit logs, tracking user actions and navigation. |
-| `management/ActivityAnalyticsPage.tsx` | Activity Analytics | Administrator-only activity analytics dashboard: KPI strip, usage timeline, top pages, actions by entity, user breakdowns, activity heatmap, session length histogram, feature adoption, engagement/friction scatter plot, navigation flows, edited fields, and rule-based insights. |
-| `management/UsersPage.tsx` | Users | Status filters (All/Active/Pending/Blocked), approve/reject, force logout. |
-| `management/RolesPage.tsx` | Roles | Dynamic role and granular permissions matrix management (View, Create, Edit, Delete, Only Own), system admin toggles. |
-| `management/ServicesPage.tsx` | Services | Service type definitions with custom data model editor. |
-| `management/ProvidedServicesPage.tsx` | Provided Services | Service delivery records with sub-tabs (Summary, Statistics). |
-| `management/CategoriesPage.tsx` | Categories | Simple CRUD table. |
-| `management/RemindersPage.tsx` | Reminders | Status management, project/client/permit linking. |
-| `management/InvoicesPage.tsx` | Invoices | Full lifecycle management, parent/child linking, line items, currency support. |
-| `auth/LoginPage.tsx` | Login | Login/registration form. |
-
-#### Key Shared Components (`src/components/`)
-| File | Purpose |
-|---|---|
-| `layout/AdminLayout.tsx` | Page shell — wraps AppHeader + Sidebar + main content + profile/settings/company modals. Handles nav item visibility based on RBAC. |
-| `project/ProjectCard.tsx` | Rich project card — progress bar, reminders, status chips, deadline alerts, rich notes previews. |
-| `project/ProjectModal.tsx` | Project create/edit dialog — uses `useProjectForm`, nested reminder/invoice sections, constrained scrolling flex layout. |
-| `project/ProjectViewModal.tsx` | Read-only project detail view with all related data, reminders, invoices, and rich notes renderer. |
-| `tracker/statistics/ProjectsStatistics.tsx` | Dashboard analytics — project status distribution, service category breakdown (MUI X Charts). |
-| `tracker/ReminderPanel.tsx` | Dashboard reminder panel — approaching/overdue reminders table. |
-| `tracker/ApproachingInvoicesPanel.tsx` | Dashboard invoice panel — invoices due soon with status management. |
-| `tracker/WasteDisposalPanel.tsx` | Dashboard waste disposal panel — waste service tracking. |
-| `tracker/ProjectUpdatesPanel.tsx` | Real-time audit and activity stream panel for project changes, note revisions, and task completions. |
-| `tracker/statistics/WasteDisposalStatistics.tsx` | Analytics charts for provided services (by status, category, monthly trend) and waste amounts. |
-| `common/tiptap/TipTapEditor.tsx` | Modern TipTap rich text editor with full toolbar, tables support, character/word counters, DOMPurify HTML sanitization, and mentions. |
-| `common/tiptap/TipTapToolbar.tsx` | Modular formatting toolbar for TipTap editor (headings, tables, lists, text formatting). |
-| `common/tiptap/MentionSuggestionList.tsx` | Autocomplete mention dropdown list for team members within TipTap editor. |
-| `history/NoteHistoryDiffModal.tsx` | Visual side-by-side and unified text diff modal for reviewing project note revisions and restoration. |
-| `history/HistoryTimelineModal.tsx` | Entity version timeline and diff review dialog for inspecting historic changesets and restoring past versions. |
-| `dialogs/PermitModal.tsx` | Dedicated environmental permit create/edit modal with waste catalog selector and validity management. |
-| `dialogs/CompanyInfoModal.tsx` | Company legal details editor (name, tax ID, bank accounts). |
-| `common/ColumnSelector.tsx` | Column visibility picker for table views. |
-| `common/DateRangeFilter.tsx` | Date range filter component. |
-| `dialogs/ConfirmDialog.tsx` / `ConfirmDeleteDialog.tsx` | Reusable confirmation modals. |
-| `dialogs/ErrorDialog.tsx` | Error display dialog. |
-| `dialogs/VersionUpdatePrompt.tsx` | Non-intrusive update banner when new version detected. |
-| `common/WasteCatalogAutocomplete.tsx` | Autocomplete picker for waste catalog entries with instant IndexedDB offline cache lookup. |
-| `icons.ts` | Barrel file — re-exports ~90 MUI icons as named per-file imports for tree-shaking. |
-
-#### Feature Sub-Components
-| Directory | Files | Purpose |
-|---|---|---|
-| `components/project/` | `ProjectInvoiceSection.tsx`, `ProjectProgressSlider.tsx`, `ProjectReminderSection.tsx` | Nested sections within project modal. |
-| `components/invoice/` | `InvoiceChips.tsx`, `InvoiceFormFields.tsx`, `InvoiceItemsList.tsx` | Shared invoice UI components (extracted during refactoring). |
-| `components/providedService/` | `ProvidedServiceInvoiceSection.tsx` | Invoice management within provided service detail. |
-| `components/dialogs/` | `PermitModal.tsx`, `ConfirmDialog.tsx`, `ErrorDialog.tsx`, `CompanyInfoModal.tsx`, `CustomDataModelModal.tsx` | Reusable popups, modals, and the custom data model editor. |
-| `components/common/` | `ColumnSelector.tsx`, `DateRangeFilter.tsx`, `TableSearchInput.tsx`, `WasteCatalogAutocomplete.tsx` | Shared table utilities and controls. |
-| `components/common/tiptap/` | `TipTapEditor.tsx`, `TipTapToolbar.tsx`, `MentionSuggestionList.tsx`, `mentionExtension.ts` | TipTap rich text editor engine and extensions. |
-| `components/history/` | `NoteHistoryDiffModal.tsx`, `HistoryTimelineModal.tsx` | Historical diff inspection and version restoration modals. |
-| `components/tracker/` | `ProjectUpdatesPanel.tsx`, `ReminderPanel.tsx`, `WasteDisposalPanel.tsx`, `statistics/` | Dashboard tracker panels and activity feeds. |
-| `components/activityAnalytics/` | `AnalyticsHeader.tsx`, `AnalyticsKpiStrip.tsx`, `UsageTimelineChart.tsx`, `PageUsageChart.tsx`, `ActionsByEntityChart.tsx`, `UserUsageTable.tsx`, `UserPageBreakdownChart.tsx`, `UsageHeatmap.tsx`, `SessionLengthHistogram.tsx`, `FeatureAdoptionChart.tsx`, `EngagementScatter.tsx`, `NavigationFlows.tsx`, `EditedFieldsChart.tsx`, `InsightsPanel.tsx`, `insights.ts`, `utils.ts` | Activity Analytics visualizations, KPI strip, charts, and rule-based insights. |
-
-### Internationalization (`src/i18n/`)
-| File | Purpose |
-|---|---|
-| `translations.ts` | Type definitions (`Language`, `TranslationKeys`), plus `serviceTypeTranslations` and `errorMessageTranslations` lookup maps. |
-| `loader.ts` | Lazy-loads locale dictionaries via dynamic `import()`. |
-| `locales/en.ts` | English translations. |
-| `locales/sr-Latn.ts` | Serbian Latin translations (default). |
-| `locales/sr-Cyrl.ts` | Serbian Cyrillic translations. |
-
-### Theming (`src/theme/`)
-| File | Purpose |
-|---|---|
-| `theme.ts` | MUI `createTheme` — green-focused palette (light + dark), custom `status` palette extension (`active`, `done`, `stale`), Inter font, component overrides (Card, Paper, Table, Button, Chip, Pagination, scroll-lock disabled on all modals/menus). |
-
-### Utilities (`src/utils/`)
-| File | Purpose |
-|---|---|
-| `deltaSync.ts` | **Delta Synchronization Engine.** Transparent client-side delta sync with `fetchWithDeltaSync(queryClient, queryKey, endpoint)` and `mergeDelta(cachedItems, delta)`. Manages `syncedAt` timestamps per query key and reconciles updated entities while purging tombstones (`deletedIds`). |
-| `wasteCatalogStorage.ts` | **Multi-Tier Waste Catalog Storage.** IndexedDB persistence (`ekos_project_tracker_db`), in-memory cache for 0ms synchronous access, multi-tab `BroadcastChannel` synchronization, and background delta sync integration. |
-| `cleanWordHtml.ts` | Strips Microsoft Word XML schemas, Mso classes, Office document formatting, and cleans HTML tags for safe editing. |
-| `stripHtmlToText.ts` | Cleanly extracts plain text from HTML, converts entities, and strips non-breaking spaces for preview cards. |
-| `invoiceUtils.ts` | `parseInvoiceNotes()` / `serializeInvoiceNotes()` — embeds invoice metadata (type, parent link) as HTML comment in notes field. `enhanceInvoicesWithLinks()` — resolves parent/child invoice relationships. |
-| `customFields.ts` | Core utilities for custom fields including structure validation, linked list dependencies, and automatic extraction of waste weights. |
-| `router.ts` | `getRouterBasename()` — handles dynamic resolution of the router basename. |
-
-### Styling
-| File | Purpose |
-|---|---|
-| `src/index.css` | Global CSS — Inter font import, CSS variables for light/dark, scrollbar styling, table layout, responsive breakpoints, animations (fadeIn, slideInUp, pulse). |
-| `src/App.css` | Additional component-specific styles. |
+| `projects.queries.ts` | `useProjectsQuery`, `usePaginatedProjectsQuery`, `useInfiniteProjectsQuery`, `useProjectDetailsQuery`, `useProjectUpdatesQuery`, `useProjectsMutations` |
+| `clients.queries.ts` | `useClientsQuery`, `useClientsSummaryQuery`, `usePaginatedClientsQuery`, `useClientsMutations` |
+| `permits.queries.ts` | `usePermitsQuery`, `usePaginatedPermitsQuery`, `useWasteCatalogQuery`, `usePermitsMutations` |
+| `invoices.queries.ts` | `useInvoicesQuery`, `usePaginatedInvoicesQuery`, `useInvoicesMutations` |
+| `reminders.queries.ts` | `useRemindersQuery`, `usePaginatedRemindersQuery`, `useRemindersMutations` |
+| `services.queries.ts` | `useServicesQuery`, `useCategoriesQuery`, `useServicesMutations`, `useCategoriesMutations` |
+| `providedServices.queries.ts` | `useProvidedServicesQuery`, `usePaginatedProvidedServicesQuery`, `useProvidedServicesMutations` |
+| `users.queries.ts` | `useUsersQuery`, `usePaginatedUsersQuery`, `useRolesQuery`, `useUsersMutations`, `fetchMentionUsers` |
+| `activity.queries.ts` | `useActivityLogsQuery`, `useActivityAnalyticsQuery`, `useActivityLogsMutations` |
+| `history.queries.ts` | `useEntityTimelineQuery`, `useVersionDiffQuery`, `useRestoreVersionMutation` |
+| `preferences.queries.ts` | `usePreferencesQuery`, `usePreferencesMutations`, `useTablePreferences(tableKey)` |
+| `queryUtils.ts` | `useAuthHeaders`, `buildPaginationQueryParams`, `useGenericMutations` |
+| `autocomplete.queries.ts` | Autocomplete caching queries |
 
 ---
 
-## Key Patterns & Conventions
+### App 1: Project Tracker (`src/pages/project-tracker/`)
+| Path | Route Constant | Page Component | Notes |
+|---|---|---|---|
+| `/project-tracker/projects` | `PROJECT_TRACKER_PROJECTS` | `TrackerProjectsPage.tsx` | Infinite scroll project cards, quick filters (`my`, `active`, `missing_invoice`, `stale`, `overdue`), search. |
+| `/project-tracker/updates` | `PROJECT_TRACKER_UPDATES` | `TrackerUpdatesPage.tsx` | Real-time audit stream for project changes, note revisions, diff trigger. |
+| `/project-tracker/reminders` | `PROJECT_TRACKER_REMINDERS` | `TrackerRemindersPage.tsx` | Dedicated page for approaching/overdue reminders. |
+| `/project-tracker/invoices` | `PROJECT_TRACKER_INVOICES` | `TrackerInvoicesPage.tsx` | Dedicated page for approaching invoices with quick status actions. |
+| `/project-tracker/waste-disposal` | `PROJECT_TRACKER_WASTE` | `TrackerWasteDisposalPage.tsx` | Dedicated page for waste disposal service deliveries. |
+| `/project-tracker/statistic` | `PROJECT_TRACKER_STATISTICS` | `TrackerProjectsStatsPage.tsx` | Dedicated page for project KPIs & distribution charts. |
+| `/project-tracker/statistic-waste-disposal` | `PROJECT_TRACKER_WASTE_STATISTICS` | `TrackerWasteStatsPage.tsx` | Dedicated page for waste disposal statistics & quantities. |
 
-### Routing (React Router v7)
-The app uses `react-router-dom` with dynamic basename resolution via `getRouterBasename()` (`src/utils/router.ts`). This seamlessly adapts between GitHub Pages (`https://zigikralj.github.io/EGG_admin_client/` -> basename `/EGG_admin_client`), custom domain (`https://project-tracker.ekosgroup.rs/` -> basename `/`), and local development (`localhost` -> basename `/`). Deep linking and SPA refresh on GitHub Pages are handled via `dist/404.html` generated in the build.
+### App 2: Data Management (`src/pages/data-management/`)
+| Path | Route Constant | Page Component | Notes |
+|---|---|---|---|
+| `/data-management/projects` | `PROJECTS` | `ProjectsPage.tsx` | Projects administration table, column selector, history timeline. |
+| `/data-management/clients` | `CLIENTS` | `ClientsPage.tsx` | Clients administration table with permit linking. |
+| `/data-management/permits` | `PERMITS` | `PermitsPage.tsx` | Environmental permits table, status badges, reminders. |
+| `/data-management/users` | `USERS` | `UsersPage.tsx` | Users administration, approve/reject, force logout. |
+| `/data-management/roles` | `ROLES` | `RolesPage.tsx` | Granular permissions matrix management. |
+| `/data-management/services` | `SERVICES` | `ServicesPage.tsx` | Services catalog with custom data model schema editor. |
+| `/data-management/provided-services` | `PROVIDED_SERVICES` | `ProvidedServicesPage.tsx` | Service delivery logs table. |
+| `/data-management/categories` | `CATEGORIES` | `CategoriesPage.tsx` | Service categories CRUD table. |
+| `/data-management/invoices` | `INVOICES` | `InvoicesPage.tsx` | Invoices lifecycle, parent/child links, line items. |
+| `/data-management/reminders` | `REMINDERS` | `RemindersPage.tsx` | Reminders administration table with entity links. |
+| `/data-management/activity-logs` | `ACTIVITY_LOGS` | `ActivityLogsPage.tsx` | Audit log viewer with diffs. |
+| `/data-management/activity-logs/analytics` | `ACTIVITY_ANALYTICS` | `ActivityAnalyticsPage.tsx` | Activity metrics, user breakdowns, heatmap, and insights. |
 
-### Data Flow Architecture
-```
-App.tsx (root orchestrator)
-  ├── React Query Hooks (src/queries/index.ts) — manage data fetching, caching, and background updates
-  └── Views receive data + mutations as props or via their own React Query hooks
-```
+---
+
+## Component Organization by Domain (`src/components/`)
+
+- `common/`: Domain-agnostic components (`ColumnSelector`, `DateRangeFilter`, `TableSearchInput`, `TableQuickFilters`, `DashboardPanelSkeleton`, `WasteCatalogAutocomplete`).
+- `common/dialogs/`: Generic dialogs (`ConfirmDialog`, `ConfirmDeleteDialog`, `ErrorDialog`, `VersionUpdatePrompt`).
+- `common/tiptap/`: Rich text TipTap editor, toolbar, and mentions.
+- `layout/`: App shell (`AdminLayout`, `AppHeader`, `Sidebar`, `SettingsDialog`, `UserProfileDialog`, `NotificationsMenu`).
+- `project/`: Project cards, `ProjectModal`, `ProjectViewModal`, sections, sliders, notes.
+- `client/`: Client components including extracted `ClientModal`.
+- `permit/`: Permit components, `PermitModal`, status badges, table, reminder dialogs.
+- `invoice/`: Invoice modal, line items, form fields, status chips, row detail.
+- `reminder/`: Reminder components including `ReminderModal`.
+- `service/`: Service components, `ServiceModal`, `CustomDataModelModal`.
+- `providedService/`: Provided service components including `ProvidedServiceModal`.
+- `user/`: User management components including `UserModal`.
+- `role/`: `RoleModal` and permission matrix editor.
+- `company/`: `CompanyInfoModal`.
+- `statistics/`: Visual charts (`ProjectsStatistics`, `WasteDisposalStatistics`).
+- `history/`: Change timeline and diff review (`HistoryTimelineModal`, `NoteHistoryDiffModal`, `HistoryDiffView`).
+
+---
+
+## Developer Recipes
+
+### How to Add a New Page to Project Tracker
+1. Create `src/pages/project-tracker/TrackerMyNewPage.tsx`.
+2. Export it from `src/pages/project-tracker/index.ts`.
+3. Add the route constant in `src/constants/pageRoutes.ts` (e.g. `PROJECT_TRACKER_MY_NEW: '/project-tracker/my-new'`).
+4. Add the route in `src/routes/AppRoutes.tsx`:
+   ```tsx
+   const TrackerMyNewPage = React.lazy(() => import('../pages/project-tracker/TrackerMyNewPage'));
+   // Inside <Routes>:
+   <Route path={PAGE_ROUTES.PROJECT_TRACKER_MY_NEW} element={<TrackerMyNewPage />} />
+   ```
+5. Add navigation link in `src/components/layout/Sidebar.tsx` under the Project Tracker navigation items.
+6. Add unit test in `src/pages/project-tracker/TrackerMyNewPage.test.tsx`.
+
+### How to Add a New Page to Data Management
+1. Create `src/pages/data-management/MyNewPage.tsx`. Use `useTablePreferences('my_new')` for reactive preferences.
+2. Export it from `src/pages/data-management/index.ts`.
+3. Add route constant in `src/constants/pageRoutes.ts` (e.g. `MY_NEW: '/data-management/my-new'`).
+4. Add route in `src/routes/AppRoutes.tsx`:
+   ```tsx
+   const MyNewPage = React.lazy(() => import('../pages/data-management/MyNewPage'));
+   // Inside <Routes>:
+   <Route path={PAGE_ROUTES.MY_NEW} element={<MyNewPage />} />
+   ```
+5. Add entry in `AdminLayout.tsx` `navItems` array with RBAC check (`show: hasPermission('myNew', 'view')`).
+6. Add unit test in `src/pages/data-management/MyNewPage.test.tsx`.
+
+### How to Add or Extend a Domain Query and Domain Type
+1. Define TypeScript interfaces in `src/types/<domain>.types.ts` and re-export from `src/types/index.ts`.
+2. Create query and mutation hooks in `src/queries/<domain>.queries.ts` and re-export from `src/queries/index.ts`.
+3. Use the hook directly in your page or component.
+
+---
+
+## Key Rules & Conventions
 
 ### RBAC Pattern & Developer Admin Rule
-Roles are resolved through `AuthContext`:
-1. `actualRole` / `role` — the user's role from the server
-2. Granular permissions: `hasPermission()`, `canManage*`, `isRestrictedToOwn()`
-
 > [!IMPORTANT]
 > **CRITICAL RULE — Developer Administrator Visibility:**
 > The developer operates using an Administrator account. Administrator level **MUST see everything and have full access to all features**.
 > **NEVER hide any options, switches, menus, or features from Administrator.** If something is available to Manager, Accountant, or User, Administrator MUST have full access and visibility.
 
-### API Calls
-- Always use `apiFetch()` from `src/api.ts` — never raw `fetch()`
-- Auth headers auto-attached from localStorage (`auth_token`, `auth_user`)
-- 401 responses auto-trigger logout via `auth:expired` custom event
-- `authHeaders()` helper in App.tsx provides `X-User-Id` header
-
-### Table Views
-All table-based views follow the same pattern:
-1. Use `useTableView` hook for pagination, sorting, column visibility, refresh
-2. Accept `TableViewProps` for controlled state from user preferences
-3. Use `useCrudOperations` for save/delete with confirmation dialogs
-4. Support column customization via `ColumnSelector`
-
-### Adding a New View (Page)
-1. Create `src/pages/management/MyNewPage.tsx` — follow existing page patterns
-2. Add to `ActiveTab` union type in `src/types.ts`
-3. Add lazy import in `App.tsx` (e.g. `const MyNewPage = React.lazy(() => import('./pages/management/MyNewPage'));`)
-4. Add render case in the view switching block in `App.tsx`
-5. Add nav item in `src/components/layout/AdminLayout.tsx` `navItems` array (with RBAC `show` condition)
-6. Add translations for tab label in all 3 locale files
-
-### Adding a New Entity
-1. Add TypeScript interface to `src/types.ts`
-2. Add query and mutation hooks in `src/queries/index.ts`
-3. Wire into `App.tsx` if global state is needed, otherwise use the query hooks directly in components
-4. Create view component and wire into navigation
-
-### Translation Pattern
+### Table Preferences
+Instead of prop-drilling preference states from `App.tsx`, pages consume `useTablePreferences(tableKey)`:
 ```typescript
-const { t } = useLanguage();
-// Simple key lookup
-t('tabDashboard')
-// With interpolation
-t('showingResults', { count: 10, total: 50 })
+const tablePrefs = useTablePreferences('clients');
+const visibleColumns = props.visibleColumns ?? tablePrefs.visibleColumns ?? DEFAULT_COLUMNS;
 ```
-Adding translations:
-1. Add key to `TranslationKeys` interface in `src/i18n/translations.ts`
-2. Add values in all 3 locale files: `en.ts`, `sr-Latn.ts`, `sr-Cyrl.ts`
+This enables pages to work standalone with zero required props while maintaining 100% testability.
 
-### Icon Pattern
-All MUI icons are imported through `src/components/icons.ts` barrel file as individual named re-exports for optimal tree-shaking. Never import directly from `@mui/icons-material`.
-
-### User Preferences
-Server-persisted per-user KV store:
-- GET/PUT `/api/preferences` + `/api/preferences/:key`
-- Used for: theme mode, language, visible columns per view, rows-per-page, sort state, entity work mode
-- Managed by `usePreferencesQuery` and `usePreferencesMutations` in `src/queries/index.ts` with optimistic updates
-
----
-
-## Build & Dev
-
-```bash
-npm run dev          # Dev server at :3000, proxies /api → :5000
-npm run build        # TypeScript check + Vite production build
-npm run preview      # Serve production build locally
-npm run lint         # TypeScript check + oxlint
-npm run test         # Unit & component tests with Vitest
-npm run test:e2e     # Run all Playwright E2E tests headless
-npm run test:e2e:ui  # Playwright interactive UI test runner
-npm run deploy       # Build + deploy to GitHub Pages (gh-pages)
+### Project Modals
+Any page can trigger view/edit/creation of projects without prop-drilling:
+```typescript
+const { openViewProject, openEditProject, openNewProject, openProjectById } = useProjectModal();
 ```
 
-### Build-Time Injected Globals
-| Global | Source | Purpose |
-|---|---|---|
-| `__APP_VERSION__` | Git tag → `package.json` → `1.0.0` | SemVer displayed in sidebar |
-| `__COMMIT_HASH__` | `git rev-parse --short HEAD` | Commit SHA in settings |
-| `__BUILD_TIME__` | `new Date().toISOString()` | Build timestamp |
-
-### Manual Chunks (Vite)
-| Chunk | Contents |
-|---|---|
-| `vendor-react` | `react` + `react-dom` |
-| `vendor-mui` | `@mui/material` + `@emotion/*` |
-| `vendor-mui-icons` | `@mui/icons-material` |
-| `vendor-mui-charts` | `@mui/x-charts` |
-
----
-
-## Gotchas & Important Notes
-
-1. **Router Basename** — Dynamic basename via `getRouterBasename()` automatically supports GitHub Pages subpath (`/EGG_admin_client`) and root domains like `project-tracker.ekosgroup.rs`.
-2. **React Query manages all data fetching** — Queries, caching, and refetching are handled via hooks in `src/queries/index.ts`.
-3. **Default language is Serbian Latin** — Not English. This is intentional for the target user base.
-5. **Icons must use barrel file** — Import from `./icons` or `../icons`, never from `@mui/icons-material` directly.
-6. **`App.tsx` is the God component** — Orchestrates routing and state. Future refactoring should extract routing and provider wiring.
-7. **NO BROWSER LOGIN VERIFICATION (MANUAL)** — NEVER open the browser or use browser subagents to attempt logging in or verify authenticated flows manually. The AI assistant does NOT have valid credentials for interactive manual login. Verification must rely on TypeScript compilation, build checks (`npm run build`), linting, and automated tests (`npm run test`, `npm run test:e2e`).
-8. **Automated E2E Testing with Playwright** — End-to-end testing is automated via `npm run test:e2e`. Playwright uses `e2e/auth.setup.ts` to capture authenticated session state in `playwright/.auth/user.json`, allowing tests across all management and tracker modules to execute reliably.
-9. **Backend Updates** — You are allowed to update backend in `../server` dir, but when you do, you must read its `../server/docs/AI_CONTEXT.md` too.
+### Verification & Testing
+1. **NO BROWSER LOGIN VERIFICATION (MANUAL):** NEVER open the browser or use browser subagents to attempt logging in manually. The AI assistant does NOT have valid credentials for interactive browser login.
+2. **Automated Verification:** Rely strictly on:
+   - TypeScript compilation: `npm run typecheck` (`tsc -b`)
+   - Linter: `npm run lint` (`tsc -b && oxlint`)
+   - Vitest unit tests: `npm test` (`npx vitest run --maxWorkers=3`)
+   - Build verification: `npm run build` (`tsc -b && vite build`)
+   - Playwright E2E: `npm run test:e2e`

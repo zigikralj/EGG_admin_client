@@ -785,7 +785,7 @@ Compute comprehensive activity metrics, usage trends, and KPI statistics across 
   - `excludeAdminPages` (optional): `'false'` to include administrative routes (default: `'true'`)
   - `compare` (optional): `'false'` to skip previous period delta calculations (default: `'true'`)
 - **Returns:** `{ kpis, timeline, topPages, actionsByEntity, userUsage, userPageBreakdown, heatmap, sessionDurationDistribution, transitions, featureAdoption, editedFields }`
-- **Used by:** [`ActivityAnalyticsPage.tsx`](file:///Users/nemanja.stanojevic/Documents/zigicode/002_EkosGreenGroup/project_tracker/client/src/pages/management/ActivityAnalyticsPage.tsx)
+- **Used by:** [`ActivityAnalyticsPage.tsx`](file:///Users/nemanja.stanojevic/Documents/zigicode/002_EkosGreenGroup/project_tracker/client/src/pages/data-management/ActivityAnalyticsPage.tsx)
 
 ### `GET /api/activity-logs/:id`
 Fetch a single activity log with its full details payload (lazy loaded for diff viewing).

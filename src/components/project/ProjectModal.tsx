@@ -21,7 +21,7 @@ import {
 import type { Project } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import { ErrorDialog } from '../dialogs/ErrorDialog';
+import { ErrorDialog } from '../common/dialogs/ErrorDialog';
 import { TipTapEditor } from '../common/tiptap/TipTapEditor';
 import { ProjectProgressSlider } from './ProjectProgressSlider';
 import { ProjectReminderSection } from './ProjectReminderSection';
@@ -35,7 +35,7 @@ import {
   ReceiptLongIcon,
   NotificationsActiveIcon,
 } from '../icons';
-import { ConfirmDialog } from '../dialogs/ConfirmDialog';
+import { ConfirmDialog } from '../common/dialogs/ConfirmDialog';
 import { useProjectsMutations, useRemindersMutations, useInvoicesMutations, useProjectDetailsQuery } from '../../queries';
 import { ClientAutocomplete, UserAutocomplete, ServiceAutocomplete } from '../common/autocomplete';
 

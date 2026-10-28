@@ -9,11 +9,13 @@ A professional project management and invoicing application for **EkosGreenGroup
 **EkosGreenGroup Project Tracker** is a comprehensive platform designed for project lifecycle management, environmental sampling schedules, invoicing, client relations, and team collaboration.
 
 ### Key Highlights:
+- **Two Integrated Applications in One Shell**:
+  - **Project Tracker** (`/project-tracker/*`): Operational workspace with pages for active projects (`/projects`), project updates (`/updates`), reminders (`/reminders`), invoices (`/invoices`), waste disposal (`/waste-disposal`), statistic (`/statistic`), and waste disposal statistic (`/statistic-waste-disposal`).
+  - **Data Management** (`/data-management/*`): Full-lifecycle CRUD management tables with table pages for projects (`/projects`), clients (`/clients`), permits (`/permits`), users (`/users`), roles (`/roles`), services (`/services`), provided services (`/provided-services`), categories (`/categories`), invoices (`/invoices`), reminders (`/reminders`), activity logs (`/activity-logs`), and activity analytics (`/activity-logs/analytics`).
 - **Role-Based Access Control (RBAC)**: Dynamic roles and granular permissions management (View, Create, Edit, Delete, Only Own) for **Administrator**, **Manager**, **Accountant**, and custom roles.
 - **Interactive Dashboard, Project Updates & Activity Analytics**:
   - Combined overview with KPI statistics, project updates feed, and analytical charts.
   - Role-tailored views: Standard dashboard for managers/team members and specialized invoice-centric dashboard for accountants.
-  - Dedicated subtabs for Statistics, Reminders, Invoices, and Projects.
   - Organization-wide **Project Updates Panel**: real-time activity stream for project changes, note revisions, and task completions.
   - Administrative **Activity Analytics Dashboard**: interactive timeline, heatmap, usage charts, transition analysis, feature adoption, and rule-based insights.
 - **Environmental Permits & Waste Catalog**: Environmental permits management with validity ranges, client associations, permit type filters, and official Serbian national waste index codes with hazard indicators.
@@ -165,21 +167,25 @@ client/
 ├── e2e/                     # Playwright End-to-End test suites
 │   ├── auth.setup.ts        # Global auth session setup
 │   ├── auth/                # Login & auth flow tests
-│   ├── tracker/             # Dashboard & tracker flow tests
-│   └── management/          # Management CRUD tests (projects, clients, invoices, etc.)
+│   ├── tracker/             # Project Tracker flow tests
+│   └── management/          # Data Management CRUD tests
 ├── public/                  # Static assets & public files
 ├── src/
 │   ├── assets/              # Logos and SVGs
-│   ├── components/          # Reusable UI components & modals
-│   ├── context/             # React contexts (AuthContext, LanguageContext, ThemeContext, NotificationContext)
+│   ├── components/          # Domain-grouped components (project, invoice, permit, etc.)
+│   ├── context/             # React contexts (Auth, Language, Theme, Notifications, ProjectModal)
 │   ├── hooks/               # Custom hooks (useTableView, useProjectForm, etc.)
 │   ├── i18n/                # Localization dictionaries (en, sr-Latn, sr-Cyrl)
-│   ├── pages/               # Full page views (TrackerPage, ProjectsPage, InvoicesPage, etc.)
-│   ├── queries/             # React Query hooks and mutations
+│   ├── pages/               # 1 Route -> 1 Page components
+│   │   ├── auth/            # LoginPage
+│   │   ├── project-tracker/ # 7 dedicated Project Tracker pages
+│   │   └── data-management/ # 12 dedicated Data Management pages
+│   ├── queries/             # Modular React Query hooks and mutations
+│   ├── routes/              # Centralized route definitions (AppRoutes.tsx)
 │   ├── theme/               # Material UI theme definition
-│   ├── types.ts             # TypeScript definitions & data models
-│   ├── utils/               # Helper utilities
-│   ├── App.tsx              # Root component & view router
+│   ├── types/               # Modular domain TypeScript definitions
+│   ├── utils/               # Helper utilities (delta sync, IndexedDB, etc.)
+│   ├── App.tsx              # Root component & top-level provider wiring
 │   └── main.tsx             # Application entry point
 ├── playwright.config.ts     # Playwright configuration
 ├── package.json             # Scripts & dependencies

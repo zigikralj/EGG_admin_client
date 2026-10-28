@@ -23,7 +23,7 @@ import {
 import type { Project } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import { ErrorDialog } from '../dialogs/ErrorDialog';
+import { ErrorDialog } from '../common/dialogs/ErrorDialog';
 import { TipTapEditor } from '../common/tiptap/TipTapEditor';
 import { stripHtmlToText } from '../common/RichTextEditor';
 import { ProjectProgressSlider } from './ProjectProgressSlider';
@@ -39,7 +39,7 @@ import {
   NotificationsActiveIcon,
   ReceiptLongIcon,
 } from '../icons';
-import { ConfirmDialog } from '../dialogs/ConfirmDialog';
+import { ConfirmDialog } from '../common/dialogs/ConfirmDialog';
 import { HistoryTimelineModal } from '../history';
 import {
   useProjectsMutations,

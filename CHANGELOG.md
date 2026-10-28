@@ -32,15 +32,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-- feat: integrate TipTap 3 rich text editor suite with formatting toolbar, tables extension, team @mentions, and DOMPurify sanitization.
-- feat: add project note revision history diff modal (`NoteHistoryDiffModal`) and entity version timeline (`HistoryTimelineModal`) with one-click rollback.
-- feat: add organization-wide Project Updates Panel (`ProjectUpdatesPanel`) and project progress slider (`ProjectProgressSlider`) with localized activity feeds.
-- feat: implement multi-tier waste catalog storage (`wasteCatalogStorage.ts`) featuring IndexedDB persistence, 0ms in-memory reads, and cross-tab `BroadcastChannel` synchronization.
-- feat: implement client-side incremental delta synchronization engine (`deltaSync.ts`) integrated into TanStack React Query hooks with automatic cache reconciliation.
-- feat: add `PermitModal` extracted dialog with standardized responsive layout and explicit scrolling flex constraints.
-- feat: add Microsoft Word metadata and XML cleaners (`cleanWordHtml.ts`, `stripHtmlToText.ts`).
-- test: add comprehensive Playwright E2E test suites for TipTap notes and add `mockApi.ts` test helper for deterministic CI executions.
-- perf: optimize Playwright configuration for CI and refine reminder modal state reset logic.
+- refactor: complete client architectural overhaul to **1 Route -> 1 Page** structure with dedicated lazy chunks across Project Tracker (7 pages) and Data Management (12 pages).
+- refactor: modularize monolithic `types.ts` into domain type files (`src/types/`) and remove legacy `types.ts` shim.
+- refactor: modularize monolithic 2,300-line `src/queries/index.ts` into 12 domain query modules (`src/queries/`) with barrel re-exports.
+- feat: introduce `useTablePreferences(tableKey)` hook in `preferences.queries.ts` for reactive per-table preferences without prop-drilling.
+- feat: introduce `ProjectModalContext` (`useProjectModal()`) decoupling project view, edit, new, and diff modal orchestration from `App.tsx`.
+- refactor: extract dialog modals into domain component folders (`components/client/`, `components/user/`, `components/service/`, `components/providedService/`, `components/permit/`, `components/reminder/`, `components/company/`, `components/waste/`) and delete legacy `components/dialogs/` directory.
+- refactor: completely remove legacy `src/pages/management/` and `src/pages/tracker/` backward-compatibility adapter directories.
+- refactor: extract inline modals from pages into dedicated domain component folders (`ClientModal`, `UserModal`, `ServiceModal`, `ProvidedServiceModal`).
+- refactor: reorganize components by domain (`project/`, `invoice/`, `permit/`, `reminder/`, `service/`, `providedService/`, `user/`, `role/`, `company/`, `statistics/`, `common/dialogs/`).
+- refactor: extract centralized route declarations into `src/routes/AppRoutes.tsx` and slim down `src/App.tsx` from 366 lines to ~65 lines.
+- docs: comprehensive documentation overhaul across `client/docs/AI_CONTEXT.md`, `client/docs/ARCHITECTURE.md`, `client/README.md`, and `CHANGELOG.md`.
 
 ## [v1.10.1] - 2026-10-20
 
