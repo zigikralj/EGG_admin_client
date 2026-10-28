@@ -41,8 +41,12 @@ index.html
               ├── LanguageProvider        (i18n)
               │   └── AuthProvider        (auth + dynamic RBAC)
               │       └── NotificationProvider (notifications)
-              │           └── CustomThemeProvider (MUI theme)
-              │               └── <MainApp />   (the actual app)
+              │           └── LoadingProvider  (global loading mask)
+              │               └── <MainApp />
+              │                   └── CustomThemeProvider (MUI theme)
+              │                       └── ProjectModalProvider (project modals)
+              │                           └── <AdminLayout>
+              │                               └── <AppRoutes />
               └── vite:preloadError handler (auto-reload on chunk miss)
 ```
 
@@ -50,68 +54,83 @@ index.html
 1. **`LanguageProvider`** — i18n must be available to all other providers
 2. **`AuthProvider`** — auth state consumed by notifications and layout
 3. **`NotificationProvider`** — depends on `useAuth()` for user context
-4. **`CustomThemeProvider`** — MUI theme, depends on user preferences
+4. **`LoadingProvider`** — global loading state
+5. **`CustomThemeProvider`** — MUI theme, depends on user preferences
+6. **`ProjectModalProvider`** — global project view/edit modal orchestration
 
 ---
 
 ## 3. Application Architecture
 
-### 3.1 `MainApp` — The Root Orchestrator
+### 3.1 `MainApp` & Decoupled Routing
 
-[`App.tsx`](file:///Users/nemanja.stanojevic/Documents/zigicode/002_EkosGreenGroup/project_tracker/client/src/App.tsx) is the central orchestrator that:
-- Coordinates declarative query and mutation hooks from [`src/queries/index.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/002_EkosGreenGroup/project_tracker/client/src/queries/index.ts)
-- Manages global UI state (modals, delete confirmation dialogs, global loading mask)
-- Renders active views via React Router `<Routes>` and `<Route>` using `PAGE_ROUTES`
-- Handles project modal lifecycle (create/edit/view)
+[`App.tsx`](file:///Users/nemanja.stanojevic/Documents/zigicode/002_EkosGreenGroup/project_tracker/client/src/App.tsx) is a lean root orchestrator (~65 lines) that:
+- Coordinates top-level providers (`CustomThemeProvider`, `ProjectModalProvider`)
+- Wraps the authenticated shell (`AdminLayout`)
+- Delegates route declarations to [`src/routes/AppRoutes.tsx`](file:///Users/nemanja.stanojevic/Documents/zigicode/002_EkosGreenGroup/project_tracker/client/src/routes/AppRoutes.tsx)
+- Automatically checks deployment versions via `VersionUpdatePrompt`
 
 ### 3.2 Declarative Data Flow (TanStack React Query)
 
 ```mermaid
 graph TD
-    A["App.tsx & View Pages"] -->|"queries (useProjectsQuery, etc.)"| B["TanStack React Query Cache"]
+    A["AppRoutes & Dedicated Pages"] -->|"queries (useProjectsQuery, etc.)"| B["TanStack React Query Cache"]
     B -->|"cached state & background refetch"| A
-    A -->|"mutations (useProjectMutations, etc.)"| C["API Mutation Handlers"]
+    A -->|"mutations (useProjectsMutations, etc.)"| C["API Mutation Handlers"]
     C -->|"apiFetch()"| D["REST API Server"]
     D -->|"200/201 response"| C
     C -->|"invalidateQueries()"| B
     B -->|"auto-refetches fresh data"| A
 ```
 
-- **Query Isolation:** Each entity domain (`projects`, `clients`, `invoices`, `permits`, `reminders`, `preferences`, etc.) has dedicated query and mutation hooks in `src/queries/index.ts`.
-- **Automatic Cache Invalidation:** Mutations trigger query key invalidation (`queryClient.invalidateQueries({ queryKey: [...] })`), ensuring views update automatically without manual state prop-drilling or circular dependency ref patterns.
+- **Query Isolation:** Each entity domain (`projects`, `clients`, `invoices`, `permits`, `reminders`, `services`, `providedServices`, `users`, `activity`, `history`, `preferences`) has dedicated query and mutation modules under `src/queries/`, re-exported through `src/queries/index.ts`.
+- **Automatic Cache Invalidation:** Mutations trigger query key invalidation (`queryClient.invalidateQueries({ queryKey: [...] })`), ensuring views update automatically without manual state prop-drilling.
 - **Optimistic Updates:** User preferences (column visibility, theme mode, language, rows-per-page) are updated optimistically in the React Query cache before server persistence.
+- **Table Preferences Hook (`useTablePreferences(tableKey)`):** Eliminates prop-drilling of preference states from `App.tsx`. Pages directly consume their table preferences with local overrides.
 
 ### 3.3 State Management
 
 | Mechanism | Usage |
 |---|---|
 | `TanStack React Query` | Server cache, background polling, entity data & mutations |
+| `useTablePreferences` | Reactive user table column visibility, rows per page, sorting |
+| `useProjectModal` | Global modal orchestration for Project view/edit/new/diff modals |
 | `useState` | Local UI state, active dialogs, transient form data |
-| `useContext` | Auth, Language, Theme, Notifications, LoadingMask |
+| `useContext` | Auth, Language, Theme, Notifications, LoadingMask, ProjectModals |
 | `useMemo` | Derived statistics, active filter calculations, expensive aggregations |
 | `useCallback` | Event handlers and parameterized callback props |
 | `localStorage` | JWT token (`auth_token`), authenticated user snapshot, theme, language |
 
-### 3.4 View Routing & Navigation
+### 3.4 1 Route -> 1 Page Structure
 
-Navigation uses typed routes defined in `src/constants/pageRoutes.ts` (`PAGE_ROUTES`):
+Navigation maps 1-to-1 with dedicated lazy-loaded pages declared in `src/routes/AppRoutes.tsx`:
 
-```typescript
-type ActiveTab = 'dashboard' | 'projects' | 'clients' | 'permits' |
-                 'users' | 'roles' | 'services' | 'providedServices' |
-                 'categories' | 'reminders' | 'invoices' |
-                 'activity-logs' | 'activity-analytics';
-```
+#### App 1: Project Tracker (`src/pages/project-tracker/`)
+| Path | Route Constant | Page Component |
+|---|---|---|
+| `/project-tracker/projects` | `PROJECT_TRACKER_PROJECTS` | `TrackerProjectsPage.tsx` |
+| `/project-tracker/updates` | `PROJECT_TRACKER_UPDATES` | `TrackerUpdatesPage.tsx` |
+| `/project-tracker/reminders` | `PROJECT_TRACKER_REMINDERS` | `TrackerRemindersPage.tsx` |
+| `/project-tracker/invoices` | `PROJECT_TRACKER_INVOICES` | `TrackerInvoicesPage.tsx` |
+| `/project-tracker/waste-disposal` | `PROJECT_TRACKER_WASTE` | `TrackerWasteDisposalPage.tsx` |
+| `/project-tracker/statistic` | `PROJECT_TRACKER_STATISTICS` | `TrackerProjectsStatsPage.tsx` |
+| `/project-tracker/statistic-waste-disposal` | `PROJECT_TRACKER_WASTE_STATISTICS` | `TrackerWasteStatsPage.tsx` |
 
-Views are **lazy-loaded** via `React.lazy()` + `<Suspense>`:
-```typescript
-const TrackerPage = React.lazy(() => import('./pages/tracker/TrackerPage'));
-const ActivityAnalyticsPage = React.lazy(() => import('./pages/management/ActivityAnalyticsPage'));
-```
-
-Sub-tabs exist for:
-- **Dashboard**: `'projects' | 'reminders' | 'invoices' | 'waste-disposal' | 'waste-management' | 'statistic'`
-- **Provided Services**: `'summary' | 'statistics'`
+#### App 2: Data Management (`src/pages/data-management/`)
+| Path | Route Constant | Page Component |
+|---|---|---|
+| `/data-management/projects` | `PROJECTS` | `ProjectsPage.tsx` |
+| `/data-management/clients` | `CLIENTS` | `ClientsPage.tsx` |
+| `/data-management/permits` | `PERMITS` | `PermitsPage.tsx` |
+| `/data-management/users` | `USERS` | `UsersPage.tsx` |
+| `/data-management/roles` | `ROLES` | `RolesPage.tsx` |
+| `/data-management/services` | `SERVICES` | `ServicesPage.tsx` |
+| `/data-management/provided-services` | `PROVIDED_SERVICES` | `ProvidedServicesPage.tsx` |
+| `/data-management/categories` | `CATEGORIES` | `CategoriesPage.tsx` |
+| `/data-management/invoices` | `INVOICES` | `InvoicesPage.tsx` |
+| `/data-management/reminders` | `REMINDERS` | `RemindersPage.tsx` |
+| `/data-management/activity-logs` | `ACTIVITY_LOGS` | `ActivityLogsPage.tsx` |
+| `/data-management/activity-logs/analytics` | `ACTIVITY_ANALYTICS` | `ActivityAnalyticsPage.tsx` |
 
 ---
 
@@ -516,35 +535,61 @@ graph TD
 
 ```
 client/
-├── docs/                          # Documentation (you are here)
-│   ├── AI_CONTEXT.md              # AI quick reference
+├── docs/                          # Documentation (AI context, Architecture, API reference)
+│   ├── AI_CONTEXT.md              # Fast orientation for AI coding assistants
 │   ├── API_REFERENCE.md           # Client REST API specifications
-│   └── ARCHITECTURE.md            # This file
+│   └── ARCHITECTURE.md            # Comprehensive client architectural reference
 ├── e2e/                           # Playwright End-to-End test suites
 │   ├── auth.setup.ts              # Global authentication fixture
 │   ├── auth/                      # Login & authentication specs
-│   ├── tracker/                   # Dashboard & tracker specs
-│   └── management/                # Management module CRUD specs
+│   ├── tracker/                   # Project Tracker specs
+│   └── management/                # Data Management CRUD specs
 ├── playwright.config.ts           # Playwright test runner configuration
-├── public/                        # Static assets
+├── public/                        # Static assets (favicons, version.json)
 ├── src/
-│   ├── api.ts                     # API client (apiFetch)
-│   ├── types.ts                   # All TypeScript types
-│   ├── main.tsx                   # Entry point
-│   ├── App.tsx                    # Root orchestrator
-│   ├── App.css                    # Component styles
-│   ├── index.css                  # Global styles + CSS variables
-│   ├── assets/                    # SVG logos
-│   │   ├── logo.svg
-│   │   └── favicon.svg
+│   ├── api.ts                     # API client wrapper (apiFetch)
+│   ├── main.tsx                   # ReactDOM entry point
+│   ├── App.tsx                    # Root orchestrator & top-level providers
+│   ├── App.css                    # Component styling overrides
+│   ├── index.css                  # Global styles, variables, typography
+│   ├── assets/                    # SVG logos and media
 │   ├── constants/                 # Centralized route definitions
 │   │   ├── apiRoutes.ts           # API endpoints & URL builders
-│   │   ├── pageRoutes.ts          # Client navigation paths
+│   │   ├── pageRoutes.ts          # Client navigation paths (PAGE_ROUTES)
 │   │   └── index.ts
-│   ├── queries/                   # TanStack React Query hooks
-│   │   └── index.ts               # Declarative queries & mutations for all domains
+│   ├── routes/                    # Centralized route declarations
+│   │   ├── AppRoutes.tsx          # 1 Route -> 1 Page lazy router
+│   │   └── index.ts
+│   ├── types/                     # Modular domain TypeScript definitions
+│   │   ├── index.ts               # Barrel export
+│   │   ├── common.types.ts
+│   │   ├── auth.types.ts
+│   │   ├── project.types.ts
+│   │   ├── client.types.ts
+│   │   ├── permit.types.ts
+│   │   ├── invoice.types.ts
+│   │   ├── reminder.types.ts
+│   │   ├── service.types.ts
+│   │   ├── activity.types.ts
+│   │   └── globals.d.ts
+│   ├── queries/                   # Modular TanStack React Query hooks
+│   │   ├── index.ts               # Barrel export
+│   │   ├── queryUtils.ts
+│   │   ├── preferences.queries.ts # usePreferencesQuery, useTablePreferences(tableKey)
+│   │   ├── projects.queries.ts
+│   │   ├── clients.queries.ts
+│   │   ├── permits.queries.ts
+│   │   ├── invoices.queries.ts
+│   │   ├── reminders.queries.ts
+│   │   ├── services.queries.ts
+│   │   ├── providedServices.queries.ts
+│   │   ├── users.queries.ts
+│   │   ├── activity.queries.ts
+│   │   ├── history.queries.ts
+│   │   └── autocomplete.queries.ts
 │   ├── context/                   # React context providers
 │   │   ├── AuthContext.tsx        # Auth + dynamic RBAC
+│   │   ├── ProjectModalContext.tsx# Project view/edit modal orchestration
 │   │   ├── LanguageContext.tsx    # i18n
 │   │   ├── ThemeContext.tsx       # MUI theming
 │   │   ├── NotificationContext.tsx# @mention notifications
@@ -558,25 +603,56 @@ client/
 │   │   ├── useStatusUpdate.ts     # Generic status PATCH
 │   │   ├── useVersionCheck.ts     # Deployment update detection
 │   │   └── useRoleLabels.ts       # Role translation
+│   ├── pages/                     # 1 Route -> 1 Page view components
+│   │   ├── auth/                  # Authentication pages (LoginPage)
+│   │   ├── project-tracker/       # App 1: 7 dedicated Project Tracker pages
+│   │   │   ├── TrackerProjectsPage.tsx
+│   │   │   ├── TrackerUpdatesPage.tsx
+│   │   │   ├── TrackerRemindersPage.tsx
+│   │   │   ├── TrackerInvoicesPage.tsx
+│   │   │   ├── TrackerWasteDisposalPage.tsx
+│   │   │   ├── TrackerProjectsStatsPage.tsx
+│   │   │   └── TrackerWasteStatsPage.tsx
+│   │   └── data-management/       # App 2: 12 dedicated Data Management pages
+│   │       ├── ProjectsPage.tsx
+│   │       ├── ClientsPage.tsx
+│   │       ├── PermitsPage.tsx
+│   │       ├── UsersPage.tsx
+│   │       ├── RolesPage.tsx
+│   │       ├── ServicesPage.tsx
+│   │       ├── ProvidedServicesPage.tsx
+│   │       ├── CategoriesPage.tsx
+│   │       ├── InvoicesPage.tsx
+│   │       ├── RemindersPage.tsx
+│   │       ├── ActivityLogsPage.tsx
+│   │       └── ActivityAnalyticsPage.tsx
+│   ├── components/                # Domain-grouped components
+│   │   ├── common/                # Generic building blocks (dialogs/, tiptap/, autocomplete/)
+│   │   ├── layout/                # AdminLayout, AppHeader, Sidebar, Settings, Profile
+│   │   ├── project/               # ProjectCard, ProjectModal, ProjectViewModal, Sections
+│   │   ├── client/                # ClientModal
+│   │   ├── permit/                # PermitModal, PermitsTable, StatusBadge, Reminders
+│   │   ├── invoice/               # InvoiceModal, FormFields, ItemsList, Chips, RowDetail
+│   │   ├── reminder/              # ReminderModal
+│   │   ├── service/               # ServiceModal, CustomDataModelModal
+│   │   ├── providedService/       # ProvidedServiceModal, InvoiceSection
+│   │   ├── user/                  # UserModal
+│   │   ├── role/                  # RoleModal
+│   │   ├── company/               # CompanyInfoModal
+│   │   ├── statistics/            # ProjectsStatistics, WasteDisposalStatistics
+│   │   ├── history/               # HistoryTimelineModal, NoteHistoryDiffModal
+│   │   ├── activityLogs/          # Audit log tables & diffs
+│   │   ├── activityAnalytics/     # Activity analytics charts & KPI panels
+│   │   └── icons.ts               # Barrel file for ~90 tree-shaken MUI icons
 │   ├── i18n/                      # Internationalization
 │   │   ├── translations.ts        # Types + shared maps
 │   │   ├── loader.ts              # Lazy locale loading
-│   │   └── locales/
-│   │       ├── en.ts
-│   │       ├── sr-Latn.ts         # Default
-│   │       └── sr-Cyrl.ts
-│   ├── theme/
-│   │   └── theme.ts               # MUI theme config
-│   ├── utils/
-│   │   ├── customFields.ts        # Custom fields & weight extraction
-│   │   ├── router.ts              # Router basename helper
-│   │   └── invoiceUtils.ts        # Invoice note metadata
-│   ├── tests/                     # Test harness & helpers
-│   │   └── test-utils.tsx         # Unified mock providers wrapper
-│   ├── mocks/                     # Mock Service Worker (MSW)
-│   │   ├── handlers.ts            # Simulated API endpoints
-│   │   └── server.ts              # Node test server instance
-│   ├── components/                # Modular UI components
+│   │   └── locales/               # en.ts, sr-Latn.ts, sr-Cyrl.ts
+│   ├── theme/                     # MUI theme configuration
+│   ├── utils/                     # Delta sync, waste catalog IndexedDB, HTML sanitation
+│   ├── tests/                     # Test harness & test-utils.tsx
+│   └── mocks/                     # MSW handlers & server
+```
 ---
 
 ## 9. Client-Side Delta Synchronization Engine
@@ -750,24 +826,30 @@ client/
 │   │       ├── ReminderPanel.tsx
 │   │       ├── WasteDisposalPanel.tsx
 │   │       └── ProjectUpdatesPanel.tsx
-│   ├── pages/                      # Full page views
+│   ├── pages/                      # 1 Route -> 1 Page view components
 │   │   ├── auth/
 │   │   │   └── LoginPage.tsx
-│   │   ├── management/
-│   │   │   ├── ActivityAnalyticsPage.tsx
-│   │   │   ├── ActivityLogsPage.tsx
-│   │   │   ├── CategoriesPage.tsx
-│   │   │   ├── ClientsPage.tsx
-│   │   │   ├── InvoicesPage.tsx
-│   │   │   ├── PermitsPage.tsx
-│   │   │   ├── ProjectsPage.tsx
-│   │   │   ├── ProvidedServicesPage.tsx
-│   │   │   ├── RemindersPage.tsx
-│   │   │   ├── RolesPage.tsx
-│   │   │   ├── ServicesPage.tsx
-│   │   │   └── UsersPage.tsx
-│   │   └── tracker/
-│   │       └── TrackerPage.tsx
+│   │   ├── project-tracker/
+│   │   │   ├── TrackerProjectsPage.tsx
+│   │   │   ├── TrackerUpdatesPage.tsx
+│   │   │   ├── TrackerRemindersPage.tsx
+│   │   │   ├── TrackerInvoicesPage.tsx
+│   │   │   ├── TrackerWasteDisposalPage.tsx
+│   │   │   ├── TrackerProjectsStatsPage.tsx
+│   │   │   └── TrackerWasteStatsPage.tsx
+│   │   └── data-management/
+│   │       ├── ProjectsPage.tsx
+│   │       ├── ClientsPage.tsx
+│   │       ├── PermitsPage.tsx
+│   │       ├── UsersPage.tsx
+│   │       ├── RolesPage.tsx
+│   │       ├── ServicesPage.tsx
+│   │       ├── ProvidedServicesPage.tsx
+│   │       ├── CategoriesPage.tsx
+│   │       ├── InvoicesPage.tsx
+│   │       ├── RemindersPage.tsx
+│   │       ├── ActivityLogsPage.tsx
+│   │       └── ActivityAnalyticsPage.tsx
 │   ├── package.json
 │   ├── tsconfig.json
 │   ├── tsconfig.app.json

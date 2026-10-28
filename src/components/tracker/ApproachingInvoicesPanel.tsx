@@ -19,7 +19,7 @@ import { InvoiceModal } from '../invoice/InvoiceModal';
 import { TableFilterSelector } from '../common/TableFilterSelector';
 import { TableOptionsSelector } from '../common/ColumnSelector';
 import { DateRangeFilter } from '../common/DateRangeFilter';
-import { ErrorDialog } from '../dialogs/ErrorDialog';
+import { ErrorDialog } from '../common/dialogs/ErrorDialog';
 import {
   CheckCircleIcon,
   CalendarTodayIcon,
@@ -32,7 +32,7 @@ import {
   DeleteIcon,
   AddIcon,
 } from '../icons';
-import { DashboardPanelSkeleton } from '../tracker/DashboardPanelSkeleton';
+import { DashboardPanelSkeleton } from '../common/DashboardPanelSkeleton';
 import { useTableView } from '../../hooks/useTableView';
 import { useDebounce } from '../../hooks/useDebounce';
 import {
@@ -595,7 +595,7 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
           page: page,
           rowsPerPage: activeRowsPerPage,
           rowsPerPageOptions: activeRowsPerPageOptions,
-          onPageChange: (_, newPage) => setPage(newPage),
+          onPageChange: (_: unknown, newPage: number) => setPage(newPage),
           onRowsPerPageChange: handleChangeRowsPerPage,
         }}
         actionButton={
@@ -625,7 +625,7 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
             },
           ],
           selectedKeys: filterStatus === 'unpaid' ? ['unpaid'] : [],
-          onChange: (keys) => setFilterStatus(keys.includes('unpaid') ? 'unpaid' : 'all'),
+          onChange: (keys: string[]) => setFilterStatus(keys.includes('unpaid') ? 'unpaid' : 'all'),
         }}
         refreshProps={{
           onRefresh: handleRefresh,

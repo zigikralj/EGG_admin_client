@@ -30,6 +30,9 @@ vi.mock('./SettingsDialog', () => ({
   SettingsDialog: () => <div data-testid="settings-dialog-mock" />,
 }));
 
+vi.mock('../company/CompanyInfoModal', () => ({
+  CompanyInfoModal: () => <div data-testid="company-info-modal-mock" />,
+}));
 vi.mock('../dialogs/CompanyInfoModal', () => ({
   CompanyInfoModal: () => <div data-testid="company-info-modal-mock" />,
 }));

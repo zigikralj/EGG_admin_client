@@ -12,6 +12,7 @@ export const PAGE_ROUTES = {
   PROJECT_TRACKER_REMINDERS: '/project-tracker/reminders',
   PROJECT_TRACKER_WASTE: '/project-tracker/waste-disposal',
   PROJECT_TRACKER_STATISTICS: '/project-tracker/statistic',
+  PROJECT_TRACKER_WASTE_STATISTICS: '/project-tracker/statistic-waste-disposal',
   DATA_MANAGEMENT_PREFIX: '/data-management',
   PROJECTS: '/data-management/projects',
   CLIENTS: '/data-management/clients',
