@@ -409,18 +409,6 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
     }
   };
 
-  const statusChips = (
-    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1, ml: 1 }}>
-      {getInvoiceTypeChip(formData.invoiceType)}
-      <Chip
-        label={getStatusLabel(formData.status)}
-        size="small"
-        color={getStatusChipColor(formData.status)}
-        sx={{ height: 22, fontSize: '0.75rem', fontWeight: 700 }}
-      />
-    </Box>
-  );
-
   return (
     <ViewEditModalBase
       open={open}
@@ -444,7 +432,6 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
           </Typography>
         </Box>
       )}
-      statusChip={statusChips}
       canEdit={canEdit}
       canDelete={canDelete}
       isSaving={isSaving}
@@ -473,70 +460,92 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         )}
 
         {/* Invoice Number */}
-        {!isView && (
-          <Grid size={{ xs: 12, sm: 5 }}>
-            <TextField
-              fullWidth
-              size="small"
-              required
-              label={t('lblInvoiceNumber')}
-              placeholder={t('phInvoiceNumber')}
-              value={formData.invoiceNumber}
-              onChange={(e) => setFormData({ ...formData, invoiceNumber: e.target.value })}
-            />
-          </Grid>
-        )}
+        <Grid size={{ xs: 12, sm: 5 }}>
+          <ViewEditField
+            mode={mode}
+            label={t('lblInvoiceNumber')}
+            value={formData.invoiceNumber}
+            editRender={() => (
+              <TextField
+                fullWidth
+                size="small"
+                required
+                label={t('lblInvoiceNumber')}
+                placeholder={t('phInvoiceNumber')}
+                value={formData.invoiceNumber}
+                onChange={(e) => setFormData({ ...formData, invoiceNumber: e.target.value })}
+              />
+            )}
+          />
+        </Grid>
 
         {/* Invoice Type */}
-        {!isView && (
-          <Grid size={{ xs: 12, sm: 3.5 }}>
-            <FormControl fullWidth size="small">
-              <InputLabel>{t('lblInvoiceType')}</InputLabel>
-              <Select
-                value={formData.invoiceType}
-                label={t('lblInvoiceType')}
-                onChange={(e) =>
-                  setFormData({ ...formData, invoiceType: e.target.value as InvoiceType })
-                }
-              >
-                <MenuItem value="Standard">{t('typeStandard')}</MenuItem>
-                <MenuItem value="Advance">{t('typeAdvance')}</MenuItem>
-                <MenuItem value="Final">{t('typeFinal')}</MenuItem>
-                <MenuItem value="Partial">{t('typePartial')}</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-        )}
+        <Grid size={{ xs: 12, sm: 3.5 }}>
+          <ViewEditField
+            mode={mode}
+            label={t('lblInvoiceType')}
+            value={getInvoiceTypeChip(formData.invoiceType)}
+            editRender={() => (
+              <FormControl fullWidth size="small">
+                <InputLabel>{t('lblInvoiceType')}</InputLabel>
+                <Select
+                  value={formData.invoiceType}
+                  label={t('lblInvoiceType')}
+                  onChange={(e) =>
+                    setFormData({ ...formData, invoiceType: e.target.value as InvoiceType })
+                  }
+                >
+                  <MenuItem value="Standard">{t('typeStandard')}</MenuItem>
+                  <MenuItem value="Advance">{t('typeAdvance')}</MenuItem>
+                  <MenuItem value="Final">{t('typeFinal')}</MenuItem>
+                  <MenuItem value="Partial">{t('typePartial')}</MenuItem>
+                </Select>
+              </FormControl>
+            )}
+          />
+        </Grid>
 
         {/* Status */}
-        {!isView && (
-          <Grid size={{ xs: 12, sm: 3.5 }}>
-            <FormControl fullWidth size="small">
-              <InputLabel>{t('lblInvoiceStatus')}</InputLabel>
-              <Select
-                value={formData.status}
-                label={t('lblInvoiceStatus')}
-                onChange={(e) => {
-                  const newStatus = e.target.value as InvoiceStatus;
-                  setFormData({
-                    ...formData,
-                    status: newStatus,
-                    paymentDate:
-                      newStatus === 'Paid' && !formData.paymentDate
-                        ? new Date().toISOString().slice(0, 10)
-                        : formData.paymentDate,
-                  });
-                }}
-              >
-                <MenuItem value="Draft">{t('statusDraft')}</MenuItem>
-                <MenuItem value="Sent">{t('statusSent')}</MenuItem>
-                <MenuItem value="Paid">{t('statusPaid')}</MenuItem>
-                <MenuItem value="Overdue">{t('statusOverdue')}</MenuItem>
-                <MenuItem value="Cancelled">{t('statusCancelled')}</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-        )}
+        <Grid size={{ xs: 12, sm: 3.5 }}>
+          <ViewEditField
+            mode={mode}
+            label={t('lblInvoiceStatus')}
+            value={
+              <Chip
+                label={getStatusLabel(formData.status)}
+                size="small"
+                color={getStatusChipColor(formData.status)}
+                sx={{ height: 22, fontSize: '0.75rem', fontWeight: 700 }}
+              />
+            }
+            editRender={() => (
+              <FormControl fullWidth size="small">
+                <InputLabel>{t('lblInvoiceStatus')}</InputLabel>
+                <Select
+                  value={formData.status}
+                  label={t('lblInvoiceStatus')}
+                  onChange={(e) => {
+                    const newStatus = e.target.value as InvoiceStatus;
+                    setFormData({
+                      ...formData,
+                      status: newStatus,
+                      paymentDate:
+                        newStatus === 'Paid' && !formData.paymentDate
+                          ? new Date().toISOString().slice(0, 10)
+                          : formData.paymentDate,
+                    });
+                  }}
+                >
+                  <MenuItem value="Draft">{t('statusDraft')}</MenuItem>
+                  <MenuItem value="Sent">{t('statusSent')}</MenuItem>
+                  <MenuItem value="Paid">{t('statusPaid')}</MenuItem>
+                  <MenuItem value="Overdue">{t('statusOverdue')}</MenuItem>
+                  <MenuItem value="Cancelled">{t('statusCancelled')}</MenuItem>
+                </Select>
+              </FormControl>
+            )}
+          />
+        </Grid>
 
         {/* Client */}
         <Grid size={{ xs: 12, sm: 6 }}>

@@ -161,7 +161,6 @@ export const UserProfileDialog: React.FC<UserProfileDialogProps> = ({ isOpen, on
       open={isOpen}
       onClose={onClose}
       title={t('userProfileTitle')}
-      subtitle={currentUser?.email || undefined}
       maxWidth="xs"
       fullWidth
       actions={

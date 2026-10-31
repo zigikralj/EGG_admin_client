@@ -189,15 +189,6 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
       mode={currentMode}
       onModeChange={handleModeChange}
       title={modalTitle}
-      subtitle={editingService?.code}
-      statusChip={editingService ? (
-        <Chip
-          label={getCategoryName(group)}
-          size="small"
-          color="primary"
-          variant="outlined"
-        />
-      ) : undefined}
       canEdit={canEdit}
       canDelete={Boolean(editingService && canDelete && onDeleteService)}
       onDelete={() => {

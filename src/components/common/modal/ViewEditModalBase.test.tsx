@@ -79,6 +79,29 @@ describe('ViewEditModalBase', () => {
       fireEvent.click(deleteBtn);
       expect(mockOnDelete).toHaveBeenCalledTimes(1);
     });
+
+    it('renders Complete and History header actions when provided', () => {
+      const mockOnComplete = vi.fn();
+      const mockOnHistory = vi.fn();
+      renderComponent({
+        mode: 'view',
+        onComplete: mockOnComplete,
+        onHistory: mockOnHistory,
+        completeLabel: 'Complete Item',
+        historyLabel: 'View History',
+      });
+
+      const completeBtn = screen.getByText('Complete Item');
+      const historyBtn = screen.getByText('View History');
+      expect(completeBtn).toBeInTheDocument();
+      expect(historyBtn).toBeInTheDocument();
+
+      fireEvent.click(completeBtn);
+      expect(mockOnComplete).toHaveBeenCalledTimes(1);
+
+      fireEvent.click(historyBtn);
+      expect(mockOnHistory).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('Edit Mode', () => {

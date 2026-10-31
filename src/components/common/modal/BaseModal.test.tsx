@@ -86,4 +86,43 @@ describe('BaseModal', () => {
 
     expect(mockOnSubmit).toHaveBeenCalled();
   });
+
+  it('fits content by default (height: auto) and expands to maxHeight when fullHeight is true', () => {
+    const { unmount } = renderComponent();
+    const defaultDialog = screen.getByRole('dialog');
+    expect(defaultDialog).toHaveStyle({ height: 'auto' });
+    unmount();
+
+    renderComponent({ fullHeight: true, maxHeight: '720px' });
+    const fullHeightDialog = screen.getByRole('dialog');
+    expect(fullHeightDialog).toHaveStyle({ height: '720px', maxHeight: '720px' });
+  });
+
+  it('applies custom width, maxWidth, height, and maxHeight parameters', () => {
+    renderComponent({
+      width: '540px',
+      maxWidth: '680px',
+      height: '450px',
+      maxHeight: '80vh',
+    });
+
+    const dialogPaper = screen.getByRole('dialog');
+    expect(dialogPaper).toHaveStyle({
+      width: '540px',
+      maxWidth: '680px',
+      height: '450px',
+      maxHeight: '80vh',
+    });
+  });
+
+  it('respects fullWidth prop when passed as false or true', () => {
+    const { unmount } = renderComponent({ fullWidth: false });
+    const dialogPaper = screen.getByRole('dialog');
+    expect(dialogPaper).not.toHaveClass('MuiDialog-paperFullWidth');
+    unmount();
+
+    renderComponent({ fullWidth: true });
+    const fullWidthDialog = screen.getByRole('dialog');
+    expect(fullWidthDialog).toHaveClass('MuiDialog-paperFullWidth');
+  });
 });

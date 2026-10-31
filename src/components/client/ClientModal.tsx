@@ -158,11 +158,6 @@ export const ClientModal: React.FC<ClientModalProps> = ({
     return t('modalNewClient');
   };
 
-  const modalSubtitle = () => {
-    if (!isView || !editingClient) return undefined;
-    return city || undefined;
-  };
-
   const clientPermits = editingClient ? getClientPermits(editingClient) : [];
 
   return (
@@ -172,7 +167,6 @@ export const ClientModal: React.FC<ClientModalProps> = ({
       mode={currentMode}
       onModeChange={handleModeChange}
       title={modalTitle}
-      subtitle={modalSubtitle()}
       maxWidth="sm"
       canEdit={canEdit}
       canDelete={canDelete && Boolean(editingClient?.id)}

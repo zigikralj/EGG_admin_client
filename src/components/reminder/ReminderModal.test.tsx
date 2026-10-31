@@ -206,4 +206,55 @@ describe('ReminderModal (Unified View/Edit/Create)', () => {
     fireEvent.click(screen.getByText('btnClose'));
     expect(mockOnClose).toHaveBeenCalled();
   });
+
+  it('marks reminder as completed when clicking the complete button in view mode', async () => {
+    const mockOnStatusChange = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <ReminderModal
+        open={true}
+        onClose={mockOnClose}
+        editingReminder={mockReminder}
+        onSave={mockOnSave}
+        onStatusChange={mockOnStatusChange}
+        canEdit={true}
+      />
+    );
+
+    // Header has the "btnMarkDone" button
+    const markDoneBtns = screen.getAllByText('btnMarkDone');
+    expect(markDoneBtns.length).toBeGreaterThan(0);
+
+    fireEvent.click(markDoneBtns[0]);
+
+    await waitFor(() => {
+      expect(mockOnStatusChange).toHaveBeenCalledWith('rem-1', 'Completed');
+    });
+  });
+
+  it('falls back to onSave with status Completed when onStatusChange is omitted', async () => {
+    render(
+      <ReminderModal
+        open={true}
+        onClose={mockOnClose}
+        editingReminder={mockReminder}
+        onSave={mockOnSave}
+        canEdit={true}
+      />
+    );
+
+    const markDoneBtns = screen.getAllByText('btnMarkDone');
+    expect(markDoneBtns.length).toBeGreaterThan(0);
+
+    fireEvent.click(markDoneBtns[0]);
+
+    await waitFor(() => {
+      expect(mockOnSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'rem-1',
+          status: 'Completed',
+        })
+      );
+    });
+  });
 });

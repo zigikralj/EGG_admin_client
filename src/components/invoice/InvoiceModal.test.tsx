@@ -90,7 +90,7 @@ describe('InvoiceModal (Unified View/Edit/Create)', () => {
       />
     );
 
-    expect(screen.getByText('INV-2026-001')).toBeInTheDocument();
+    expect(screen.getAllByText('INV-2026-001')[0]).toBeInTheDocument();
     expect(screen.getByText('Eco Client')).toBeInTheDocument();
     expect(screen.getByText('Eco Project')).toBeInTheDocument();
     expect(screen.getByText('Service Item 1')).toBeInTheDocument();

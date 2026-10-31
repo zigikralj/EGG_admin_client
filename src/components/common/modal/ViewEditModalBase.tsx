@@ -3,9 +3,10 @@ import {
   Button,
   Box,
   CircularProgress,
+  Tooltip,
 } from '@mui/material';
 import { BaseModal, type BaseModalProps } from './BaseModal';
-import { EditIcon, SaveIcon, DeleteIcon } from '../../icons';
+import { EditIcon, SaveIcon, DeleteIcon, HistoryIcon, CheckIcon } from '../../icons';
 import { useLanguage } from '../../../context/LanguageContext';
 
 export type ModalMode = 'view' | 'edit' | 'create';
@@ -22,6 +23,15 @@ export interface ViewEditModalBaseProps
   onSave?: (e: React.FormEvent<HTMLFormElement>) => void | Promise<void>;
   onDelete?: () => void;
   onCancel?: () => void;
+
+  // Standard Header Actions
+  onHistory?: () => void;
+  historyLabel?: string;
+  onComplete?: () => void | Promise<void>;
+  isCompleted?: boolean;
+  isCompleting?: boolean;
+  completeLabel?: string;
+
   extraHeaderActions?: React.ReactNode | ((mode: ModalMode) => React.ReactNode);
   extraFooterActions?: React.ReactNode | ((mode: ModalMode) => React.ReactNode);
   showFooterEditButton?: boolean;
@@ -44,6 +54,12 @@ export const ViewEditModalBase: React.FC<ViewEditModalBaseProps> = ({
   onSave,
   onDelete,
   onCancel,
+  onHistory,
+  historyLabel,
+  onComplete,
+  isCompleted = false,
+  isCompleting = false,
+  completeLabel,
   extraHeaderActions,
   extraFooterActions,
   showFooterEditButton = true,
@@ -87,8 +103,57 @@ export const ViewEditModalBase: React.FC<ViewEditModalBaseProps> = ({
 
   const headerActionsContent = (
     <>
-      {resolvedExtraHeaderActions}
+      {/* Complete Action Button */}
+      {onComplete && (
+        <Button
+          variant={isCompleted ? 'contained' : 'outlined'}
+          color="success"
+          size="small"
+          disabled={isCompleting}
+          onClick={onComplete}
+          startIcon={
+            isCompleting ? (
+              <CircularProgress size={16} color="inherit" />
+            ) : (
+              <CheckIcon fontSize="small" />
+            )
+          }
+          sx={{
+            textTransform: 'none',
+            fontWeight: 600,
+            borderRadius: 1.5,
+            px: 1.5,
+            height: 32,
+            bgcolor: isCompleted ? 'success.main' : 'transparent',
+            color: isCompleted ? 'success.contrastText' : 'success.main',
+            borderColor: 'success.main',
+            '&:hover': {
+              bgcolor: isCompleted ? 'success.dark' : 'success.50',
+              borderColor: 'success.dark',
+            },
+          }}
+        >
+          {completeLabel || t('btnMarkDone')}
+        </Button>
+      )}
 
+      {/* History Action Button */}
+      {onHistory && (
+        <Tooltip title={historyLabel || t('btnHistory')}>
+          <Button
+            color="inherit"
+            variant="outlined"
+            size="small"
+            onClick={onHistory}
+            startIcon={<HistoryIcon />}
+            sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 1.5, height: 32 }}
+          >
+            {historyLabel || t('btnHistory')}
+          </Button>
+        </Tooltip>
+      )}
+
+      {/* Delete Action Button (in view mode) */}
       {isView && canDelete && onDelete && (
         <Button
           color="error"
@@ -96,12 +161,13 @@ export const ViewEditModalBase: React.FC<ViewEditModalBaseProps> = ({
           size="small"
           onClick={onDelete}
           startIcon={<DeleteIcon />}
-          sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 1.5 }}
+          sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 1.5, height: 32 }}
         >
           {deleteLabel || t('btnDelete')}
         </Button>
       )}
 
+      {/* Optional Edit Button in Header if enabled */}
       {isView && canEdit && onModeChange && showHeaderEditButton && (
         <Button
           color="primary"
@@ -109,11 +175,13 @@ export const ViewEditModalBase: React.FC<ViewEditModalBaseProps> = ({
           size="small"
           onClick={handleEditClick}
           startIcon={<EditIcon />}
-          sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 1.5 }}
+          sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 1.5, height: 32 }}
         >
           {editLabel || t('btnEdit')}
         </Button>
       )}
+
+      {resolvedExtraHeaderActions}
     </>
   );
 

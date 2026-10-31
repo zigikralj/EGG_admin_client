@@ -10,7 +10,6 @@ import {
   Box,
   Autocomplete,
   Grid,
-  Chip,
 } from '@mui/material';
 import SettingsIcon from '@mui/icons-material/Settings';
 import { useLanguage } from '../../context/LanguageContext';
@@ -811,30 +810,27 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
     }
   };
 
-  const getStatusChip = (st: string) => {
-    switch (st) {
-      case 'Completed':
-        return <Chip label={t('statusCompleted')} color="success" size="small" sx={{ fontWeight: 600 }} />;
-      case 'In Progress':
-        return <Chip label={t('statusInProgress')} color="info" size="small" sx={{ fontWeight: 600 }} />;
-      case 'Cancelled':
-        return <Chip label={t('statusCancelled')} color="error" size="small" sx={{ fontWeight: 600 }} />;
-      case 'Planned':
-      default:
-        return <Chip label={t('statusPlanned')} color="warning" size="small" sx={{ fontWeight: 600 }} />;
-    }
-  };
-
   const modalTitle = (m: ModalMode) => {
-    if (m === 'view') return t('providedServicesSummary');
+    if (m === 'view') return t('subTabWasteDisposal');
     if (m === 'edit') return t('modalEditWasteDisposal');
     return t('modalNewWasteDisposal');
   };
 
-  const modalSubtitle = () => {
-    if (!isView || !editingItem) return undefined;
-    const parts = [formData.clientName, formData.projectName].filter(Boolean);
-    return parts.length > 0 ? parts.join(' • ') : undefined;
+  const isCompleted = (formData.status || '').toLowerCase() === 'completed' || (formData.status || '').toLowerCase() === 'završeno';
+
+  const handleToggleComplete = async () => {
+    const nextStatus = isCompleted ? 'Planned' : 'Completed';
+    const nextCompletionDate = !isCompleted ? (formData.completionDate || new Date().toISOString().slice(0, 10)) : '';
+    setFormData((prev) => ({
+      ...prev,
+      status: nextStatus,
+      completionDate: nextCompletionDate,
+    }));
+    await onSave({
+      id: editingItem?.id,
+      status: nextStatus,
+      completionDate: nextCompletionDate ? new Date(nextCompletionDate).toISOString() : null,
+    });
   };
 
   return (
@@ -845,8 +841,9 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
         mode={currentMode}
         onModeChange={handleModeChange}
         title={modalTitle}
-        subtitle={modalSubtitle()}
-        statusChip={isView ? getStatusChip(formData.status) : undefined}
+        onComplete={isView && Boolean(editingItem?.id) && canEdit ? handleToggleComplete : undefined}
+        isCompleted={isCompleted}
+        completeLabel={isCompleted ? t('statusCompleted') : t('btnMarkDone')}
         maxWidth="md"
         canEdit={canEdit}
         canDelete={canDelete && Boolean(editingItem?.id)}

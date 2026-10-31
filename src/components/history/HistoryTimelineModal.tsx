@@ -430,6 +430,7 @@ export const HistoryTimelineModal: React.FC<HistoryTimelineModalProps> = ({
         }
         maxWidth="md"
         fullWidth
+        fullHeight
         contentSx={{ p: 0 }}
         actions={
           <Button onClick={onClose} variant="outlined" color="inherit">

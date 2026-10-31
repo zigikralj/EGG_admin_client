@@ -3,8 +3,6 @@ import {
   Typography,
   Box,
   Paper,
-  Button,
-  Checkbox,
   Grid,
   Tabs,
   Tab,
@@ -33,7 +31,6 @@ import {
   NotificationsActiveIcon,
   VisibilityIcon,
   CompareArrowsIcon,
-  HistoryIcon,
 } from '../icons';
 import {
   useProjectsMutations,
@@ -451,111 +448,58 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   const clientObj = effectiveProject?.client || null;
 
   // Header Actions
-  const extraHeaderActions = (
-    <>
-      {diffRange && isView && (
-        <ToggleButton
-          value="currentData"
-          selected={!showDiffView}
-          onChange={() => setShowDiffView((v) => !v)}
-          color="primary"
-          size="small"
-          sx={{
-            textTransform: 'none',
-            fontWeight: 600,
-            fontSize: '0.8125rem',
-            borderRadius: 1.5,
-            px: 1.5,
-            py: 0.5,
-            height: 32,
-            borderColor: !showDiffView ? 'primary.main' : 'divider',
-            bgcolor: !showDiffView
-              ? (t) => alpha(t.palette.primary.main, 0.12)
-              : 'transparent',
-            color: !showDiffView ? 'primary.main' : 'text.primary',
-            '&.Mui-selected': {
-              bgcolor: (t) => alpha(t.palette.primary.main, 0.15),
-              color: 'primary.main',
-              borderColor: 'primary.main',
-              fontWeight: 700,
-              '&:hover': {
-                bgcolor: (t) => alpha(t.palette.primary.main, 0.22),
-              },
-            },
-          }}
-        >
-          {showDiffView ? (
-            <VisibilityIcon sx={{ fontSize: 16, mr: 0.75 }} />
-          ) : (
-            <CompareArrowsIcon sx={{ fontSize: 16, mr: 0.75 }} />
-          )}
-          {showDiffView ? t('showFinalData') : t('showDiffs')}
-        </ToggleButton>
+  const extraHeaderActions = diffRange && isView ? (
+    <ToggleButton
+      value="currentData"
+      selected={!showDiffView}
+      onChange={() => setShowDiffView((v) => !v)}
+      color="primary"
+      size="small"
+      sx={{
+        textTransform: 'none',
+        fontWeight: 600,
+        fontSize: '0.8125rem',
+        borderRadius: 1.5,
+        px: 1.5,
+        py: 0.5,
+        height: 32,
+        borderColor: !showDiffView ? 'primary.main' : 'divider',
+        bgcolor: !showDiffView
+          ? (t) => alpha(t.palette.primary.main, 0.12)
+          : 'transparent',
+        color: !showDiffView ? 'primary.main' : 'text.primary',
+        '&.Mui-selected': {
+          bgcolor: (t) => alpha(t.palette.primary.main, 0.15),
+          color: 'primary.main',
+          borderColor: 'primary.main',
+          fontWeight: 700,
+          '&:hover': {
+            bgcolor: (t) => alpha(t.palette.primary.main, 0.22),
+          },
+        },
+      }}
+    >
+      {showDiffView ? (
+        <VisibilityIcon sx={{ fontSize: 16, mr: 0.75 }} />
+      ) : (
+        <CompareArrowsIcon sx={{ fontSize: 16, mr: 0.75 }} />
       )}
+      {showDiffView ? t('showFinalData') : t('showDiffs')}
+    </ToggleButton>
+  ) : null;
 
-      {effectiveProject && isView && (
-        <Button
-          color="inherit"
-          variant="outlined"
-          size="small"
-          onClick={() => setIsHistoryOpen(true)}
-          startIcon={<HistoryIcon />}
-          sx={{ textTransform: 'none', fontWeight: 600, borderRadius: 1.5, height: 32 }}
-        >
-          {t('btnHistory')}
-        </Button>
-      )}
-
-      {isEditable && (
-        <Button
-          color={(isView ? effectiveProject?.done : done) ? 'success' : 'inherit'}
-          variant={(isView ? effectiveProject?.done : done) ? 'contained' : 'outlined'}
-          size="small"
-          disabled={isView && showDiffView}
-          onClick={() => {
-            if (isView && effectiveProject) {
-              toggleDoneMutation.mutate({
-                id: effectiveProject.id,
-                isCompleting: !effectiveProject.done,
-              });
-            } else {
-              const newDone = !done;
-              setDone(newDone);
-              if (newDone) setProgress(100);
-            }
-          }}
-          startIcon={
-            <Checkbox
-              checked={Boolean(isView ? effectiveProject?.done : done)}
-              size="small"
-              sx={{
-                p: 0,
-                color: (isView ? effectiveProject?.done : done) ? 'inherit' : 'action.active',
-                '&.Mui-checked': { color: 'inherit' },
-              }}
-              tabIndex={-1}
-            />
-          }
-          sx={{
-            textTransform: 'none',
-            fontWeight: 600,
-            borderRadius: 1.5,
-            px: 1.5,
-            height: 32,
-            bgcolor: (isView ? effectiveProject?.done : done) ? 'success.main' : 'transparent',
-            color: (isView ? effectiveProject?.done : done) ? 'success.contrastText' : 'text.primary',
-            borderColor: (isView ? effectiveProject?.done : done) ? 'success.main' : 'divider',
-            '&:hover': {
-              bgcolor: (isView ? effectiveProject?.done : done) ? 'success.dark' : 'action.hover',
-              borderColor: (isView ? effectiveProject?.done : done) ? 'success.dark' : 'text.secondary',
-            },
-          }}
-        >
-          {t('btnMarkDone')}
-        </Button>
-      )}
-    </>
-  );
+  const handleToggleDone = () => {
+    if (isView && effectiveProject) {
+      toggleDoneMutation.mutate({
+        id: effectiveProject.id,
+        isCompleting: !effectiveProject.done,
+      });
+    } else {
+      const newDone = !done;
+      setDone(newDone);
+      if (newDone) setProgress(100);
+    }
+  };
 
   return (
     <>
@@ -584,11 +528,16 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
               }
             : undefined
         }
+        onComplete={isEditable && !(isView && showDiffView) ? handleToggleDone : undefined}
+        isCompleted={Boolean(isView ? effectiveProject?.done : done)}
+        isCompleting={toggleDoneMutation.isPending}
+        onHistory={effectiveProject && isView ? () => setIsHistoryOpen(true) : undefined}
         isSaving={isSaving}
         isLoading={Boolean(diffRange && isDiffFetching)}
         onSave={handleSubmit}
         extraHeaderActions={extraHeaderActions}
         editLabel={t('modalEditProject')}
+        fullHeight
       >
         <Grid container spacing={isView ? 1.25 : 2}>
           {/* PROJECT NAME */}
@@ -668,7 +617,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
           </Grid>
 
           {/* SERVICE TYPE */}
-          <Grid size={{ xs: 12, sm: isView ? 4 : 4 }}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <ViewEditField
               mode={mode}
               label={t('lblService')}
@@ -690,7 +639,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
           </Grid>
 
           {/* DATES */}
-          <Grid size={{ xs: 12, sm: isView ? 4 : 6 }}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <ViewEditField
               mode={mode}
               label={t('lblStartDate')}
@@ -710,7 +659,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
             />
           </Grid>
 
-          <Grid size={{ xs: 12, sm: isView ? 4 : 6 }}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <ViewEditField
               mode={mode}
               label={t('lblDeadlineDate')}

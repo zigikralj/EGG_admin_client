@@ -35,7 +35,7 @@ export const CustomDataModelModal: React.FC<Props> = ({
   initialFields,
   onSave,
 }) => {
-  const { t, getServiceLabel, getPermitTypeLabel } = useLanguage();
+  const { t, getPermitTypeLabel } = useLanguage();
   const { data: clients = [] } = useClientsQuery({ enabled: isOpen });
   const { data: permits = [] } = usePermitsQuery({ enabled: isOpen });
   const [fields, setFields] = useState<CustomFieldDefinition[]>([]);
@@ -106,14 +106,11 @@ export const CustomDataModelModal: React.FC<Props> = ({
     }
   };
 
-  const serviceTitle = service ? (service.name || getServiceLabel(service.code)) : '';
-
   return (
     <BaseModal
       open={isOpen}
       onClose={onClose}
       title={t('modalCustomDataModelTitle')}
-      subtitle={serviceTitle ? `${t('modalCustomDataModelDesc')}: ${serviceTitle}` : t('modalCustomDataModelDesc')}
       maxWidth="md"
       onSubmit={handleSubmit}
       actions={

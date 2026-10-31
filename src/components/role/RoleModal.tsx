@@ -335,15 +335,6 @@ export const RoleModal: React.FC<RoleModalProps> = ({
       mode={currentMode}
       onModeChange={handleModeChange}
       title={modalTitle}
-      subtitle={role?.description}
-      statusChip={role ? (
-        <Chip
-          label={role.isSystemAdmin ? 'System Admin' : 'Custom'}
-          color={role.isSystemAdmin ? 'error' : 'primary'}
-          size="small"
-          variant={role.isSystemAdmin ? 'filled' : 'outlined'}
-        />
-      ) : undefined}
       canEdit={canEdit}
       canDelete={Boolean(role && canDelete && onDeleteRole && !role.isSystemAdmin)}
       onDelete={() => {
@@ -359,6 +350,7 @@ export const RoleModal: React.FC<RoleModalProps> = ({
       cancelLabel={t('btnCancel') !== 'btnCancel' ? t('btnCancel') : 'Cancel'}
       editLabel={t('btnEdit') !== 'btnEdit' ? t('btnEdit') : 'Edit'}
       maxWidth="md"
+      fullHeight
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <ViewEditField

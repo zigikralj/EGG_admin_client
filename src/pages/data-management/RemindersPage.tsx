@@ -822,6 +822,7 @@ const RemindersPage: React.FC<Props> = ({
           setIsOpen(false);
           onDeleteReminder(id);
         }}
+        onStatusChange={handleStatusChange}
         isRestricted={isRemindersRestricted}
         currentUser={currentUser}
         onSave={handleSaveReminder}

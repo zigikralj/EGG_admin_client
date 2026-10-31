@@ -141,7 +141,6 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
       mode={currentMode}
       onModeChange={handleModeChange}
       title={modalTitle}
-      subtitle={editingCategory?.code}
       canEdit={canEdit}
       canDelete={Boolean(editingCategory && canDelete && onDeleteCategory)}
       onDelete={() => {

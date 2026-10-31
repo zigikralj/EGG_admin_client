@@ -10,7 +10,6 @@ import {
   Typography,
   Grid,
   Chip,
-  Box,
 } from '@mui/material';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
@@ -215,22 +214,6 @@ export const UserModal: React.FC<UserModalProps> = ({
       mode={currentMode}
       onModeChange={handleModeChange}
       title={modalTitle}
-      subtitle={editingUser?.email}
-      statusChip={editingUser ? (
-        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-          <Chip
-            label={getRoleLabel(role)}
-            size="small"
-            color={getRoleColor(role)}
-          />
-          <Chip
-            label={status === 'APPROVED' ? t('statusApproved') : status === 'BLOCKED' ? t('statusBlocked') : t('statusPending')}
-            size="small"
-            color={status === 'APPROVED' ? 'success' : status === 'BLOCKED' ? 'error' : 'warning'}
-            variant="outlined"
-          />
-        </Box>
-      ) : undefined}
       canEdit={canEdit}
       canDelete={Boolean(editingUser && canDelete && onDeleteUser)}
       onDelete={() => {

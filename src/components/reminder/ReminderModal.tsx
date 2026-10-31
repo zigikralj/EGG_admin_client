@@ -8,9 +8,13 @@ import {
   MenuItem,
   Chip,
   Typography,
+  Button,
+  Box,
+  CircularProgress,
 } from '@mui/material';
 import type { Reminder, Project, Client, Permit, User } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
+import { CheckIcon } from '../icons';
 import {
   ProjectAutocomplete,
   ClientAutocomplete,
@@ -32,6 +36,7 @@ export interface ReminderModalProps {
   canEdit?: boolean;
   canDelete?: boolean;
   onDelete?: (id: string) => void;
+  onStatusChange?: (id: string, status: string) => Promise<any> | void;
   isRestricted?: boolean;
   currentUser?: User | null;
   onSave: (reminderData: Partial<Reminder>) => Promise<boolean | void>;
@@ -67,6 +72,7 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
   canEdit = true,
   canDelete = false,
   onDelete,
+  onStatusChange,
   isRestricted = false,
   currentUser = null,
   onSave,
@@ -126,7 +132,7 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
     }
 
     if (editingReminder) {
-      setTitle(editingReminder.title || '');
+      setTitle(editingReminder.title || editingReminder.projectName || '');
       setSelectedProjectId(editingReminder.projectId || '');
       setProjectName(editingReminder.projectName || '');
       setSelectedClientId(editingReminder.clientId || '');
@@ -161,7 +167,7 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
 
   const resetToEditingReminder = () => {
     if (editingReminder) {
-      setTitle(editingReminder.title || '');
+      setTitle(editingReminder.title || editingReminder.projectName || '');
       setSelectedProjectId(editingReminder.projectId || '');
       setProjectName(editingReminder.projectName || '');
       setSelectedClientId(editingReminder.clientId || '');
@@ -216,40 +222,50 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
 
   const isResponsibleDisabled = isRestricted || (!editingReminder ? !canCreate : !canEdit);
 
-  const getStatusChip = (st: string) => {
-    switch (st.toLowerCase()) {
-      case 'completed':
-      case 'završeno':
-      case 'завршено':
-        return <Chip label={t('statusCompleted')} color="success" size="small" sx={{ fontWeight: 600 }} />;
-      case 'in progress':
-      case 'u toku':
-      case 'у току':
-        return <Chip label={t('statusInProgress')} color="info" size="small" sx={{ fontWeight: 600 }} />;
-      case 'overdue':
-      case 'prekoračeno':
-      case 'прекорачено':
-      case 'kasni':
-      case 'касни':
-        return <Chip label={t('statusOverdue')} color="error" size="small" sx={{ fontWeight: 600 }} />;
-      case 'pending':
-      case 'na čekanju':
-      case 'на чекању':
-      default:
-        return <Chip label={t('statusPending')} color="warning" size="small" sx={{ fontWeight: 600 }} />;
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const isCompleted = status.toLowerCase() === 'completed' || status.toLowerCase() === 'završeno';
+
+  const getStatusChip = (st?: string) => {
+    if (!st) return null;
+    const lower = st.toLowerCase();
+    if (lower === 'completed' || lower === 'završeno' || lower === 'завршено') {
+      return <Chip label={t('statusCompleted')} color="success" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 600 }} />;
+    }
+    if (lower === 'in progress' || lower === 'u toku' || lower === 'у току') {
+      return <Chip label={t('statusInProgress')} color="info" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 600 }} />;
+    }
+    if (lower === 'overdue' || lower === 'prekoračeno' || lower === 'прекорачено' || lower === 'kasni' || lower === 'касни') {
+      return <Chip label={t('statusOverdue')} color="error" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 600 }} />;
+    }
+    return <Chip label={t('statusPending')} color="warning" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 600 }} />;
+  };
+
+  const handleToggleStatus = async () => {
+    if (!editingReminder?.id || !canEdit || isUpdatingStatus) return;
+    const nextStatus = isCompleted ? 'Pending' : 'Completed';
+    setIsUpdatingStatus(true);
+    try {
+      if (onStatusChange) {
+        await onStatusChange(editingReminder.id, nextStatus);
+        setStatus(nextStatus);
+      } else {
+        const res = await onSave({
+          id: editingReminder.id,
+          status: nextStatus,
+        });
+        if (res !== false) {
+          setStatus(nextStatus);
+        }
+      }
+    } finally {
+      setIsUpdatingStatus(false);
     }
   };
 
   const modalTitle = (m: ModalMode) => {
     if (m === 'create') return t('modalNewReminder');
     if (m === 'edit') return t('modalEditReminder');
-    return editingReminder?.title || t('modalReminderDetails');
-  };
-
-  const modalSubtitle = () => {
-    if (!isView || !editingReminder) return undefined;
-    const parts = [editingReminder.projectName, editingReminder.clientName].filter(Boolean);
-    return parts.length > 0 ? parts.join(' • ') : undefined;
+    return title || t('modalReminderDetails');
   };
 
   return (
@@ -259,9 +275,11 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
       mode={currentMode}
       onModeChange={handleModeChange}
       title={modalTitle}
-      subtitle={modalSubtitle()}
-      statusChip={isView ? getStatusChip(status) : undefined}
-      maxWidth="sm"
+      onComplete={isView && Boolean(editingReminder?.id) && canEdit ? handleToggleStatus : undefined}
+      isCompleted={isCompleted}
+      isCompleting={isUpdatingStatus}
+      completeLabel={isCompleted ? t('statusCompleted') : t('btnMarkDone')}
+      maxWidth="md"
       canEdit={canEdit}
       canDelete={canDelete && Boolean(editingReminder?.id)}
       onDelete={onDelete && editingReminder ? () => onDelete(editingReminder.id) : undefined}
@@ -458,7 +476,30 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
           <ViewEditField
             label={t('lblStatus')}
             isViewMode={isView}
-            viewValue={getStatusChip(status)}
+            viewValue={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                {getStatusChip(status)}
+                {isView && canEdit && Boolean(editingReminder?.id) && (
+                  <Button
+                    size="small"
+                    variant="text"
+                    color={isCompleted ? 'inherit' : 'success'}
+                    startIcon={
+                      isUpdatingStatus ? (
+                        <CircularProgress size={14} color="inherit" />
+                      ) : (
+                        <CheckIcon fontSize="small" />
+                      )
+                    }
+                    onClick={handleToggleStatus}
+                    disabled={isUpdatingStatus}
+                    sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.8125rem', py: 0 }}
+                  >
+                    {isCompleted ? t('statusPending') : t('btnMarkDone')}
+                  </Button>
+                )}
+              </Box>
+            }
           >
             <FormControl fullWidth size="small">
               <InputLabel>{t('lblStatus')}</InputLabel>

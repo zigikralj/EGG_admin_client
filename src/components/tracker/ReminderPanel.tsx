@@ -825,6 +825,7 @@ export const ReminderPanel: React.FC<Props> = ({
         canEdit={canEditSelected}
         canDelete={canDeleteSelected}
         onDelete={onDeleteReminder ? (id) => { handleCloseDialog(); onDeleteReminder(id); } : undefined}
+        onStatusChange={onStatusChangeReminder}
         isRestricted={isRemindersRestricted}
         currentUser={currentUser}
         projects={projects}

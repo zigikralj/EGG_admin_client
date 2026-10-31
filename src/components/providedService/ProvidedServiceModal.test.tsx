@@ -117,8 +117,6 @@ describe('ProvidedServiceModal (Unified View/Edit/Create)', () => {
 
     // Displays service name as title
     expect(screen.getByText('Soil Quality Testing')).toBeInTheDocument();
-    // Subtitle contains Client & Project
-    expect(screen.getByText('Agro Delta • Field 42')).toBeInTheDocument();
     // Has Edit button and Close button
     expect(screen.getByText('btnEdit')).toBeInTheDocument();
     expect(screen.getByText('btnClose')).toBeInTheDocument();

@@ -115,9 +115,8 @@ describe('WasteDisposalModal (Unified View/Edit/Create)', () => {
       />
     );
 
-    // Header has view title and subtitle
-    expect(screen.getByText('providedServicesSummary')).toBeInTheDocument();
-    expect(screen.getByText('PetroChem Industries • Refinery South')).toBeInTheDocument();
+    // Header has view title
+    expect(screen.getByText('subTabWasteDisposal')).toBeInTheDocument();
 
     // Footer actions
     expect(screen.getByText('btnEdit')).toBeInTheDocument();

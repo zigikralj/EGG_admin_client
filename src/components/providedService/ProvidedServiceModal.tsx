@@ -11,7 +11,6 @@ import {
   Box,
   Autocomplete,
   Grid,
-  Chip,
 } from '@mui/material';
 import { SettingsIcon, AddIcon } from '../icons';
 import { useLanguage } from '../../context/LanguageContext';
@@ -307,32 +306,26 @@ export const ProvidedServiceModal: React.FC<ProvidedServiceModalProps> = ({
     }
   };
 
-  const getStatusChip = (st: string) => {
-    switch (st) {
-      case 'Completed':
-        return <Chip label={t('statusCompleted')} color="success" size="small" sx={{ fontWeight: 600 }} />;
-      case 'In Progress':
-        return <Chip label={t('statusInProgress')} color="info" size="small" sx={{ fontWeight: 600 }} />;
-      case 'Cancelled':
-        return <Chip label={t('statusCancelled')} color="error" size="small" sx={{ fontWeight: 600 }} />;
-      case 'Planned':
-      default:
-        return <Chip label={t('statusPlanned')} color="warning" size="small" sx={{ fontWeight: 600 }} />;
-    }
-  };
-
   const selectedServiceObj = services.find((s) => s.id === selectedServiceId) || editingItem?.service;
 
   const modalTitle = (m: ModalMode) => {
-    if (m === 'view') return selectedServiceObj?.name || t('providedServicesSummary');
+    if (m === 'view') return selectedServiceObj?.name || t('tabProvidedServices');
     if (m === 'edit') return t('modalEditProvidedService');
     return t('modalNewProvidedService');
   };
 
-  const modalSubtitle = () => {
-    if (!isView || !editingItem) return undefined;
-    const parts = [selectedClientName, selectedProjectName].filter(Boolean);
-    return parts.length > 0 ? parts.join(' • ') : undefined;
+  const isCompleted = (status || '').toLowerCase() === 'completed' || (status || '').toLowerCase() === 'završeno';
+
+  const handleToggleComplete = async () => {
+    const nextStatus = isCompleted ? 'Planned' : 'Completed';
+    const nextCompletionDate = !isCompleted ? (completionDate || new Date().toISOString().slice(0, 10)) : '';
+    setStatus(nextStatus);
+    setCompletionDate(nextCompletionDate);
+    await onSaveProvidedService({
+      id: editingItem?.id,
+      status: nextStatus,
+      completionDate: nextCompletionDate || null,
+    });
   };
 
   const canEditItem = getItemPermissions(editingItem).canEdit;
@@ -345,8 +338,9 @@ export const ProvidedServiceModal: React.FC<ProvidedServiceModalProps> = ({
       mode={currentMode}
       onModeChange={handleModeChange}
       title={modalTitle}
-      subtitle={modalSubtitle()}
-      statusChip={isView ? getStatusChip(status) : undefined}
+      onComplete={isView && Boolean(editingItem?.id) && canEditItem ? handleToggleComplete : undefined}
+      isCompleted={isCompleted}
+      completeLabel={isCompleted ? t('statusCompleted') : t('btnMarkDone')}
       maxWidth="md"
       canEdit={canEditItem}
       canDelete={canDeleteItem}

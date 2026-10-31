@@ -406,8 +406,6 @@ export const PermitModal: React.FC<PermitModalProps> = React.memo(({
         mode={currentMode}
         onModeChange={handleModeChange}
         title={modalTitle}
-        subtitle={editingPermit?.permitNumber}
-        statusChip={editingPermit ? <PermitStatusBadge endDate={editingPermit.endDate} /> : undefined}
         canEdit={canEdit}
         canDelete={Boolean(editingPermit && canDelete && onDelete)}
         onDelete={() => {
@@ -549,6 +547,12 @@ export const PermitModal: React.FC<PermitModalProps> = React.memo(({
               mode={currentMode}
               label={t('colEndDate')}
               value={formatDate(endDate)}
+              viewRender={() => (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="body1">{formatDate(endDate)}</Typography>
+                  {endDate && <PermitStatusBadge endDate={endDate} />}
+                </Box>
+              )}
             >
               <TextField
                 fullWidth

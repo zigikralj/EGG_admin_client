@@ -15,6 +15,13 @@ import {
 import { CloseIcon } from '../../icons';
 import { useLanguage } from '../../../context/LanguageContext';
 
+export type ModalDimension = string | number | Record<string, string | number>;
+
+const MUI_BREAKPOINTS = new Set<unknown>(['xs', 'sm', 'md', 'lg', 'xl', false]);
+
+const isMuiBreakpoint = (val: unknown): val is DialogProps['maxWidth'] =>
+  val === undefined || MUI_BREAKPOINTS.has(val);
+
 export interface BaseModalProps {
   open: boolean;
   onClose: () => void;
@@ -22,7 +29,31 @@ export interface BaseModalProps {
   subtitle?: React.ReactNode;
   headerAdornment?: React.ReactNode;
   headerActions?: React.ReactNode;
-  maxWidth?: DialogProps['maxWidth'];
+  /**
+   * Standard MUI breakpoint ('xs' | 'sm' | 'md' | 'lg' | 'xl' | false)
+   * or a custom CSS max-width value (e.g. 560, '720px', '85vw', { xs: '95vw', md: 640 }).
+   * Defaults to 'md'.
+   */
+  maxWidth?: DialogProps['maxWidth'] | ModalDimension;
+  /**
+   * Optional explicit width for the dialog Paper (e.g. 500, '80%', { xs: '100%', sm: 520 }).
+   */
+  width?: ModalDimension;
+  /**
+   * Maximum height of the dialog Paper.
+   * Defaults to { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' }.
+   */
+  maxHeight?: ModalDimension;
+  /**
+   * Optional explicit height for the dialog Paper.
+   * When omitted, defaults to `maxHeight` if `fullHeight` is true, or `'auto'` (fit content) if `fullHeight` is false.
+   */
+  height?: ModalDimension;
+  /**
+   * If true, expands the dialog height to fill `maxHeight`.
+   * If false (default), the dialog shrinks/grows to fit its content up to `maxHeight`.
+   */
+  fullHeight?: boolean;
   fullWidth?: boolean;
   isLoading?: boolean;
   children: React.ReactNode;
@@ -46,6 +77,10 @@ export const BaseModal: React.FC<BaseModalProps> = ({
   headerAdornment,
   headerActions,
   maxWidth = 'md',
+  width,
+  maxHeight,
+  height,
+  fullHeight = false,
   fullWidth = true,
   isLoading = false,
   children,
@@ -69,9 +104,20 @@ export const BaseModal: React.FC<BaseModalProps> = ({
     onClose();
   };
 
+  const resolvedMaxHeight: ModalDimension = maxHeight ?? {
+    xs: 'calc(100% - 32px)',
+    sm: 'calc(100% - 64px)',
+  };
+  const resolvedHeight: ModalDimension = height ?? (fullHeight ? resolvedMaxHeight : 'auto');
+
+  const hasCustomMaxWidth = !isMuiBreakpoint(maxWidth);
+  const dialogMaxWidth: DialogProps['maxWidth'] = hasCustomMaxWidth ? false : maxWidth;
+
   const defaultPaperSx: SxProps<Theme> = {
-    height: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
-    maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
+    height: resolvedHeight,
+    maxHeight: resolvedMaxHeight,
+    ...(hasCustomMaxWidth ? { maxWidth: maxWidth as any } : {}),
+    ...(width !== undefined ? { width: width as any } : {}),
     display: 'flex',
     flexDirection: 'column',
     ...paperSx,
@@ -87,7 +133,7 @@ export const BaseModal: React.FC<BaseModalProps> = ({
     <Dialog
       open={open}
       onClose={handleClose}
-      maxWidth={maxWidth}
+      maxWidth={dialogMaxWidth}
       fullWidth={fullWidth}
       slotProps={{
         ...slotProps,
@@ -99,15 +145,14 @@ export const BaseModal: React.FC<BaseModalProps> = ({
         component="div"
         sx={{
           display: 'flex',
-          alignItems: { xs: 'flex-start', sm: 'center' },
+          alignItems: 'center',
           justifyContent: 'space-between',
-          flexDirection: { xs: 'column', sm: 'row' },
           gap: 1.5,
           pb: 1,
           flexShrink: 0,
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap', minWidth: 0 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap', minWidth: 0, flex: 1 }}>
           {typeof title === 'string' ? (
             <Typography variant="h6" component="h2" sx={{ fontWeight: 700, wordBreak: 'break-word' }}>
               {title}
@@ -123,14 +168,14 @@ export const BaseModal: React.FC<BaseModalProps> = ({
           )}
         </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', ml: 'auto' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0, ml: 'auto' }}>
           {headerActions}
           {!hideCloseButton && (
             <IconButton
               size="small"
               onClick={onClose}
               aria-label={t('btnClose')}
-              sx={{ color: 'text.secondary', ml: 0.5 }}
+              sx={{ color: 'text.secondary' }}
             >
               <CloseIcon fontSize="small" />
             </IconButton>
