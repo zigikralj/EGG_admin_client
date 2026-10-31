@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.11.7] - 2026-10-31
+
+- Refactoring (#103) by @zigikralj
+
 ## [v1.11.6] - 2026-10-28
 
 - Restructure project (#101) by @zigikralj
