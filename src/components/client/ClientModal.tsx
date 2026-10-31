@@ -139,11 +139,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({
       } as any);
 
       if (res.success) {
-        if (editingClient && currentMode === 'edit') {
-          handleModeChange('view');
-        } else {
-          onClose();
-        }
+        onClose();
       } else if (res.error) {
         onError?.(res.error || t('errorSavingClient'));
       }

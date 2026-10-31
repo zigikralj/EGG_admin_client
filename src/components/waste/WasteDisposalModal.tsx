@@ -776,11 +776,7 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
 
     const res = await onSave(payload);
     if (res !== false) {
-      if (editingItem && currentMode === 'edit') {
-        handleModeChange('view');
-      } else {
-        onClose();
-      }
+      onClose();
     }
   };
 

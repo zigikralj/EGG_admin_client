@@ -291,11 +291,7 @@ export const ProvidedServiceModal: React.FC<ProvidedServiceModalProps> = ({
       const res = await onSaveProvidedService(payload);
 
       if (res.success) {
-        if (editingItem && currentMode === 'edit') {
-          handleModeChange('view');
-        } else {
-          onClose();
-        }
+        onClose();
       } else if (res.error) {
         onError?.(res.error || (t('errorSaving' as any)));
       }

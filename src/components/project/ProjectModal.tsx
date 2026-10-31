@@ -366,11 +366,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
             }
           }
 
-          if (isEdit) {
-            setMode('view');
-          } else {
-            onClose();
-          }
+          onClose();
         } else {
           setErrorDialogState({
             open: true,
@@ -378,11 +374,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
           });
         }
       } else {
-        if (isEdit) {
-          setMode('view');
-        } else {
-          onClose();
-        }
+        onClose();
       }
     } catch (err: any) {
       setErrorDialogState({
