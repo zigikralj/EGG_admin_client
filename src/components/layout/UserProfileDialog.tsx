@@ -1,10 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Typography,
   IconButton,
   Box,
   Avatar,
@@ -19,26 +14,13 @@ import {
   Alert,
   InputAdornment,
 } from '@mui/material';
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+import { BaseModal } from '../common/modal/BaseModal';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useRoleLabels } from '../../hooks/useRoleLabels';
 import { apiFetch } from '../../api';
 import { API_ROUTES } from '../../constants';
-import { CloseIcon, PhotoCameraIcon, PersonIcon, EmailIcon, PhoneIcon, WcIcon, BadgeIcon, VpnKeyIcon, ExpandMoreIcon, ExpandLessIcon, LockIcon, Visibility, VisibilityOff } from '../icons';
+import { PhotoCameraIcon, PersonIcon, EmailIcon, PhoneIcon, WcIcon, BadgeIcon, VpnKeyIcon, ExpandMoreIcon, ExpandLessIcon, LockIcon, Visibility, VisibilityOff } from '../icons';
 
 interface UserProfileDialogProps {
   isOpen: boolean;
@@ -175,264 +157,253 @@ export const UserProfileDialog: React.FC<UserProfileDialogProps> = ({ isOpen, on
     : 'U';
 
   return (
-    <Dialog
+    <BaseModal
       open={isOpen}
       onClose={onClose}
+      title={t('userProfileTitle')}
       maxWidth="xs"
       fullWidth
-      slotProps={{
-        paper: {
-          sx: { borderRadius: 3, p: 1 },
-        },
-      }}
+      actions={
+        <>
+          <Button
+            onClick={onClose}
+            variant="outlined"
+            fullWidth
+            sx={{ borderRadius: 2 }}
+          >
+            {t('btnCancel')}
+          </Button>
+          <Button
+            onClick={handleSaveProfile}
+            variant="contained"
+            disabled={isSavingProfile}
+            fullWidth
+            sx={{ borderRadius: 2 }}
+          >
+            {t('btnSave')}
+          </Button>
+        </>
+      }
+      actionsSx={{ p: 2, gap: 1 }}
     >
-      <DialogTitle component="div" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
-        <Typography variant="h6" component="h2" sx={{ fontWeight: 700 }}>
-          {t('userProfileTitle')}
-        </Typography>
-        <IconButton size="small" onClick={onClose}>
-          <CloseIcon fontSize="small" />
-        </IconButton>
-      </DialogTitle>
-      <DialogContent dividers>
-        {/* AVATAR EDIT / UPLOAD SECTION */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 1.5, mb: 1 }}>
-          <Box sx={{ position: 'relative' }}>
-            <Avatar
-              src={editAvatarUrl ? editAvatarUrl : (editAvatarUrl === '' ? undefined : currentUser?.avatarUrl || undefined)}
+      {/* AVATAR EDIT / UPLOAD SECTION */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 1.5, mb: 1 }}>
+        <Box sx={{ position: 'relative' }}>
+          <Avatar
+            src={editAvatarUrl ? editAvatarUrl : (editAvatarUrl === '' ? undefined : currentUser?.avatarUrl || undefined)}
+            sx={{
+              bgcolor: 'primary.main',
+              width: 84,
+              height: 84,
+              fontSize: '2rem',
+              fontWeight: 700,
+              border: '3px solid',
+              borderColor: 'background.paper',
+              boxShadow: 3,
+            }}
+          >
+            {editInitials}
+          </Avatar>
+          <Tooltip title="Upload photo">
+            <IconButton
+              color="primary"
+              onClick={() => fileInputRef.current?.click()}
               sx={{
-                bgcolor: 'primary.main',
-                width: 84,
-                height: 84,
-                fontSize: '2rem',
-                fontWeight: 700,
-                border: '3px solid',
-                borderColor: 'background.paper',
+                position: 'absolute',
+                bottom: -4,
+                right: -4,
+                bgcolor: 'background.paper',
                 boxShadow: 3,
+                p: 0.75,
+                border: '2px solid',
+                borderColor: 'background.paper',
+                '&:hover': { bgcolor: 'primary.50' },
               }}
             >
-              {editInitials}
-            </Avatar>
-            <Tooltip title="Upload photo">
-              <IconButton
-                color="primary"
-                onClick={() => fileInputRef.current?.click()}
-                sx={{
-                  position: 'absolute',
-                  bottom: -4,
-                  right: -4,
-                  bgcolor: 'background.paper',
-                  boxShadow: 3,
-                  p: 0.75,
-                  border: '2px solid',
-                  borderColor: 'background.paper',
-                  '&:hover': { bgcolor: 'primary.50' },
-                }}
-              >
-                <PhotoCameraIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <input
-              type="file"
-              ref={fileInputRef}
-              accept="image/*"
-              style={{ display: 'none' }}
-              onChange={handleAvatarFileChange}
+              <PhotoCameraIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept="image/*"
+            style={{ display: 'none' }}
+            onChange={handleAvatarFileChange}
+          />
+        </Box>
+        {(editAvatarUrl || currentUser?.avatarUrl) && editAvatarUrl !== '' && (
+          <Button
+            size="small"
+            color="error"
+            onClick={handleRemoveAvatar}
+            sx={{ mt: 1, textTransform: 'none', fontSize: '0.75rem', fontWeight: 600 }}
+          >
+            Remove photo
+          </Button>
+        )}
+      </Box>
+
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, py: 1 }}>
+        <TextField
+          label={t('lblFullName')}
+          placeholder={t('phFullName')}
+          value={editProfileName}
+          onChange={(e) => setEditProfileName(e.target.value)}
+          fullWidth
+          size="small"
+          required
+          slotProps={{
+            input: {
+              startAdornment: <PersonIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />,
+            },
+          }}
+        />
+        <TextField
+          label={t('colEmail')}
+          placeholder={t('phEmail')}
+          value={editProfileEmail}
+          onChange={(e) => setEditProfileEmail(e.target.value)}
+          fullWidth
+          size="small"
+          slotProps={{
+            input: {
+              startAdornment: <EmailIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />,
+            },
+          }}
+        />
+        <TextField
+          label={t('colPhone')}
+          placeholder={t('phPhone')}
+          value={editProfilePhone}
+          onChange={(e) => setEditProfilePhone(e.target.value)}
+          fullWidth
+          size="small"
+          slotProps={{
+            input: {
+              startAdornment: <PhoneIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />,
+            },
+          }}
+        />
+        <FormControl fullWidth size="small">
+          <Select
+            value={editProfileGender}
+            onChange={(e) => setEditProfileGender(e.target.value as string)}
+            displayEmpty
+            startAdornment={<WcIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />}
+          >
+            <MenuItem value="">
+              <em>{t('genderNotSpecified')} ({t('lblGender')})</em>
+            </MenuItem>
+            <MenuItem value="Male">{t('genderMale')}</MenuItem>
+            <MenuItem value="Female">{t('genderFemale')}</MenuItem>
+            <MenuItem value="Other">{t('genderOther')}</MenuItem>
+          </Select>
+        </FormControl>
+        <TextField
+          label={t('colRole')}
+          value={getRoleBadgeLabel(role)}
+          disabled
+          fullWidth
+          size="small"
+          slotProps={{
+            input: {
+              startAdornment: <BadgeIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />,
+            },
+          }}
+        />
+        <Divider sx={{ my: 0.5 }} />
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={() => {
+            setChangePasswordOpen(!changePasswordOpen);
+            setPasswordError('');
+            setPasswordSuccess('');
+          }}
+          startIcon={<VpnKeyIcon fontSize="small" />}
+          endIcon={changePasswordOpen ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+          sx={{ justifyContent: 'space-between', textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
+        >
+          {t('lblChangePassword')}
+        </Button>
+        <Collapse in={changePasswordOpen}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, pt: 1, pb: 0.5 }}>
+            {passwordError && (
+              <Alert severity="error" sx={{ py: 0.5, borderRadius: 2, fontSize: '0.8125rem' }}>
+                {passwordError}
+              </Alert>
+            )}
+            {passwordSuccess && (
+              <Alert severity="success" sx={{ py: 0.5, borderRadius: 2, fontSize: '0.8125rem' }}>
+                {passwordSuccess}
+              </Alert>
+            )}
+            <TextField
+              label={t('lblCurrentPassword')}
+              placeholder={t('phCurrentPassword')}
+              type={showCurrentPassword ? 'text' : 'password'}
+              value={currentPassword}
+              onChange={(e) => { setCurrentPassword(e.target.value); setPasswordError(''); }}
+              fullWidth
+              size="small"
+              slotProps={{
+                input: {
+                  startAdornment: <LockIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />,
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton size="small" onClick={() => setShowCurrentPassword(!showCurrentPassword)} edge="end">
+                        {showCurrentPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
+            <TextField
+              label={t('lblNewPassword')}
+              placeholder={t('phNewPassword')}
+              type={showNewPassword ? 'text' : 'password'}
+              value={newPassword}
+              onChange={(e) => { setNewPassword(e.target.value); setPasswordError(''); }}
+              fullWidth
+              size="small"
+              slotProps={{
+                input: {
+                  startAdornment: <VpnKeyIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />,
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton size="small" onClick={() => setShowNewPassword(!showNewPassword)} edge="end">
+                        {showNewPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
+            <TextField
+              label={t('lblConfirmNewPassword')}
+              placeholder={t('phConfirmNewPassword')}
+              type={showConfirmPassword ? 'text' : 'password'}
+              value={confirmPassword}
+              onChange={(e) => { setConfirmPassword(e.target.value); setPasswordError(''); }}
+              fullWidth
+              size="small"
+              slotProps={{
+                input: {
+                  startAdornment: <VpnKeyIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />,
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton size="small" onClick={() => setShowConfirmPassword(!showConfirmPassword)} edge="end">
+                        {showConfirmPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
+              }}
             />
           </Box>
-          {(editAvatarUrl || currentUser?.avatarUrl) && editAvatarUrl !== '' && (
-            <Button
-              size="small"
-              color="error"
-              onClick={handleRemoveAvatar}
-              sx={{ mt: 1, textTransform: 'none', fontSize: '0.75rem', fontWeight: 600 }}
-            >
-              Remove photo
-            </Button>
-          )}
-        </Box>
-
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, py: 1 }}>
-          <TextField
-            label={t('lblFullName')}
-            placeholder={t('phFullName')}
-            value={editProfileName}
-            onChange={(e) => setEditProfileName(e.target.value)}
-            fullWidth
-            size="small"
-            required
-            slotProps={{
-              input: {
-                startAdornment: <PersonIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />,
-              },
-            }}
-          />
-          <TextField
-            label={t('colEmail')}
-            placeholder={t('phEmail')}
-            value={editProfileEmail}
-            onChange={(e) => setEditProfileEmail(e.target.value)}
-            fullWidth
-            size="small"
-            slotProps={{
-              input: {
-                startAdornment: <EmailIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />,
-              },
-            }}
-          />
-          <TextField
-            label={t('colPhone')}
-            placeholder={t('phPhone')}
-            value={editProfilePhone}
-            onChange={(e) => setEditProfilePhone(e.target.value)}
-            fullWidth
-            size="small"
-            slotProps={{
-              input: {
-                startAdornment: <PhoneIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />,
-              },
-            }}
-          />
-          <FormControl fullWidth size="small">
-            <Select
-              value={editProfileGender}
-              onChange={(e) => setEditProfileGender(e.target.value as string)}
-              displayEmpty
-              startAdornment={<WcIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />}
-            >
-              <MenuItem value="">
-                <em>{t('genderNotSpecified')} ({t('lblGender')})</em>
-              </MenuItem>
-              <MenuItem value="Male">{t('genderMale')}</MenuItem>
-              <MenuItem value="Female">{t('genderFemale')}</MenuItem>
-              <MenuItem value="Other">{t('genderOther')}</MenuItem>
-            </Select>
-          </FormControl>
-          <TextField
-            label={t('colRole')}
-            value={getRoleBadgeLabel(role)}
-            disabled
-            fullWidth
-            size="small"
-            slotProps={{
-              input: {
-                startAdornment: <BadgeIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />,
-              },
-            }}
-          />
-          <Divider sx={{ my: 0.5 }} />
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={() => {
-              setChangePasswordOpen(!changePasswordOpen);
-              setPasswordError('');
-              setPasswordSuccess('');
-            }}
-            startIcon={<VpnKeyIcon fontSize="small" />}
-            endIcon={changePasswordOpen ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-            sx={{ justifyContent: 'space-between', textTransform: 'none', fontWeight: 600, borderRadius: 2 }}
-          >
-            {t('lblChangePassword')}
-          </Button>
-          <Collapse in={changePasswordOpen}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, pt: 1, pb: 0.5 }}>
-              {passwordError && (
-                <Alert severity="error" sx={{ py: 0.5, borderRadius: 2, fontSize: '0.8125rem' }}>
-                  {passwordError}
-                </Alert>
-              )}
-              {passwordSuccess && (
-                <Alert severity="success" sx={{ py: 0.5, borderRadius: 2, fontSize: '0.8125rem' }}>
-                  {passwordSuccess}
-                </Alert>
-              )}
-              <TextField
-                label={t('lblCurrentPassword')}
-                placeholder={t('phCurrentPassword')}
-                type={showCurrentPassword ? 'text' : 'password'}
-                value={currentPassword}
-                onChange={(e) => { setCurrentPassword(e.target.value); setPasswordError(''); }}
-                fullWidth
-                size="small"
-                slotProps={{
-                  input: {
-                    startAdornment: <LockIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />,
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton size="small" onClick={() => setShowCurrentPassword(!showCurrentPassword)} edge="end">
-                          {showCurrentPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-              <TextField
-                label={t('lblNewPassword')}
-                placeholder={t('phNewPassword')}
-                type={showNewPassword ? 'text' : 'password'}
-                value={newPassword}
-                onChange={(e) => { setNewPassword(e.target.value); setPasswordError(''); }}
-                fullWidth
-                size="small"
-                slotProps={{
-                  input: {
-                    startAdornment: <VpnKeyIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />,
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton size="small" onClick={() => setShowNewPassword(!showNewPassword)} edge="end">
-                          {showNewPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-              <TextField
-                label={t('lblConfirmNewPassword')}
-                placeholder={t('phConfirmNewPassword')}
-                type={showConfirmPassword ? 'text' : 'password'}
-                value={confirmPassword}
-                onChange={(e) => { setConfirmPassword(e.target.value); setPasswordError(''); }}
-                fullWidth
-                size="small"
-                slotProps={{
-                  input: {
-                    startAdornment: <VpnKeyIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />,
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton size="small" onClick={() => setShowConfirmPassword(!showConfirmPassword)} edge="end">
-                          {showConfirmPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-            </Box>
-          </Collapse>
-        </Box>
-      </DialogContent>
-      <DialogActions sx={{ p: 2, gap: 1 }}>
-        <Button
-          onClick={onClose}
-          variant="outlined"
-          fullWidth
-          sx={{ borderRadius: 2 }}
-        >
-          {t('btnCancel')}
-        </Button>
-        <Button
-          onClick={handleSaveProfile}
-          variant="contained"
-          disabled={isSavingProfile}
-          fullWidth
-          sx={{ borderRadius: 2 }}
-        >
-          {t('btnSave')}
-        </Button>
-      </DialogActions>
-    </Dialog>
+        </Collapse>
+      </Box>
+    </BaseModal>
   );
 };

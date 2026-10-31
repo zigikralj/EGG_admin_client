@@ -32,6 +32,7 @@ import { TableSearchInput } from '../../components/common/TableSearchInput';
 import { TableQuickFilters, type QuickFilterItem } from '../../components/common/TableQuickFilters';
 import { DateRangeFilter } from '../../components/common/DateRangeFilter';
 import { PermitModal } from '../../components/permit';
+import { type ModalMode } from '../../components/common/modal/ViewEditModalBase';
 import { ErrorDialog } from '../../components/common/dialogs/ErrorDialog';
 import { ConfirmDialog } from '../../components/common/dialogs/ConfirmDialog';
 import { HistoryTimelineModal } from '../../components/history';
@@ -111,6 +112,7 @@ const PermitsPage: React.FC<Props> = ({
   const canDeleteReminder = hasPermission('reminders', 'delete');
 
   const [isOpen, setIsOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<ModalMode>('view');
   const [editingPermit, setEditingPermit] = useState<Permit | null>(null);
   const [historyModalState, setHistoryModalState] = useState<{ open: boolean; permit: Permit | null }>({
     open: false,
@@ -345,12 +347,20 @@ const PermitsPage: React.FC<Props> = ({
   const openNew = () => {
     if (!canCreate) return;
     setEditingPermit(null);
+    setModalMode('create');
+    setIsOpen(true);
+  };
+
+  const openView = (p: Permit) => {
+    setEditingPermit(p);
+    setModalMode('view');
     setIsOpen(true);
   };
 
   const openEdit = (p: Permit) => {
     if (!canEdit) return;
     setEditingPermit(p);
+    setModalMode('edit');
     setIsOpen(true);
   };
 
@@ -759,7 +769,7 @@ const PermitsPage: React.FC<Props> = ({
           canViewHistory={canViewHistory}
           canCreateReminder={canCreateReminder}
           hasAnyRowAction={hasAnyRowAction}
-          onRowClick={openEdit}
+          onRowClick={openView}
           onEditPermit={openEdit}
           onDeletePermit={onDeletePermit}
           onOpenHistory={(permit) => setHistoryModalState({ open: true, permit })}
@@ -783,6 +793,8 @@ const PermitsPage: React.FC<Props> = ({
         open={isOpen}
         onClose={() => setIsOpen(false)}
         editingPermit={editingPermit}
+        mode={modalMode}
+        onModeChange={setModalMode}
         clients={clients}
         canEdit={canEdit}
         canCreate={canCreate}

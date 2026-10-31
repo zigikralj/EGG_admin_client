@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Box } from '@mui/material';
+import { Box, Typography, Chip, Button } from '@mui/material';
 import { ReminderPanel } from '../../components/tracker/ReminderPanel';
+import { AddIcon } from '../../components/icons';
 import {
   useRemindersQuery,
   useProjectsQuery,
@@ -41,7 +42,25 @@ export const TrackerRemindersPage: React.FC<TrackerRemindersPageProps> = () => {
   } = useRemindersMutations();
 
   return (
-    <Box sx={{ width: '100%', py: 1 }}>
+    <Box sx={{ width: '100%', py: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5, mb: 0.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+            {t('remindersTitle')}
+          </Typography>
+          <Chip label={(reminders || []).length} size="small" color="primary" sx={{ fontWeight: 700 }} />
+        </Box>
+        <Button
+          variant="contained"
+          color="primary"
+          startIcon={<AddIcon />}
+          onClick={() => setNewReminderTrigger((prev) => prev + 1)}
+          size="small"
+          sx={{ borderRadius: 1.5, textTransform: 'none', fontWeight: 600 }}
+        >
+          {t('btnNewReminder')}
+        </Button>
+      </Box>
       <ReminderPanel
         isFullHeight
         hideNotch

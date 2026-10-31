@@ -35,6 +35,7 @@ import { TableSearchInput } from '../../components/common/TableSearchInput';
 import { TableQuickFilters, type QuickFilterItem } from '../../components/common/TableQuickFilters';
 import { ErrorDialog } from '../../components/common/dialogs/ErrorDialog';
 import { ReminderModal } from '../../components/reminder';
+import type { ModalMode } from '../../components/common/modal/ViewEditModalBase';
 import { useTableView } from '../../hooks/useTableView';
 import { AddIcon, EditIcon, DeleteIcon, CheckIcon, ArrowUpwardIcon, ArrowDownwardIcon, RefreshIcon } from '../../components/icons';
 
@@ -326,15 +327,25 @@ const RemindersPage: React.FC<Props> = ({
     { id: 'notes', label: t('colNotes') },
   ];
 
+  const [modalMode, setModalMode] = useState<ModalMode>('view');
+
   const handleOpenNew = () => {
     if (!canCreate) return;
     setEditingReminder(null);
+    setModalMode('create');
     setIsOpen(true);
   };
 
   const handleOpenEdit = (rem: Reminder) => {
     if (!getItemPermissions(rem).canEdit) return;
     setEditingReminder(rem);
+    setModalMode('edit');
+    setIsOpen(true);
+  };
+
+  const handleOpenView = (rem: Reminder) => {
+    setEditingReminder(rem);
+    setModalMode('view');
     setIsOpen(true);
   };
 
@@ -695,7 +706,7 @@ const RemindersPage: React.FC<Props> = ({
                 displayedReminders.map((rem) => {
                   const { canEdit: itemCanEdit, canDelete: itemCanDelete } = getItemPermissions(rem);
                   return (
-                    <TableRow key={rem.id} hover>
+                    <TableRow key={rem.id} hover onClick={() => handleOpenView(rem)} sx={{ cursor: 'pointer' }}>
                     {activeCols.includes('title') && (
                       <TableCell>
                         <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
@@ -738,7 +749,8 @@ const RemindersPage: React.FC<Props> = ({
                               <IconButton
                                 size="small"
                                 color="success"
-                                onClick={async () => {
+                                onClick={async (e) => {
+                                  e.stopPropagation();
                                   await handleStatusChange(rem.id, 'Completed');
                                 }}
                               >
@@ -748,7 +760,14 @@ const RemindersPage: React.FC<Props> = ({
                           )}
                           {itemCanEdit && (
                             <Tooltip title={t('btnEdit')}>
-                              <IconButton size="small" color="primary" onClick={() => handleOpenEdit(rem)}>
+                              <IconButton
+                                size="small"
+                                color="primary"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenEdit(rem);
+                                }}
+                              >
                                 <EditIcon fontSize="small" />
                               </IconButton>
                             </Tooltip>
@@ -758,7 +777,10 @@ const RemindersPage: React.FC<Props> = ({
                               <IconButton
                                 size="small"
                                 color="error"
-                                onClick={() => onDeleteReminder(rem.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDeleteReminder(rem.id);
+                                }}
                               >
                                 <DeleteIcon fontSize="small" />
                               </IconButton>
@@ -787,13 +809,20 @@ const RemindersPage: React.FC<Props> = ({
         />
       </Card>
 
-      {/* CREATE / EDIT DIALOG */}
+      {/* CREATE / EDIT / VIEW DIALOG */}
       <ReminderModal
         open={isOpen}
         onClose={() => setIsOpen(false)}
         editingReminder={editingReminder}
+        initialMode={modalMode}
         canCreate={canCreate}
         canEdit={editingReminder ? getItemPermissions(editingReminder).canEdit : canCreate}
+        canDelete={editingReminder ? getItemPermissions(editingReminder).canDelete : false}
+        onDelete={(id) => {
+          setIsOpen(false);
+          onDeleteReminder(id);
+        }}
+        onStatusChange={handleStatusChange}
         isRestricted={isRemindersRestricted}
         currentUser={currentUser}
         onSave={handleSaveReminder}

@@ -1,11 +1,6 @@
 import React, { useState } from 'react';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Typography,
-  IconButton,
   Box,
   ToggleButtonGroup,
   ToggleButton,
@@ -15,17 +10,13 @@ import {
   MenuItem,
   Button,
 } from '@mui/material';
-
-
-
-
-
+import { BaseModal } from '../common/modal/BaseModal';
 import { useLanguage } from '../../context/LanguageContext';
 import { useThemeContext } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { LanguageSelector } from '../common/LanguageSelector';
 import { TableOptionsSelector, type ColumnDef } from '../common/ColumnSelector';
-import { CloseIcon, LightModeIcon, DarkModeIcon, SettingsBrightnessIcon } from '../icons';
+import { LightModeIcon, DarkModeIcon, SettingsBrightnessIcon } from '../icons';
 
 type EntityType = 'projects' | 'clients' | 'users' | 'services' | 'providedServices' | 'categories' | 'reminders' | 'invoices';
 
@@ -186,138 +177,127 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   };
 
   return (
-    <Dialog
+    <BaseModal
       open={isOpen}
       onClose={onClose}
+      title={t('userPreferencesTitle')}
       maxWidth="xs"
       fullWidth
-      slotProps={{
-        paper: {
-          sx: { borderRadius: 3, p: 1 },
-        },
-      }}
-    >
-      <DialogTitle component="div" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1 }}>
-        <Typography variant="h6" component="h2" sx={{ fontWeight: 700 }}>
-          {t('userPreferencesTitle')}
-        </Typography>
-        <IconButton size="small" onClick={onClose}>
-          <CloseIcon fontSize="small" />
-        </IconButton>
-      </DialogTitle>
-      <DialogContent dividers sx={{ py: 2 }}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-          {/* THEME SELECTOR */}
-          <Box>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-              {t('lblTheme')}
+      actions={
+        <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <Button onClick={onClose} variant="contained" fullWidth sx={{ borderRadius: 2 }}>
+            {t('btnSave')}
+          </Button>
+          {typeof __APP_VERSION__ !== 'undefined' && (
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.secondary',
+                fontSize: '0.7rem',
+                textAlign: 'center',
+                mt: 0.5,
+              }}
+            >
+              {t('appVersion')} {__APP_VERSION__}
+              {typeof __COMMIT_HASH__ !== 'undefined' && __COMMIT_HASH__ ? ` (${__COMMIT_HASH__})` : ''}
+              {typeof __BUILD_TIME__ !== 'undefined' && __BUILD_TIME__
+                ? ` • ${new Date(__BUILD_TIME__).toLocaleDateString()}`
+                : ''}
             </Typography>
-            <ToggleButtonGroup
-              value={themeMode}
-              exclusive
-              onChange={(_, newMode) => {
-                if (newMode) {
-                  setThemeMode(newMode);
-                  if (onPreferenceChange) {
-                    onPreferenceChange('theme', newMode);
-                  }
+          )}
+        </Box>
+      }
+      actionsSx={{ p: 2 }}
+    >
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, py: 1 }}>
+        {/* THEME SELECTOR */}
+        <Box>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+            {t('lblTheme')}
+          </Typography>
+          <ToggleButtonGroup
+            value={themeMode}
+            exclusive
+            onChange={(_, newMode) => {
+              if (newMode) {
+                setThemeMode(newMode);
+                if (onPreferenceChange) {
+                  onPreferenceChange('theme', newMode);
+                }
+              }
+            }}
+            fullWidth
+            size="small"
+          >
+            <ToggleButton value="light" sx={{ gap: 1, py: 0.8 }}>
+              <LightModeIcon fontSize="small" />
+              {t('themeLight')}
+            </ToggleButton>
+            <ToggleButton value="dark" sx={{ gap: 1, py: 0.8 }}>
+              <DarkModeIcon fontSize="small" />
+              {t('themeDark')}
+            </ToggleButton>
+            <ToggleButton value="system" sx={{ gap: 1, py: 0.8 }}>
+              <SettingsBrightnessIcon fontSize="small" />
+              {t('themeSystem')}
+            </ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
+
+        <Divider />
+
+        {/* LANGUAGE SELECTOR */}
+        <Box>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+            {t('lblLanguage')}
+          </Typography>
+          <LanguageSelector />
+        </Box>
+
+        <Divider />
+
+        {/* DYNAMIC ENTITY TABLE OPTIONS SELECTOR */}
+        <Box>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+            {t('lblTableColumns')}
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+            <FormControl size="small" sx={{ minWidth: 140, flexGrow: 1 }}>
+              <Select
+                value={prefSelectedEntity}
+                onChange={(e) => setPrefSelectedEntity(e.target.value as EntityType)}
+                sx={{ borderRadius: 2 }}
+              >
+                {entityOptions.map((opt) => (
+                  <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <TableOptionsSelector
+              columns={getEntityColumns(prefSelectedEntity)}
+              visibleColumns={getEntityVisibleColumns(prefSelectedEntity)}
+              onChange={(cols) => {
+                if (onPreferenceChange) {
+                  onPreferenceChange(`cols_${prefSelectedEntity}`, cols);
                 }
               }}
-              fullWidth
-              size="small"
-            >
-              <ToggleButton value="light" sx={{ gap: 1, py: 0.8 }}>
-                <LightModeIcon fontSize="small" />
-                {t('themeLight')}
-              </ToggleButton>
-              <ToggleButton value="dark" sx={{ gap: 1, py: 0.8 }}>
-                <DarkModeIcon fontSize="small" />
-                {t('themeDark')}
-              </ToggleButton>
-              <ToggleButton value="system" sx={{ gap: 1, py: 0.8 }}>
-                <SettingsBrightnessIcon fontSize="small" />
-                {t('themeSystem')}
-              </ToggleButton>
-            </ToggleButtonGroup>
-          </Box>
-
-          <Divider />
-
-          {/* LANGUAGE SELECTOR */}
-          <Box>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-              {t('lblLanguage')}
-            </Typography>
-            <LanguageSelector />
-          </Box>
-
-          <Divider />
-
-          {/* DYNAMIC ENTITY TABLE OPTIONS SELECTOR */}
-          <Box>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-              {t('lblTableColumns')}
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
-              <FormControl size="small" sx={{ minWidth: 140, flexGrow: 1 }}>
-                <Select
-                  value={prefSelectedEntity}
-                  onChange={(e) => setPrefSelectedEntity(e.target.value as EntityType)}
-                  sx={{ borderRadius: 2 }}
-                >
-                  {entityOptions.map((opt) => (
-                    <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <TableOptionsSelector
-                columns={getEntityColumns(prefSelectedEntity)}
-                visibleColumns={getEntityVisibleColumns(prefSelectedEntity)}
-                onChange={(cols) => {
-                  if (onPreferenceChange) {
-                    onPreferenceChange(`cols_${prefSelectedEntity}`, cols);
-                  }
-                }}
-                rowsPerPageOptions={getEntityRowsPerPageOptions(prefSelectedEntity)}
-                onRowsPerPageOptionsChange={(opts) => {
-                  if (onPreferenceChange) {
-                    onPreferenceChange(`rowsPerPageOptions_${prefSelectedEntity}`, opts);
-                  }
-                }}
-                rowsPerPage={getEntityRowsPerPage(prefSelectedEntity)}
-                onRowsPerPageChange={(rpp) => {
-                  if (onPreferenceChange) {
-                    onPreferenceChange(`rowsPerPage_${prefSelectedEntity}`, rpp);
-                  }
-                }}
-              />
-            </Box>
+              rowsPerPageOptions={getEntityRowsPerPageOptions(prefSelectedEntity)}
+              onRowsPerPageOptionsChange={(opts) => {
+                if (onPreferenceChange) {
+                  onPreferenceChange(`rowsPerPageOptions_${prefSelectedEntity}`, opts);
+                }
+              }}
+              rowsPerPage={getEntityRowsPerPage(prefSelectedEntity)}
+              onRowsPerPageChange={(rpp) => {
+                if (onPreferenceChange) {
+                  onPreferenceChange(`rowsPerPage_${prefSelectedEntity}`, rpp);
+                }
+              }}
+            />
           </Box>
         </Box>
-      </DialogContent>
-      <DialogActions sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
-        <Button onClick={onClose} variant="contained" fullWidth sx={{ borderRadius: 2 }}>
-          {t('btnSave')}
-        </Button>
-        {typeof __APP_VERSION__ !== 'undefined' && (
-          <Typography
-            variant="caption"
-            sx={{
-              color: 'text.secondary',
-              fontSize: '0.7rem',
-              textAlign: 'center',
-              mt: 0.5,
-            }}
-          >
-            {t('appVersion')} {__APP_VERSION__}
-            {typeof __COMMIT_HASH__ !== 'undefined' && __COMMIT_HASH__ ? ` (${__COMMIT_HASH__})` : ''}
-            {typeof __BUILD_TIME__ !== 'undefined' && __BUILD_TIME__
-              ? ` • ${new Date(__BUILD_TIME__).toLocaleDateString()}`
-              : ''}
-          </Typography>
-        )}
-      </DialogActions>
-    </Dialog>
+      </Box>
+    </BaseModal>
   );
 };

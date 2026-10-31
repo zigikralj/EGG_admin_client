@@ -1,9 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Button,
   IconButton,
   Typography,
@@ -13,31 +9,19 @@ import {
   Tooltip,
   Snackbar,
   Alert,
-  Divider,
   TextField,
   CircularProgress,
   useTheme,
   alpha,
 } from '@mui/material';
 
-
-
-
-
-
-
-
-
-
-
-
-
 import { apiFetch } from '../../api';
 import { API_ROUTES } from '../../constants';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import { ViewEditModalBase } from '../common/modal/ViewEditModalBase';
 import type { CompanyInfo } from '../../types';
-import { CloseIcon, BusinessIcon, ContentCopyIcon, CheckCircleIcon, LocationOnIcon, EmailIcon, AccountBalanceIcon, BadgeIcon, WorkIcon, EditIcon, SaveIcon, AddIcon, DeleteIcon } from '../icons';
+import { BusinessIcon, ContentCopyIcon, CheckCircleIcon, LocationOnIcon, EmailIcon, AccountBalanceIcon, BadgeIcon, WorkIcon, AddIcon, DeleteIcon } from '../icons';
 
 interface CompanyInfoModalProps {
   open: boolean;
@@ -229,44 +213,15 @@ export const CompanyInfoModal: React.FC<CompanyInfoModalProps> = ({ open, onClos
 
   return (
     <>
-      <Dialog
+      <ViewEditModalBase
         open={open}
-        onClose={isSaving ? undefined : onClose}
-        maxWidth="md"
-        fullWidth
-        scroll="paper"
-        slotProps={{
-          paper: {
-            sx: {
-              maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
-              display: 'flex',
-              flexDirection: 'column',
-              borderRadius: 3,
-              backgroundImage: 'none',
-              boxShadow: isDark
-                ? '0 24px 48px -12px rgba(0, 0, 0, 0.7)'
-                : '0 24px 48px -12px rgba(15, 23, 42, 0.18)',
-              border: isDark ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.06)',
-              overflow: 'hidden',
-            },
-          },
+        onClose={isSaving ? () => {} : onClose}
+        mode={isEditing ? 'edit' : 'view'}
+        onModeChange={(m) => {
+          if (m === 'edit') handleStartEdit();
+          else handleCancelEdit();
         }}
-      >
-        {/* MODAL HEADER */}
-        <DialogTitle
-          sx={{
-            flexShrink: 0,
-            py: 1.5,
-            px: { xs: 2, sm: 2.5 },
-            bgcolor: 'background.paper',
-            color: 'text.primary',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            borderBottom: 1,
-            borderColor: 'divider',
-          }}
-        >
+        title={
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
             <Box
               sx={{
@@ -284,32 +239,42 @@ export const CompanyInfoModal: React.FC<CompanyInfoModalProps> = ({ open, onClos
               {t('companyInfoTitle')}
             </Typography>
           </Box>
-
-          <IconButton
-            onClick={onClose}
-            disabled={isSaving}
-            size="small"
-            sx={{
-              color: 'text.secondary',
-              '&:hover': {
-                color: 'text.primary',
-                bgcolor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.04)',
-              },
-            }}
-          >
-            <CloseIcon fontSize="small" />
-          </IconButton>
-        </DialogTitle>
-
-        {/* MODAL CONTENT */}
-        <DialogContent sx={{ p: { xs: 2, sm: 3 }, display: 'flex', flexDirection: 'column', gap: 2.5, flex: 1, overflowY: 'auto' }}>
-          {isLoading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
-              <CircularProgress size={36} />
-            </Box>
-          ) : (
-            <>
-              {/* SECTION 1: BASIC & LEGAL IDENTIFICATION */}
+        }
+        canEdit={canEdit}
+        isSaving={isSaving}
+        onSave={handleSave}
+        onCancel={handleCancelEdit}
+        editLabel={t('btnEditCompanyInfo')}
+        saveLabel={t('btnSaveCompanyInfo')}
+        cancelLabel={t('btnCancelEdit')}
+        closeLabel={t('btnClose')}
+        extraFooterActions={(m) =>
+          m === 'view' ? (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<ContentCopyIcon fontSize="small" />}
+              onClick={handleCopyAll}
+              disabled={isLoading}
+              sx={{
+                borderRadius: 2,
+                textTransform: 'none',
+                fontWeight: 600,
+              }}
+            >
+              {t('btnCopyAllDetails')}
+            </Button>
+          ) : null
+        }
+        maxWidth="md"
+      >
+        {isLoading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
+            <CircularProgress size={36} />
+          </Box>
+        ) : (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            {/* SECTION 1: BASIC & LEGAL IDENTIFICATION */}
               <Box sx={{ mt: 2 }}>
                 <Typography
                   variant="subtitle2"
@@ -845,98 +810,9 @@ export const CompanyInfoModal: React.FC<CompanyInfoModalProps> = ({ open, onClos
                   })}
                 </Grid>
               </Box>
-            </>
+            </Box>
           )}
-        </DialogContent>
-
-        <Divider sx={{ flexShrink: 0 }} />
-
-        {/* MODAL ACTIONS */}
-        <DialogActions sx={{ p: 2, px: 3, justifyContent: 'space-between', flexShrink: 0 }}>
-          {isEditing ? (
-            <>
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={handleCancelEdit}
-                disabled={isSaving}
-                sx={{
-                  borderRadius: 2,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                }}
-              >
-                {t('btnCancelEdit')}
-              </Button>
-
-              <Button
-                variant="contained"
-                size="small"
-                startIcon={isSaving ? <CircularProgress size={16} color="inherit" /> : <SaveIcon fontSize="small" />}
-                onClick={handleSave}
-                disabled={isSaving}
-                sx={{
-                  borderRadius: 2,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  px: 3,
-                }}
-              >
-                {t('btnSaveCompanyInfo')}
-              </Button>
-            </>
-          ) : (
-            <>
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                {canEdit && (
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<EditIcon fontSize="small" />}
-                    onClick={handleStartEdit}
-                    disabled={isLoading}
-                    sx={{
-                      borderRadius: 2,
-                      textTransform: 'none',
-                      fontWeight: 600,
-                    }}
-                  >
-                    {t('btnEditCompanyInfo')}
-                  </Button>
-                )}
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<ContentCopyIcon fontSize="small" />}
-                  onClick={handleCopyAll}
-                  disabled={isLoading}
-                  sx={{
-                    borderRadius: 2,
-                    textTransform: 'none',
-                    fontWeight: 600,
-                  }}
-                >
-                  {t('btnCopyAllDetails')}
-                </Button>
-              </Box>
-
-              <Button
-                variant="contained"
-                size="small"
-                onClick={onClose}
-                sx={{
-                  borderRadius: 2,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  px: 3,
-                }}
-              >
-                {t('btnCancel') || 'Close'}
-              </Button>
-            </>
-          )}
-        </DialogActions>
-      </Dialog>
+      </ViewEditModalBase>
 
       {/* SNACKBAR FEEDBACK */}
       <Snackbar

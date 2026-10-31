@@ -1,9 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Button,
   TextField,
   FormControl,
@@ -15,7 +11,6 @@ import {
   Autocomplete,
   Grid,
 } from '@mui/material';
-import EditIcon from '@mui/icons-material/Edit';
 import SettingsIcon from '@mui/icons-material/Settings';
 import { useLanguage } from '../../context/LanguageContext';
 import { useLinkedListOptions } from '../../hooks/useLinkedListOptions';
@@ -27,6 +22,7 @@ import {
   ProjectAutocomplete,
   ServiceAutocomplete,
 } from '../common/autocomplete';
+import { ViewEditModalBase, type ModalMode } from '../common/modal/ViewEditModalBase';
 import { isWasteDisposalService } from '../../utils/serviceUtils';
 import { isKeyMatch } from '../../utils/customFields';
 import type {
@@ -192,6 +188,8 @@ const CustomFieldItem: React.FC<CustomFieldItemProps> = React.memo(({
   }
 
   if (field.type === 'client' || field.linkedList === 'clients') {
+    const clientVal =
+      typeof val === 'object' && val !== null ? val.name || '' : val || null;
     return (
       <ClientAutocomplete
         size="small"
@@ -201,10 +199,14 @@ const CustomFieldItem: React.FC<CustomFieldItemProps> = React.memo(({
         placeholder={t('lblNoneOptional')}
         permitTypeFilter={field.permitTypeFilter}
         valueMode="name"
-        value={val || null}
-        onChange={(_, selectedName) => {
-          handleFastTextOrNumber(selectedName || '');
-          handleCommitValue(selectedName || '');
+        value={clientVal}
+        onChange={(selectedVal, selectedOption) => {
+          const finalName =
+            typeof selectedVal === 'string'
+              ? selectedVal
+              : selectedOption?.name || selectedVal?.name || '';
+          handleFastTextOrNumber(finalName);
+          handleCommitValue(finalName);
         }}
         helperText={
           field.permitTypeFilter
@@ -252,6 +254,22 @@ const CustomFieldItem: React.FC<CustomFieldItemProps> = React.memo(({
         label={field.unit ? `${field.name} (${field.unit})` : field.name}
         value={val}
         disabled={disabled}
+        onFastChange={handleFastTextOrNumber}
+        onChange={handleCommitValue}
+      />
+    );
+  }
+
+  if (field.type === 'date' || field.type === 'datetime') {
+    return (
+      <FastTextField
+        fullWidth
+        size="small"
+        type={field.type === 'datetime' ? 'datetime-local' : 'date'}
+        label={field.name}
+        value={val}
+        disabled={disabled}
+        slotProps={{ inputLabel: { shrink: true } }}
         onFastChange={handleFastTextOrNumber}
         onChange={handleCommitValue}
       />
@@ -342,8 +360,13 @@ export interface WasteDisposalModalProps {
   open: boolean;
   onClose: () => void;
   editingItem: ProvidedService | null;
-  isViewMode: boolean;
+  isViewMode?: boolean;
   onEdit?: () => void;
+  mode?: ModalMode;
+  initialMode?: ModalMode;
+  onModeChange?: (mode: ModalMode) => void;
+  canDelete?: boolean;
+  onDelete?: (id: string) => void;
   onSave: (payload: Partial<ProvidedService>) => Promise<boolean | void>;
   isSaving: boolean;
   targetWasteService: Service | null;
@@ -382,6 +405,11 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
   editingItem,
   isViewMode,
   onEdit,
+  mode: controlledMode,
+  initialMode,
+  onModeChange: onModeChangeProp,
+  canDelete = false,
+  onDelete,
   onSave,
   isSaving,
   targetWasteService,
@@ -399,6 +427,39 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
 }) => {
   const { t } = useLanguage();
   const [isCustomModelModalOpen, setIsCustomModelModalOpen] = useState(false);
+
+  // Mode state: 'view' | 'edit' | 'create'
+  const [internalMode, setInternalMode] = useState<ModalMode>(() => {
+    if (controlledMode) return controlledMode;
+    if (initialMode) return initialMode;
+    if (isViewMode !== undefined) return isViewMode ? 'view' : (editingItem ? 'edit' : 'create');
+    return editingItem ? 'view' : 'create';
+  });
+
+  const currentMode = controlledMode || internalMode;
+  const isView = currentMode === 'view';
+
+  const handleModeChange = (newMode: ModalMode) => {
+    setInternalMode(newMode);
+    onModeChangeProp?.(newMode);
+    if (newMode === 'edit' && onEdit) {
+      onEdit();
+    }
+  };
+
+  useEffect(() => {
+    if (open) {
+      if (controlledMode) {
+        setInternalMode(controlledMode);
+      } else if (initialMode) {
+        setInternalMode(initialMode);
+      } else if (isViewMode !== undefined) {
+        setInternalMode(isViewMode ? 'view' : (editingItem ? 'edit' : 'create'));
+      } else {
+        setInternalMode(editingItem ? 'view' : 'create');
+      }
+    }
+  }, [open, editingItem?.id, isViewMode, initialMode, controlledMode]);
 
   const prepareCustomDataForForm = (item: ProvidedService) => {
     const rawCustomData: Record<string, any> = item.customData ? { ...item.customData } : {};
@@ -422,17 +483,30 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
           }
         }
         if (val !== undefined && val !== null && val !== '' && (!Array.isArray(val) || val.length > 0)) {
+          if (typeof val === 'object' && !Array.isArray(val) && val.name) {
+            val = val.name;
+          }
           initialCustomData[field.id] = val;
         }
       });
       // Preserve any other non-matched keys
       for (const [k, v] of Object.entries(rawCustomData)) {
         if (initialCustomData[k] === undefined && !serviceFields.some((f) => isKeyMatch(k, f))) {
-          initialCustomData[k] = v;
+          let cleanV = v;
+          if (typeof cleanV === 'object' && cleanV !== null && !Array.isArray(cleanV) && cleanV.name) {
+            cleanV = cleanV.name;
+          }
+          initialCustomData[k] = cleanV;
         }
       }
     } else {
-      Object.assign(initialCustomData, rawCustomData);
+      for (const [k, v] of Object.entries(rawCustomData)) {
+        let cleanV = v;
+        if (typeof cleanV === 'object' && cleanV !== null && !Array.isArray(cleanV) && cleanV.name) {
+          cleanV = cleanV.name;
+        }
+        initialCustomData[k] = cleanV;
+      }
     }
     return initialCustomData;
   };
@@ -673,6 +747,18 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
     const effectiveLocation = locationRef.current !== undefined ? locationRef.current : formData.location;
     const effectiveNotes = notesRef.current !== undefined ? notesRef.current : formData.notes;
     const effectiveCustomData = customDataRef.current !== undefined ? customDataRef.current : formData.customData;
+    const cleanCustomData: Record<string, any> = {};
+    if (effectiveCustomData && typeof effectiveCustomData === 'object') {
+      for (const [k, v] of Object.entries(effectiveCustomData)) {
+        if (v !== undefined && v !== null && v !== '' && (!Array.isArray(v) || v.length > 0)) {
+          if (typeof v === 'object' && !Array.isArray(v) && v.name) {
+            cleanCustomData[k] = v.name;
+          } else {
+            cleanCustomData[k] = v;
+          }
+        }
+      }
+    }
 
     const payload: Partial<ProvidedService> = {
       ...(editingItem?.id ? { id: editingItem.id } : {}),
@@ -685,219 +771,246 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
       completionDate: formData.completionDate ? new Date(formData.completionDate).toISOString() : null,
       location: effectiveLocation || null,
       notes: effectiveNotes || null,
-      customData: Object.keys(effectiveCustomData).length > 0 ? effectiveCustomData : null,
+      customData: Object.keys(cleanCustomData).length > 0 ? cleanCustomData : null,
     };
 
-    await onSave(payload);
+    const res = await onSave(payload);
+    if (res !== false) {
+      if (editingItem && currentMode === 'edit') {
+        handleModeChange('view');
+      } else {
+        onClose();
+      }
+    }
+  };
+
+  const handleCancel = () => {
+    if (currentMode === 'edit' && editingItem) {
+      const initialCustom = prepareCustomDataForForm(editingItem);
+      locationRef.current = editingItem.location || '';
+      notesRef.current = editingItem.notes || '';
+      customDataRef.current = initialCustom;
+      setFormData({
+        serviceId: editingItem.serviceId || '',
+        clientId: editingItem.clientId || '',
+        clientName: editingItem.client?.name || '',
+        projectId: editingItem.projectId || '',
+        projectName: editingItem.project?.name || '',
+        invoiceId: editingItem.invoiceId || '',
+        status: editingItem.status || 'Planned',
+        scheduledDate: editingItem.scheduledDate ? editingItem.scheduledDate.slice(0, 10) : '',
+        completionDate: editingItem.completionDate ? editingItem.completionDate.slice(0, 10) : '',
+        location: editingItem.location || '',
+        notes: editingItem.notes || '',
+        customData: initialCustom,
+      });
+      handleModeChange('view');
+    } else {
+      onClose();
+    }
+  };
+
+  const modalTitle = (m: ModalMode) => {
+    if (m === 'view') return t('subTabWasteDisposal');
+    if (m === 'edit') return t('modalEditWasteDisposal');
+    return t('modalNewWasteDisposal');
+  };
+
+  const isCompleted = (formData.status || '').toLowerCase() === 'completed' || (formData.status || '').toLowerCase() === 'završeno';
+
+  const handleToggleComplete = async () => {
+    const nextStatus = isCompleted ? 'Planned' : 'Completed';
+    const nextCompletionDate = !isCompleted ? (formData.completionDate || new Date().toISOString().slice(0, 10)) : '';
+    setFormData((prev) => ({
+      ...prev,
+      status: nextStatus,
+      completionDate: nextCompletionDate,
+    }));
+    await onSave({
+      id: editingItem?.id,
+      status: nextStatus,
+      completionDate: nextCompletionDate ? new Date(nextCompletionDate).toISOString() : null,
+    });
   };
 
   return (
     <>
-      <Dialog
+      <ViewEditModalBase
         open={open}
         onClose={onClose}
+        mode={currentMode}
+        onModeChange={handleModeChange}
+        title={modalTitle}
+        onComplete={isView && Boolean(editingItem?.id) && canEdit ? handleToggleComplete : undefined}
+        isCompleted={isCompleted}
+        completeLabel={isCompleted ? t('statusCompleted') : t('btnMarkDone')}
         maxWidth="md"
-        fullWidth
+        canEdit={canEdit}
+        canDelete={canDelete && Boolean(editingItem?.id)}
+        onDelete={onDelete && editingItem ? () => onDelete(editingItem.id) : undefined}
+        onSave={handleSave}
+        onCancel={handleCancel}
+        isSaving={isSaving}
       >
-        <DialogTitle sx={{ fontWeight: 700 }}>
-          {isViewMode
-            ? t('providedServicesSummary')
-            : editingItem
-            ? t('modalEditWasteDisposal')
-            : t('modalNewWasteDisposal')}
-        </DialogTitle>
-
-        <DialogContent dividers>
-          <Grid container spacing={2}>
-            {/* SERVICE SELECTOR */}
-            <Grid size={{ xs: 12, md: 6 }}>
-              <ServiceAutocomplete
-                size="small"
-                fullWidth
-                value={formData.serviceId}
-                initialOption={serviceInitialOption}
-                valueMode="id"
-                onChange={handleServiceChange}
-                readOnly={
-                  isViewMode ||
-                  (!editingItem
-                    ? Boolean(isWasteServiceLoading || targetWasteService)
-                    : isWasteDisposalService(editingItem?.service))
-                }
-                disabled={isViewMode}
-                required
-                label={t('colService')}
-              />
-            </Grid>
-
-            {/* CLIENT SELECTOR */}
-            <Grid size={{ xs: 12, md: 6 }}>
-              <ClientAutocomplete
-                size="small"
-                fullWidth
-                disabled={isViewMode}
-                value={formData.clientId}
-                initialOption={clientInitialOption}
-                valueMode="id"
-                onChange={handleClientChange}
-                required
-                label={t('colClient')}
-              />
-            </Grid>
-
-            {/* PROJECT SELECTOR (OPTIONAL) */}
-            <Grid size={{ xs: 12, md: 6 }}>
-              <ProjectAutocomplete
-                size="small"
-                fullWidth
-                disabled={isViewMode}
-                value={formData.projectId}
-                clientId={formData.clientId || undefined}
-                initialOption={projectInitialOption}
-                valueMode="id"
-                onChange={handleProjectChange}
-                label={t('colProject')}
-                placeholder={t('lblNoneOptional')}
-              />
-            </Grid>
-
-            {/* STATUS SELECTOR */}
-            <Grid size={{ xs: 12, md: 6 }}>
-              <FormControl fullWidth size="small" disabled={isViewMode}>
-                <InputLabel>{t('colStatus')}</InputLabel>
-                <Select
-                  value={formData.status}
-                  label={t('colStatus')}
-                  onChange={handleStatusChange}
-                >
-                  <MenuItem value="Planned">{t('statusPlanned')}</MenuItem>
-                  <MenuItem value="In Progress">{t('statusInProgress')}</MenuItem>
-                  <MenuItem value="Completed">{t('statusCompleted')}</MenuItem>
-                  <MenuItem value="Cancelled">{t('statusCancelled')}</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-
-            {/* SCHEDULED DATE */}
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                size="small"
-                type="date"
-                label={t('colScheduledDate')}
-                slotProps={{ inputLabel: { shrink: true } }}
-                value={formData.scheduledDate}
-                disabled={isViewMode}
-                onChange={handleScheduledDateChange}
-              />
-            </Grid>
-
-            {/* COMPLETION DATE */}
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                size="small"
-                type="date"
-                label={t('colCompletionDate')}
-                slotProps={{ inputLabel: { shrink: true } }}
-                value={formData.completionDate}
-                disabled={isViewMode}
-                onChange={handleCompletionDateChange}
-              />
-            </Grid>
-
-            {/* LOCATION */}
-            <Grid size={{ xs: 12 }}>
-              <FastTextField
-                fullWidth
-                size="small"
-                label={t('colLocation')}
-                value={formData.location}
-                disabled={isViewMode}
-                valueRef={locationRef}
-                onChange={handleLocationChange}
-              />
-            </Grid>
-
-            {/* DYNAMIC CUSTOM FIELDS */}
-            <CustomFieldsSection
-              activeCustomFields={activeCustomFields}
-              customData={formData.customData}
-              customDataRef={customDataRef}
-              resolvedListOptionsMap={resolvedListOptionsMap}
-              isViewMode={isViewMode}
-              canManageServices={canManageServices}
-              selectedService={selectedService}
-              onOpenCustomModelModal={handleOpenCustomModelModal}
-              onCustomFieldChange={handleCustomFieldChange}
+        <Grid container spacing={2}>
+          {/* SERVICE SELECTOR */}
+          <Grid size={{ xs: 12, md: 6 }}>
+            <ServiceAutocomplete
+              size="small"
+              fullWidth
+              value={formData.serviceId}
+              initialOption={serviceInitialOption}
+              valueMode="id"
+              onChange={handleServiceChange}
+              readOnly={
+                isView ||
+                (!editingItem
+                  ? Boolean(isWasteServiceLoading || targetWasteService)
+                  : isWasteDisposalService(editingItem?.service))
+              }
+              disabled={isView}
+              required
+              label={t('colService')}
             />
-
-            {/* INVOICE LINKING SECTION */}
-            <Grid size={{ xs: 12 }}>
-              <ProvidedServiceInvoiceSection
-                clientId={formData.clientId}
-                clientName={formData.clientName}
-                projectId={formData.projectId}
-                projectName={formData.projectName}
-                selectedInvoiceId={formData.invoiceId}
-                onSelectInvoiceId={handleSelectInvoiceId}
-                initialInvoice={editingItem?.invoice}
-                invoices={invoicesListProp}
-                onSaveInvoice={onSaveInvoice}
-                onDeleteInvoice={onDeleteInvoice}
-                onStatusChangeInvoice={onStatusChangeInvoice}
-                setErrorDialogState={setErrorDialogState}
-                disabled={isViewMode}
-              />
-            </Grid>
-
-            {/* NOTES */}
-            <Grid size={{ xs: 12 }}>
-              <FastTextField
-                fullWidth
-                multiline
-                rows={3}
-                size="small"
-                label={t('lblNotes')}
-                value={formData.notes}
-                disabled={isViewMode}
-                valueRef={notesRef}
-                onChange={handleNotesChange}
-              />
-            </Grid>
           </Grid>
-        </DialogContent>
 
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          {isViewMode ? (
-            <>
-              {canEdit && onEdit && (
-                <Button
-                  variant="outlined"
-                  onClick={onEdit}
-                  startIcon={<EditIcon />}
-                >
-                  {t('btnEdit')}
-                </Button>
-              )}
-              <Button onClick={onClose}>{t('btnClose')}</Button>
-            </>
-          ) : (
-            <>
-              <Button onClick={onClose} disabled={isSaving}>
-                {t('btnCancel')}
-              </Button>
-              <Button
-                variant="contained"
-                onClick={handleSave}
-                disabled={isSaving}
+          {/* CLIENT SELECTOR */}
+          <Grid size={{ xs: 12, md: 6 }}>
+            <ClientAutocomplete
+              size="small"
+              fullWidth
+              disabled={isView}
+              value={formData.clientId}
+              initialOption={clientInitialOption}
+              valueMode="id"
+              onChange={handleClientChange}
+              required
+              label={t('colClient')}
+            />
+          </Grid>
+
+          {/* PROJECT SELECTOR (OPTIONAL) */}
+          <Grid size={{ xs: 12, md: 6 }}>
+            <ProjectAutocomplete
+              size="small"
+              fullWidth
+              disabled={isView}
+              value={formData.projectId}
+              clientId={formData.clientId || undefined}
+              initialOption={projectInitialOption}
+              valueMode="id"
+              onChange={handleProjectChange}
+              label={t('colProject')}
+              placeholder={t('lblNoneOptional')}
+            />
+          </Grid>
+
+          {/* STATUS SELECTOR */}
+          <Grid size={{ xs: 12, md: 6 }}>
+            <FormControl fullWidth size="small" disabled={isView}>
+              <InputLabel>{t('colStatus')}</InputLabel>
+              <Select
+                value={formData.status}
+                label={t('colStatus')}
+                onChange={handleStatusChange}
               >
-                {t('btnSave')}
-              </Button>
-            </>
-          )}
-        </DialogActions>
-      </Dialog>
+                <MenuItem value="Planned">{t('statusPlanned')}</MenuItem>
+                <MenuItem value="In Progress">{t('statusInProgress')}</MenuItem>
+                <MenuItem value="Completed">{t('statusCompleted')}</MenuItem>
+                <MenuItem value="Cancelled">{t('statusCancelled')}</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+
+          {/* SCHEDULED DATE */}
+          <Grid size={{ xs: 12, md: 6 }}>
+            <TextField
+              fullWidth
+              size="small"
+              type="date"
+              label={t('colScheduledDate')}
+              slotProps={{ inputLabel: { shrink: true } }}
+              value={formData.scheduledDate}
+              disabled={isView}
+              onChange={handleScheduledDateChange}
+            />
+          </Grid>
+
+          {/* COMPLETION DATE */}
+          <Grid size={{ xs: 12, md: 6 }}>
+            <TextField
+              fullWidth
+              size="small"
+              type="date"
+              label={t('colCompletionDate')}
+              slotProps={{ inputLabel: { shrink: true } }}
+              value={formData.completionDate}
+              disabled={isView}
+              onChange={handleCompletionDateChange}
+            />
+          </Grid>
+
+          {/* LOCATION */}
+          <Grid size={{ xs: 12 }}>
+            <FastTextField
+              fullWidth
+              size="small"
+              label={t('colLocation')}
+              value={formData.location}
+              disabled={isView}
+              valueRef={locationRef}
+              onChange={handleLocationChange}
+            />
+          </Grid>
+
+          {/* DYNAMIC CUSTOM FIELDS */}
+          <CustomFieldsSection
+            activeCustomFields={activeCustomFields}
+            customData={formData.customData}
+            customDataRef={customDataRef}
+            resolvedListOptionsMap={resolvedListOptionsMap}
+            isViewMode={isView}
+            canManageServices={canManageServices}
+            selectedService={selectedService}
+            onOpenCustomModelModal={handleOpenCustomModelModal}
+            onCustomFieldChange={handleCustomFieldChange}
+          />
+
+          {/* INVOICE LINKING SECTION */}
+          <Grid size={{ xs: 12 }}>
+            <ProvidedServiceInvoiceSection
+              clientId={formData.clientId}
+              clientName={formData.clientName}
+              projectId={formData.projectId}
+              projectName={formData.projectName}
+              selectedInvoiceId={formData.invoiceId}
+              onSelectInvoiceId={handleSelectInvoiceId}
+              initialInvoice={editingItem?.invoice}
+              invoices={invoicesListProp}
+              onSaveInvoice={onSaveInvoice}
+              onDeleteInvoice={onDeleteInvoice}
+              onStatusChangeInvoice={onStatusChangeInvoice}
+              setErrorDialogState={setErrorDialogState}
+              disabled={isView}
+            />
+          </Grid>
+
+          {/* NOTES */}
+          <Grid size={{ xs: 12 }}>
+            <FastTextField
+              fullWidth
+              multiline
+              rows={3}
+              size="small"
+              label={t('lblNotes')}
+              value={formData.notes}
+              disabled={isView}
+              valueRef={notesRef}
+              onChange={handleNotesChange}
+            />
+          </Grid>
+        </Grid>
+      </ViewEditModalBase>
 
       {onSaveCustomModel && isCustomModelModalOpen && (
         <CustomDataModelModal

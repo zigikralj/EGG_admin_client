@@ -34,6 +34,7 @@ import { DateRangeFilter } from '../../components/common/DateRangeFilter';
 import { TableSearchInput } from '../../components/common/TableSearchInput';
 import { TableQuickFilters } from '../../components/common/TableQuickFilters';
 import { ProvidedServiceModal } from '../../components/providedService';
+import type { ModalMode } from '../../components/common/modal/ViewEditModalBase';
 import { ErrorDialog } from '../../components/common/dialogs/ErrorDialog';
 import { CustomDataModelModal } from '../../components/service/CustomDataModelModal';
 import {
@@ -290,9 +291,12 @@ const ProvidedServicesPage: React.FC<Props> = ({
     return { canEdit, canDelete };
   }, [hasPermission, services, canCreate]);
 
+  const [modalMode, setModalMode] = useState<ModalMode>('view');
+
   const openNew = () => {
     if (!canCreate) return;
     setEditingItem(null);
+    setModalMode('create');
     setIsOpen(true);
   };
 
@@ -300,6 +304,13 @@ const ProvidedServicesPage: React.FC<Props> = ({
     const { canEdit } = getItemPermissions(item);
     if (!canEdit) return;
     setEditingItem(item);
+    setModalMode('edit');
+    setIsOpen(true);
+  };
+
+  const openView = (item: ProvidedService) => {
+    setEditingItem(item);
+    setModalMode('view');
     setIsOpen(true);
   };
 
@@ -696,7 +707,7 @@ const ProvidedServicesPage: React.FC<Props> = ({
                   const inv = item.invoice || invoices.find((i) => i.id === item.invoiceId);
 
                   return (
-                    <TableRow key={item.id} hover>
+                    <TableRow key={item.id} hover onClick={() => openView(item)} sx={{ cursor: 'pointer' }}>
                       {activeCols.includes('service') && (
                         <TableCell>
                           <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
@@ -757,7 +768,7 @@ const ProvidedServicesPage: React.FC<Props> = ({
                           {item.customData && Object.keys(item.customData).length > 0 ? (
                             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                               {(() => {
-                                const badges = resolveCustomFieldBadges(item, services);
+                                const badges = resolveCustomFieldBadges(item, services, clients);
                                 if (badges.length === 0) {
                                   return (
                                     <Typography variant="body2" color="text.secondary">
@@ -803,12 +814,26 @@ const ProvidedServicesPage: React.FC<Props> = ({
                         <TableCell align="right">
                           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
                             {getItemPermissions(item).canEdit && (
-                              <IconButton size="small" color="info" onClick={() => openEdit(item)}>
+                              <IconButton
+                                size="small"
+                                color="info"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openEdit(item);
+                                }}
+                              >
                                 <EditIcon fontSize="small" />
                               </IconButton>
                             )}
                             {getItemPermissions(item).canDelete && (
-                              <IconButton size="small" color="error" onClick={() => onDeleteProvidedService(item.id)}>
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDeleteProvidedService(item.id);
+                                }}
+                              >
                                 <DeleteIcon fontSize="small" />
                               </IconButton>
                             )}
@@ -840,6 +865,8 @@ const ProvidedServicesPage: React.FC<Props> = ({
         open={isOpen}
         onClose={() => setIsOpen(false)}
         editingItem={editingItem}
+        mode={modalMode}
+        onModeChange={setModalMode}
         services={services}
         clients={clients}
         canCreate={canCreate}

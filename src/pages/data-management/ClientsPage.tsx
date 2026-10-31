@@ -27,6 +27,7 @@ import { TableOptionsSelector, type ColumnDef } from '../../components/common/Co
 import { TableFilterSelector } from '../../components/common/TableFilterSelector';
 import { TableSearchInput } from '../../components/common/TableSearchInput';
 import { ClientModal } from '../../components/client';
+import type { ModalMode } from '../../components/common/modal/ViewEditModalBase';
 import { ErrorDialog } from '../../components/common/dialogs/ErrorDialog';
 import { AddIcon, EditIcon, DeleteIcon, ArrowUpwardIcon, ArrowDownwardIcon, RefreshIcon, HistoryIcon } from '../../components/icons';
 import { HistoryTimelineModal } from '../../components/history';
@@ -161,15 +162,25 @@ const ClientsPage: React.FC<Props> = ({
     return [];
   };
 
+  const [modalMode, setModalMode] = useState<ModalMode>('view');
+
   const openNew = () => {
     if (!canCreate) return;
     setEditingClient(null);
+    setModalMode('create');
     setIsOpen(true);
   };
 
   const openEdit = (c: Client) => {
     if (!canEdit) return;
     setEditingClient(c);
+    setModalMode('edit');
+    setIsOpen(true);
+  };
+
+  const openView = (c: Client) => {
+    setEditingClient(c);
+    setModalMode('view');
     setIsOpen(true);
   };
 
@@ -459,7 +470,7 @@ const ClientsPage: React.FC<Props> = ({
                 </TableRow>
               ) : (
                 displayedClients.map((c: Client) => (
-                  <TableRow key={c.id} hover>
+                  <TableRow key={c.id} hover onClick={() => openView(c)} sx={{ cursor: 'pointer' }}>
                     {activeCols.includes('name') && (
                       <TableCell>
                         <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
@@ -510,19 +521,36 @@ const ClientsPage: React.FC<Props> = ({
                               <IconButton
                                 size="small"
                                 color="secondary"
-                                onClick={() => setHistoryModalState({ open: true, client: c })}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setHistoryModalState({ open: true, client: c });
+                                }}
                               >
                                 <HistoryIcon fontSize="small" />
                               </IconButton>
                             </Tooltip>
                           )}
                           {canEdit && (
-                            <IconButton size="small" color="info" onClick={() => openEdit(c)}>
+                            <IconButton
+                              size="small"
+                              color="info"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEdit(c);
+                              }}
+                            >
                               <EditIcon fontSize="small" />
                             </IconButton>
                           )}
                           {canDelete && (
-                            <IconButton size="small" color="error" onClick={() => onDeleteClient(c.id)}>
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDeleteClient(c.id);
+                              }}
+                            >
                               <DeleteIcon fontSize="small" />
                             </IconButton>
                           )}
@@ -553,6 +581,7 @@ const ClientsPage: React.FC<Props> = ({
         open={isOpen}
         onClose={() => setIsOpen(false)}
         editingClient={editingClient}
+        initialMode={modalMode}
         canDelete={canDelete}
         canEdit={canEdit}
         canCreate={canCreate}

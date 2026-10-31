@@ -14,11 +14,6 @@ import {
   IconButton,
   Box,
   Typography,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Grid,
   Autocomplete,
   Tooltip,
 } from '@mui/material';
@@ -29,6 +24,8 @@ import { useAuth } from '../../context/AuthContext';
 import { TableOptionsSelector, type ColumnDef } from '../../components/common/ColumnSelector';
 import { TableFilterSelector } from '../../components/common/TableFilterSelector';
 import { TableSearchInput } from '../../components/common/TableSearchInput';
+import { CategoryModal } from '../../components/category';
+import { type ModalMode } from '../../components/common/modal/ViewEditModalBase';
 import { ErrorDialog } from '../../components/common/dialogs/ErrorDialog';
 import { useTableView } from '../../hooks/useTableView';
 import { AddIcon, EditIcon, DeleteIcon, ArrowUpwardIcon, ArrowDownwardIcon, RefreshIcon } from '../../components/icons';
@@ -66,6 +63,7 @@ const CategoriesPage: React.FC<Props> = ({
   const canDelete = hasPermission('categories', 'delete');
   const hasAnyRowAction = canEdit || canDelete;
   const [isOpen, setIsOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<ModalMode>('view');
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
 
   const {
@@ -85,8 +83,6 @@ const CategoriesPage: React.FC<Props> = ({
     resetSort,
     isRefreshing,
     handleRefresh,
-    isSaving,
-    setIsSaving,
     errorDialogState,
     setErrorDialogState,
   } = useTableView({
@@ -118,64 +114,26 @@ const CategoriesPage: React.FC<Props> = ({
     { id: 'description', label: t('colDescription') },
   ];
 
-  const [code, setCode] = useState('');
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
   const openNew = () => {
     if (!canCreate) return;
     setEditingCategory(null);
-    setCode('');
-    setName('');
-    setDescription('');
+    setModalMode('create');
+    setIsOpen(true);
+  };
+
+  const openView = (c: Category) => {
+    setEditingCategory(c);
+    setModalMode('view');
     setIsOpen(true);
   };
 
   const openEdit = (c: Category) => {
     if (!canEdit) return;
     setEditingCategory(c);
-    setCode(c.code);
-    setName(c.name);
-    setDescription(c.description || '');
+    setModalMode('edit');
     setIsOpen(true);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!canEdit && !canCreate) return;
-    if (!code.trim() || !name.trim()) {
-      setErrorDialogState({
-        open: true,
-        message: t('alertCategoryRequired'),
-      });
-      return;
-    }
-    setIsSaving(true);
-    try {
-      const res = await handleSave({
-        id: editingCategory?.id,
-        code: editingCategory ? editingCategory.code : code,
-        name: name.trim(),
-        description: description.trim() ? description.trim() : undefined,
-      });
-
-      if (res.success) {
-        setIsOpen(false);
-      } else {
-        setErrorDialogState({
-          open: true,
-          message: res.error || t('errorSavingCategory'),
-        });
-      }
-    } catch (err: any) {
-      setErrorDialogState({
-        open: true,
-        message: err?.message || t('errorSavingCategory'),
-      });
-    } finally {
-      setIsSaving(false);
-    }
   };
 
   // 1. Search filter
@@ -384,7 +342,7 @@ const CategoriesPage: React.FC<Props> = ({
                 </TableRow>
               ) : (
                 paginatedCategories.map((c) => (
-                  <TableRow key={c.id} hover>
+                  <TableRow key={c.id} hover sx={{ cursor: 'pointer' }} onClick={() => openView(c)}>
                     {activeCols.includes('name') && (
                       <TableCell>
                         <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
@@ -400,7 +358,7 @@ const CategoriesPage: React.FC<Props> = ({
                       </TableCell>
                     )}
                     {hasAnyRowAction && (
-                      <TableCell align="right">
+                      <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
                           {canEdit && (
                             <IconButton size="small" color="info" onClick={() => openEdit(c)}>
@@ -434,91 +392,20 @@ const CategoriesPage: React.FC<Props> = ({
         />
       </Card>
 
-      {/* CATEGORY DIALOG */}
-      <Dialog
+      {/* CATEGORY MODAL */}
+      <CategoryModal
         open={isOpen}
         onClose={() => setIsOpen(false)}
-        maxWidth="sm"
-        fullWidth
-        slotProps={{
-          paper: {
-            component: 'form',
-            onSubmit: handleSubmit,
-            sx: {
-              maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
-              display: 'flex',
-              flexDirection: 'column',
-            },
-          },
-        }}
-      >
-        <DialogTitle component="div" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>
-            {editingCategory ? t('modalEditCategory') : t('modalNewCategory')}
-          </Typography>
-          {editingCategory && canDelete && (
-            <Button
-              color="error"
-              size="small"
-              variant="outlined"
-              startIcon={<DeleteIcon />}
-              onClick={() => {
-                onDeleteCategory(editingCategory.id);
-                setIsOpen(false);
-              }}
-            >
-              {t('btnDelete')}
-            </Button>
-          )}
-        </DialogTitle>
-        <DialogContent dividers sx={{ flex: 1, overflowY: 'auto' }}>
-            <Grid container spacing={2} sx={{ pt: 1 }}>
-              <Grid size={{ xs: 12 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label={t('lblCategoryCode')}
-                  placeholder={t('phCategoryCode')}
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  disabled={Boolean(editingCategory)}
-                  required
-                />
-              </Grid>
-              <Grid size={{ xs: 12 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  label={t('lblCategoryName')}
-                  placeholder={t('phCategoryName')}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
-              </Grid>
-              <Grid size={{ xs: 12 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  multiline
-                  rows={3}
-                  label={t('lblDescription')}
-                  placeholder={t('phDescription')}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                />
-              </Grid>
-            </Grid>
-          </DialogContent>
-          <DialogActions sx={{ p: 2, flexShrink: 0 }}>
-            <Button onClick={() => setIsOpen(false)} variant="outlined" disabled={isSaving}>
-              {t('btnCancel')}
-            </Button>
-            <Button type="submit" variant="contained" color="primary" disabled={isSaving}>
-              {isSaving ? '...' : t('btnSave')}
-            </Button>
-          </DialogActions>
-      </Dialog>
+        editingCategory={editingCategory}
+        mode={modalMode}
+        onModeChange={setModalMode}
+        canDelete={canDelete}
+        canEdit={canEdit}
+        canCreate={canCreate}
+        onDeleteCategory={onDeleteCategory}
+        onSaveCategory={handleSave}
+        onError={(message) => setErrorDialogState({ open: true, message })}
+      />
 
       <ErrorDialog
         open={errorDialogState.open}
