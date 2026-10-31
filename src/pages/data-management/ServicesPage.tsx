@@ -26,6 +26,7 @@ import { TableOptionsSelector, type ColumnDef } from '../../components/common/Co
 import { TableFilterSelector } from '../../components/common/TableFilterSelector';
 import { TableSearchInput } from '../../components/common/TableSearchInput';
 import { ServiceModal } from '../../components/service';
+import { type ModalMode } from '../../components/common/modal/ViewEditModalBase';
 import { ErrorDialog } from '../../components/common/dialogs/ErrorDialog';
 import { CustomDataModelModal } from '../../components/service/CustomDataModelModal';
 import { useTableView } from '../../hooks/useTableView';
@@ -72,6 +73,7 @@ const ServicesPage: React.FC<Props> = ({
   const canDelete = hasPermission('services', 'delete');
   const hasAnyRowAction = canEdit || canDelete;
   const [isOpen, setIsOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<ModalMode>('view');
   const [editingService, setEditingService] = useState<Service | null>(null);
   const {
     activeCols,
@@ -178,12 +180,20 @@ const ServicesPage: React.FC<Props> = ({
   const openNew = () => {
     if (!canCreate) return;
     setEditingService(null);
+    setModalMode('create');
+    setIsOpen(true);
+  };
+
+  const openView = (s: Service) => {
+    setEditingService(s);
+    setModalMode('view');
     setIsOpen(true);
   };
 
   const openEdit = (s: Service) => {
     if (!canEdit) return;
     setEditingService(s);
+    setModalMode('edit');
     setIsOpen(true);
   };
 
@@ -483,7 +493,7 @@ const ServicesPage: React.FC<Props> = ({
                 paginatedServices.map((s) => {
                   const fields = getCustomModelForService(s.id);
                   return (
-                    <TableRow key={s.id} hover>
+                    <TableRow key={s.id} hover sx={{ cursor: 'pointer' }} onClick={() => openView(s)}>
                       {activeCols.includes('name') && (
                         <TableCell>
                           <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
@@ -550,7 +560,7 @@ const ServicesPage: React.FC<Props> = ({
                         </TableCell>
                       )}
                       {hasAnyRowAction && (
-                        <TableCell align="right">
+                        <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                           <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
                             {canEdit && (
                               <>
@@ -603,6 +613,8 @@ const ServicesPage: React.FC<Props> = ({
         open={isOpen}
         onClose={() => setIsOpen(false)}
         editingService={editingService}
+        mode={modalMode}
+        onModeChange={setModalMode}
         categories={categories}
         getServiceLabel={getServiceLabel}
         canDelete={canDelete}

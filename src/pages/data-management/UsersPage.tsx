@@ -36,6 +36,7 @@ import { TableFilterSelector } from '../../components/common/TableFilterSelector
 import { TableSearchInput } from '../../components/common/TableSearchInput';
 import { TableQuickFilters, type QuickFilterItem } from '../../components/common/TableQuickFilters';
 import { UserModal } from '../../components/user';
+import { type ModalMode } from '../../components/common/modal/ViewEditModalBase';
 import { ErrorDialog } from '../../components/common/dialogs/ErrorDialog';
 import { useTableView } from '../../hooks/useTableView';
 import { AddIcon, EditIcon, DeleteIcon, HowToRegIcon, HourglassEmptyIcon, ArrowUpwardIcon, ArrowDownwardIcon, CheckCircleIcon, HighlightOffIcon, BlockIcon, ExitToAppIcon, RefreshIcon } from '../../components/icons';
@@ -85,6 +86,7 @@ const UsersPage: React.FC<Props> = ({
   const canDeleteAny = hasPermission('users', 'delete');
   const hasAnyRowAction = canEditAny || canDeleteAny;
   const [isOpen, setIsOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<ModalMode>('view');
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   
@@ -267,12 +269,20 @@ const UsersPage: React.FC<Props> = ({
   const openNew = () => {
     if (!canCreate) return;
     setEditingUser(null);
+    setModalMode('create');
+    setIsOpen(true);
+  };
+
+  const openView = (u: User) => {
+    setEditingUser(u);
+    setModalMode('view');
     setIsOpen(true);
   };
 
   const openEdit = (u: User) => {
     if (!canEditUser(u)) return;
     setEditingUser(u);
+    setModalMode('edit');
     setIsOpen(true);
   };
 
@@ -569,7 +579,7 @@ const UsersPage: React.FC<Props> = ({
                   const isPending = u.status === 'PENDING';
                   const isBlocked = u.status === 'BLOCKED';
                   return (
-                    <TableRow key={u.id} hover sx={{ bgcolor: isPending ? 'action.hover' : 'inherit' }}>
+                    <TableRow key={u.id} hover sx={{ bgcolor: isPending ? 'action.hover' : 'inherit', cursor: 'pointer' }} onClick={() => openView(u)}>
                       {activeCols.includes('name') && (
                         <TableCell>
                           <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
@@ -622,7 +632,7 @@ const UsersPage: React.FC<Props> = ({
                       {activeCols.includes('email') && <TableCell>{u.email || '—'}</TableCell>}
                       {activeCols.includes('phone') && <TableCell>{u.phone || '—'}</TableCell>}
                       {hasAnyRowAction && (
-                        <TableCell align="right">
+                        <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                           {isPending ? (
                             editable && (
                               <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
@@ -774,6 +784,8 @@ const UsersPage: React.FC<Props> = ({
         open={isOpen}
         onClose={() => setIsOpen(false)}
         editingUser={editingUser}
+        mode={modalMode}
+        onModeChange={setModalMode}
         rolesList={rolesList}
         canDelete={editingUser ? canDeleteUser(editingUser) : false}
         canEdit={editingUser ? canEditUser(editingUser) : canCreate}

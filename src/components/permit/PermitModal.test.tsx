@@ -37,7 +37,7 @@ describe('PermitModal', () => {
     vi.clearAllMocks();
   });
 
-  it('renders input for permit number and updates value smoothly', () => {
+  it('renders input for permit number and updates value smoothly in create mode', () => {
     renderModal();
 
     const permitInput = screen.getByLabelText(/lblPermitNumber/i);
@@ -47,7 +47,26 @@ describe('PermitModal', () => {
     expect((permitInput as HTMLInputElement).value).toBe('DOZ-2026-001');
   });
 
-  it('populates fields when editing an existing permit', () => {
+  it('populates fields when editing an existing permit in edit mode', () => {
+    const existingPermit = {
+      id: 'p1',
+      permitNumber: 'PERMIT-999',
+      permitTypes: ['Transport'],
+      clientId: 'c1',
+      startDate: '2026-01-01T00:00:00.000Z',
+      endDate: '2026-12-31T00:00:00.000Z',
+      notes: 'Test notes',
+      wasteCatalogIds: ['w1'],
+      wasteCatalogs: [{ id: 'w1', code: '01 01 01', description: 'Waste desc' }],
+    };
+
+    renderModal({ editingPermit: existingPermit as any, initialMode: 'edit' });
+
+    const permitInput = screen.getByLabelText(/lblPermitNumber/i);
+    expect((permitInput as HTMLInputElement).value).toBe('PERMIT-999');
+  });
+
+  it('renders in view mode by default when editingPermit is provided', () => {
     const existingPermit = {
       id: 'p1',
       permitNumber: 'PERMIT-999',
@@ -62,7 +81,35 @@ describe('PermitModal', () => {
 
     renderModal({ editingPermit: existingPermit as any });
 
+    expect(screen.getAllByText('PERMIT-999').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('btnEdit')).toBeInTheDocument();
+  });
+
+  it('switches between view and edit mode in-place', () => {
+    const existingPermit = {
+      id: 'p1',
+      permitNumber: 'PERMIT-999',
+      permitTypes: ['Transport'],
+      clientId: 'c1',
+      startDate: '2026-01-01T00:00:00.000Z',
+      endDate: '2026-12-31T00:00:00.000Z',
+      notes: 'Test notes',
+      wasteCatalogIds: ['w1'],
+      wasteCatalogs: [{ id: 'w1', code: '01 01 01', description: 'Waste desc' }],
+    };
+
+    renderModal({ editingPermit: existingPermit as any });
+
+    // Click edit
+    fireEvent.click(screen.getByText('btnEdit'));
+
+    // Should now show input field
     const permitInput = screen.getByLabelText(/lblPermitNumber/i);
-    expect((permitInput as HTMLInputElement).value).toBe('PERMIT-999');
+    expect(permitInput).toBeInTheDocument();
+
+    // Click cancel to revert back to view
+    fireEvent.click(screen.getByText('btnCancel'));
+    expect(screen.queryByLabelText(/lblPermitNumber/i)).not.toBeInTheDocument();
+    expect(screen.getByText('btnEdit')).toBeInTheDocument();
   });
 });

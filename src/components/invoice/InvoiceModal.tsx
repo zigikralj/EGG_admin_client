@@ -1,9 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Grid,
   TextField,
   Button,
@@ -30,8 +26,15 @@ import type {
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { parseInvoiceNotes, serializeInvoiceNotes } from '../../utils/invoiceUtils';
-import { AddIcon, DeleteIcon, EditIcon, LinkIcon, ReceiptLongIcon } from '../icons';
-import { ClientAutocomplete, ProjectAutocomplete, InvoiceAutocomplete, ProvidedServiceAutocomplete } from '../common/autocomplete';
+import { AddIcon, DeleteIcon, LinkIcon, ReceiptLongIcon } from '../icons';
+import {
+  ClientAutocomplete,
+  ProjectAutocomplete,
+  InvoiceAutocomplete,
+  ProvidedServiceAutocomplete,
+} from '../common/autocomplete';
+import { ViewEditModalBase, type ModalMode } from '../common/modal/ViewEditModalBase';
+import { ViewEditField } from '../common/modal/ViewEditField';
 
 export interface InvoiceModalProps {
   open: boolean;
@@ -49,6 +52,7 @@ export interface InvoiceModalProps {
   isSaving?: boolean;
   isViewMode?: boolean;
   onToggleEditMode?: () => void;
+  initialMode?: ModalMode;
 }
 
 const EMPTY_PROVIDED_SERVICES: ProvidedService[] = [];
@@ -64,12 +68,35 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   invoices = EMPTY_INVOICES,
   onSave,
   isSaving = false,
-  isViewMode = false,
+  isViewMode,
   onToggleEditMode,
+  initialMode,
 }) => {
   const { t } = useLanguage();
   const { hasPermission } = useAuth();
   const canEdit = hasPermission('invoices', 'edit');
+  const canDelete = hasPermission('invoices', 'delete');
+
+  // Mode state: 'view' | 'edit' | 'create'
+  const [mode, setMode] = useState<ModalMode>(() => {
+    if (initialMode) return initialMode;
+    if (isViewMode !== undefined) return isViewMode ? 'view' : 'edit';
+    return editingInvoice ? 'view' : 'create';
+  });
+
+  useEffect(() => {
+    if (open) {
+      if (initialMode) {
+        setMode(initialMode);
+      } else if (isViewMode !== undefined) {
+        setMode(isViewMode ? 'view' : 'edit');
+      } else {
+        setMode(editingInvoice ? 'view' : 'create');
+      }
+    }
+  }, [open, editingInvoice?.id, isViewMode, initialMode]);
+
+  const isView = mode === 'view';
 
   const [formData, setFormData] = useState({
     invoiceNumber: '',
@@ -326,7 +353,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!formData.invoiceNumber.trim()) {
       setErrorMsg(t('alertInvoiceNumberRequired'));
@@ -372,300 +399,249 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         })),
     };
 
-    await onSave(payload, formData.providedServiceId, initialPsId);
+    const res = await onSave(payload, formData.providedServiceId, initialPsId);
+    if (res !== false) {
+      if (mode === 'edit') {
+        setMode('view');
+      } else {
+        onClose();
+      }
+    }
   };
 
   return (
-    <Dialog
+    <ViewEditModalBase
       open={open}
-      onClose={() => !isSaving && onClose()}
-      maxWidth="md"
-      fullWidth
-      slotProps={{
-        paper: {
-          component: isViewMode ? 'div' : 'form',
-          onSubmit: isViewMode ? undefined : handleSubmit,
-          sx: {
-            maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
-            display: 'flex',
-            flexDirection: 'column',
-          },
-        },
+      onClose={onClose}
+      mode={mode}
+      onModeChange={(newMode) => {
+        setMode(newMode);
+        if (newMode === 'edit' && onToggleEditMode) {
+          onToggleEditMode();
+        }
       }}
+      title={(currentMode) => (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <ReceiptLongIcon color="primary" />
+          <Typography variant="h6" component="span" sx={{ fontWeight: 700 }}>
+            {currentMode === 'view'
+              ? formData.invoiceNumber || t('modalEditInvoice')
+              : editingInvoice
+              ? t('modalEditInvoice')
+              : t('modalNewInvoice')}
+          </Typography>
+        </Box>
+      )}
+      canEdit={canEdit}
+      canDelete={canDelete}
+      isSaving={isSaving}
+      onSave={handleSubmit}
+      editLabel={t('btnEdit')}
     >
-      {isViewMode ? (
-        <>
-          <DialogTitle
-            sx={{
-              fontWeight: 700,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexShrink: 0,
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <ReceiptLongIcon color="primary" />
-              <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                {formData.invoiceNumber || t('modalEditInvoice')}
-              </Typography>
-              {getInvoiceTypeChip(formData.invoiceType)}
+      {errorMsg && (
+        <Box sx={{ mb: 2, p: 1.5, bgcolor: 'error.main', color: '#fff', borderRadius: 1.5 }}>
+          <Typography variant="body2">{errorMsg}</Typography>
+        </Box>
+      )}
+
+      <Grid container spacing={isView ? 1.5 : 2.5}>
+        {/* Unique ID in Edit mode if existing */}
+        {!isView && editingInvoice && (
+          <Grid size={{ xs: 12 }}>
+            <TextField
+              fullWidth
+              size="small"
+              label="Unique ID"
+              value={editingInvoice.id}
+              disabled
+              helperText="Immutable unique identifier"
+            />
+          </Grid>
+        )}
+
+        {/* Invoice Number */}
+        <Grid size={{ xs: 12, sm: 5 }}>
+          <ViewEditField
+            mode={mode}
+            label={t('lblInvoiceNumber')}
+            value={formData.invoiceNumber}
+            editRender={() => (
+              <TextField
+                fullWidth
+                size="small"
+                required
+                label={t('lblInvoiceNumber')}
+                placeholder={t('phInvoiceNumber')}
+                value={formData.invoiceNumber}
+                onChange={(e) => setFormData({ ...formData, invoiceNumber: e.target.value })}
+              />
+            )}
+          />
+        </Grid>
+
+        {/* Invoice Type */}
+        <Grid size={{ xs: 12, sm: 3.5 }}>
+          <ViewEditField
+            mode={mode}
+            label={t('lblInvoiceType')}
+            value={getInvoiceTypeChip(formData.invoiceType)}
+            editRender={() => (
+              <FormControl fullWidth size="small">
+                <InputLabel>{t('lblInvoiceType')}</InputLabel>
+                <Select
+                  value={formData.invoiceType}
+                  label={t('lblInvoiceType')}
+                  onChange={(e) =>
+                    setFormData({ ...formData, invoiceType: e.target.value as InvoiceType })
+                  }
+                >
+                  <MenuItem value="Standard">{t('typeStandard')}</MenuItem>
+                  <MenuItem value="Advance">{t('typeAdvance')}</MenuItem>
+                  <MenuItem value="Final">{t('typeFinal')}</MenuItem>
+                  <MenuItem value="Partial">{t('typePartial')}</MenuItem>
+                </Select>
+              </FormControl>
+            )}
+          />
+        </Grid>
+
+        {/* Status */}
+        <Grid size={{ xs: 12, sm: 3.5 }}>
+          <ViewEditField
+            mode={mode}
+            label={t('lblInvoiceStatus')}
+            value={
               <Chip
                 label={getStatusLabel(formData.status)}
                 size="small"
                 color={getStatusChipColor(formData.status)}
                 sx={{ height: 22, fontSize: '0.75rem', fontWeight: 700 }}
               />
-            </Box>
-          </DialogTitle>
-
-          <DialogContent dividers sx={{ flex: 1, overflowY: 'auto' }}>
-            <Grid container spacing={2.5}>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Typography variant="caption" color="text.secondary">
-                  {t('lblClient')}
-                </Typography>
-                <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                  {formData.clientName || '—'}
-                </Typography>
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Typography variant="caption" color="text.secondary">
-                  {t('tabProjects')}
-                </Typography>
-                <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                  {formData.projectName || '—'}
-                </Typography>
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <Typography variant="caption" color="text.secondary">
-                  {t('lblDateCreated')}
-                </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                  {formatDate(formData.dateCreated)}
-                </Typography>
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <Typography variant="caption" color="text.secondary">
-                  {t('lblDueDate')}
-                </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  {formatDate(formData.dueDate)}
-                </Typography>
-              </Grid>
-
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <Typography variant="caption" color="text.secondary">
-                  {t('lblPaymentDate')}
-                </Typography>
-                <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                  {formatDate(formData.paymentDate)}
-                </Typography>
-              </Grid>
-
-              {formData.parentInvoiceId && (
-                <Grid size={{ xs: 12 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    {t('lblParentInvoice')}
-                  </Typography>
-                  <Box sx={{ mt: 0.5 }}>
-                    {(() => {
-                      const parent = (editingInvoice as any)?.parentInvoice || availableParentInvoices.find((p) => p.id === formData.parentInvoiceId);
-                      return (
-                        <Chip
-                          icon={<LinkIcon sx={{ fontSize: '14px !important' }} />}
-                          size="small"
-                          color="secondary"
-                          label={`${getLinkedInvoiceLabel(parent)}: ${parent?.invoiceNumber || (editingInvoice as any)?.parentInvoiceNumber || formData.parentInvoiceId}`}
-                        />
-                      );
-                    })()}
-                  </Box>
-                </Grid>
-              )}
-
-              {/* Items breakdown */}
-              <Grid size={{ xs: 12 }}>
-                <Divider sx={{ my: 1 }} />
-                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                  {t('invoiceItemsSection')}
-                </Typography>
-                <Paper variant="outlined" sx={{ overflow: 'hidden', borderRadius: 2 }}>
-                  {formData.items.map((item, idx) => (
-                    <Box
-                      key={idx}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        p: 1.5,
-                        borderBottom: idx < formData.items.length - 1 ? '1px solid' : 'none',
-                        borderColor: 'divider',
-                      }}
-                    >
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                          {item.description || '—'}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {item.quantity} × {formatAmount(item.unitPrice, item.currency || formData.currency)}
-                        </Typography>
-                      </Box>
-                      <Typography variant="body2" sx={{ fontWeight: 700, minWidth: 100, textAlign: 'right' }}>
-                        {formatAmount(item.quantity * item.unitPrice, item.currency || formData.currency)}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Paper>
-
-                <Box
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'flex-end',
-                    alignItems: 'center',
-                    gap: 2,
-                    p: 1.5,
-                    bgcolor: 'action.hover',
-                    borderRadius: 2,
-                    mt: 1.5,
+            }
+            editRender={() => (
+              <FormControl fullWidth size="small">
+                <InputLabel>{t('lblInvoiceStatus')}</InputLabel>
+                <Select
+                  value={formData.status}
+                  label={t('lblInvoiceStatus')}
+                  onChange={(e) => {
+                    const newStatus = e.target.value as InvoiceStatus;
+                    setFormData({
+                      ...formData,
+                      status: newStatus,
+                      paymentDate:
+                        newStatus === 'Paid' && !formData.paymentDate
+                          ? new Date().toISOString().slice(0, 10)
+                          : formData.paymentDate,
+                    });
                   }}
                 >
-                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                    {t('colTotalAmount')}:
-                  </Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 800, color: 'primary.main' }}>
-                    {formatAmount(modalTotal, formData.currency)}
-                  </Typography>
-                </Box>
-              </Grid>
-
-              {formData.notes && (
-                <Grid size={{ xs: 12 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    {t('lblNotes')}
-                  </Typography>
-                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', mt: 0.5 }}>
-                    {formData.notes}
-                  </Typography>
-                </Grid>
-              )}
-            </Grid>
-          </DialogContent>
-
-          <DialogActions sx={{ p: 2, flexShrink: 0 }}>
-            {canEdit && onToggleEditMode && (
-              <Button
-                startIcon={<EditIcon />}
-                variant="outlined"
-                onClick={onToggleEditMode}
-              >
-                {t('btnEdit')}
-              </Button>
+                  <MenuItem value="Draft">{t('statusDraft')}</MenuItem>
+                  <MenuItem value="Sent">{t('statusSent')}</MenuItem>
+                  <MenuItem value="Paid">{t('statusPaid')}</MenuItem>
+                  <MenuItem value="Overdue">{t('statusOverdue')}</MenuItem>
+                  <MenuItem value="Cancelled">{t('statusCancelled')}</MenuItem>
+                </Select>
+              </FormControl>
             )}
-            <Button variant="contained" onClick={onClose}>
-              {t('btnClose')}
-            </Button>
-          </DialogActions>
-        </>
-      ) : (
-        <>
-          <DialogTitle sx={{ fontWeight: 700, flexShrink: 0 }}>
-            {editingInvoice ? t('modalEditInvoice') : t('modalNewInvoice')}
-          </DialogTitle>
+          />
+        </Grid>
 
-          <DialogContent dividers sx={{ flex: 1, overflowY: 'auto' }}>
-            {errorMsg && (
-              <Box sx={{ mb: 2, p: 1.5, bgcolor: 'error.main', color: '#fff', borderRadius: 1.5 }}>
-                <Typography variant="body2">{errorMsg}</Typography>
-              </Box>
+        {/* Client */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <ViewEditField
+            mode={mode}
+            label={t('lblClient')}
+            value={formData.clientName}
+            editRender={() => (
+              <ClientAutocomplete
+                value={formData.clientId}
+                initialOption={
+                  formData.clientId
+                    ? ({ id: formData.clientId, name: formData.clientName } as any)
+                    : null
+                }
+                onChange={(id, opt) => {
+                  setFormData({
+                    ...formData,
+                    clientId: id || '',
+                    clientName: opt ? opt.name : '',
+                  });
+                }}
+                required
+                label={t('lblClient')}
+                placeholder={t('phClient')}
+              />
             )}
+          />
+        </Grid>
 
-            <Grid container spacing={2.5}>
-              {/* ID if editing (not editable) */}
-              {editingInvoice && (
-                <Grid size={{ xs: 12 }}>
-                  <TextField
-                    fullWidth
+        {/* Project */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <ViewEditField
+            mode={mode}
+            label={t('tabProjects')}
+            value={formData.projectName}
+            editRender={() => (
+              <ProjectAutocomplete
+                value={formData.projectId}
+                initialOption={
+                  formData.projectId
+                    ? ({ id: formData.projectId, name: formData.projectName } as any)
+                    : null
+                }
+                clientId={formData.clientId || undefined}
+                onChange={(id, opt) => {
+                  setFormData({
+                    ...formData,
+                    projectId: id || '',
+                    projectName: opt ? opt.name : '',
+                    clientId: opt && opt.clientId ? opt.clientId : formData.clientId,
+                    clientName: opt && opt.clientName ? opt.clientName : formData.clientName,
+                  });
+                }}
+                label={t('tabProjects')}
+                placeholder={t('phProjectName')}
+              />
+            )}
+          />
+        </Grid>
+
+        {/* Linked / Parent Invoice */}
+        {(formData.parentInvoiceId || !isView) && (
+          <Grid size={{ xs: 12, sm: isView ? 12 : 8 }}>
+            <ViewEditField
+              mode={mode}
+              label={t('lblParentInvoice')}
+              value={formData.parentInvoiceId}
+              viewRender={() => {
+                const parent =
+                  (editingInvoice as any)?.parentInvoice ||
+                  availableParentInvoices.find((p) => p.id === formData.parentInvoiceId);
+                return (
+                  <Chip
+                    icon={<LinkIcon sx={{ fontSize: '14px !important' }} />}
                     size="small"
-                    label="Unique ID"
-                    value={editingInvoice.id}
-                    disabled
-                    helperText="Immutable unique identifier"
+                    color="secondary"
+                    label={`${getLinkedInvoiceLabel(parent)}: ${
+                      parent?.invoiceNumber ||
+                      (editingInvoice as any)?.parentInvoiceNumber ||
+                      formData.parentInvoiceId
+                    }`}
                   />
-                </Grid>
-              )}
-
-              {/* Invoice Number */}
-              <Grid size={{ xs: 12, sm: 5 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  required
-                  label={t('lblInvoiceNumber')}
-                  placeholder={t('phInvoiceNumber')}
-                  value={formData.invoiceNumber}
-                  onChange={(e) => setFormData({ ...formData, invoiceNumber: e.target.value })}
-                />
-              </Grid>
-
-              {/* Invoice Type */}
-              <Grid size={{ xs: 12, sm: 3.5 }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>{t('lblInvoiceType')}</InputLabel>
-                  <Select
-                    value={formData.invoiceType}
-                    label={t('lblInvoiceType')}
-                    onChange={(e) =>
-                      setFormData({ ...formData, invoiceType: e.target.value as InvoiceType })
-                    }
-                  >
-                    <MenuItem value="Standard">{t('typeStandard')}</MenuItem>
-                    <MenuItem value="Advance">{t('typeAdvance')}</MenuItem>
-                    <MenuItem value="Final">{t('typeFinal')}</MenuItem>
-                    <MenuItem value="Partial">{t('typePartial')}</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              {/* Status */}
-              <Grid size={{ xs: 12, sm: 3.5 }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>{t('lblInvoiceStatus')}</InputLabel>
-                  <Select
-                    value={formData.status}
-                    label={t('lblInvoiceStatus')}
-                    onChange={(e) => {
-                      const newStatus = e.target.value as InvoiceStatus;
-                      setFormData({
-                        ...formData,
-                        status: newStatus,
-                        paymentDate:
-                          newStatus === 'Paid' && !formData.paymentDate
-                            ? new Date().toISOString().slice(0, 10)
-                            : formData.paymentDate,
-                      });
-                    }}
-                  >
-                    <MenuItem value="Draft">{t('statusDraft')}</MenuItem>
-                    <MenuItem value="Sent">{t('statusSent')}</MenuItem>
-                    <MenuItem value="Paid">{t('statusPaid')}</MenuItem>
-                    <MenuItem value="Overdue">{t('statusOverdue')}</MenuItem>
-                    <MenuItem value="Cancelled">{t('statusCancelled')}</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              {/* Linked / Parent Invoice Selection */}
-              <Grid size={{ xs: 12, sm: 8 }}>
+                );
+              }}
+              editRender={() => (
                 <InvoiceAutocomplete
                   value={formData.parentInvoiceId}
                   initialOption={
                     (editingInvoice as any)?.parentInvoice ||
                     (formData.parentInvoiceId
-                      ? ({ id: formData.parentInvoiceId, invoiceNumber: (editingInvoice as any)?.parentInvoiceNumber || '' } as any)
+                      ? ({
+                          id: formData.parentInvoiceId,
+                          invoiceNumber:
+                            (editingInvoice as any)?.parentInvoiceNumber || '',
+                        } as any)
                       : null)
                   }
                   onChange={(id) => {
@@ -681,285 +657,312 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                   label={t('lblParentInvoice')}
                   placeholder={t('phSelectParentInvoice')}
                 />
-              </Grid>
-
-              {/* Currency */}
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>{t('lblCurrency')}</InputLabel>
-                  <Select
-                    value={formData.currency}
-                    label={t('lblCurrency')}
-                    onChange={(e) => {
-                      const newCurr = e.target.value as InvoiceCurrency;
-                      setFormData({
-                        ...formData,
-                        currency: newCurr,
-                        items: formData.items.map((it) => ({ ...it, currency: newCurr })),
-                      });
-                    }}
-                  >
-                    <MenuItem value="RSD">RSD (Dinar)</MenuItem>
-                    <MenuItem value="€">€ (Euro)</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              {/* Client Selection */}
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <ClientAutocomplete
-                  value={formData.clientId}
-                  initialOption={
-                    formData.clientId
-                      ? ({ id: formData.clientId, name: formData.clientName } as any)
-                      : null
-                  }
-                  onChange={(id, opt) => {
-                    setFormData({
-                      ...formData,
-                      clientId: id || '',
-                      clientName: opt ? opt.name : '',
-                    });
-                  }}
-                  required
-                  label={t('lblClient')}
-                  placeholder={t('phClient')}
-                />
-              </Grid>
-
-              {/* Project Selection */}
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <ProjectAutocomplete
-                  value={formData.projectId}
-                  initialOption={
-                    formData.projectId
-                      ? ({ id: formData.projectId, name: formData.projectName } as any)
-                      : null
-                  }
-                  clientId={formData.clientId || undefined}
-                  onChange={(id, opt) => {
-                    setFormData({
-                      ...formData,
-                      projectId: id || '',
-                      projectName: opt ? opt.name : '',
-                      clientId: opt && opt.clientId ? opt.clientId : formData.clientId,
-                      clientName: opt && opt.clientName ? opt.clientName : formData.clientName,
-                    });
-                  }}
-                  label={t('tabProjects')}
-                  placeholder={t('phProjectName')}
-                />
-              </Grid>
-
-              {/* Provided Service Selection */}
-              {(hasPermission('providedServices', 'view') ||
-                hasPermission('wasteDisposal', 'view')) && (
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <ProvidedServiceAutocomplete
-                    size="small"
-                    fullWidth
-                    clientId={formData.clientId || undefined}
-                    value={formData.providedServiceId}
-                    initialOption={
-                      (editingInvoice as any)?.providedServices?.[0] ||
-                      (editingInvoice as any)?.providedService ||
-                      (providedServices.find((ps) => ps.id === formData.providedServiceId) || null)
-                    }
-                    valueMode="id"
-                    onChange={(val, opt) => {
-                      setFormData((prev) => ({
-                        ...prev,
-                        providedServiceId: val || '',
-                        clientId: opt?.clientId ? opt.clientId : prev.clientId,
-                        clientName: opt?.client?.name ? opt.client.name : prev.clientName,
-                        projectId: opt?.projectId ? opt.projectId : prev.projectId,
-                        projectName: opt?.project?.name ? opt.project.name : prev.projectName,
-                      }));
-                    }}
-                    label={t('tabProvidedServices')}
-                    placeholder={t('tabProvidedServices')}
-                  />
-                </Grid>
               )}
+            />
+          </Grid>
+        )}
 
-              {/* Date Created */}
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="date"
-                  label={t('lblDateCreated')}
-                  value={formData.dateCreated}
-                  onChange={(e) => setFormData({ ...formData, dateCreated: e.target.value })}
-                  slotProps={{ inputLabel: { shrink: true } }}
-                />
-              </Grid>
+        {/* Currency in edit mode */}
+        {!isView && (
+          <Grid size={{ xs: 12, sm: 4 }}>
+            <FormControl fullWidth size="small">
+              <InputLabel>{t('lblCurrency')}</InputLabel>
+              <Select
+                value={formData.currency}
+                label={t('lblCurrency')}
+                onChange={(e) => {
+                  const newCurr = e.target.value as InvoiceCurrency;
+                  setFormData({
+                    ...formData,
+                    currency: newCurr,
+                    items: formData.items.map((it) => ({ ...it, currency: newCurr })),
+                  });
+                }}
+              >
+                <MenuItem value="RSD">RSD (Dinar)</MenuItem>
+                <MenuItem value="€">€ (Euro)</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+        )}
 
-              {/* Due Date */}
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="date"
-                  label={t('lblDueDate')}
-                  required
-                  value={formData.dueDate}
-                  onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                  slotProps={{ inputLabel: { shrink: true } }}
-                />
-              </Grid>
+        {/* Provided Service Selection in edit mode */}
+        {!isView &&
+          (hasPermission('providedServices', 'view') ||
+            hasPermission('wasteDisposal', 'view')) && (
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <ProvidedServiceAutocomplete
+                size="small"
+                fullWidth
+                clientId={formData.clientId || undefined}
+                value={formData.providedServiceId}
+                initialOption={
+                  (editingInvoice as any)?.providedServices?.[0] ||
+                  (editingInvoice as any)?.providedService ||
+                  (providedServices.find((ps) => ps.id === formData.providedServiceId) || null)
+                }
+                valueMode="id"
+                onChange={(val, opt) => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    providedServiceId: val || '',
+                    clientId: opt?.clientId ? opt.clientId : prev.clientId,
+                    clientName: opt?.client?.name ? opt.client.name : prev.clientName,
+                    projectId: opt?.projectId ? opt.projectId : prev.projectId,
+                    projectName: opt?.project?.name ? opt.project.name : prev.projectName,
+                  }));
+                }}
+                label={t('tabProvidedServices')}
+                placeholder={t('tabProvidedServices')}
+              />
+            </Grid>
+          )}
 
-              {/* Payment Date */}
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  type="date"
-                  label={t('lblPaymentDate')}
-                  value={formData.paymentDate}
-                  onChange={(e) => setFormData({ ...formData, paymentDate: e.target.value })}
-                  slotProps={{ inputLabel: { shrink: true } }}
-                />
-              </Grid>
+        {/* Date Created */}
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <ViewEditField
+            mode={mode}
+            label={t('lblDateCreated')}
+            value={formData.dateCreated}
+            viewRender={formatDate}
+            editRender={() => (
+              <TextField
+                fullWidth
+                size="small"
+                type="date"
+                label={t('lblDateCreated')}
+                value={formData.dateCreated}
+                onChange={(e) => setFormData({ ...formData, dateCreated: e.target.value })}
+                slotProps={{ inputLabel: { shrink: true } }}
+              />
+            )}
+          />
+        </Grid>
 
-              {/* ITEMS SECTION */}
-              <Grid size={{ xs: 12 }}>
-                <Divider sx={{ my: 1 }} />
+        {/* Due Date */}
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <ViewEditField
+            mode={mode}
+            label={t('lblDueDate')}
+            value={formData.dueDate}
+            viewRender={formatDate}
+            editRender={() => (
+              <TextField
+                fullWidth
+                size="small"
+                type="date"
+                label={t('lblDueDate')}
+                required
+                value={formData.dueDate}
+                onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                slotProps={{ inputLabel: { shrink: true } }}
+              />
+            )}
+          />
+        </Grid>
+
+        {/* Payment Date */}
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <ViewEditField
+            mode={mode}
+            label={t('lblPaymentDate')}
+            value={formData.paymentDate}
+            viewRender={formatDate}
+            editRender={() => (
+              <TextField
+                fullWidth
+                size="small"
+                type="date"
+                label={t('lblPaymentDate')}
+                value={formData.paymentDate}
+                onChange={(e) => setFormData({ ...formData, paymentDate: e.target.value })}
+                slotProps={{ inputLabel: { shrink: true } }}
+              />
+            )}
+          />
+        </Grid>
+
+        {/* ITEMS SECTION */}
+        <Grid size={{ xs: 12 }}>
+          <Divider sx={{ my: 1 }} />
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              mb: 1.5,
+            }}
+          >
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+              {t('invoiceItemsSection')}
+            </Typography>
+            {!isView && (
+              <Button
+                size="small"
+                startIcon={<AddIcon />}
+                onClick={handleAddItem}
+                variant="outlined"
+                sx={{ borderRadius: 2 }}
+              >
+                {t('btnAddInvoiceItem')}
+              </Button>
+            )}
+          </Box>
+
+          {isView ? (
+            <Paper variant="outlined" sx={{ overflow: 'hidden', borderRadius: 2 }}>
+              {formData.items.map((item, idx) => (
                 <Box
+                  key={idx}
                   sx={{
                     display: 'flex',
+                    alignItems: 'center',
                     justifyContent: 'space-between',
-                    alignItems: 'center',
-                    mb: 1.5,
-                  }}
-                >
-                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                    {t('invoiceItemsSection')}
-                  </Typography>
-                  <Button
-                    size="small"
-                    startIcon={<AddIcon />}
-                    onClick={handleAddItem}
-                    variant="outlined"
-                    sx={{ borderRadius: 2 }}
-                  >
-                    {t('btnAddInvoiceItem')}
-                  </Button>
-                </Box>
-
-                {formData.items.map((item, index) => (
-                  <Paper
-                    key={index}
-                    variant="outlined"
-                    sx={{ p: 1.5, mb: 1.5, borderRadius: 2, bgcolor: 'background.paper' }}
-                  >
-                    <Grid container spacing={1.5} sx={{ alignItems: 'center' }}>
-                      <Grid size={{ xs: 12, sm: 4.5 }}>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          label={t('lblItemDescription')}
-                          value={item.description}
-                          onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                        />
-                      </Grid>
-
-                      <Grid size={{ xs: 4, sm: 1.75 }}>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          type="number"
-                          label={t('lblItemQuantity')}
-                          slotProps={{ htmlInput: { min: 0.01, step: 'any' } }}
-                          value={item.quantity}
-                          onChange={(e) =>
-                            handleItemChange(index, 'quantity', parseFloat(e.target.value) || 0)
-                          }
-                        />
-                      </Grid>
-
-                      <Grid size={{ xs: 4, sm: 2.25 }}>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          type="number"
-                          label={t('lblItemUnitPrice')}
-                          slotProps={{ htmlInput: { min: 0, step: 'any' } }}
-                          value={item.unitPrice}
-                          onChange={(e) =>
-                            handleItemChange(index, 'unitPrice', parseFloat(e.target.value) || 0)
-                          }
-                        />
-                      </Grid>
-
-                      <Grid
-                        size={{ xs: 3, sm: 2.75 }}
-                        sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}
-                      >
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            fontWeight: 700,
-                            textAlign: 'right',
-                            whiteSpace: 'nowrap',
-                            minWidth: 120,
-                          }}
-                        >
-                          {formatAmount(
-                            item.quantity * item.unitPrice,
-                            item.currency || formData.currency
-                          )}
-                        </Typography>
-                      </Grid>
-
-                      <Grid
-                        size={{ xs: 1, sm: 0.75 }}
-                        sx={{
-                          textAlign: 'right',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'flex-end',
-                        }}
-                      >
-                        {formData.items.length > 1 && (
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => handleRemoveItem(index)}
-                            title={t('btnRemoveInvoiceItem')}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        )}
-                      </Grid>
-                    </Grid>
-                  </Paper>
-                ))}
-
-                {/* Total Summary */}
-                <Box
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'flex-end',
-                    alignItems: 'center',
-                    gap: 2,
                     p: 1.5,
-                    bgcolor: 'action.hover',
-                    borderRadius: 2,
-                    mt: 1,
+                    borderBottom: idx < formData.items.length - 1 ? '1px solid' : 'none',
+                    borderColor: 'divider',
                   }}
                 >
-                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                    {t('colTotalAmount')}:
-                  </Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 800, color: 'primary.main' }}>
-                    {formatAmount(modalTotal, formData.currency)}
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {item.description || '—'}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {item.quantity} × {formatAmount(item.unitPrice, item.currency || formData.currency)}
+                    </Typography>
+                  </Box>
+                  <Typography variant="body2" sx={{ fontWeight: 700, minWidth: 100, textAlign: 'right' }}>
+                    {formatAmount(item.quantity * item.unitPrice, item.currency || formData.currency)}
                   </Typography>
                 </Box>
-              </Grid>
+              ))}
+            </Paper>
+          ) : (
+            formData.items.map((item, index) => (
+              <Paper
+                key={index}
+                variant="outlined"
+                sx={{ p: 1.5, mb: 1.5, borderRadius: 2, bgcolor: 'background.paper' }}
+              >
+                <Grid container spacing={1.5} sx={{ alignItems: 'center' }}>
+                  <Grid size={{ xs: 12, sm: 4.5 }}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label={t('lblItemDescription')}
+                      value={item.description}
+                      onChange={(e) => handleItemChange(index, 'description', e.target.value)}
+                    />
+                  </Grid>
 
-              {/* Notes */}
-              <Grid size={{ xs: 12 }}>
+                  <Grid size={{ xs: 4, sm: 1.75 }}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="number"
+                      label={t('lblItemQuantity')}
+                      slotProps={{ htmlInput: { min: 0.01, step: 'any' } }}
+                      value={item.quantity}
+                      onChange={(e) =>
+                        handleItemChange(index, 'quantity', parseFloat(e.target.value) || 0)
+                      }
+                    />
+                  </Grid>
+
+                  <Grid size={{ xs: 4, sm: 2.25 }}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      type="number"
+                      label={t('lblItemUnitPrice')}
+                      slotProps={{ htmlInput: { min: 0, step: 'any' } }}
+                      value={item.unitPrice}
+                      onChange={(e) =>
+                        handleItemChange(index, 'unitPrice', parseFloat(e.target.value) || 0)
+                      }
+                    />
+                  </Grid>
+
+                  <Grid
+                    size={{ xs: 3, sm: 2.75 }}
+                    sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}
+                  >
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        fontWeight: 700,
+                        textAlign: 'right',
+                        whiteSpace: 'nowrap',
+                        minWidth: 120,
+                      }}
+                    >
+                      {formatAmount(
+                        item.quantity * item.unitPrice,
+                        item.currency || formData.currency
+                      )}
+                    </Typography>
+                  </Grid>
+
+                  <Grid
+                    size={{ xs: 1, sm: 0.75 }}
+                    sx={{
+                      textAlign: 'right',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'flex-end',
+                    }}
+                  >
+                    {formData.items.length > 1 && (
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => handleRemoveItem(index)}
+                        title={t('btnRemoveInvoiceItem')}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    )}
+                  </Grid>
+                </Grid>
+              </Paper>
+            ))
+          )}
+
+          {/* Total Summary */}
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              alignItems: 'center',
+              gap: 2,
+              p: 1.5,
+              bgcolor: 'action.hover',
+              borderRadius: 2,
+              mt: 1.5,
+            }}
+          >
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+              {t('colTotalAmount')}:
+            </Typography>
+            <Typography variant="h6" sx={{ fontWeight: 800, color: 'primary.main' }}>
+              {formatAmount(modalTotal, formData.currency)}
+            </Typography>
+          </Box>
+        </Grid>
+
+        {/* Notes */}
+        {(formData.notes || !isView) && (
+          <Grid size={{ xs: 12 }}>
+            <ViewEditField
+              mode={mode}
+              label={t('lblNotes')}
+              value={formData.notes}
+              viewRender={(val) => (
+                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                  {val}
+                </Typography>
+              )}
+              editRender={() => (
                 <TextField
                   fullWidth
                   size="small"
@@ -969,26 +972,13 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                 />
-              </Grid>
-            </Grid>
-          </DialogContent>
-
-          <DialogActions sx={{ p: 2, flexShrink: 0 }}>
-            <Button onClick={onClose} disabled={isSaving}>
-              {t('btnCancel')}
-            </Button>
-            <Button
-              type="submit"
-              variant="contained"
-              color="primary"
-              disabled={isSaving}
-              sx={{ px: 3 }}
-            >
-              {isSaving ? '...' : t('btnSave')}
-            </Button>
-          </DialogActions>
-        </>
-      )}
-    </Dialog>
+              )}
+            />
+          </Grid>
+        )}
+      </Grid>
+    </ViewEditModalBase>
   );
 };
+
+export default InvoiceModal;

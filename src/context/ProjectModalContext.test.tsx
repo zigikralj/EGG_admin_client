@@ -3,16 +3,28 @@ import { describe, it, expect, vi } from 'vitest';
 import { ProjectModalProvider, useProjectModal } from './ProjectModalContext';
 
 vi.mock('../components/project/ProjectModal', () => ({
-  default: ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) =>
-    isOpen ? <div data-testid="project-modal"><button onClick={onClose}>Close Edit</button></div> : null,
-}));
-
-vi.mock('../components/project/ProjectViewModal', () => ({
-  default: ({ isOpen, onClose, onEdit }: { isOpen: boolean; onClose: () => void; onEdit: (p: any) => void }) =>
+  default: ({
+    isOpen,
+    onClose,
+    initialMode,
+    onEdit,
+    project,
+  }: {
+    isOpen: boolean;
+    onClose: () => void;
+    initialMode: string;
+    onEdit?: (p: any) => void;
+    project?: any;
+  }) =>
     isOpen ? (
-      <div data-testid="project-view-modal">
-        <button onClick={onClose}>Close View</button>
-        <button onClick={() => onEdit({ id: '1', name: 'Test' })}>Edit View</button>
+      <div data-testid="project-modal" data-mode={initialMode}>
+        <span data-testid="project-title">{project?.name || 'No Project'}</span>
+        <button onClick={onClose}>Close Modal</button>
+        {onEdit && (
+          <button onClick={() => onEdit({ id: '1', name: 'Test Updated' })}>
+            Trigger Edit Transition
+          </button>
+        )}
       </div>
     ) : null,
 }));
@@ -22,14 +34,14 @@ const TestConsumer = () => {
   return (
     <div>
       <button onClick={openNewProject}>New Project</button>
-      <button onClick={() => openViewProject({ id: '1', name: 'Test' } as any)}>View Project</button>
-      <button onClick={() => openEditProject({ id: '1', name: 'Test' } as any)}>Edit Project</button>
+      <button onClick={() => openViewProject({ id: '1', name: 'Test Project' } as any)}>View Project</button>
+      <button onClick={() => openEditProject({ id: '1', name: 'Test Project' } as any)}>Edit Project</button>
     </div>
   );
 };
 
 describe('ProjectModalContext', () => {
-  it('opens and closes ProjectModal on openNewProject', async () => {
+  it('opens and closes ProjectModal on openNewProject with create mode', async () => {
     render(
       <ProjectModalProvider>
         <TestConsumer />
@@ -42,16 +54,18 @@ describe('ProjectModalContext', () => {
       screen.getByText('New Project').click();
     });
 
-    expect(await screen.findByTestId('project-modal')).toBeInTheDocument();
+    const modal = await screen.findByTestId('project-modal');
+    expect(modal).toBeInTheDocument();
+    expect(modal).toHaveAttribute('data-mode', 'create');
 
     act(() => {
-      screen.getByText('Close Edit').click();
+      screen.getByText('Close Modal').click();
     });
 
     expect(screen.queryByTestId('project-modal')).not.toBeInTheDocument();
   });
 
-  it('opens ProjectViewModal and can transition to edit', async () => {
+  it('opens ProjectModal in view mode and can transition to edit in-place', async () => {
     render(
       <ProjectModalProvider>
         <TestConsumer />
@@ -62,13 +76,16 @@ describe('ProjectModalContext', () => {
       screen.getByText('View Project').click();
     });
 
-    expect(await screen.findByTestId('project-view-modal')).toBeInTheDocument();
+    const modal = await screen.findByTestId('project-modal');
+    expect(modal).toBeInTheDocument();
+    expect(modal).toHaveAttribute('data-mode', 'view');
+    expect(screen.getByTestId('project-title')).toHaveTextContent('Test Project');
 
     act(() => {
-      screen.getByText('Edit View').click();
+      screen.getByText('Trigger Edit Transition').click();
     });
 
-    expect(await screen.findByTestId('project-modal')).toBeInTheDocument();
-    expect(screen.queryByTestId('project-view-modal')).not.toBeInTheDocument();
+    expect(screen.getByTestId('project-modal')).toHaveAttribute('data-mode', 'edit');
+    expect(screen.getByTestId('project-title')).toHaveTextContent('Test Updated');
   });
 });

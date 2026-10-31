@@ -6,6 +6,7 @@ import {
   Button,
   Box,
   Stack,
+  Chip,
   Paper,
   TextField,
   Autocomplete,
@@ -24,7 +25,7 @@ import { TableQuickFilters, type QuickFilterItem } from '../../components/common
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useLoading } from '../../context/LoadingContext';
-import { ArrowUpwardIcon, ArrowDownwardIcon, RefreshIcon } from '../../components/icons';
+import { ArrowUpwardIcon, ArrowDownwardIcon, RefreshIcon, AddIcon } from '../../components/icons';
 import {
   ClientAutocomplete,
   UserAutocomplete,
@@ -45,15 +46,18 @@ import { useProjectModal } from '../../context/ProjectModalContext';
 export interface TrackerProjectsPageProps {
   onViewProject?: (project: Project, diffRange?: { dateFrom: string; dateTo: string } | null) => void;
   onEditProject?: (project: Project) => void;
+  onOpenNewProject?: () => void;
 }
 
 export const TrackerProjectsPage: React.FC<TrackerProjectsPageProps> = ({
   onViewProject: propOnViewProject,
   onEditProject: propOnEditProject,
+  onOpenNewProject: propOnOpenNewProject,
 }) => {
   const projectModal = useProjectModal();
   const onViewProject = propOnViewProject || projectModal.openViewProject;
   const onEditProject = propOnEditProject || projectModal.openEditProject;
+  const onOpenNewProject = propOnOpenNewProject || projectModal.openNewProject;
   const { t } = useLanguage();
   const { currentUser, isRestrictedToOwn } = useAuth();
   const isProjectsRestricted = isRestrictedToOwn('projects') || isRestrictedToOwn('tracker_projects');
@@ -157,6 +161,8 @@ export const TrackerProjectsPage: React.FC<TrackerProjectsPageProps> = ({
     if (!infiniteData?.pages) return [];
     return infiniteData.pages.flatMap((page) => page.items);
   }, [infiniteData?.pages]);
+
+  const totalCardsCount = infiniteData?.pages?.[0]?.total ?? infiniteProjects.length;
 
   const observerRef = useRef<IntersectionObserver | null>(null);
   const observerSentinelCallback = useCallback(
@@ -306,6 +312,33 @@ export const TrackerProjectsPage: React.FC<TrackerProjectsPageProps> = ({
 
   return (
     <Stack spacing={2} sx={{ width: '100%', py: 1 }}>
+      {/* TITLE HEADER */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+            {t('subTabProjects')}
+          </Typography>
+          <Chip
+            label={totalCardsCount > 0 ? `${infiniteProjects.length} / ${totalCardsCount}` : `${infiniteProjects.length}`}
+            size="small"
+            color="primary"
+            sx={{ fontWeight: 700 }}
+          />
+        </Box>
+        {onOpenNewProject && (
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<AddIcon />}
+            onClick={onOpenNewProject}
+            size="small"
+            sx={{ borderRadius: 1.5, textTransform: 'none', fontWeight: 600 }}
+          >
+            {t('btnNewProject')}
+          </Button>
+        )}
+      </Box>
+
       {/* FILTERS BAR ON TOP */}
       <Card variant="outlined" sx={{ p: 2 }}>
         <Box sx={{ display: 'flex', flexDirection: { xs: 'column', lg: 'row' }, gap: 2, alignItems: { xs: 'stretch', lg: 'center' }, justifyContent: 'space-between' }}>

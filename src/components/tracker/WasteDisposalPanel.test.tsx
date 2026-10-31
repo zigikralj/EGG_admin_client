@@ -358,6 +358,39 @@ describe('WasteDisposalPanel - Client and Project / Location reactivity', () => 
 
     fetchSpy.mockRestore();
   });
+
+  it('renders Transport badge with client name instead of [object Object]', async () => {
+    const mockProvidedServices = [
+      {
+        id: 'ps-waste-1',
+        serviceId: 'srv-waste-1',
+        clientId: 'c-1',
+        client: mockClients[0],
+        status: 'Planned',
+        scheduledDate: '2026-10-27T00:00:00.000Z',
+        customData: {
+          kolicina_kg: 1234453,
+          vrsta_otpada: '01 01 01, 01 03 06',
+          transport: { id: 'c-2', name: 'Client Beta' },
+        },
+      },
+    ];
+
+    renderWithProviders(
+      <WasteDisposalPanel
+        providedServices={mockProvidedServices as any}
+        services={mockServices}
+        clients={mockClients}
+        projects={mockProjects}
+      />
+    );
+
+    // Should find the transport badge displaying the client name, not [object Object]
+    await waitFor(() => {
+      expect(screen.getByText(/Transport: Client Beta/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/\[object Object\]/)).not.toBeInTheDocument();
+  });
 });
 
 

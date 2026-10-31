@@ -17,6 +17,7 @@ import {
 import { EditIcon, DeleteIcon, AddIcon } from '../../components/icons';
 import { useRolesQuery, useRoleMutations } from '../../queries';
 import { RoleModal } from '../../components/role/RoleModal';
+import { type ModalMode } from '../../components/common/modal/ViewEditModalBase';
 import { ConfirmDeleteDialog } from '../../components/common/dialogs/ConfirmDeleteDialog';
 import { ErrorDialog } from '../../components/common/dialogs/ErrorDialog';
 import type { Role } from '../../types';
@@ -28,6 +29,7 @@ const RolesPage: React.FC = () => {
   const { hasPermission } = useAuth();
   
   const [modalOpen, setModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<ModalMode>('view');
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [roleToDelete, setRoleToDelete] = useState<Role | null>(null);
@@ -45,11 +47,19 @@ const RolesPage: React.FC = () => {
 
   const handleAddClick = () => {
     setEditingRole(null);
+    setModalMode('create');
+    setModalOpen(true);
+  };
+
+  const handleViewClick = (role: Role) => {
+    setEditingRole(role);
+    setModalMode('view');
     setModalOpen(true);
   };
 
   const handleEditClick = (role: Role) => {
     setEditingRole(role);
+    setModalMode('edit');
     setModalOpen(true);
   };
 
@@ -109,7 +119,7 @@ const RolesPage: React.FC = () => {
           </TableHead>
           <TableBody>
             {roles?.map((role) => (
-              <TableRow key={role.name} hover>
+              <TableRow key={role.name} hover sx={{ cursor: 'pointer' }} onClick={() => handleViewClick(role)}>
                 <TableCell>
                   <Typography sx={{ fontWeight: 500 }}>{role.name}</Typography>
                 </TableCell>
@@ -123,7 +133,7 @@ const RolesPage: React.FC = () => {
                     )}
                   </Box>
                 </TableCell>
-                <TableCell align="right">
+                <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                   {canEdit && (
                     <Tooltip title="Edit Role">
                       <IconButton onClick={() => handleEditClick(role)} color="primary">
@@ -157,7 +167,15 @@ const RolesPage: React.FC = () => {
         onClose={() => setModalOpen(false)}
         onSave={handleSaveRole}
         role={editingRole}
+        mode={modalMode}
+        onModeChange={setModalMode}
         canAssignSystemAdmin={canAssignSystemAdmin}
+        canEdit={canEdit}
+        canDelete={canDelete}
+        onDeleteRole={(name) => {
+          const r = roles?.find(x => x.name === name);
+          if (r) handleDeleteClick(r);
+        }}
       />
 
       <ConfirmDeleteDialog

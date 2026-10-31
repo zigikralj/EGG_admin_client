@@ -3,10 +3,11 @@ import {
   normalizeKey,
   isKeyMatch,
   formatCustomFieldValue,
+  resolveCustomFieldBadges,
   isWasteWeightField,
   parseWasteWeightValue
 } from './customFields';
-import type { CustomFieldDefinition } from '../types';
+import type { CustomFieldDefinition, ProvidedService, Client, Service } from '../types';
 
 describe('customFields utils', () => {
   describe('normalizeKey', () => {
@@ -68,6 +69,91 @@ describe('customFields utils', () => {
 
     it('trims string', () => {
       expect(formatCustomFieldValue(' test ')).toBe('test');
+    });
+
+    it('formats object with name instead of [object Object]', () => {
+      expect(formatCustomFieldValue({ id: 'client-1', name: 'AgroPlod d.o.o.' })).toBe('AgroPlod d.o.o.');
+      expect(formatCustomFieldValue({ name: 'Adient Seating d.o.o.' })).toBe('Adient Seating d.o.o.');
+      expect(formatCustomFieldValue({ label: 'Custom Label' })).toBe('Custom Label');
+      expect(formatCustomFieldValue({ title: 'Custom Title' })).toBe('Custom Title');
+    });
+
+    it('formats array of objects with name', () => {
+      expect(formatCustomFieldValue([{ name: 'Client A' }, { name: 'Client B' }])).toBe('Client A, Client B');
+    });
+  });
+
+  describe('resolveCustomFieldBadges', () => {
+    const mockServices: Service[] = [
+      {
+        id: 'srv-waste',
+        code: 'waste-disposal',
+        name: 'Waste Disposal',
+        group: 'waste',
+        frequency: 1,
+        customDataModel: [
+          { id: 'kolicina_kg', name: 'Količina', type: 'number', unit: 'kg' },
+          { id: 'vrsta_otpada', name: 'Vrsta otpada', type: 'text' },
+          { id: 'transport', name: 'Transport', type: 'client' },
+        ],
+      },
+    ];
+
+    const mockClients: Client[] = [
+      { id: 'client-123', name: 'AgroPlod d.o.o.', city: 'Kruševac' },
+      { id: 'client-456', name: 'Adient Seating d.o.o.', city: 'Loznica' },
+    ];
+
+    it('resolves Transport field when stored as client object to client name string', () => {
+      const item: ProvidedService = {
+        id: 'ps-1',
+        serviceId: 'srv-waste',
+        clientId: 'client-123',
+        status: 'Planned',
+        customData: {
+          kolicina_kg: 1234453,
+          vrsta_otpada: '01 01 01, 01 03 06',
+          transport: { id: 'client-123', name: 'AgroPlod d.o.o.' },
+        },
+      };
+
+      const badges = resolveCustomFieldBadges(item, mockServices, mockClients);
+      expect(badges).toHaveLength(3);
+      expect(badges[0]).toEqual(expect.objectContaining({ label: 'Količina', value: '1234453', unit: 'kg' }));
+      expect(badges[1]).toEqual(expect.objectContaining({ label: 'Vrsta otpada', value: '01 01 01, 01 03 06' }));
+      expect(badges[2]).toEqual(expect.objectContaining({ label: 'Transport', value: 'AgroPlod d.o.o.' }));
+    });
+
+    it('resolves Transport field when stored as client ID string using clients list', () => {
+      const item: ProvidedService = {
+        id: 'ps-2',
+        serviceId: 'srv-waste',
+        clientId: 'client-456',
+        status: 'Planned',
+        customData: {
+          transport: 'client-456',
+        },
+      };
+
+      const badges = resolveCustomFieldBadges(item, mockServices, mockClients);
+      expect(badges).toHaveLength(1);
+      expect(badges[0]).toEqual(expect.objectContaining({ label: 'Transport', value: 'Adient Seating d.o.o.' }));
+    });
+
+    it('resolves legacy or extra transport field even if not in service customDataModel', () => {
+      const item: ProvidedService = {
+        id: 'ps-3',
+        serviceId: 'srv-other',
+        clientId: 'client-123',
+        status: 'Planned',
+        customData: {
+          transport: { id: 'client-123', name: 'AgroPlod d.o.o.' },
+        },
+      };
+
+      const badges = resolveCustomFieldBadges(item, [], mockClients);
+      expect(badges).toHaveLength(1);
+      expect(badges[0]).toEqual(expect.objectContaining({ label: 'Transport', value: 'AgroPlod d.o.o.' }));
     });
   });
 

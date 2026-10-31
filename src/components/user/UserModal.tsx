@@ -1,10 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
   TextField,
   FormControl,
   InputLabel,
@@ -14,19 +9,24 @@ import {
   IconButton,
   Typography,
   Grid,
+  Chip,
 } from '@mui/material';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
-import { DeleteIcon } from '../icons';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import { ViewEditModalBase, type ModalMode } from '../common/modal/ViewEditModalBase';
+import { ViewEditField } from '../common/modal/ViewEditField';
 import type { User, Role } from '../../types';
 
 export interface UserModalProps {
   open: boolean;
   onClose: () => void;
   editingUser: User | null;
+  mode?: ModalMode;
+  initialMode?: ModalMode;
+  onModeChange?: (mode: ModalMode) => void;
   rolesList: Role[];
   canDelete?: boolean;
   canEdit?: boolean;
@@ -40,6 +40,9 @@ export const UserModal: React.FC<UserModalProps> = ({
   open,
   onClose,
   editingUser,
+  mode: controlledMode,
+  initialMode,
+  onModeChange: onModeChangeProp,
   rolesList,
   canDelete = false,
   canEdit = true,
@@ -51,6 +54,32 @@ export const UserModal: React.FC<UserModalProps> = ({
   const { t } = useLanguage();
   const { hasPermission } = useAuth();
 
+  const [internalMode, setInternalMode] = useState<ModalMode>(() => {
+    if (controlledMode) return controlledMode;
+    if (initialMode) return initialMode;
+    return editingUser ? 'view' : 'create';
+  });
+
+  const currentMode = controlledMode || internalMode;
+  const isView = currentMode === 'view';
+
+  const handleModeChange = (newMode: ModalMode) => {
+    setInternalMode(newMode);
+    onModeChangeProp?.(newMode);
+  };
+
+  useEffect(() => {
+    if (open) {
+      if (controlledMode) {
+        setInternalMode(controlledMode);
+      } else if (initialMode) {
+        setInternalMode(initialMode);
+      } else {
+        setInternalMode(editingUser ? 'view' : 'create');
+      }
+    }
+  }, [open, editingUser?.id, initialMode, controlledMode]);
+
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('User');
@@ -61,43 +90,91 @@ export const UserModal: React.FC<UserModalProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  const populateFromUser = useCallback((u: User | null) => {
+    if (u) {
+      setName(u.name || '');
+      setEmail(u.email || '');
+      setRole(u.role || 'User');
+      setPhone(u.phone || '');
+      setGender(u.gender || '');
+      setStatus(u.status || (u.isApproved ? 'APPROVED' : 'PENDING'));
+      setPassword('');
+      setShowPassword(false);
+    } else {
+      setName('');
+      setEmail('');
+      setRole('User');
+      setPhone('');
+      setGender('');
+      setStatus('APPROVED');
+      setPassword('');
+      setShowPassword(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (open) {
-      if (editingUser) {
-        setName(editingUser.name);
-        setEmail(editingUser.email || '');
-        setRole(editingUser.role || 'User');
-        setPhone(editingUser.phone || '');
-        setGender(editingUser.gender || '');
-        setStatus(editingUser.status || (editingUser.isApproved ? 'APPROVED' : 'PENDING'));
-        setPassword('');
-        setShowPassword(false);
-      } else {
-        setName('');
-        setEmail('');
-        setRole('User');
-        setPhone('');
-        setGender('');
-        setStatus('APPROVED');
-        setPassword('');
-        setShowPassword(false);
-      }
+      populateFromUser(editingUser);
     }
-  }, [open, editingUser]);
+  }, [open, editingUser, populateFromUser]);
 
-  const getRoleLabel = (roleName: string) => {
-    const key = `role${roleName.replace(/\s+/g, '')}`;
-    const translated = t(key as any);
-    return translated !== key ? translated : roleName;
+  const handleCancel = () => {
+    if (currentMode === 'edit' && editingUser) {
+      populateFromUser(editingUser);
+      handleModeChange('view');
+    } else {
+      onClose();
+    }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const getRoleLabel = useCallback(
+    (roleName: string) => {
+      const key = `role${roleName.replace(/\s+/g, '')}`;
+      const translated = t(key as any);
+      return translated !== key ? translated : roleName;
+    },
+    [t]
+  );
+
+  const getRoleColor = useCallback((roleName: string): 'error' | 'warning' | 'info' | 'default' => {
+    switch (roleName) {
+      case 'Administrator':
+        return 'error';
+      case 'Manager':
+        return 'warning';
+      case 'Staff':
+        return 'info';
+      default:
+        return 'default';
+    }
+  }, []);
+
+  const getGenderLabel = useCallback(
+    (g?: string | null) => {
+      if (!g) return t('genderNotSpecified');
+      switch (g) {
+        case 'Male':
+          return t('genderMale');
+        case 'Female':
+          return t('genderFemale');
+        case 'Other':
+          return t('genderOther');
+        default:
+          return g;
+      }
+    },
+    [t]
+  );
+
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (isView) return;
     if (editingUser ? !canEdit : !canCreate) return;
     if (!name.trim()) {
       onError?.(t('alertUserNameRequired'));
       return;
     }
+
     setIsSaving(true);
     try {
       const res = await onSaveUser({
@@ -124,49 +201,45 @@ export const UserModal: React.FC<UserModalProps> = ({
     }
   };
 
+  const modalTitle = currentMode === 'create'
+    ? t('modalNewUser')
+    : currentMode === 'edit'
+    ? t('modalEditUser')
+    : (editingUser?.name || t('btnDetails'));
+
   return (
-    <Dialog
+    <ViewEditModalBase
       open={open}
       onClose={onClose}
-      maxWidth="sm"
-      fullWidth
-      slotProps={{
-        paper: {
-          component: 'form',
-          onSubmit: handleSubmit,
-          sx: {
-            maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
-            display: 'flex',
-            flexDirection: 'column',
-          },
-        },
+      mode={currentMode}
+      onModeChange={handleModeChange}
+      title={modalTitle}
+      canEdit={canEdit}
+      canDelete={Boolean(editingUser && canDelete && onDeleteUser)}
+      onDelete={() => {
+        if (editingUser) {
+          onDeleteUser?.(editingUser.id);
+          onClose();
+        }
       }}
+      isSaving={isSaving}
+      onSave={handleSubmit}
+      onCancel={handleCancel}
+      maxWidth="sm"
     >
-      <DialogTitle
-        component="div"
-        sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}
-      >
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>
-          {editingUser ? t('modalEditUser') : t('modalNewUser')}
-        </Typography>
-        {editingUser && canDelete && onDeleteUser && (
-          <Button
-            color="error"
-            size="small"
-            variant="outlined"
-            startIcon={<DeleteIcon />}
-            onClick={() => {
-              onDeleteUser(editingUser.id);
-              onClose();
-            }}
+      <Grid container spacing={2}>
+        {/* Full Name */}
+        <Grid size={{ xs: 12 }}>
+          <ViewEditField
+            mode={currentMode}
+            label={t('colFullName')}
+            value={name}
+            viewRender={() => (
+              <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                {name || '—'}
+              </Typography>
+            )}
           >
-            {t('btnDelete')}
-          </Button>
-        )}
-      </DialogTitle>
-      <DialogContent dividers sx={{ flex: 1, overflowY: 'auto' }}>
-        <Grid container spacing={2} sx={{ pt: 1 }}>
-          <Grid size={{ xs: 12 }}>
             <TextField
               fullWidth
               size="small"
@@ -176,8 +249,23 @@ export const UserModal: React.FC<UserModalProps> = ({
               onChange={(e) => setName(e.target.value)}
               required
             />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
+          </ViewEditField>
+        </Grid>
+
+        {/* Role */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <ViewEditField
+            mode={currentMode}
+            label={t('lblRole')}
+            value={getRoleLabel(role)}
+            viewRender={() => (
+              <Chip
+                label={getRoleLabel(role)}
+                size="small"
+                color={getRoleColor(role)}
+              />
+            )}
+          >
             <FormControl fullWidth size="small">
               <InputLabel>{t('lblRole')}</InputLabel>
               <Select
@@ -195,8 +283,21 @@ export const UserModal: React.FC<UserModalProps> = ({
                 })}
               </Select>
             </FormControl>
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
+          </ViewEditField>
+        </Grid>
+
+        {/* Gender */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <ViewEditField
+            mode={currentMode}
+            label={t('lblGender')}
+            value={getGenderLabel(gender)}
+            viewRender={() => (
+              <Typography variant="body2">
+                {getGenderLabel(gender)}
+              </Typography>
+            )}
+          >
             <FormControl fullWidth size="small">
               <InputLabel>{t('lblGender')}</InputLabel>
               <Select
@@ -210,9 +311,25 @@ export const UserModal: React.FC<UserModalProps> = ({
                 <MenuItem value="Other">{t('genderOther')}</MenuItem>
               </Select>
             </FormControl>
-          </Grid>
-          {editingUser ? (
-            <Grid size={{ xs: 12, sm: 6 }}>
+          </ViewEditField>
+        </Grid>
+
+        {/* Status (when editing/viewing existing user) */}
+        {editingUser && (
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <ViewEditField
+              mode={currentMode}
+              label={t('colApprovalStatus')}
+              value={status === 'APPROVED' ? t('statusApproved') : status === 'BLOCKED' ? t('statusBlocked') : t('statusPending')}
+              viewRender={() => (
+                <Chip
+                  label={status === 'APPROVED' ? t('statusApproved') : status === 'BLOCKED' ? t('statusBlocked') : t('statusPending')}
+                  size="small"
+                  color={status === 'APPROVED' ? 'success' : status === 'BLOCKED' ? 'error' : 'warning'}
+                  variant="outlined"
+                />
+              )}
+            >
               <FormControl fullWidth size="small">
                 <InputLabel>{t('colApprovalStatus')}</InputLabel>
                 <Select
@@ -224,32 +341,45 @@ export const UserModal: React.FC<UserModalProps> = ({
                   <MenuItem value="BLOCKED">{t('statusBlocked')}</MenuItem>
                 </Select>
               </FormControl>
-            </Grid>
-          ) : (
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
-                fullWidth
-                size="small"
-                label={t('colPhone')}
-                placeholder="+381 36 311 100"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
-            </Grid>
-          )}
-          {editingUser && (
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <TextField
-                fullWidth
-                size="small"
-                label={t('colPhone')}
-                placeholder="+381 36 311 100"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
-            </Grid>
-          )}
-          <Grid size={{ xs: 12 }}>
+            </ViewEditField>
+          </Grid>
+        )}
+
+        {/* Phone */}
+        <Grid size={{ xs: 12, sm: editingUser ? 6 : 6 }}>
+          <ViewEditField
+            mode={currentMode}
+            label={t('colPhone')}
+            value={phone}
+            viewRender={() => (
+              <Typography variant="body2">
+                {phone || '—'}
+              </Typography>
+            )}
+          >
+            <TextField
+              fullWidth
+              size="small"
+              label={t('colPhone')}
+              placeholder="+381 36 311 100"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+            />
+          </ViewEditField>
+        </Grid>
+
+        {/* Email */}
+        <Grid size={{ xs: 12 }}>
+          <ViewEditField
+            mode={currentMode}
+            label={t('colEmail')}
+            value={email}
+            viewRender={() => (
+              <Typography variant="body2">
+                {email || '—'}
+              </Typography>
+            )}
+          >
             <TextField
               fullWidth
               size="small"
@@ -259,7 +389,11 @@ export const UserModal: React.FC<UserModalProps> = ({
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
-          </Grid>
+          </ViewEditField>
+        </Grid>
+
+        {/* Password (Only in create / edit mode) */}
+        {!isView && (
           <Grid size={{ xs: 12 }}>
             <TextField
               fullWidth
@@ -291,17 +425,9 @@ export const UserModal: React.FC<UserModalProps> = ({
               }}
             />
           </Grid>
-        </Grid>
-      </DialogContent>
-      <DialogActions sx={{ p: 2, flexShrink: 0 }}>
-        <Button onClick={onClose} variant="outlined" disabled={isSaving}>
-          {t('btnCancel')}
-        </Button>
-        <Button type="submit" variant="contained" color="primary" disabled={isSaving}>
-          {isSaving ? '...' : t('btnSave')}
-        </Button>
-      </DialogActions>
-    </Dialog>
+        )}
+      </Grid>
+    </ViewEditModalBase>
   );
 };
 

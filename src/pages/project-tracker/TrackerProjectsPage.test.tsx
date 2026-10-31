@@ -21,4 +21,20 @@ describe('TrackerProjectsPage', () => {
       expect(screen.getByText('Test Project')).toBeInTheDocument();
     });
   });
+
+  it('renders New Project button and triggers onOpenNewProject', async () => {
+    const mockOnOpenNewProject = vi.fn();
+    renderWithProviders(
+      <TrackerProjectsPage
+        onViewProject={vi.fn()}
+        onEditProject={vi.fn()}
+        onOpenNewProject={mockOnOpenNewProject}
+      />
+    );
+
+    const newBtn = await screen.findByText('btnNewProject');
+    expect(newBtn).toBeInTheDocument();
+    newBtn.click();
+    expect(mockOnOpenNewProject).toHaveBeenCalled();
+  });
 });
