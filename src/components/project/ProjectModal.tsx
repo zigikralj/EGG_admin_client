@@ -88,7 +88,6 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   }, [isOpen, targetProjectId, initialMode]);
 
   const isView = mode === 'view';
-  const isEdit = mode === 'edit';
   const isCreate = mode === 'create';
 
   // React Query mutations
