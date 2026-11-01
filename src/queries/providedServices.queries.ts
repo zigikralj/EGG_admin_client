@@ -52,6 +52,7 @@ export interface PaginatedProvidedServicesParams {
   dateField?: string;
   isWasteDisposalOnly?: boolean;
   missingInvoice?: boolean;
+  wasteServiceId?: string;
 }
 
 export function usePaginatedProvidedServicesQuery(params: PaginatedProvidedServicesParams, enabled: boolean = true) {
@@ -74,6 +75,7 @@ export function usePaginatedProvidedServicesQuery(params: PaginatedProvidedServi
     params.dateField,
     params.isWasteDisposalOnly,
     params.missingInvoice,
+    params.wasteServiceId,
   ] as const;
 
   return useQuery<PaginatedResponse<ProvidedService>>({

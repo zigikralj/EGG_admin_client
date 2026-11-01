@@ -16,6 +16,7 @@ import {
 import { LineChart } from '@mui/x-charts/LineChart';
 import type { ProvidedService, Service, Client, Category, Invoice, Project } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
+import { useWasteDisposalServiceId } from '../../queries';
 import { extractWasteKg as getWasteKg } from '../../utils/customFields';
 import {
   HandymanIcon,
@@ -58,31 +59,29 @@ interface Props {
   projects?: Project[];
   invoices?: Invoice[];
   title?: string;
+  wasteServiceId?: string;
 }
 
 export const WasteDisposalStatistics: React.FC<Props> = ({
-  providedServices,
+  providedServices: rawProvidedServices,
   services,
   clients,
   invoices = [],
   title,
+  wasteServiceId,
 }) => {
   const { t, language } = useLanguage();
+  const { wasteDisposalServiceId: hookWasteServiceId } = useWasteDisposalServiceId();
+  const effectiveWasteServiceId = wasteServiceId || hookWasteServiceId;
+
+  const providedServices = useMemo(() => {
+    if (!effectiveWasteServiceId) return [];
+    return rawProvidedServices.filter((item) => item.serviceId === effectiveWasteServiceId);
+  }, [rawProvidedServices, effectiveWasteServiceId]);
 
   const isWasteService = (srv?: Service) => {
-    if (!srv) return false;
-    const group = (srv.group || '').toLowerCase();
-    const code = (srv.code || '').toLowerCase();
-    const name = (srv.name || '').toLowerCase();
-    return (
-      group === 'grp-waste' ||
-      group.includes('waste') ||
-      group.includes('otpad') ||
-      code.includes('waste') ||
-      code.includes('otpad') ||
-      name.includes('waste') ||
-      name.includes('otpad')
-    );
+    if (!srv || !effectiveWasteServiceId) return false;
+    return srv.id === effectiveWasteServiceId;
   };
 
   const totalCount = providedServices.length;

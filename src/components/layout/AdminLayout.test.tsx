@@ -13,6 +13,14 @@ vi.mock('../../context/LanguageContext', () => ({
   useLanguage: vi.fn(),
 }));
 
+vi.mock('../../queries', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../queries')>();
+  return {
+    ...actual,
+    useWasteDisposalServiceId: vi.fn().mockReturnValue({ wasteDisposalServiceId: 'srv-1', isLoading: false }),
+  };
+});
+
 // Mock sub-components
 vi.mock('./AppHeader', () => ({
   AppHeader: () => <div data-testid="app-header-mock" />,

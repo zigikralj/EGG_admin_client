@@ -80,6 +80,12 @@ describe('WasteDisposalPanel - Client and Project / Location reactivity', () => 
   it('updates location and projects when selecting and changing client in new dialog', async () => {
     const fetchSpy = vi.spyOn(api, 'apiFetch').mockImplementation(async (url: any) => {
       const urlStr = String(url);
+      if (urlStr.includes('/api/system-settings')) {
+        return {
+          ok: true,
+          json: async () => ({ waste_disposal_service_id: 'srv-waste-1' }),
+        } as any;
+      }
       if (urlStr.includes('/api/clients')) {
         const parsed = new URL(urlStr, 'http://localhost');
         const search = parsed.searchParams.get('search')?.toLowerCase() || '';
@@ -205,6 +211,12 @@ describe('WasteDisposalPanel - Client and Project / Location reactivity', () => 
 
     const fetchSpy = vi.spyOn(api, 'apiFetch').mockImplementation(async (url: any) => {
       const urlStr = String(url);
+      if (urlStr.includes('/api/system-settings')) {
+        return {
+          ok: true,
+          json: async () => ({ waste_disposal_service_id: 'srv-waste-1' }),
+        } as any;
+      }
       if (urlStr.includes('/api/provided-services')) {
         return {
           ok: true,
@@ -233,7 +245,7 @@ describe('WasteDisposalPanel - Client and Project / Location reactivity', () => 
     fetchSpy.mockRestore();
   });
 
-  it('when opening new dialog, fetches targeted waste disposal service, auto-selects it, and sets readOnly', async () => {
+  it('when opening new dialog, uses configured waste disposal service from system settings, auto-selects it, and sets readOnly', async () => {
     const wasteDisposalService: Service = {
       id: 'srv-wd-auto',
       code: 'waste-disposal',
@@ -242,19 +254,20 @@ describe('WasteDisposalPanel - Client and Project / Location reactivity', () => 
       frequency: 0,
     };
 
-    const requestedUrls: string[] = [];
     const fetchSpy = vi.spyOn(api, 'apiFetch').mockImplementation(async (url: any) => {
       const urlStr = String(url);
-      requestedUrls.push(urlStr);
 
-      if (urlStr.includes('/api/services') && urlStr.includes('search=')) {
+      if (urlStr.includes('/api/system-settings')) {
         return {
           ok: true,
-          json: async () => ({
-            items: [wasteDisposalService],
-            total: 1,
-            hasMore: false,
-          }),
+          json: async () => ({ waste_disposal_service_id: 'srv-wd-auto' }),
+        } as any;
+      }
+
+      if (urlStr.includes('/api/services')) {
+        return {
+          ok: true,
+          json: async () => [wasteDisposalService],
         } as any;
       }
 
@@ -281,14 +294,6 @@ describe('WasteDisposalPanel - Client and Project / Location reactivity', () => 
     await waitFor(() => {
       expect(screen.getByRole('dialog')).toBeInTheDocument();
     });
-
-    // Targeted search should have been executed
-    await waitFor(() => {
-      expect(requestedUrls.some((u) => u.includes('/api/services') && u.includes('search='))).toBe(true);
-    });
-
-    // Bare /api/services (fetching all services) must NOT have been called
-    expect(requestedUrls.some((u) => u === '/api/services' || u.endsWith('/api/services'))).toBe(false);
 
     // Autocomplete should have auto-selected the waste disposal service and be read-only
     const serviceInput = screen.getByLabelText(/service|usluga/i) as HTMLInputElement;
@@ -300,20 +305,14 @@ describe('WasteDisposalPanel - Client and Project / Location reactivity', () => 
     fetchSpy.mockRestore();
   });
 
-  it('when opening new dialog and waste disposal service is not found, leaves autocomplete editable and empty', async () => {
-    const requestedUrls: string[] = [];
+  it('when opening new dialog and waste disposal service is not configured in system settings, leaves autocomplete editable and empty', async () => {
     const fetchSpy = vi.spyOn(api, 'apiFetch').mockImplementation(async (url: any) => {
       const urlStr = String(url);
-      requestedUrls.push(urlStr);
 
-      if (urlStr.includes('/api/services') && urlStr.includes('search=')) {
+      if (urlStr.includes('/api/system-settings')) {
         return {
           ok: true,
-          json: async () => ({
-            items: [],
-            total: 0,
-            hasMore: false,
-          }),
+          json: async () => ({}),
         } as any;
       }
 
@@ -340,14 +339,6 @@ describe('WasteDisposalPanel - Client and Project / Location reactivity', () => 
     await waitFor(() => {
       expect(screen.getByRole('dialog')).toBeInTheDocument();
     });
-
-    // Targeted search should have been executed
-    await waitFor(() => {
-      expect(requestedUrls.some((u) => u.includes('/api/services') && u.includes('search='))).toBe(true);
-    });
-
-    // Bare /api/services (fetching all services) must NOT have been called
-    expect(requestedUrls.some((u) => u === '/api/services' || u.endsWith('/api/services'))).toBe(false);
 
     // Autocomplete should NOT be read-only and value should be empty
     const serviceInput = screen.getByLabelText(/service|usluga/i) as HTMLInputElement;
@@ -360,6 +351,19 @@ describe('WasteDisposalPanel - Client and Project / Location reactivity', () => 
   });
 
   it('renders Transport badge with client name instead of [object Object]', async () => {
+    const fetchSpy = vi.spyOn(api, 'apiFetch').mockImplementation(async (url: any) => {
+      const urlStr = String(url);
+      if (urlStr.includes('/api/system-settings')) {
+        return {
+          ok: true,
+          json: async () => ({ waste_disposal_service_id: 'srv-waste-1' }),
+        } as any;
+      }
+      return {
+        ok: true,
+        json: async () => [],
+      } as any;
+    });
     const mockProvidedServices = [
       {
         id: 'ps-waste-1',
@@ -390,7 +394,10 @@ describe('WasteDisposalPanel - Client and Project / Location reactivity', () => 
       expect(screen.getByText(/Transport: Client Beta/i)).toBeInTheDocument();
     });
     expect(screen.queryByText(/\[object Object\]/)).not.toBeInTheDocument();
+
+    fetchSpy.mockRestore();
   });
+
 });
 
 

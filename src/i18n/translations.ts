@@ -405,6 +405,7 @@ export interface TranslationKeys {
   colCode: string;
   colServiceName: string;
   colService: string;
+  lblSelectedWasteService: string;
   colCategory: string;
   colPeriodicSampling: string;
   emptyServices: string;

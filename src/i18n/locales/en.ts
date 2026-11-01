@@ -380,6 +380,7 @@ const enTranslations: TranslationKeys = {
   "colCode": "Code (ID)",
   "colServiceName": "Service Name",
   "colService": "Service",
+  "lblSelectedWasteService": "Waste Disposal Service",
   "colCategory": "Category",
   "colPeriodicSampling": "Periodic Sampling",
   "emptyServices": "No services added.",

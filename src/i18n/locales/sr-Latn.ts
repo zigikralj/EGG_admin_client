@@ -380,6 +380,7 @@ const srLatnTranslations: TranslationKeys = {
   "colCode": "Šifra (ID)",
   "colServiceName": "Naziv usluge",
   "colService": "Usluga",
+  "lblSelectedWasteService": "Usluga zbrinjavanja otpada",
   "colCategory": "Kategorija",
   "colPeriodicSampling": "Periodično uzorkovanje",
   "emptyServices": "Nema unetih usluga.",

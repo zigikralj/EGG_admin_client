@@ -92,6 +92,10 @@ export const API_ROUTES = {
     BASE: '/api/preferences',
     BY_KEY: (key: string) => `/api/preferences/${encodeURIComponent(key)}`,
   },
+  SYSTEM_SETTINGS: {
+    BASE: '/api/system-settings',
+    BY_KEY: (key: string) => `/api/system-settings/${encodeURIComponent(key)}`,
+  },
   COMPANY_INFO: {
     BASE: '/api/company-info',
   },

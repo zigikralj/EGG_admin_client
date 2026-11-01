@@ -161,6 +161,10 @@ export const handlers = [
     }
     return HttpResponse.json([]);
   }),
+  http.get('/api/preferences', () => HttpResponse.json({})),
+  http.put('/api/preferences/:key', () => HttpResponse.json({ success: true })),
+  http.get('/api/system-settings', () => HttpResponse.json({})),
+  http.put('/api/system-settings/:key', () => HttpResponse.json({ success: true })),
   http.post('/api/auth/login', () => HttpResponse.json({ success: true, token: 'mock-token', user: { id: '1', name: 'Test User', role: 'ADMIN' } })),
   http.post('/api/auth/register', () => HttpResponse.json({ success: true })),
 ];

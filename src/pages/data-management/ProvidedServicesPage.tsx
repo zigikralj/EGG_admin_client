@@ -78,6 +78,7 @@ import {
   useServicesMutations,
   useInvoicesMutations,
   useTablePreferences,
+  useWasteDisposalServiceId,
 } from '../../queries';
 import { useDebounce } from '../../hooks/useDebounce';
 import { ConfirmDialog } from '../../components/common/dialogs/ConfirmDialog';
@@ -282,14 +283,14 @@ const ProvidedServicesPage: React.FC<Props> = ({
     { id: 'notes', label: t('colDescription') },
   ];
 
+  const { wasteDisposalServiceId } = useWasteDisposalServiceId();
   const getItemPermissions = useCallback((item: ProvidedService | null) => {
     if (!item) return { canEdit: canCreate, canDelete: false };
-    const srv = item.service || services.find((s) => s.id === item.serviceId);
-    const isWaste = srv?.group === 'grp-waste' || srv?.code?.toLowerCase().includes('waste');
-    const canEdit = hasPermission('providedServices', 'edit') || (Boolean(isWaste) && hasPermission('wasteDisposal', 'edit'));
-    const canDelete = hasPermission('providedServices', 'delete') || (Boolean(isWaste) && hasPermission('wasteDisposal', 'delete'));
+    const isWaste = Boolean(wasteDisposalServiceId && item.serviceId === wasteDisposalServiceId);
+    const canEdit = hasPermission('providedServices', 'edit') || (isWaste && hasPermission('wasteDisposal', 'edit'));
+    const canDelete = hasPermission('providedServices', 'delete') || (isWaste && hasPermission('wasteDisposal', 'delete'));
     return { canEdit, canDelete };
-  }, [hasPermission, services, canCreate]);
+  }, [hasPermission, wasteDisposalServiceId, canCreate]);
 
   const [modalMode, setModalMode] = useState<ModalMode>('view');
 

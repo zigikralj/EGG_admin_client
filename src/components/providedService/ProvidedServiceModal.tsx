@@ -15,6 +15,7 @@ import {
 import { SettingsIcon, AddIcon } from '../icons';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import { useWasteDisposalServiceId } from '../../queries';
 import { useLinkedListOptions } from '../../hooks/useLinkedListOptions';
 import { WasteCatalogAutocomplete } from '../common/WasteCatalogAutocomplete';
 import { ProvidedServiceInvoiceSection } from './ProvidedServiceInvoiceSection';
@@ -143,14 +144,14 @@ export const ProvidedServiceModal: React.FC<ProvidedServiceModalProps> = ({
     clients,
   });
 
+  const { wasteDisposalServiceId } = useWasteDisposalServiceId();
   const getItemPermissions = useCallback((item: ProvidedService | null) => {
     if (!item) return { canEdit: canCreate, canDelete: false };
-    const srv = item.service || services.find((s) => s.id === item.serviceId);
-    const isWaste = srv?.group === 'grp-waste' || srv?.code?.toLowerCase().includes('waste');
-    const canEdit = canEditProp ?? (hasPermission('providedServices', 'edit') || (Boolean(isWaste) && hasPermission('wasteDisposal', 'edit')));
-    const canDelete = canDeleteProp ?? (hasPermission('providedServices', 'delete') || (Boolean(isWaste) && hasPermission('wasteDisposal', 'delete')));
+    const isWaste = Boolean(wasteDisposalServiceId && item.serviceId === wasteDisposalServiceId);
+    const canEdit = canEditProp ?? (hasPermission('providedServices', 'edit') || (isWaste && hasPermission('wasteDisposal', 'edit')));
+    const canDelete = canDeleteProp ?? (hasPermission('providedServices', 'delete') || (isWaste && hasPermission('wasteDisposal', 'delete')));
     return { canEdit, canDelete };
-  }, [hasPermission, services, canCreate, canEditProp, canDeleteProp]);
+  }, [hasPermission, wasteDisposalServiceId, canCreate, canEditProp, canDeleteProp]);
 
   const resetFormToItem = useCallback((item: ProvidedService | null) => {
     if (item) {

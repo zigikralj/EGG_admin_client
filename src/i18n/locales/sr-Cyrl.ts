@@ -380,6 +380,7 @@ const srCyrlTranslations: TranslationKeys = {
   "colCode": "Шифра (ID)",
   "colServiceName": "Назив услуге",
   "colService": "Услуга",
+  "lblSelectedWasteService": "Услуга збрињавања отпада",
   "colCategory": "Категорија",
   "colPeriodicSampling": "Периодично узорковање",
   "emptyServices": "Нема унетих услуга.",

@@ -152,7 +152,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
     try {
       const res = await onSaveService({
         id: editingService?.id,
-        code: editingService ? editingService.code : code,
+        code: code.trim(),
         name: name.trim(),
         group: group.trim(),
         frequency,
@@ -222,7 +222,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
               placeholder={t('phServiceCode')}
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              disabled={Boolean(editingService)}
+              disabled={isView}
               required
             />
           </ViewEditField>

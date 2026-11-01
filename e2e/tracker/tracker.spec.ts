@@ -120,6 +120,10 @@ test.describe('Tracker Dashboard', () => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
     });
 
+    await page.route('**/api/system-settings**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
+    });
+
     await page.route('**/api/stats', async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
     });
