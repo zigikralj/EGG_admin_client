@@ -35,14 +35,22 @@ export const TrackerWasteDisposalPage: React.FC<TrackerWasteDisposalPageProps> =
   const [selectedOption, setSelectedOption] = useState<Service | null>(null);
   const currentServiceId = selectedServiceId !== null ? selectedServiceId : wasteDisposalServiceId;
 
-  const { data: fetchedService } = useServiceDetailsQuery(currentServiceId, isAdmin);
+  const { data: fetchedService } = useServiceDetailsQuery(currentServiceId, Boolean(currentServiceId));
+
+  const resolvedFetchedService = useMemo(() => {
+    if (!fetchedService) return null;
+    return Array.isArray(fetchedService) ? (fetchedService[0] as Service) : (fetchedService as Service);
+  }, [fetchedService]);
 
   const selectedService = useMemo(() => {
-    if (selectedOption && selectedOption.id === currentServiceId) {
+    if (
+      selectedOption &&
+      (selectedOption.id === currentServiceId || selectedOption.code === currentServiceId)
+    ) {
       return selectedOption;
     }
-    return fetchedService || selectedOption || null;
-  }, [selectedOption, currentServiceId, fetchedService]);
+    return resolvedFetchedService || selectedOption || null;
+  }, [selectedOption, currentServiceId, resolvedFetchedService]);
 
   const [newWasteServiceTrigger, setNewWasteServiceTrigger] = useState(0);
   const [wasteTotalCount, setWasteTotalCount] = useState<number>(0);

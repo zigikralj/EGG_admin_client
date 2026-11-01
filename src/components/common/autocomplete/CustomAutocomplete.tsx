@@ -261,12 +261,19 @@ function CustomAutocompleteInner<
 
   // Resolve normalized value for MUI Autocomplete
   const normalizedValue = useMemo(() => {
+    const initialArr = initialOption
+      ? Array.isArray(initialOption)
+        ? (initialOption as T[])
+        : [initialOption as T]
+      : [];
+
     if (multiple) {
       if (!Array.isArray(value)) return [];
       if (valueMode === 'object') return value;
       return value.map((v) => {
         if (typeof v !== 'string') return v;
         const found =
+          initialArr.find((opt) => activeIsOptionEqualToValue(opt, v as any)) ||
           cachedSelectedOptions.find((opt) => activeIsOptionEqualToValue(opt, v as any)) ||
           items.find((opt) => activeIsOptionEqualToValue(opt, v as any));
         return (
@@ -288,9 +295,10 @@ function CustomAutocompleteInner<
       return value;
     }
 
-    // Scalar mode: find matching object from cache or loaded items
+    // Scalar mode: find matching object from initial options, cache, or loaded items
     if (typeof value === 'string') {
       const found =
+        initialArr.find((opt) => activeIsOptionEqualToValue(opt, value as any)) ||
         cachedSelectedOptions.find((opt) => activeIsOptionEqualToValue(opt, value as any)) ||
         items.find((opt) => activeIsOptionEqualToValue(opt, value as any));
       if (found) return found;
@@ -303,7 +311,7 @@ function CustomAutocompleteInner<
     }
 
     return value;
-  }, [value, multiple, valueMode, cachedSelectedOptions, items, activeIsOptionEqualToValue, freeSolo]);
+  }, [value, multiple, valueMode, cachedSelectedOptions, items, activeIsOptionEqualToValue, freeSolo, initialOption]);
 
   // Combine and deduplicate options
   const displayOptions = useMemo(() => {
@@ -336,7 +344,7 @@ function CustomAutocompleteInner<
     }
     filteredItems.forEach(add);
 
-    // 3. Currently selected items and cached initialOption
+    // 3. Currently selected items, initialOption, and cached initialOption
     // Only added if not already present in list (e.g. selected item is on page 2+ or before query loads)
     const selectedCandidates: T[] = [];
     if (normalizedValue) {
@@ -348,6 +356,14 @@ function CustomAutocompleteInner<
         selectedCandidates.push(normalizedValue);
       }
     }
+    const initialArr = initialOption
+      ? Array.isArray(initialOption)
+        ? (initialOption as T[])
+        : [initialOption as T]
+      : [];
+    initialArr.forEach((item) => {
+      if (item) selectedCandidates.push(item);
+    });
     cachedSelectedOptions.forEach((item) => {
       if (item) selectedCandidates.push(item);
     });
@@ -368,6 +384,7 @@ function CustomAutocompleteInner<
     items,
     filterLoadedOptions,
     normalizedValue,
+    initialOption,
     cachedSelectedOptions,
     hasMore,
     isOpen,
