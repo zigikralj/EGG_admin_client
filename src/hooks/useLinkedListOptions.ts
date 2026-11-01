@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useClientsSummaryQuery, usePermitsQuery, useUsersSummaryQuery, useCategoriesQuery, useWasteCatalogQuery } from '../queries';
+import { useClientsSummaryQuery, usePermitsSummaryQuery, useUsersSummaryQuery, useCategoriesQuery, useWasteCatalogQuery } from '../queries';
 import { PERMIT_TYPE_OPTIONS } from '../types';
 import type { CustomFieldDefinition, Client, Permit } from '../types';
 
@@ -77,7 +77,7 @@ export function useLinkedListOptions(options?: UseLinkedListOptionsParams) {
   });
   const clients: Client[] = hasProvidedClients ? options!.clients! : (fetchedClients as Client[]);
 
-  const { data: permits = [] } = usePermitsQuery({
+  const { data: permits = [] } = usePermitsSummaryQuery({
     enabled: isEnabled && needsPermits,
   });
   const { data: users = [] } = useUsersSummaryQuery({

@@ -1,29 +1,9 @@
-import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { apiFetch } from '../api';
-import { fetchWithDeltaSync } from '../utils/deltaSync';
 import { API_ROUTES } from '../constants';
 import { useAuth } from '../context/AuthContext';
 import { useAuthHeaders, buildPaginationQueryParams, useGenericMutations, useGenericActionMutation } from './queryUtils';
 import type { Reminder, PaginatedResponse } from '../types';
-
-export function useRemindersQuery(options?: { enabled?: boolean }) {
-  const { currentUser } = useAuth();
-  const getAuthHeaders = useAuthHeaders();
-  const queryClient = useQueryClient();
-  const queryKey = ['reminders', currentUser?.id] as const;
-
-  return useQuery<Reminder[]>({
-    queryKey,
-    enabled: options?.enabled ?? true,
-    queryFn: () =>
-      fetchWithDeltaSync<Reminder>({
-        url: API_ROUTES.REMINDERS.BASE,
-        queryKey,
-        queryClient,
-        headers: getAuthHeaders(),
-      }),
-  });
-}
 
 export interface PaginatedRemindersParams {
   page: number; // 0-indexed from MUI

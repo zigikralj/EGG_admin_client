@@ -9,8 +9,8 @@ vi.mock('../../context/LanguageContext', () => ({
 }));
 
 vi.mock('../../queries', () => ({
-  useClientsQuery: vi.fn(),
-  usePermitsQuery: vi.fn(),
+  useClientsSummaryQuery: vi.fn(),
+  usePermitsSummaryQuery: vi.fn(),
 }));
 
 describe('CustomDataModelModal', () => {
@@ -27,8 +27,8 @@ describe('CustomDataModelModal', () => {
       getPermitTypeLabel: (key: string) => key,
     });
 
-    (Queries.useClientsQuery as any).mockReturnValue({ data: [] });
-    (Queries.usePermitsQuery as any).mockReturnValue({ data: [] });
+    (Queries.useClientsSummaryQuery as any).mockReturnValue({ data: [] });
+    (Queries.usePermitsSummaryQuery as any).mockReturnValue({ data: [] });
   });
 
   const renderComponent = (initialFields: any[] = []) => {

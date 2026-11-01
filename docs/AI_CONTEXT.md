@@ -82,14 +82,14 @@ Modularized domain types defined in `src/types/` (re-exported via `src/types/ind
 Modularized domain query modules re-exported through barrel `src/queries/index.ts`:
 | File | Hooks |
 |---|---|
-| `projects.queries.ts` | `useProjectsQuery`, `usePaginatedProjectsQuery`, `useInfiniteProjectsQuery`, `useProjectDetailsQuery`, `useProjectUpdatesQuery`, `useProjectsMutations` |
-| `clients.queries.ts` | `useClientsQuery`, `useClientsSummaryQuery`, `usePaginatedClientsQuery`, `useClientsMutations` |
-| `permits.queries.ts` | `usePermitsQuery`, `usePaginatedPermitsQuery`, `useWasteCatalogQuery`, `usePermitsMutations` |
-| `invoices.queries.ts` | `useInvoicesQuery`, `usePaginatedInvoicesQuery`, `useInvoicesMutations` |
-| `reminders.queries.ts` | `useRemindersQuery`, `usePaginatedRemindersQuery`, `useRemindersMutations` |
-| `services.queries.ts` | `useServicesQuery`, `useCategoriesQuery`, `useServicesMutations`, `useCategoriesMutations` |
-| `providedServices.queries.ts` | `useProvidedServicesQuery`, `usePaginatedProvidedServicesQuery`, `useProvidedServicesMutations` |
-| `users.queries.ts` | `useUsersQuery`, `usePaginatedUsersQuery`, `useRolesQuery`, `useUsersMutations`, `fetchMentionUsers` |
+| `projects.queries.ts` | `usePaginatedProjectsQuery`, `useInfiniteProjectsQuery`, `useProjectDetailsQuery`, `useProjectUpdatesQuery`, `useProjectsMutations` |
+| `clients.queries.ts` | `useClientsSummaryQuery`, `usePaginatedClientsQuery`, `useClientsMutations` |
+| `permits.queries.ts` | `usePermitsSummaryQuery`, `usePaginatedPermitsQuery`, `useWasteCatalogQuery`, `usePermitsMutations` |
+| `invoices.queries.ts` | `usePaginatedInvoicesQuery`, `useInvoicesMutations` |
+| `reminders.queries.ts` | `usePaginatedRemindersQuery`, `useRemindersMutations` |
+| `services.queries.ts` | `usePaginatedServicesQuery`, `useServiceDetailsQuery`, `useCategoriesQuery`, `useServicesMutations`, `useCategoriesMutations` |
+| `providedServices.queries.ts` | `usePaginatedProvidedServicesQuery`, `useProvidedServicesMutations` |
+| `users.queries.ts` | `usePaginatedUsersQuery`, `useRolesQuery`, `useUsersMutations`, `fetchMentionUsers` |
 | `activity.queries.ts` | `useActivityLogsQuery`, `useActivityAnalyticsQuery`, `useActivityLogsMutations` |
 | `history.queries.ts` | `useEntityTimelineQuery`, `useVersionDiffQuery`, `useRestoreVersionMutation` |
 | `preferences.queries.ts` | `usePreferencesQuery`, `usePreferencesMutations`, `useTablePreferences(tableKey)` |
@@ -184,6 +184,24 @@ Modularized domain query modules re-exported through barrel `src/queries/index.t
 ---
 
 ## Key Rules & Conventions
+
+### HARD RULE: NEVER FETCH ENTITIES WITHOUT PAGINATION OR SCOPING
+> [!CAUTION]
+> **STRICT PERFORMANCE & SCALABILITY INVARIANT:**
+> **NEVER** create or use unpaginated full-table queries (e.g. `useServicesQuery`, `useRemindersQuery`, `useInvoicesQuery`, `useProjectsQuery`, `useProvidedServicesQuery`, `usePermitsQuery`, `useUsersQuery`, `useClientsQuery`).
+>
+> 1. **Lists & Tables:** Must ALWAYS use server-side pagination (e.g. `usePaginatedProjectsQuery`, `usePaginatedServicesQuery`, `usePaginatedInvoicesQuery`, `usePaginatedRemindersQuery`, etc.) with explicit `page` and `rowsPerPage`/`limit`.
+> 2. **Single Entity Lookups:** Must use by-ID details queries (e.g. `useProjectDetailsQuery(id)`, `useServiceDetailsQuery(id)`).
+> 3. **Dropdowns & Selects:** Must use debounced, scoped autocomplete queries (`useAutocompleteQuery`) or lightweight gated summary queries (`useClientsSummaryQuery`, `usePermitsSummaryQuery`).
+> 4. **Parent/Child Relations:** Do NOT query the entire parent/child table to look up related entities. Derive relations from the parent record's nested relations or fetch individual details when opened.
+
+### HARD RULE: NEVER FETCH UNNEEDED DATA — USE LAZY LOADING & DEFERRED QUERIES
+> [!CAUTION]
+> **NO EAGER AUXILIARY DATA FETCHING:**
+> - Pages and components must **NEVER** eagerly fetch entity collections (services, reminders, invoices, clients, users) that the page does not directly display or need on initial load.
+> - **Use Lazy Loading for Modals & Sub-Views:** Modals and dialogs (e.g. `ProjectModal`, `PermitModal`, `InvoiceModal`, `ReminderModal`) must be lazy loaded or conditionally rendered (`{isOpen && <Modal />}`).
+> - **Gate Supporting Queries:** Supporting queries (e.g. options for filter popovers, autocompletes, custom field models) MUST be gated with `{ enabled: isOpen || isFilterOpen }` so they only execute upon user interaction.
+> - **Card & Row Lists:** Card views (like `ProjectCard`) must rely on data already attached to the record (e.g. `project.reminders`, `project.invoices`, `project.serviceName`) rather than accepting or fetching global entity arrays.
 
 ### RBAC Pattern & Developer Admin Rule
 > [!IMPORTANT]

@@ -274,7 +274,7 @@ function CustomAutocompleteInner<
           ({
             id: valueMode === 'id' ? v : undefined,
             code: valueMode === 'code' ? v : undefined,
-            name: v,
+            name: valueMode === 'name' ? v : undefined,
           } as unknown as T)
         );
       });
@@ -298,7 +298,7 @@ function CustomAutocompleteInner<
       return {
         id: valueMode === 'id' ? value : undefined,
         code: valueMode === 'code' ? value : undefined,
-        name: value,
+        name: valueMode === 'name' ? value : undefined,
       } as unknown as T;
     }
 

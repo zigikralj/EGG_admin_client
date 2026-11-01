@@ -1,40 +1,8 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '../api';
-import { fetchWithDeltaSync } from '../utils/deltaSync';
 import { API_ROUTES } from '../constants';
 import { useAuthHeaders, buildPaginationQueryParams, useGenericMutations } from './queryUtils';
 import type { ProvidedService, PaginatedResponse } from '../types';
-
-export function useProvidedServicesQuery(
-  filtersOrOptions?: { clientId?: string; enabled?: boolean },
-  options?: { enabled?: boolean }
-) {
-  const getAuthHeaders = useAuthHeaders();
-  const queryClient = useQueryClient();
-  const clientId = filtersOrOptions && 'clientId' in filtersOrOptions ? filtersOrOptions.clientId : undefined;
-  const isEnabled = options?.enabled ?? (filtersOrOptions && 'enabled' in filtersOrOptions ? filtersOrOptions.enabled : true) ?? true;
-  const queryKey = clientId ? (['provided-services', { clientId }] as const) : (['provided-services'] as const);
-
-  return useQuery<ProvidedService[]>({
-    queryKey,
-    enabled: isEnabled,
-    queryFn: async () => {
-      if (clientId) {
-        const url = `${API_ROUTES.PROVIDED_SERVICES.BASE}?clientId=${encodeURIComponent(clientId)}`;
-        const res = await fetch(url, { headers: getAuthHeaders() });
-        if (!res.ok) throw new Error('Failed to fetch client provided services');
-        const data = await res.json();
-        return Array.isArray(data) ? data : data.items || [];
-      }
-      return fetchWithDeltaSync<ProvidedService>({
-        url: API_ROUTES.PROVIDED_SERVICES.BASE,
-        queryKey,
-        queryClient,
-        headers: getAuthHeaders(),
-      });
-    },
-  });
-}
 
 export interface PaginatedProvidedServicesParams {
   page: number;

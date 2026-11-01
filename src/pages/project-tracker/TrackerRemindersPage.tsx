@@ -3,21 +3,15 @@ import { Box, Typography, Chip, Button } from '@mui/material';
 import { ReminderPanel } from '../../components/tracker/ReminderPanel';
 import { AddIcon } from '../../components/icons';
 import {
-  useRemindersQuery,
-  useProjectsQuery,
-  useClientsSummaryQuery,
-  useUsersSummaryQuery,
   useRemindersMutations,
   useTablePreferences,
 } from '../../queries';
 import { useLanguage } from '../../context/LanguageContext';
-import { useLoading } from '../../context/LoadingContext';
 
 export interface TrackerRemindersPageProps {}
 
 export const TrackerRemindersPage: React.FC<TrackerRemindersPageProps> = () => {
   const { t } = useLanguage();
-  const { withLoading } = useLoading();
 
   const {
     rowsPerPageOptions,
@@ -29,11 +23,7 @@ export const TrackerRemindersPage: React.FC<TrackerRemindersPageProps> = () => {
   } = useTablePreferences('tracker_reminders');
 
   const [newReminderTrigger, setNewReminderTrigger] = useState(0);
-
-  const { data: reminders = [], refetch: refetchReminders, isRefetching: isRefetchingReminders } = useRemindersQuery();
-  const { data: projects = [] } = useProjectsQuery();
-  const { data: clients = [] } = useClientsSummaryQuery();
-  const { data: users = [] } = useUsersSummaryQuery();
+  const [remindersTotalCount, setRemindersTotalCount] = useState<number>(0);
 
   const {
     handleSave: onSaveReminder,
@@ -48,7 +38,7 @@ export const TrackerRemindersPage: React.FC<TrackerRemindersPageProps> = () => {
           <Typography variant="h6" sx={{ fontWeight: 700 }}>
             {t('remindersTitle')}
           </Typography>
-          <Chip label={(reminders || []).length} size="small" color="primary" sx={{ fontWeight: 700 }} />
+          <Chip label={remindersTotalCount} size="small" color="primary" sx={{ fontWeight: 700 }} />
         </Box>
         <Button
           variant="contained"
@@ -64,10 +54,6 @@ export const TrackerRemindersPage: React.FC<TrackerRemindersPageProps> = () => {
       <ReminderPanel
         isFullHeight
         hideNotch
-        projects={projects}
-        reminders={reminders}
-        clients={clients}
-        users={users}
         onSaveReminder={onSaveReminder}
         onDeleteReminder={(id) => onDeleteReminderMutation(id, (_, cb) => cb())}
         onStatusChangeReminder={onStatusChangeReminder}
@@ -79,8 +65,7 @@ export const TrackerRemindersPage: React.FC<TrackerRemindersPageProps> = () => {
         onRowsPerPageOptionsChange={onRowsPerPageOptionsChange}
         rowsPerPage={rowsPerPage}
         onRowsPerPageChange={onRowsPerPageChange}
-        onRefresh={() => withLoading(() => refetchReminders(), t('loadingRefreshing') || 'Refreshing data...')}
-        isRefreshing={isRefetchingReminders}
+        onTotalCountChange={setRemindersTotalCount}
       />
     </Box>
   );

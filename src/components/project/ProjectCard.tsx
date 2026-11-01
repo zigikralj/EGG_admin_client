@@ -13,7 +13,7 @@ import {
   Tooltip,
 } from '@mui/material';
 
-import type { Project, Service, Reminder, Invoice } from '../../types';
+import type { Project, Invoice } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { stripHtmlToText } from '../common/RichTextEditor';
@@ -28,9 +28,6 @@ import {
 
 interface Props {
   project: Project;
-  services?: Service[];
-  reminders?: Reminder[];
-  invoices?: Invoice[];
   onToggleDone: (id: string) => void;
   onView?: (project: Project) => void;
   onEdit: (project: Project) => void;
@@ -82,9 +79,6 @@ export { ProjectNotesPreview } from './ProjectNotesPreview';
 
 export const ProjectCard: React.FC<Props> = ({
   project: p,
-  services = [],
-  reminders = [],
-  invoices = [],
   onToggleDone,
   onView,
   onEdit,
@@ -99,38 +93,15 @@ export const ProjectCard: React.FC<Props> = ({
   const stale = isStale(p);
   const hasNotes = Boolean((p.notesPreview && p.notesPreview.trim().length > 0) || (p.notes && stripHtmlToText(p.notes).length > 0));
 
-  // Match reminders for this project
+  // Match reminders for this project (already scoped on project payload)
   const projectReminders = useMemo(() => {
-    const list: (Reminder | { id: string; title?: string | null; projectName?: string | null; dueDate?: string | null; status?: string; notes?: string | null; responsible?: string | null })[] = [];
+    return p.reminders || [];
+  }, [p.reminders]);
 
-    if (reminders && reminders.length > 0) {
-      const matched = reminders.filter(
-        (r) =>
-          (r.projectId && r.projectId === p.id) ||
-          (!r.projectId && r.projectName && r.projectName.trim().toLowerCase() === p.name.trim().toLowerCase())
-      );
-      list.push(...matched);
-    } else if (p.reminders && p.reminders.length > 0) {
-      list.push(...p.reminders);
-    }
-
-    return list;
-  }, [reminders, p]);
-
-  // Match invoices for this project
+  // Match invoices for this project (already scoped on project payload)
   const projectInvoices = useMemo(() => {
-    if (invoices && invoices.length > 0) {
-      return invoices.filter(
-        (inv) =>
-          (inv.projectId && inv.projectId === p.id) ||
-          (!inv.projectId && inv.projectName && inv.projectName.trim().toLowerCase() === p.name.trim().toLowerCase())
-      );
-    }
-    if (p.invoices && p.invoices.length > 0) {
-      return p.invoices;
-    }
-    return [];
-  }, [invoices, p]);
+    return p.invoices || [];
+  }, [p.invoices]);
 
   // Reminder urgency and status priority
   const reminderUrgency = useMemo(() => {
@@ -395,7 +366,7 @@ export const ProjectCard: React.FC<Props> = ({
 
         <Stack direction="row" spacing={1} sx={{ mb: 1.5, flexWrap: 'wrap', gap: 0.5 }}>
           <Chip
-            label={getServiceLabel(p.type, services)}
+            label={p.serviceName || getServiceLabel(p.type)}
             size="small"
             color={p.done ? 'default' : 'primary'}
             variant={p.done ? 'outlined' : 'filled'}

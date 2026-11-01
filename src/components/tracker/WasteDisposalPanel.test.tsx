@@ -267,7 +267,7 @@ describe('WasteDisposalPanel - Client and Project / Location reactivity', () => 
       if (urlStr.includes('/api/services')) {
         return {
           ok: true,
-          json: async () => [wasteDisposalService],
+          json: async () => wasteDisposalService,
         } as any;
       }
 

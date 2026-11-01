@@ -44,7 +44,13 @@ interface Props extends Partial<TableViewProps> {}
 
 const DEFAULT_COLUMNS = ['name', 'group', 'frequency', 'description', 'customData'];
 
-import { useServicesQuery, useServicesMutations, useCategoriesQuery, useTablePreferences } from '../../queries';
+import {
+  usePaginatedServicesQuery,
+  useServicesMutations,
+  useCategoriesQuery,
+  useTablePreferences,
+} from '../../queries';
+import { useDebounce } from '../../hooks/useDebounce';
 import { ConfirmDialog } from '../../components/common/dialogs/ConfirmDialog';
 
 const ServicesPage: React.FC<Props> = ({
@@ -107,7 +113,27 @@ const ServicesPage: React.FC<Props> = ({
     onRefresh: () => { refetchServices(); },
   });
 
-  const { data: services = [], refetch: refetchServices } = useServicesQuery();
+  // Filter and search states
+  const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 400);
+  const [filterGroup, setFilterGroup] = useState<string>('all');
+  const [filterFrequency, setFilterFrequency] = useState<string>('all');
+
+  const {
+    data: paginatedData,
+    refetch: refetchServices,
+  } = usePaginatedServicesQuery({
+    page,
+    rowsPerPage: activeRowsPerPage,
+    sortBy: sortColumn,
+    sortOrder: sortDirection,
+    search: debouncedSearchQuery,
+    group: filterGroup === 'all' ? undefined : filterGroup,
+    frequency: filterFrequency === 'all' ? undefined : filterFrequency,
+  });
+
+  const services = paginatedData?.items || [];
+  const totalServices = paginatedData?.total || 0;
   const { data: categories = [] } = useCategoriesQuery();
   const { handleSave, handleDelete } = useServicesMutations();
 
@@ -130,12 +156,6 @@ const ServicesPage: React.FC<Props> = ({
   const handleSaveCustomModel = async (serviceId: string, fields: CustomFieldDefinition[]) => {
     await handleSave({ id: serviceId, customDataModel: fields });
   };
-
-
-
-  // Filter states
-  const [filterGroup, setFilterGroup] = useState<string>('all');
-  const [filterFrequency, setFilterFrequency] = useState<string>('all');
 
   const activeFilterCount =
     (filterGroup !== 'all' ? 1 : 0) +
@@ -175,8 +195,6 @@ const ServicesPage: React.FC<Props> = ({
     return groupLabels[grpCode] || grpCode;
   };
 
-  const [searchQuery, setSearchQuery] = useState('');
-
   const openNew = () => {
     if (!canCreate) return;
     setEditingService(null);
@@ -197,52 +215,9 @@ const ServicesPage: React.FC<Props> = ({
     setIsOpen(true);
   };
 
-  // 1. Popover Filters
-  const filteredServices = services.filter((s) => {
-    if (filterGroup !== 'all' && s.group !== filterGroup) return false;
-    if (filterFrequency !== 'all' && String(s.frequency || 0) !== filterFrequency) return false;
-    return true;
-  });
-
-  // 2. Search
-  const searchedServices = filteredServices.filter((s) => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    const sName = (s.name || getServiceLabel(s.code)).toLowerCase();
-    const sCode = s.code.toLowerCase();
-    const sDesc = (s.description || '').toLowerCase();
-    const sGroup = getCategoryName(s.group).toLowerCase();
-    return sName.includes(q) || sCode.includes(q) || sDesc.includes(q) || sGroup.includes(q);
-  });
-
-  // 3. Sort
-  const sortedServices = [...searchedServices].sort((a, b) => {
-    let res = 0;
-    switch (sortColumn) {
-      case 'name':
-        res = (a.name || getServiceLabel(a.code)).localeCompare(b.name || getServiceLabel(b.code));
-        break;
-      case 'group':
-        res = getCategoryName(a.group).localeCompare(getCategoryName(b.group));
-        break;
-      case 'frequency':
-        res = (a.frequency || 0) - (b.frequency || 0);
-        break;
-      case 'description':
-        res = (a.description || '').localeCompare(b.description || '');
-        break;
-      case 'createdAt':
-        res = (a.createdAt ? new Date(a.createdAt).getTime() : 0) - (b.createdAt ? new Date(b.createdAt).getTime() : 0);
-        break;
-      default:
-        res = 0;
-    }
-    return sortDirection === 'asc' ? res : -res;
-  });
-
   useEffect(() => {
     setPage(0);
-  }, [searchQuery, filterGroup, filterFrequency, setPage]);
+  }, [debouncedSearchQuery, filterGroup, filterFrequency, setPage]);
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
@@ -253,8 +228,6 @@ const ServicesPage: React.FC<Props> = ({
     setRowsPerPageValue(val);
     setPage(0);
   };
-
-  const paginatedServices = sortedServices.slice(page * activeRowsPerPage, page * activeRowsPerPage + activeRowsPerPage);
 
   const sortOptions = useMemo(
     () => [
@@ -322,7 +295,7 @@ const ServicesPage: React.FC<Props> = ({
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              {t('servicesListTitle', { count: sortedServices.length })}
+              {t('servicesListTitle', { count: totalServices })}
             </Typography>
               <Tooltip title={t('btnRefresh')}>
                 <span>
@@ -483,14 +456,14 @@ const ServicesPage: React.FC<Props> = ({
               </TableRow>
             </TableHead>
             <TableBody>
-              {sortedServices.length === 0 ? (
+              {services.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={activeCols.length + (hasAnyRowAction ? 1 : 0)} align="center" sx={{ py: 3, color: 'text.secondary' }}>
                     {t('emptyServices')}
                   </TableCell>
                 </TableRow>
               ) : (
-                paginatedServices.map((s) => {
+                services.map((s) => {
                   const fields = getCustomModelForService(s.id);
                   return (
                     <TableRow key={s.id} hover sx={{ cursor: 'pointer' }} onClick={() => openView(s)}>
@@ -599,7 +572,7 @@ const ServicesPage: React.FC<Props> = ({
         <TablePagination
           rowsPerPageOptions={activeRowsPerPageOptions}
           component="div"
-          count={sortedServices.length}
+          count={totalServices}
           rowsPerPage={activeRowsPerPage}
           page={page}
           onPageChange={handleChangePage}

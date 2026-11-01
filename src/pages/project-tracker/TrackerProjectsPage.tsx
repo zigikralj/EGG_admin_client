@@ -33,9 +33,6 @@ import {
 } from '../../components/common/autocomplete';
 import {
   useInfiniteProjectsQuery,
-  useServicesQuery,
-  useRemindersQuery,
-  useInvoicesQuery,
   useProjectsMutations,
   useTablePreferences,
 } from '../../queries';
@@ -83,10 +80,6 @@ export const TrackerProjectsPage: React.FC<TrackerProjectsPageProps> = ({
   const wrappedOnDelete = (id: string) => {
     handleDelete(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
   };
-
-  const { data: services = [] } = useServicesQuery();
-  const { data: reminders = [] } = useRemindersQuery();
-  const { data: invoices = [] } = useInvoicesQuery();
 
   const [quickFilters, setQuickFilters] = useState<string[]>(() => {
     if (savedQuickFilters && Array.isArray(savedQuickFilters)) {
@@ -138,6 +131,8 @@ export const TrackerProjectsPage: React.FC<TrackerProjectsPageProps> = ({
         ? 'stale'
         : quickFilters.includes('done')
         ? 'done'
+        : quickFilters.includes('missing_invoice')
+        ? 'missing_invoice'
         : (filterStatus !== 'all' ? filterStatus : undefined),
       done: quickFilters.includes('active') ? false : undefined,
       dateFrom: filterDateFrom || undefined,
@@ -226,6 +221,12 @@ export const TrackerProjectsPage: React.FC<TrackerProjectsPageProps> = ({
       } else if (!checked && filterStatus === 'done') {
         setFilterStatus('all');
       }
+    } else if (filterKey === 'missing_invoice') {
+      if (checked) {
+        setFilterStatus('missing_invoice');
+      } else if (!checked && filterStatus === 'missing_invoice') {
+        setFilterStatus('all');
+      }
     }
   };
 
@@ -265,7 +266,7 @@ export const TrackerProjectsPage: React.FC<TrackerProjectsPageProps> = ({
 
   const handleFilterStatusChange = (val: string) => {
     setFilterStatus(val);
-    const statusKeys = ['overdue', 'stale', 'done'];
+    const statusKeys = ['overdue', 'stale', 'done', 'missing_invoice'];
     const updated = quickFilters.filter((k) => !statusKeys.includes(k));
     if (statusKeys.includes(val)) {
       updated.push(val);
@@ -491,9 +492,6 @@ export const TrackerProjectsPage: React.FC<TrackerProjectsPageProps> = ({
               <Grid size={{ xs: 12, sm: 6, md: 4 }} key={p.id}>
                 <ProjectCard
                   project={p}
-                  services={services}
-                  reminders={reminders}
-                  invoices={invoices}
                   onView={() => onViewProject(p)}
                   onEdit={() => onEditProject(p)}
                   onDelete={() => wrappedOnDelete(p.id)}

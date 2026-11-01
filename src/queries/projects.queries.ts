@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
 import { apiFetch } from '../api';
-import { fetchWithDeltaSync } from '../utils/deltaSync';
 import { API_ROUTES } from '../constants';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -12,30 +11,6 @@ import type {
   PaginatedResponse,
   SaveResult,
 } from '../types';
-
-export function useProjectsQuery(searchQuery: string = '', options?: { done?: boolean; enabled?: boolean }) {
-  const { currentUser } = useAuth();
-  const getAuthHeaders = useAuthHeaders();
-  const queryClient = useQueryClient();
-  const queryKey = ['projects', currentUser?.id, searchQuery, options?.done] as const;
-
-  return useQuery<Project[]>({
-    queryKey,
-    enabled: options?.enabled ?? true,
-    queryFn: () => {
-      const params = new URLSearchParams();
-      if (searchQuery) params.set('search', searchQuery);
-      if (options?.done !== undefined) params.set('done', String(options.done));
-      const q = params.toString() ? `?${params.toString()}` : '';
-      return fetchWithDeltaSync<Project>({
-        url: `${API_ROUTES.PROJECTS.BASE}${q}`,
-        queryKey,
-        queryClient,
-        headers: getAuthHeaders(),
-      });
-    },
-  });
-}
 
 export function useProjectsSummaryQuery(options?: { enabled?: boolean }) {
   const getAuthHeaders = useAuthHeaders();

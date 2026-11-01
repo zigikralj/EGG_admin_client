@@ -6,24 +6,6 @@ import { API_ROUTES } from '../constants';
 import { useAuthHeaders, buildPaginationQueryParams, useGenericMutations } from './queryUtils';
 import type { Permit, WasteCatalog, PaginatedResponse } from '../types';
 
-export function usePermitsQuery(options?: { enabled?: boolean }) {
-  const getAuthHeaders = useAuthHeaders();
-  const queryClient = useQueryClient();
-  const queryKey = ['permits'] as const;
-
-  return useQuery<Permit[]>({
-    queryKey,
-    enabled: options?.enabled ?? true,
-    queryFn: () =>
-      fetchWithDeltaSync<Permit>({
-        url: API_ROUTES.PERMITS.BASE,
-        queryKey,
-        queryClient,
-        headers: getAuthHeaders(),
-      }),
-  });
-}
-
 /** Lightweight permits query without nested relations (waste catalogs, reminders, etc.) for linking and dropdowns. */
 export function usePermitsSummaryQuery(options?: { enabled?: boolean }) {
   const getAuthHeaders = useAuthHeaders();

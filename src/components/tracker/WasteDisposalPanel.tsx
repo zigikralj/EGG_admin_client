@@ -51,7 +51,7 @@ import {
   useProjectsSummaryQuery,
   usePaginatedProvidedServicesQuery,
   useClientsSummaryQuery,
-  useServicesQuery,
+  useServiceDetailsQuery,
   useSystemSettingsQuery,
 } from '../../queries';
 import { WasteDisposalModal } from '../waste/WasteDisposalModal';
@@ -61,6 +61,7 @@ import { useDebounce } from '../../hooks/useDebounce';
 interface Props {
   providedServices?: ProvidedService[];
   services?: Service[];
+  targetWasteService?: Service | null;
   clients?: Client[];
   projects?: Project[];
   invoices?: Invoice[];
@@ -99,6 +100,7 @@ function fmtDate(d: string | null | undefined): string {
 export const WasteDisposalPanel: React.FC<Props> = ({
   providedServices: providedServicesProp,
   services: servicesProp = [],
+  targetWasteService: targetWasteServiceProp,
   clients: clientsProp = [],
   projects: projectsProp = [],
   invoices: invoicesProp = [],
@@ -149,20 +151,28 @@ export const WasteDisposalPanel: React.FC<Props> = ({
     message: '',
   });
 
-  const shouldFetchSupportingData = isFilterOpen || isDialogOpen || Boolean(configuredWasteServiceId);
+  // Lazy query: only fetch clients and projects when filter or dialog is active
+  const shouldFetchAuxiliaryData = isFilterOpen || isDialogOpen;
 
   const { data: fetchedClients = [] } = useClientsSummaryQuery({
-    enabled: clientsProp.length === 0 && shouldFetchSupportingData,
+    enabled: clientsProp.length === 0 && shouldFetchAuxiliaryData,
   });
   const clients: Client[] = clientsProp.length > 0 ? clientsProp : (fetchedClients as Client[]);
 
-  const { data: fetchedServices = [] } = useServicesQuery({
-    enabled: servicesProp.length === 0 && shouldFetchSupportingData,
-  });
-  const services: Service[] = servicesProp.length > 0 ? servicesProp : fetchedServices;
+  const { data: fetchedTargetService } = useServiceDetailsQuery(
+    configuredWasteServiceId,
+    Boolean(configuredWasteServiceId && !targetWasteServiceProp)
+  );
+
+  const targetWasteService = targetWasteServiceProp || fetchedTargetService || null;
+  const services: Service[] = servicesProp.length > 0
+    ? servicesProp
+    : targetWasteService
+    ? [targetWasteService]
+    : [];
 
   const { data: fetchedProjects = [] } = useProjectsSummaryQuery({
-    enabled: projectsProp.length === 0 && shouldFetchSupportingData,
+    enabled: projectsProp.length === 0 && shouldFetchAuxiliaryData,
   });
   const projects: Project[] = projectsProp.length > 0 ? projectsProp : (fetchedProjects as unknown as Project[]);
   const allProjects = projects;
@@ -206,13 +216,7 @@ export const WasteDisposalPanel: React.FC<Props> = ({
     defaultSortDirection: 'desc',
   });
 
-  const targetWasteService = useMemo(() => {
-    if (configuredWasteServiceId) {
-      const match = services.find((s) => s.id === configuredWasteServiceId);
-      if (match) return match;
-    }
-    return null;
-  }, [services, configuredWasteServiceId]);
+
 
   const wasteServices = useMemo(() => {
     return targetWasteService ? [targetWasteService] : [];

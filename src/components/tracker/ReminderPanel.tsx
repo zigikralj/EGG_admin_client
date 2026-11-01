@@ -19,6 +19,8 @@ import { ErrorDialog } from '../common/dialogs/ErrorDialog';
 import { NotificationsActiveIcon, EditIcon, DeleteIcon, CheckIcon, CalendarTodayIcon, AddIcon, ArrowUpwardIcon, ArrowDownwardIcon, VisibilityIcon } from '../icons';
 import { DashboardPanelSkeleton } from '../common/DashboardPanelSkeleton';
 import { useTableView } from '../../hooks/useTableView';
+import { useDebounce } from '../../hooks/useDebounce';
+import { usePaginatedRemindersQuery } from '../../queries';
 import {
   ClientAutocomplete,
   UserAutocomplete,
@@ -33,6 +35,7 @@ interface Props {
   onSaveReminder?: (reminder: Partial<Reminder>) => Promise<SaveResult | void> | void;
   onDeleteReminder?: (id: string) => void;
   onStatusChangeReminder?: (id: string, status: string) => void;
+  onTotalCountChange?: (total: number) => void;
   isFullHeight?: boolean;
   hideNotch?: boolean;
   openNewReminderTrigger?: number;
@@ -108,6 +111,7 @@ export const ReminderPanel: React.FC<Props> = ({
   onSaveReminder,
   onDeleteReminder,
   onStatusChangeReminder,
+  onTotalCountChange,
   isFullHeight = false,
   hideNotch = false,
   openNewReminderTrigger,
@@ -227,25 +231,49 @@ export const ReminderPanel: React.FC<Props> = ({
     resetSort();
   };
 
+  const debouncedSearchQuery = useDebounce(searchQuery, 400);
+  const isServerPaginated = reminders.length === 0;
+
+  const {
+    data: paginatedData,
+  } = usePaginatedRemindersQuery(
+    {
+      page,
+      rowsPerPage: activeRowsPerPage,
+      sortBy: sortOption,
+      sortOrder: sortDirection,
+      search: debouncedSearchQuery,
+      status: filterStatus === 'all' ? undefined : filterStatus,
+      clientId: filterClient === 'all' ? undefined : filterClient,
+      responsible: isRemindersRestricted
+        ? (currentUser?.name || undefined)
+        : (filterResponsible !== 'all' ? filterResponsible : undefined),
+      dateFrom: filterDateFrom || undefined,
+      dateTo: filterDateTo || undefined,
+    },
+    isServerPaginated
+  );
+
   const rawItems: ReminderItem[] = useMemo(() => {
-    if (reminders && reminders.length > 0) {
-      return reminders.map((r) => ({
-        id: r.id,
-        title: r.title || null,
-        projectName: r.projectName || '',
-        clientName: r.clientName || '',
-        responsible: r.responsible || '—',
-        dueDate: r.dueDate || null,
-        status: r.status || 'Pending',
-        notes: r.notes || null,
-        projectId: r.projectId || null,
-        clientId: r.clientId || null,
-        responsibleId: r.responsibleId || null,
-        createdAt: r.createdAt,
-      }));
-    }
-    return [];
-  }, [reminders, projects, clients, users]);
+    const list = !isServerPaginated
+      ? reminders
+      : (paginatedData?.items || []);
+
+    return list.map((r) => ({
+      id: r.id,
+      title: r.title || null,
+      projectName: r.projectName || '',
+      clientName: r.clientName || '',
+      responsible: r.responsible || '—',
+      dueDate: r.dueDate || null,
+      status: r.status || 'Pending',
+      notes: r.notes || null,
+      projectId: r.projectId || null,
+      clientId: r.clientId || null,
+      responsibleId: r.responsibleId || null,
+      createdAt: r.createdAt,
+    }));
+  }, [reminders, isServerPaginated, paginatedData?.items]);
 
   const sortOptions = useMemo(() => [
     { value: 'dueDate', label: t('lblDueDate') },
@@ -265,6 +293,9 @@ export const ReminderPanel: React.FC<Props> = ({
 
 
   const filteredAndSortedItems = useMemo(() => {
+    if (isServerPaginated) {
+      return rawItems;
+    }
     return rawItems
       .filter((item) => {
         // Exclude completed reminders completely
@@ -389,7 +420,7 @@ export const ReminderPanel: React.FC<Props> = ({
         }
         return sortDirection === 'asc' ? res : -res;
       });
-  }, [rawItems, myRemindersOnly, filterStatus, filterClient, filterResponsible, filterDateFrom, filterDateTo, searchQuery, sortOption, sortDirection, currentUser]);
+  }, [rawItems, isServerPaginated, myRemindersOnly, filterStatus, filterClient, filterResponsible, filterDateFrom, filterDateTo, searchQuery, sortOption, sortDirection, currentUser]);
 
   const activeFilterCount =
     (myRemindersOnly ? 1 : 0) +
@@ -519,7 +550,15 @@ export const ReminderPanel: React.FC<Props> = ({
     }
   };
 
-  const paginatedItems = filteredAndSortedItems.slice(page * activeRowsPerPage, page * activeRowsPerPage + activeRowsPerPage);
+  const paginatedItems = isServerPaginated
+    ? rawItems
+    : filteredAndSortedItems.slice(page * activeRowsPerPage, page * activeRowsPerPage + activeRowsPerPage);
+
+  const totalCount = isServerPaginated ? (paginatedData?.total ?? 0) : filteredAndSortedItems.length;
+
+  useEffect(() => {
+    onTotalCountChange?.(totalCount);
+  }, [totalCount, onTotalCountChange]);
 
   return (
     <>
@@ -528,10 +567,10 @@ export const ReminderPanel: React.FC<Props> = ({
         icon={<NotificationsActiveIcon fontSize="small" sx={{ mr: 0.5 }} />}
         isFullHeight={isFullHeight}
         hideNotch={hideNotch}
-        isEmpty={filteredAndSortedItems.length === 0}
+        isEmpty={isServerPaginated ? (paginatedData?.items?.length === 0) : (filteredAndSortedItems.length === 0)}
         emptyMessage={t('emptyReminders')}
         paginationProps={{
-          count: filteredAndSortedItems.length,
+          count: totalCount,
           page: page,
           rowsPerPage: activeRowsPerPage,
           rowsPerPageOptions: activeRowsPerPageOptions,

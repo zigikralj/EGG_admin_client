@@ -35,7 +35,6 @@ import {
 import { useLanguage } from '../../context/LanguageContext';
 import { WasteCatalogAutocomplete } from '../common/WasteCatalogAutocomplete';
 import { ErrorDialog } from '../common/dialogs/ErrorDialog';
-import { useRemindersQuery } from '../../queries';
 import { ClientAutocomplete, ReminderAutocomplete } from '../common/autocomplete';
 import { ViewEditModalBase, type ModalMode } from '../common/modal/ViewEditModalBase';
 import { ViewEditField } from '../common/modal/ViewEditField';
@@ -152,8 +151,10 @@ export const PermitModal: React.FC<PermitModalProps> = React.memo(({
   const [inlineReminderDueDate, setInlineReminderDueDate] = useState('');
   const [inlineReminderNotes, setInlineReminderNotes] = useState('');
   const [selectedExistingReminderId, setSelectedExistingReminderId] = useState('');
+  const [selectedExistingReminderItem, setSelectedExistingReminderItem] = useState<Reminder | null>(null);
   const [stagedNewReminders, setStagedNewReminders] = useState<StagedReminderItem[]>([]);
-  const [stagedLinkReminderIds, setStagedLinkReminderIds] = useState<string[]>([]);
+  const [stagedLinkReminders, setStagedLinkReminders] = useState<Reminder[]>([]);
+  const stagedLinkReminderIds = useMemo(() => stagedLinkReminders.map((r) => r.id), [stagedLinkReminders]);
 
   const [isSaving, setIsSaving] = useState(false);
   const [errorDialogState, setErrorDialogState] = useState<{ open: boolean; message: string }>({
@@ -247,7 +248,7 @@ export const PermitModal: React.FC<PermitModalProps> = React.memo(({
     }
     setIsAddingReminderInline(false);
     setStagedNewReminders([]);
-    setStagedLinkReminderIds([]);
+    setStagedLinkReminders([]);
     setInlineReminderTitle('');
     setInlineReminderDueDate('');
     setInlineReminderNotes('');
@@ -266,23 +267,20 @@ export const PermitModal: React.FC<PermitModalProps> = React.memo(({
     setSelectedWasteCatalogIds(validValues.map((v) => v.id));
   }, []);
 
-  const { data: fetchedReminders = [] } = useRemindersQuery({
-    enabled: open && stagedLinkReminderIds.length > 0,
-  });
-  const allReminders = reminders && reminders.length > 0 ? reminders : fetchedReminders;
-
   const existingLinkedReminders = useMemo(() => {
     if (!editingPermit) return [];
     if ((editingPermit as any).reminders) {
       return (editingPermit as any).reminders as Reminder[];
     }
-    if (!allReminders) return [];
-    return allReminders.filter((r) => r.permitId === editingPermit.id);
-  }, [editingPermit, allReminders]);
+    if (reminders && reminders.length > 0) {
+      return reminders.filter((r) => r.permitId === editingPermit.id);
+    }
+    return [];
+  }, [editingPermit, reminders]);
 
   const totalRemindersCount = useMemo(() => {
-    return existingLinkedReminders.length + stagedNewReminders.length + stagedLinkReminderIds.length;
-  }, [existingLinkedReminders.length, stagedNewReminders.length, stagedLinkReminderIds.length]);
+    return existingLinkedReminders.length + stagedNewReminders.length + stagedLinkReminders.length;
+  }, [existingLinkedReminders.length, stagedNewReminders.length, stagedLinkReminders.length]);
 
   const handleAddStagedReminder = () => {
     if (addReminderMode === 'new') {
@@ -308,10 +306,12 @@ export const PermitModal: React.FC<PermitModalProps> = React.memo(({
       setIsAddingReminderInline(false);
     } else {
       if (!selectedExistingReminderId) return;
-      if (!stagedLinkReminderIds.includes(selectedExistingReminderId)) {
-        setStagedLinkReminderIds((prev) => [...prev, selectedExistingReminderId]);
+      if (!stagedLinkReminders.some((r) => r.id === selectedExistingReminderId)) {
+        const itemToAdd = selectedExistingReminderItem || ({ id: selectedExistingReminderId, title: 'Reminder' } as Reminder);
+        setStagedLinkReminders((prev) => [...prev, itemToAdd]);
       }
       setSelectedExistingReminderId('');
+      setSelectedExistingReminderItem(null);
       setIsAddingReminderInline(false);
     }
   };
@@ -734,7 +734,10 @@ export const PermitModal: React.FC<PermitModalProps> = React.memo(({
                   label="Izaberite podsetnik"
                   placeholder="Izaberite podsetnik"
                   value={selectedExistingReminderId}
-                  onChange={(val) => setSelectedExistingReminderId(val || '')}
+                  onChange={(val, option) => {
+                    setSelectedExistingReminderId(val || '');
+                    setSelectedExistingReminderItem((option as Reminder) || null);
+                  }}
                   excludePermitId={editingPermit?.id}
                 />
               </Box>
@@ -814,9 +817,7 @@ export const PermitModal: React.FC<PermitModalProps> = React.memo(({
             ))}
 
             {/* Staged Linked Reminders */}
-            {!isView && stagedLinkReminderIds.map((remId) => {
-              const rem = allReminders.find((r) => r.id === remId);
-              if (!rem) return null;
+            {!isView && stagedLinkReminders.map((rem) => {
               return (
                 <Card
                   key={rem.id}
@@ -851,7 +852,7 @@ export const PermitModal: React.FC<PermitModalProps> = React.memo(({
                       <IconButton
                         size="small"
                         color="inherit"
-                        onClick={() => setStagedLinkReminderIds((prev) => prev.filter((id) => id !== remId))}
+                        onClick={() => setStagedLinkReminders((prev) => prev.filter((r) => r.id !== rem.id))}
                       >
                         <CloseIcon fontSize="small" />
                       </IconButton>

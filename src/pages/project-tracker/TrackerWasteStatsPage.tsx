@@ -1,12 +1,12 @@
 import React, { useMemo } from 'react';
 import { Box, CircularProgress } from '@mui/material';
 import {
-  useProvidedServicesQuery,
-  useServicesQuery,
+  usePaginatedProvidedServicesQuery,
+  usePaginatedServicesQuery,
   useClientsSummaryQuery,
   useCategoriesQuery,
-  useProjectsQuery,
-  useInvoicesQuery,
+  usePaginatedProjectsQuery,
+  usePaginatedInvoicesQuery,
   useWasteDisposalServiceId,
 } from '../../queries';
 import { useLanguage } from '../../context/LanguageContext';
@@ -18,24 +18,41 @@ export const TrackerWasteStatsPage: React.FC<TrackerWasteStatsPageProps> = () =>
   const { t } = useLanguage();
   const { wasteDisposalServiceId, isLoading: isLoadingSettings } = useWasteDisposalServiceId();
 
-  const { data: providedServices = [], isLoading: isLoadingProvided } = useProvidedServicesQuery({
-    enabled: Boolean(wasteDisposalServiceId),
-  });
-  const { data: services = [] } = useServicesQuery({
-    enabled: Boolean(wasteDisposalServiceId),
-  });
+  const { data: providedData, isLoading: isLoadingProvided } = usePaginatedProvidedServicesQuery(
+    {
+      page: 0,
+      rowsPerPage: 1000,
+      isWasteDisposalOnly: true,
+      wasteServiceId: wasteDisposalServiceId || undefined,
+    },
+    Boolean(wasteDisposalServiceId)
+  );
+  const providedServices = providedData?.items || [];
+
+  const { data: servicesData } = usePaginatedServicesQuery(
+    { page: 0, rowsPerPage: 1000 },
+    Boolean(wasteDisposalServiceId)
+  );
+  const services = servicesData?.items || [];
+
   const { data: clients = [] } = useClientsSummaryQuery({
     enabled: Boolean(wasteDisposalServiceId),
   });
   const { data: categories = [] } = useCategoriesQuery({
     enabled: Boolean(wasteDisposalServiceId),
   });
-  const { data: projects = [] } = useProjectsQuery('', {
-    enabled: Boolean(wasteDisposalServiceId),
-  });
-  const { data: invoices = [] } = useInvoicesQuery({
-    enabled: Boolean(wasteDisposalServiceId),
-  });
+
+  const { data: projectsData } = usePaginatedProjectsQuery(
+    { page: 0, rowsPerPage: 1000 },
+    Boolean(wasteDisposalServiceId)
+  );
+  const projects = projectsData?.items || [];
+
+  const { data: invoicesData } = usePaginatedInvoicesQuery(
+    { page: 0, rowsPerPage: 1000 },
+    Boolean(wasteDisposalServiceId)
+  );
+  const invoices = invoicesData?.items || [];
 
   const wasteProvidedServices = useMemo(() => {
     if (!wasteDisposalServiceId) return [];

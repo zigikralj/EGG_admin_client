@@ -1,27 +1,8 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '../api';
-import { fetchWithDeltaSync } from '../utils/deltaSync';
 import { API_ROUTES } from '../constants';
 import { useAuthHeaders, buildPaginationQueryParams, useGenericMutations } from './queryUtils';
 import type { Client, PaginatedResponse } from '../types';
-
-export function useClientsQuery(options?: { enabled?: boolean }) {
-  const getAuthHeaders = useAuthHeaders();
-  const queryClient = useQueryClient();
-  const queryKey = ['clients'] as const;
-
-  return useQuery<Client[]>({
-    queryKey,
-    enabled: options?.enabled ?? true,
-    queryFn: () =>
-      fetchWithDeltaSync<Client>({
-        url: API_ROUTES.CLIENTS.BASE,
-        queryKey,
-        queryClient,
-        headers: getAuthHeaders(),
-      }),
-  });
-}
 
 export function useClientsSummaryQuery(options?: { enabled?: boolean }) {
   const getAuthHeaders = useAuthHeaders();

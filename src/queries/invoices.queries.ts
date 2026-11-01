@@ -1,27 +1,8 @@
-import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { apiFetch } from '../api';
-import { fetchWithDeltaSync } from '../utils/deltaSync';
 import { API_ROUTES } from '../constants';
 import { useAuthHeaders, buildPaginationQueryParams, useGenericMutations, useGenericActionMutation } from './queryUtils';
 import type { Invoice, PaginatedResponse } from '../types';
-
-export function useInvoicesQuery(options?: { enabled?: boolean }) {
-  const getAuthHeaders = useAuthHeaders();
-  const queryClient = useQueryClient();
-  const queryKey = ['invoices'] as const;
-
-  return useQuery<Invoice[]>({
-    queryKey,
-    enabled: options?.enabled ?? true,
-    queryFn: () =>
-      fetchWithDeltaSync<Invoice>({
-        url: API_ROUTES.INVOICES.BASE,
-        queryKey,
-        queryClient,
-        headers: getAuthHeaders(),
-      }),
-  });
-}
 
 export function useInvoicesSummaryQuery(options?: { enabled?: boolean }) {
   const getAuthHeaders = useAuthHeaders();

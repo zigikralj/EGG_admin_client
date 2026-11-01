@@ -1,12 +1,12 @@
 import React from 'react';
 import { Box, Typography, CircularProgress } from '@mui/material';
 import {
-  useProjectsQuery,
+  usePaginatedProjectsQuery,
   useClientsSummaryQuery,
   useUsersSummaryQuery,
   useCategoriesQuery,
-  useServicesQuery,
-  useInvoicesQuery,
+  usePaginatedServicesQuery,
+  usePaginatedInvoicesQuery,
 } from '../../queries';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -19,12 +19,15 @@ export const TrackerProjectsStatsPage: React.FC<TrackerProjectsStatsPageProps> =
   const { currentUser, isRestrictedToOwn } = useAuth();
   const isProjectsRestricted = isRestrictedToOwn('projects') || isRestrictedToOwn('tracker_projects');
 
-  const { data: projects = [], isLoading: isLoadingProjects } = useProjectsQuery();
+  const { data: projectsData, isLoading: isLoadingProjects } = usePaginatedProjectsQuery({ page: 0, rowsPerPage: 1000 });
+  const projects = projectsData?.items || [];
   const { data: clients = [] } = useClientsSummaryQuery();
   const { data: users = [] } = useUsersSummaryQuery();
   const { data: categories = [] } = useCategoriesQuery();
-  const { data: services = [] } = useServicesQuery();
-  const { data: invoices = [] } = useInvoicesQuery();
+  const { data: servicesData } = usePaginatedServicesQuery({ page: 0, rowsPerPage: 1000 });
+  const services = servicesData?.items || [];
+  const { data: invoicesData } = usePaginatedInvoicesQuery({ page: 0, rowsPerPage: 1000 });
+  const invoices = invoicesData?.items || [];
 
   if (isLoadingProjects) {
     return (

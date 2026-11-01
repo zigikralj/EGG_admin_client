@@ -1,16 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Box, Typography, Chip, Button } from '@mui/material';
 import { WasteDisposalPanel } from '../../components/tracker/WasteDisposalPanel';
 import { AddIcon } from '../../components/icons';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { ServiceAutocomplete } from '../../components/common/autocomplete';
+import type { Service } from '../../types';
 import {
   useProvidedServicesMutations,
   useInvoicesMutations,
   useTablePreferences,
   useWasteDisposalServiceId,
   useSystemSettingsMutations,
+  useServiceDetailsQuery,
 } from '../../queries';
 
 export interface TrackerWasteDisposalPageProps {}
@@ -28,8 +30,19 @@ export const TrackerWasteDisposalPage: React.FC<TrackerWasteDisposalPageProps> =
 
   const { wasteDisposalServiceId } = useWasteDisposalServiceId();
   const { updateSettingMutation } = useSystemSettingsMutations();
+
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
+  const [selectedOption, setSelectedOption] = useState<Service | null>(null);
   const currentServiceId = selectedServiceId !== null ? selectedServiceId : wasteDisposalServiceId;
+
+  const { data: fetchedService } = useServiceDetailsQuery(currentServiceId, isAdmin);
+
+  const selectedService = useMemo(() => {
+    if (selectedOption && selectedOption.id === currentServiceId) {
+      return selectedOption;
+    }
+    return fetchedService || selectedOption || null;
+  }, [selectedOption, currentServiceId, fetchedService]);
 
   const [newWasteServiceTrigger, setNewWasteServiceTrigger] = useState(0);
   const [wasteTotalCount, setWasteTotalCount] = useState<number>(0);
@@ -45,14 +58,16 @@ export const TrackerWasteDisposalPage: React.FC<TrackerWasteDisposalPageProps> =
     handleUpdateInvoiceStatus: onStatusChangeInvoiceMutation,
   } = useInvoicesMutations();
 
-  const handleServiceChange = (serviceId: string | null) => {
+  const handleServiceChange = (serviceId: string | null, option?: Service | null) => {
     const nextId = serviceId || '';
     setSelectedServiceId(nextId);
+    setSelectedOption(option || null);
     updateSettingMutation.mutate(
       { key: 'waste_disposal_service_id', value: nextId },
       {
         onError: () => {
           setSelectedServiceId(null);
+          setSelectedOption(null);
         },
       }
     );
@@ -72,6 +87,7 @@ export const TrackerWasteDisposalPage: React.FC<TrackerWasteDisposalPageProps> =
                 size="small"
                 label={t('lblSelectedWasteService')}
                 value={currentServiceId}
+                initialOption={selectedService}
                 onChange={handleServiceChange}
                 valueMode="id"
               />
@@ -94,6 +110,7 @@ export const TrackerWasteDisposalPage: React.FC<TrackerWasteDisposalPageProps> =
         isFullHeight
         hideNotch
         configuredWasteServiceId={currentServiceId}
+        targetWasteService={selectedService}
         openNewTrigger={newWasteServiceTrigger}
         onNewTriggerHandled={() => setNewWasteServiceTrigger(0)}
         onSaveProvidedService={onSaveProvidedService}
