@@ -425,6 +425,8 @@ export interface TranslationKeys {
   lblFrequencyMonths: string;
   hintFrequencyZero: string;
   alertServiceRequired: string;
+  errServiceCodeExists: string;
+  hintSlugNonEditable: string;
 
   // Service Groups
   groupWaste: string;

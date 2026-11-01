@@ -398,6 +398,8 @@ const srCyrlTranslations: TranslationKeys = {
   "lblFrequencyMonths": "Учесталост подсетника (месеци)",
   "hintFrequencyZero": "0 = није периодична услуга",
   "alertServiceRequired": "Шифра и назив услуге су обавезни.",
+  "errServiceCodeExists": "Услуга са овом шифром (slug) већ постоји.",
+  "hintSlugNonEditable": "Шифра услуге (slug) се не може мењати након креирања.",
   "groupWaste": "Управљање отпадом",
   "groupLegal": "Правно / Процене",
   "groupTesting": "Испитивања / Мерења",

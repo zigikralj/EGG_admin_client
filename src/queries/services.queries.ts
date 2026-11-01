@@ -82,6 +82,24 @@ export function useServiceDetailsQuery(id: string | null | undefined, enabled: b
   });
 }
 
+export async function checkServiceCodeExists(
+  code: string,
+  getAuthHeaders?: () => Record<string, string>
+): Promise<boolean> {
+  const formattedCode = code.trim().toLowerCase().replace(/\s+/g, '-');
+  if (!formattedCode) return false;
+  try {
+    const res = await apiFetch(API_ROUTES.SERVICES.CHECK_CODE(formattedCode), {
+      headers: getAuthHeaders ? getAuthHeaders() : undefined,
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    return Boolean(data.exists);
+  } catch {
+    return false;
+  }
+}
+
 export function useCategoriesQuery(options?: { enabled?: boolean }) {
   const getAuthHeaders = useAuthHeaders();
   return useQuery<Category[]>({

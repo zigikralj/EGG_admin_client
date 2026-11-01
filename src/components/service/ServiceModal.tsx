@@ -6,12 +6,14 @@ import {
   Chip,
   Grid,
   Button,
+  CircularProgress,
 } from '@mui/material';
 import { SettingsIcon, AddIcon } from '../icons';
 import { useLanguage } from '../../context/LanguageContext';
 import { CategoryAutocomplete } from '../common/autocomplete';
 import { ViewEditModalBase, type ModalMode } from '../common/modal/ViewEditModalBase';
 import { ViewEditField } from '../common/modal/ViewEditField';
+import { checkServiceCodeExists } from '../../queries';
 import type { Service, Category, CustomFieldDefinition } from '../../types';
 
 export interface ServiceModalProps {
@@ -30,6 +32,7 @@ export interface ServiceModalProps {
   onSaveService: (serviceData: any) => Promise<{ success: boolean; error?: string }>;
   onOpenCustomModelModal?: (service: Service) => void;
   getCustomModelForService?: (serviceId: string) => CustomFieldDefinition[];
+  checkCodeExists?: (code: string) => Promise<boolean>;
   onError?: (message: string) => void;
 }
 
@@ -49,6 +52,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
   onSaveService,
   onOpenCustomModelModal,
   getCustomModelForService,
+  checkCodeExists: checkCodeExistsProp,
   onError,
 }) => {
   const { t } = useLanguage();
@@ -80,6 +84,8 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
   }, [open, editingService?.id, initialMode, controlledMode]);
 
   const [code, setCode] = useState('');
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const [isCheckingCode, setIsCheckingCode] = useState(false);
   const [name, setName] = useState('');
   const [group, setGroup] = useState('grp-legal');
   const [frequency, setFrequency] = useState(0);
@@ -87,6 +93,8 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
 
   const populateFromService = useCallback((s: Service | null) => {
+    setCodeError(null);
+    setIsCheckingCode(false);
     if (s) {
       setCode(s.code || '');
       setName(s.name || (getServiceLabel ? getServiceLabel(s.code) : s.code) || '');
@@ -109,11 +117,47 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
   }, [open, editingService, populateFromService]);
 
   const handleCancel = () => {
+    setCodeError(null);
+    setIsCheckingCode(false);
     if (currentMode === 'edit' && editingService) {
       populateFromService(editingService);
       handleModeChange('view');
     } else {
       onClose();
+    }
+  };
+
+  const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCode(e.target.value);
+    if (codeError) {
+      setCodeError(null);
+    }
+  };
+
+  const handleCodeBlur = async () => {
+    if (isView || Boolean(editingService)) return;
+    const trimmed = code.trim().toLowerCase().replace(/\s+/g, '-');
+    if (!trimmed) {
+      setCodeError(null);
+      return;
+    }
+
+    setIsCheckingCode(true);
+    try {
+      const exists = checkCodeExistsProp
+        ? await checkCodeExistsProp(trimmed)
+        : await checkServiceCodeExists(trimmed);
+      if (code.trim().toLowerCase().replace(/\s+/g, '-') === trimmed) {
+        if (exists) {
+          setCodeError(t('errServiceCodeExists'));
+        } else {
+          setCodeError(null);
+        }
+      }
+    } catch {
+      // Ignore network errors during onBlur validation
+    } finally {
+      setIsCheckingCode(false);
     }
   };
 
@@ -143,16 +187,39 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
       onError?.(t('alertServiceNameRequired'));
       return;
     }
-    if (!editingService && !code.trim()) {
-      onError?.(t('alertServiceCodeRequired'));
-      return;
+    if (!editingService) {
+      const formattedCode = code.trim().toLowerCase().replace(/\s+/g, '-');
+      if (!formattedCode) {
+        onError?.(t('alertServiceCodeRequired'));
+        return;
+      }
+      if (codeError) {
+        onError?.(codeError);
+        return;
+      }
+
+      setIsCheckingCode(true);
+      try {
+        const exists = checkCodeExistsProp
+          ? await checkCodeExistsProp(formattedCode)
+          : await checkServiceCodeExists(formattedCode);
+        if (exists) {
+          setCodeError(t('errServiceCodeExists'));
+          onError?.(t('errServiceCodeExists'));
+          return;
+        }
+      } catch {
+        // Fall back to server handling
+      } finally {
+        setIsCheckingCode(false);
+      }
     }
 
     setIsSaving(true);
     try {
       const res = await onSaveService({
         id: editingService?.id,
-        code: code.trim(),
+        code: editingService ? editingService.code : code.trim().toLowerCase().replace(/\s+/g, '-'),
         name: name.trim(),
         group: group.trim(),
         frequency,
@@ -198,6 +265,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
         }
       }}
       isSaving={isSaving}
+      isSaveDisabled={Boolean(codeError) || isCheckingCode}
       onSave={handleSubmit}
       onCancel={handleCancel}
       maxWidth="sm"
@@ -221,9 +289,23 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
               label={t('lblServiceCode')}
               placeholder={t('phServiceCode')}
               value={code}
-              onChange={(e) => setCode(e.target.value)}
-              disabled={isView}
-              required
+              onChange={handleCodeChange}
+              onBlur={handleCodeBlur}
+              disabled={isView || Boolean(editingService)}
+              error={Boolean(codeError)}
+              helperText={
+                editingService
+                  ? t('hintSlugNonEditable')
+                  : codeError || undefined
+              }
+              slotProps={{
+                input: {
+                  endAdornment: isCheckingCode ? (
+                    <CircularProgress size={16} color="inherit" />
+                  ) : undefined,
+                },
+              }}
+              required={!editingService}
             />
           </ViewEditField>
         </Grid>

@@ -43,6 +43,7 @@ export const API_ROUTES = {
   SERVICES: {
     BASE: '/api/services',
     BY_ID: (id: string) => `/api/services/${encodeURIComponent(id)}`,
+    CHECK_CODE: (code: string) => `/api/services/check-code?code=${encodeURIComponent(code)}`,
   },
   CATEGORIES: {
     BASE: '/api/categories',

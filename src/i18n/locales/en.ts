@@ -398,6 +398,8 @@ const enTranslations: TranslationKeys = {
   "lblFrequencyMonths": "Reminder Frequency (months)",
   "hintFrequencyZero": "0 = non-periodic service",
   "alertServiceRequired": "Code and service name are required.",
+  "errServiceCodeExists": "A service with this code (slug) already exists.",
+  "hintSlugNonEditable": "Service code (slug) cannot be changed after creation.",
   "groupWaste": "Waste Management",
   "groupLegal": "Legal / Impact Assessments",
   "groupTesting": "Testing & Measurements",

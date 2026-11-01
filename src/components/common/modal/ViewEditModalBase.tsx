@@ -20,6 +20,7 @@ export interface ViewEditModalBaseProps
   canEdit?: boolean;
   canDelete?: boolean;
   isSaving?: boolean;
+  isSaveDisabled?: boolean;
   onSave?: (e: React.FormEvent<HTMLFormElement>) => void | Promise<void>;
   onDelete?: () => void;
   onCancel?: () => void;
@@ -51,6 +52,7 @@ export const ViewEditModalBase: React.FC<ViewEditModalBaseProps> = ({
   canEdit = true,
   canDelete = false,
   isSaving = false,
+  isSaveDisabled = false,
   onSave,
   onDelete,
   onCancel,
@@ -227,7 +229,7 @@ export const ViewEditModalBase: React.FC<ViewEditModalBaseProps> = ({
               type="submit"
               variant="contained"
               color="primary"
-              disabled={isSaving}
+              disabled={isSaving || isSaveDisabled}
               startIcon={
                 isSaving ? <CircularProgress size={18} color="inherit" /> : <SaveIcon />
               }

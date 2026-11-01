@@ -398,6 +398,8 @@ const srLatnTranslations: TranslationKeys = {
   "lblFrequencyMonths": "Učestalost podsetnika (meseci)",
   "hintFrequencyZero": "0 = nije periodična usluga",
   "alertServiceRequired": "Šifra i naziv usluge su obavezni.",
+  "errServiceCodeExists": "Usluga sa ovom šifrom (slug) već postoji.",
+  "hintSlugNonEditable": "Šifra usluge (slug) se ne može menjati nakon kreiranja.",
   "groupWaste": "Upravljanje otpadom",
   "groupLegal": "Pravno / Procene",
   "groupTesting": "Ispitivanja / Merenja",
