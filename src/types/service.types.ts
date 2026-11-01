@@ -38,8 +38,12 @@ export interface Category {
 export interface ProvidedService {
   id: string;
   serviceId: string;
+  serviceCode?: string;
+  serviceName?: string;
   clientId: string;
+  clientName?: string;
   projectId?: string | null;
+  projectName?: string | null;
   invoiceId?: string | null;
   status: string;
   location?: string | null;

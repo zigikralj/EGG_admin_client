@@ -405,6 +405,7 @@ export interface TranslationKeys {
   colCode: string;
   colServiceName: string;
   colService: string;
+  lblSelectedWasteService: string;
   colCategory: string;
   colPeriodicSampling: string;
   emptyServices: string;
@@ -424,6 +425,8 @@ export interface TranslationKeys {
   lblFrequencyMonths: string;
   hintFrequencyZero: string;
   alertServiceRequired: string;
+  errServiceCodeExists: string;
+  hintSlugNonEditable: string;
 
   // Service Groups
   groupWaste: string;

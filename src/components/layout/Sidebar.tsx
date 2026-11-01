@@ -25,6 +25,7 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import { useWasteDisposalServiceId } from '../../queries';
 import type { DashboardSubTab, ProvidedServicesSubTab } from '../../types';
 import {
   ExpandMoreIcon,
@@ -95,7 +96,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
   const {
     hasPermission,
+    isRealAdmin,
   } = useAuth();
+  const { wasteDisposalServiceId } = useWasteDisposalServiceId();
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -125,7 +128,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 if (hasPermission('tracker_invoices', 'view')) {
                   dashboardItems.push({ id: 'invoices', label: t('tabInvoices'), icon: <ReceiptLongIcon fontSize="small" />, show: true });
                 }
-                if (hasPermission('wasteDisposal', 'view')) {
+                const canViewWaste = hasPermission('wasteDisposal', 'view');
+                if (canViewWaste && (Boolean(wasteDisposalServiceId) || Boolean(isRealAdmin))) {
                   dashboardItems.push({ id: 'waste-disposal', label: t('subTabWasteDisposal'), icon: <DeleteSweepIcon fontSize="small" />, show: true });
                 }
 
@@ -133,7 +137,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 if (hasPermission('tracker_projects', 'view')) {
                   statisticSubItems.push({ id: 'statistic', label: t('subTabProjects'), icon: <FolderIcon fontSize="small" /> });
                 }
-                if (hasPermission('wasteDisposal', 'view')) {
+                if (canViewWaste && Boolean(wasteDisposalServiceId)) {
                   statisticSubItems.push({
                     id: 'statistic-waste-disposal',
                     label: t('subTabWasteDisposal'),

@@ -13,6 +13,7 @@ import {
 } from '@mui/material';
 import SettingsIcon from '@mui/icons-material/Settings';
 import { useLanguage } from '../../context/LanguageContext';
+import { useAuth } from '../../context/AuthContext';
 import { useLinkedListOptions } from '../../hooks/useLinkedListOptions';
 import { WasteCatalogAutocomplete } from '../common/WasteCatalogAutocomplete';
 import { CustomDataModelModal } from '../service/CustomDataModelModal';
@@ -23,7 +24,6 @@ import {
   ServiceAutocomplete,
 } from '../common/autocomplete';
 import { ViewEditModalBase, type ModalMode } from '../common/modal/ViewEditModalBase';
-import { isWasteDisposalService } from '../../utils/serviceUtils';
 import { isKeyMatch } from '../../utils/customFields';
 import type {
   Client,
@@ -377,6 +377,7 @@ export interface WasteDisposalModalProps {
   invoices: Invoice[];
   canEdit?: boolean;
   canManageServices?: boolean;
+  isAdmin?: boolean;
   onSaveCustomModel?: (serviceId: string, fields: CustomFieldDefinition[]) => Promise<void>;
   onSaveInvoice?: (invoice: Partial<Invoice>) => Promise<SaveResult | void> | void;
   onDeleteInvoice?: (id: string) => void;
@@ -419,6 +420,7 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
   projects,
   canEdit = false,
   canManageServices = false,
+  isAdmin: isAdminProp,
   onSaveCustomModel,
   onSaveInvoice,
   onDeleteInvoice,
@@ -426,6 +428,8 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
   setErrorDialogState,
 }) => {
   const { t } = useLanguage();
+  const { isRealAdmin } = useAuth();
+  const isUserAdmin = Boolean(isAdminProp ?? isRealAdmin);
   const [isCustomModelModalOpen, setIsCustomModelModalOpen] = useState(false);
 
   // Mode state: 'view' | 'edit' | 'create'
@@ -624,11 +628,17 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
 
   // Performance: memoize autocomplete initial options to avoid triggering CustomAutocomplete cache effects
   const serviceInitialOption = useMemo(() => {
-    return (
-      editingItem?.service ||
-      (targetWasteService && String(targetWasteService.id) === String(formData.serviceId) ? targetWasteService : undefined) ||
-      services.find((s) => s.id === formData.serviceId)
-    );
+    if (formData.serviceId) {
+      const match = services.find((s) => s.id === formData.serviceId);
+      if (match) return match;
+      if (targetWasteService && String(targetWasteService.id) === String(formData.serviceId)) {
+        return targetWasteService;
+      }
+      if (editingItem?.service && String(editingItem.service.id) === String(formData.serviceId)) {
+        return editingItem.service;
+      }
+    }
+    return editingItem?.service || targetWasteService || null;
   }, [editingItem?.service, targetWasteService, formData.serviceId, services]);
 
   const clientInitialOption = useMemo(() => {
@@ -858,12 +868,7 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
               initialOption={serviceInitialOption}
               valueMode="id"
               onChange={handleServiceChange}
-              readOnly={
-                isView ||
-                (!editingItem
-                  ? Boolean(isWasteServiceLoading || targetWasteService)
-                  : isWasteDisposalService(editingItem?.service))
-              }
+              readOnly={isView || (!isUserAdmin && Boolean(targetWasteService || isWasteServiceLoading))}
               disabled={isView}
               required
               label={t('colService')}

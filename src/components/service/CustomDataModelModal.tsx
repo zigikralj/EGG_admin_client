@@ -15,7 +15,7 @@ import {
 import type { Service, CustomFieldDefinition, CustomFieldType } from '../../types';
 import { PERMIT_TYPE_OPTIONS } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
-import { useClientsQuery, usePermitsQuery } from '../../queries';
+import { useClientsSummaryQuery, usePermitsSummaryQuery } from '../../queries';
 import { clientHasPermitType } from '../../hooks/useLinkedListOptions';
 import { AddIcon, DeleteIcon } from '../icons';
 import { BaseModal } from '../common/modal/BaseModal';
@@ -36,8 +36,8 @@ export const CustomDataModelModal: React.FC<Props> = ({
   onSave,
 }) => {
   const { t, getPermitTypeLabel } = useLanguage();
-  const { data: clients = [] } = useClientsQuery({ enabled: isOpen });
-  const { data: permits = [] } = usePermitsQuery({ enabled: isOpen });
+  const { data: clients = [] } = useClientsSummaryQuery({ enabled: isOpen });
+  const { data: permits = [] } = usePermitsSummaryQuery({ enabled: isOpen });
   const [fields, setFields] = useState<CustomFieldDefinition[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

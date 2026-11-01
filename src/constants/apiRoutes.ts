@@ -43,6 +43,7 @@ export const API_ROUTES = {
   SERVICES: {
     BASE: '/api/services',
     BY_ID: (id: string) => `/api/services/${encodeURIComponent(id)}`,
+    CHECK_CODE: (code: string) => `/api/services/check-code?code=${encodeURIComponent(code)}`,
   },
   CATEGORIES: {
     BASE: '/api/categories',
@@ -91,6 +92,10 @@ export const API_ROUTES = {
   PREFERENCES: {
     BASE: '/api/preferences',
     BY_KEY: (key: string) => `/api/preferences/${encodeURIComponent(key)}`,
+  },
+  SYSTEM_SETTINGS: {
+    BASE: '/api/system-settings',
+    BY_KEY: (key: string) => `/api/system-settings/${encodeURIComponent(key)}`,
   },
   COMPANY_INFO: {
     BASE: '/api/company-info',

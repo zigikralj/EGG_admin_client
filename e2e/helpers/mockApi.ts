@@ -15,6 +15,7 @@ export interface MockApiOptions {
   permits?: any[];
   activityLogs?: any[];
   wasteCatalog?: any[];
+  systemSettings?: any;
 }
 
 /**
@@ -59,6 +60,14 @@ export async function mockCommonApi(page: Page, options: MockApiOptions = {}) {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify(options.preferences || {}),
+    });
+  });
+
+  await page.route('**/api/system-settings**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(options.systemSettings || {}),
     });
   });
 

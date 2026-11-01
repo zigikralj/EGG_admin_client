@@ -51,10 +51,9 @@ import {
   useProjectsSummaryQuery,
   usePaginatedProvidedServicesQuery,
   useClientsSummaryQuery,
-  useServicesQuery,
-  useWasteDisposalServiceQuery,
+  useServiceDetailsQuery,
+  useSystemSettingsQuery,
 } from '../../queries';
-import { isWasteDisposalService } from '../../utils/serviceUtils';
 import { WasteDisposalModal } from '../waste/WasteDisposalModal';
 import type { ModalMode } from '../common/modal/ViewEditModalBase';
 import { useDebounce } from '../../hooks/useDebounce';
@@ -62,6 +61,7 @@ import { useDebounce } from '../../hooks/useDebounce';
 interface Props {
   providedServices?: ProvidedService[];
   services?: Service[];
+  targetWasteService?: Service | null;
   clients?: Client[];
   projects?: Project[];
   invoices?: Invoice[];
@@ -82,6 +82,7 @@ interface Props {
   onRefresh?: () => void;
   isRefreshing?: boolean;
   onTotalCountChange?: (count: number) => void;
+  configuredWasteServiceId?: string;
 }
 
 function fmtDate(d: string | null | undefined): string {
@@ -99,6 +100,7 @@ function fmtDate(d: string | null | undefined): string {
 export const WasteDisposalPanel: React.FC<Props> = ({
   providedServices: providedServicesProp,
   services: servicesProp = [],
+  targetWasteService: targetWasteServiceProp,
   clients: clientsProp = [],
   projects: projectsProp = [],
   invoices: invoicesProp = [],
@@ -119,13 +121,21 @@ export const WasteDisposalPanel: React.FC<Props> = ({
   onRefresh,
   isRefreshing,
   onTotalCountChange,
+  configuredWasteServiceId: configuredWasteServiceIdProp,
 }) => {
   const { t, getServiceLabel } = useLanguage();
-  const { hasPermission } = useAuth();
+  const { hasPermission, isRealAdmin } = useAuth();
+  const isAdmin = Boolean(isRealAdmin);
   const { handleSave: handleSaveService } = useServicesMutations();
+  const { data: systemSettings = {} } = useSystemSettingsQuery();
   const canEdit = hasPermission('wasteDisposal', 'edit') || hasPermission('providedServices', 'edit');
   const canDelete = hasPermission('wasteDisposal', 'delete') || hasPermission('providedServices', 'delete');
   const canManageServices = hasPermission('services', 'edit');
+
+  const configuredWasteServiceId =
+    configuredWasteServiceIdProp !== undefined
+      ? configuredWasteServiceIdProp
+      : ((systemSettings['waste_disposal_service_id'] as string | undefined) || '');
 
   // Pagination mode: if providedServices was passed explicitly with items, use client-side pagination, else use server-side pagination
   const isServerPaginated = !providedServicesProp || providedServicesProp.length === 0;
@@ -141,20 +151,28 @@ export const WasteDisposalPanel: React.FC<Props> = ({
     message: '',
   });
 
-  const shouldFetchSupportingData = isFilterOpen;
+  // Lazy query: only fetch clients and projects when filter or dialog is active
+  const shouldFetchAuxiliaryData = isFilterOpen || isDialogOpen;
 
   const { data: fetchedClients = [] } = useClientsSummaryQuery({
-    enabled: clientsProp.length === 0 && shouldFetchSupportingData,
+    enabled: clientsProp.length === 0 && shouldFetchAuxiliaryData,
   });
   const clients: Client[] = clientsProp.length > 0 ? clientsProp : (fetchedClients as Client[]);
 
-  const { data: fetchedServices = [] } = useServicesQuery({
-    enabled: servicesProp.length === 0 && shouldFetchSupportingData,
-  });
-  const services: Service[] = servicesProp.length > 0 ? servicesProp : fetchedServices;
+  const { data: fetchedTargetService } = useServiceDetailsQuery(
+    configuredWasteServiceId,
+    Boolean(configuredWasteServiceId && !targetWasteServiceProp)
+  );
+
+  const targetWasteService = targetWasteServiceProp || fetchedTargetService || null;
+  const services: Service[] = servicesProp.length > 0
+    ? servicesProp
+    : targetWasteService
+    ? [targetWasteService]
+    : [];
 
   const { data: fetchedProjects = [] } = useProjectsSummaryQuery({
-    enabled: projectsProp.length === 0 && shouldFetchSupportingData,
+    enabled: projectsProp.length === 0 && shouldFetchAuxiliaryData,
   });
   const projects: Project[] = projectsProp.length > 0 ? projectsProp : (fetchedProjects as unknown as Project[]);
   const allProjects = projects;
@@ -198,16 +216,11 @@ export const WasteDisposalPanel: React.FC<Props> = ({
     defaultSortDirection: 'desc',
   });
 
-  // Filter waste services from the general services list
+
+
   const wasteServices = useMemo(() => {
-    return services.filter((s) => isWasteDisposalService(s));
-  }, [services]);
-
-  const { data: defaultWasteService, isLoading: isWasteServiceLoading } = useWasteDisposalServiceQuery({
-    enabled: servicesProp.length === 0 && wasteServices.length === 0 && isDialogOpen && !editingItem,
-  });
-
-  const targetWasteService = wasteServices.length > 0 ? wasteServices[0] : (defaultWasteService || null);
+    return targetWasteService ? [targetWasteService] : [];
+  }, [targetWasteService]);
 
   // Reset pagination when filters change
   useEffect(() => {
@@ -234,14 +247,12 @@ export const WasteDisposalPanel: React.FC<Props> = ({
     }
   }, [openNewTrigger]);
 
-  // Client-side fallback list: only provided services corresponding to waste disposal
+  // Client-side fallback list: only provided services corresponding to configured waste disposal service
   const providedServices = providedServicesProp || [];
   const wasteProvidedServices = useMemo(() => {
-    return providedServices.filter((item) => {
-      const srv = item.service || services.find((s) => s.id === item.serviceId);
-      return isWasteDisposalService(srv);
-    });
-  }, [providedServices, services]);
+    if (!configuredWasteServiceId) return [];
+    return providedServices.filter((item) => item.serviceId === configuredWasteServiceId);
+  }, [providedServices, configuredWasteServiceId]);
 
   // Server-side paginated query
   const debouncedSearchQuery = useDebounce(searchQuery, 400);
@@ -267,9 +278,16 @@ export const WasteDisposalPanel: React.FC<Props> = ({
       dateField: filterDateField,
       isWasteDisposalOnly: true,
       missingInvoice: quickFilterMissingInvoice,
+      wasteServiceId: configuredWasteServiceId,
     },
-    isServerPaginated
+    isServerPaginated && Boolean(configuredWasteServiceId)
   );
+
+  useEffect(() => {
+    if (configuredWasteServiceId && isServerPaginated) {
+      refetchPaginated();
+    }
+  }, [configuredWasteServiceId, isServerPaginated, refetchPaginated]);
 
   const handleClearAllFilters = () => {
     setSearchQuery('');
@@ -488,7 +506,9 @@ export const WasteDisposalPanel: React.FC<Props> = ({
     return filteredAndSortedItems.slice(page * activeRowsPerPage, page * activeRowsPerPage + activeRowsPerPage);
   }, [filteredAndSortedItems, page, activeRowsPerPage]);
 
-  const totalCount = isServerPaginated
+  const totalCount = !configuredWasteServiceId
+    ? 0
+    : isServerPaginated
     ? (paginatedData?.total ?? 0)
     : filteredAndSortedItems.length;
 
@@ -498,7 +518,9 @@ export const WasteDisposalPanel: React.FC<Props> = ({
     }
   }, [totalCount, onTotalCountChange]);
 
-  const displayItems = isServerPaginated
+  const displayItems = !configuredWasteServiceId
+    ? []
+    : isServerPaginated
     ? (paginatedData?.items || [])
     : paginatedItems;
 
@@ -1048,13 +1070,13 @@ export const WasteDisposalPanel: React.FC<Props> = ({
         onSave={handleSave}
         isSaving={isSaving}
         targetWasteService={targetWasteService}
-        isWasteServiceLoading={isWasteServiceLoading}
         services={services}
         clients={clients}
         projects={projects}
         invoices={invoices}
         canEdit={canEdit}
         canManageServices={canManageServices}
+        isAdmin={isAdmin}
         onSaveCustomModel={handleSaveCustomModel}
         onSaveInvoice={onSaveInvoice}
         onDeleteInvoice={onDeleteInvoice}

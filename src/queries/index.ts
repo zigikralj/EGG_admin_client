@@ -29,3 +29,4 @@ export * from './permits.queries';
 export * from './activity.queries';
 export * from './history.queries';
 export * from './autocomplete.queries';
+export * from './systemSettings.queries';

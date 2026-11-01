@@ -1,6 +1,7 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { CustomAutocomplete, type CustomAutocompleteProps } from './CustomAutocomplete';
 import { useLanguage } from '../../../context/LanguageContext';
+import { useServiceDetailsQuery } from '../../../queries';
 import type { Service } from '../../../types';
 
 export interface ServiceAutocompleteProps<
@@ -19,9 +20,29 @@ function ServiceAutocompleteInner<
   label,
   placeholder,
   getOptionLabel,
+  initialOption: initialOptionProp,
+  value,
   ...restProps
 }: ServiceAutocompleteProps<Multiple, FreeSolo>) {
   const { t, getServiceLabel } = useLanguage();
+
+  const serviceIdToFetch =
+    !initialOptionProp && !restProps.multiple && typeof value === 'string' && value.trim()
+      ? value.trim()
+      : undefined;
+
+  const { data: autoFetchedService } = useServiceDetailsQuery(
+    serviceIdToFetch,
+    Boolean(serviceIdToFetch)
+  );
+
+  const resolvedInitialOption = useMemo(() => {
+    if (initialOptionProp) return initialOptionProp;
+    if (autoFetchedService) {
+      return Array.isArray(autoFetchedService) ? autoFetchedService[0] : autoFetchedService;
+    }
+    return null;
+  }, [initialOptionProp, autoFetchedService]);
 
   const defaultGetOptionLabel = useCallback(
     (option: Service | string) => {
@@ -46,6 +67,8 @@ function ServiceAutocompleteInner<
     <CustomAutocomplete<Service, Multiple, FreeSolo>
       entity="services"
       valueMode={valueMode}
+      value={value}
+      initialOption={resolvedInitialOption}
       label={label !== undefined ? label : t('lblService')}
       placeholder={placeholder !== undefined ? placeholder : t('phServiceName')}
       getOptionLabel={getOptionLabel || defaultGetOptionLabel}

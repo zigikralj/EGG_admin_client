@@ -4,20 +4,6 @@ import { API_ROUTES } from '../constants';
 import { useAuthHeaders, buildPaginationQueryParams, useGenericMutations, useGenericActionMutation } from './queryUtils';
 import type { User, Role, PaginatedResponse } from '../types';
 
-export function useUsersQuery(options?: { enabled?: boolean }) {
-  const getAuthHeaders = useAuthHeaders();
-  return useQuery<User[]>({
-    queryKey: ['users'],
-    enabled: options?.enabled ?? true,
-    queryFn: async () => {
-      const res = await apiFetch(API_ROUTES.USERS.BASE, { headers: getAuthHeaders() });
-      if (!res.ok) throw new Error('Failed to fetch users');
-      const data = await res.json();
-      return Array.isArray(data) ? data : data.items || [];
-    },
-  });
-}
-
 export function useUsersSummaryQuery(options?: { enabled?: boolean }) {
   const getAuthHeaders = useAuthHeaders();
   return useQuery<User[]>({

@@ -70,14 +70,11 @@ const DEFAULT_COLUMNS = [
 
 import {
   usePaginatedProvidedServicesQuery,
-  useServicesQuery,
-  useClientsSummaryQuery,
-  useProjectsQuery,
-  useInvoicesQuery,
   useProvidedServicesMutations,
   useServicesMutations,
   useInvoicesMutations,
   useTablePreferences,
+  useWasteDisposalServiceId,
 } from '../../queries';
 import { useDebounce } from '../../hooks/useDebounce';
 import { ConfirmDialog } from '../../components/common/dialogs/ConfirmDialog';
@@ -169,10 +166,6 @@ const ProvidedServicesPage: React.FC<Props> = ({
     defaultSortDirection: 'desc',
   });
 
-  const { data: services = [] } = useServicesQuery();
-  const { data: clients = [] } = useClientsSummaryQuery();
-  const { data: projects = [] } = useProjectsQuery('');
-  const { data: invoices = [] } = useInvoicesQuery();
 
   const {
     data: paginatedData,
@@ -211,7 +204,7 @@ const ProvidedServicesPage: React.FC<Props> = ({
 
   const getCustomModelForService = (serviceId: string): CustomFieldDefinition[] => {
     if (!serviceId) return [];
-    const matchedService = services.find((s) => s.id === serviceId);
+    const matchedService = (activeModelService?.id === serviceId ? activeModelService : null) || (editingItem?.service?.id === serviceId ? editingItem.service : null);
     if (matchedService?.customDataModel && Array.isArray(matchedService.customDataModel)) {
       return matchedService.customDataModel;
     }
@@ -282,14 +275,14 @@ const ProvidedServicesPage: React.FC<Props> = ({
     { id: 'notes', label: t('colDescription') },
   ];
 
+  const { wasteDisposalServiceId } = useWasteDisposalServiceId();
   const getItemPermissions = useCallback((item: ProvidedService | null) => {
     if (!item) return { canEdit: canCreate, canDelete: false };
-    const srv = item.service || services.find((s) => s.id === item.serviceId);
-    const isWaste = srv?.group === 'grp-waste' || srv?.code?.toLowerCase().includes('waste');
-    const canEdit = hasPermission('providedServices', 'edit') || (Boolean(isWaste) && hasPermission('wasteDisposal', 'edit'));
-    const canDelete = hasPermission('providedServices', 'delete') || (Boolean(isWaste) && hasPermission('wasteDisposal', 'delete'));
+    const isWaste = Boolean(wasteDisposalServiceId && item.serviceId === wasteDisposalServiceId);
+    const canEdit = hasPermission('providedServices', 'edit') || (isWaste && hasPermission('wasteDisposal', 'edit'));
+    const canDelete = hasPermission('providedServices', 'delete') || (isWaste && hasPermission('wasteDisposal', 'delete'));
     return { canEdit, canDelete };
-  }, [hasPermission, services, canCreate]);
+  }, [hasPermission, wasteDisposalServiceId, canCreate]);
 
   const [modalMode, setModalMode] = useState<ModalMode>('view');
 
@@ -314,10 +307,10 @@ const ProvidedServicesPage: React.FC<Props> = ({
     setIsOpen(true);
   };
 
-  const isWasteManagementService = (srv?: Service) => {
-    if (!srv) return false;
-    const group = (srv.group || '').toLowerCase();
-    const code = (srv.code || '').toLowerCase();
+  const isWasteManagementService = (srv?: Service, item?: ProvidedService) => {
+    if (!srv && !item) return false;
+    const group = (srv?.group || (item as any)?.group || '').toLowerCase();
+    const code = (srv?.code || item?.serviceCode || '').toLowerCase();
     return (
       group === 'grp-waste' ||
       group.includes('waste') ||
@@ -328,10 +321,7 @@ const ProvidedServicesPage: React.FC<Props> = ({
   };
 
   const displayedItems = quickFilter === 'waste-management'
-    ? rawItems.filter((item: ProvidedService) => {
-        const srv = item.service || services.find((s) => s.id === item.serviceId);
-        return isWasteManagementService(srv);
-      })
+    ? rawItems.filter((item: ProvidedService) => isWasteManagementService(item.service, item))
     : rawItems;
 
   useEffect(() => {
@@ -701,17 +691,17 @@ const ProvidedServicesPage: React.FC<Props> = ({
                 </TableRow>
               ) : (
                 paginatedItems.map((item: any) => {
-                  const srv = item.service || services.find((s) => s.id === item.serviceId);
-                  const cli = item.client || clients.find((c) => c.id === item.clientId);
-                  const prj = item.project || projects.find((p) => p.id === item.projectId);
-                  const inv = item.invoice || invoices.find((i) => i.id === item.invoiceId);
+                  const srv = item.service;
+                  const cli = item.client;
+                  const prj = item.project;
+                  const inv = item.invoice;
 
                   return (
                     <TableRow key={item.id} hover onClick={() => openView(item)} sx={{ cursor: 'pointer' }}>
                       {activeCols.includes('service') && (
                         <TableCell>
                           <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                            {srv?.name || (srv ? getServiceLabel(srv.code) : item.serviceId)}
+                            {srv?.name || item.serviceName || (srv ? getServiceLabel(srv.code) : (item.serviceCode ? getServiceLabel(item.serviceCode) : item.serviceId))}
                           </Typography>
                         </TableCell>
                       )}
@@ -768,7 +758,11 @@ const ProvidedServicesPage: React.FC<Props> = ({
                           {item.customData && Object.keys(item.customData).length > 0 ? (
                             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                               {(() => {
-                                const badges = resolveCustomFieldBadges(item, services, clients);
+                                const badges = resolveCustomFieldBadges(
+                                  item,
+                                  item.service ? [item.service] : [],
+                                  item.client ? [item.client] : []
+                                );
                                 if (badges.length === 0) {
                                   return (
                                     <Typography variant="body2" color="text.secondary">
@@ -867,8 +861,8 @@ const ProvidedServicesPage: React.FC<Props> = ({
         editingItem={editingItem}
         mode={modalMode}
         onModeChange={setModalMode}
-        services={services}
-        clients={clients}
+        services={editingItem?.service ? [editingItem.service] : []}
+        clients={editingItem?.client ? [editingItem.client] : []}
         canCreate={canCreate}
         onDeleteProvidedService={onDeleteProvidedService}
         onSaveProvidedService={handleSave}

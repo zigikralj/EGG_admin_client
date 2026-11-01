@@ -1,49 +1,103 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '../api';
 import { API_ROUTES } from '../constants';
-import { isWasteDisposalService } from '../utils/serviceUtils';
-import { useAuthHeaders, useGenericMutations } from './queryUtils';
-import type { Service, Category } from '../types';
+import { useAuthHeaders, buildPaginationQueryParams, useGenericMutations } from './queryUtils';
+import type { Service, Category, PaginatedResponse } from '../types';
 
-export function useServicesQuery(options?: { enabled?: boolean }) {
+export interface PaginatedServicesParams {
+  page: number; // 0-indexed from MUI
+  rowsPerPage: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  search?: string;
+  group?: string;
+  frequency?: string;
+}
+
+export function usePaginatedServicesQuery(params: PaginatedServicesParams, enabled: boolean = true) {
   const getAuthHeaders = useAuthHeaders();
-  return useQuery<Service[]>({
-    queryKey: ['services'],
-    enabled: options?.enabled ?? true,
+  const queryKey = [
+    'services',
+    'paginated',
+    params.page,
+    params.rowsPerPage,
+    params.sortBy,
+    params.sortOrder,
+    params.search,
+    params.group,
+    params.frequency,
+  ] as const;
+
+  return useQuery<PaginatedResponse<Service>>({
+    queryKey,
     queryFn: async () => {
-      const res = await apiFetch(API_ROUTES.SERVICES.BASE, { headers: getAuthHeaders() });
-      if (!res.ok) throw new Error('Failed to fetch services');
+      const q = buildPaginationQueryParams(
+        {
+          page: params.page,
+          rowsPerPage: params.rowsPerPage,
+          sortColumn: params.sortBy,
+          sortDirection: params.sortOrder,
+          searchQuery: params.search,
+        },
+        {
+          group: params.group,
+          frequency: params.frequency,
+        }
+      );
+
+      const res = await apiFetch(`${API_ROUTES.SERVICES.BASE}?${q.toString()}`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error('Failed to fetch paginated services');
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        return {
+          items: data,
+          total: data.length,
+          page: params.page + 1,
+          limit: params.rowsPerPage,
+          totalPages: Math.ceil(data.length / (params.rowsPerPage || 1)) || 1,
+          hasMore: false,
+        };
+      }
+      return data;
+    },
+    enabled,
+  });
+}
+
+export function useServiceDetailsQuery(id: string | null | undefined, enabled: boolean = true) {
+  const getAuthHeaders = useAuthHeaders();
+  return useQuery<Service | null>({
+    queryKey: ['services', 'details', id],
+    enabled: Boolean(id && enabled),
+    queryFn: async () => {
+      if (!id) return null;
+      const res = await apiFetch(`${API_ROUTES.SERVICES.BASE}/${id}`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) throw new Error('Failed to fetch service details');
       return res.json();
     },
   });
 }
 
-export function useWasteDisposalServiceQuery(options?: { enabled?: boolean }) {
-  const getAuthHeaders = useAuthHeaders();
-  return useQuery<Service | null>({
-    queryKey: ['services', 'waste-disposal-default'],
-    enabled: options?.enabled ?? true,
-    staleTime: 10 * 60 * 1000,
-    queryFn: async () => {
-      const searchTerms = ['odlaganje otpada', 'waste disposal', 'odlaganje', 'zbrinjavanje'];
-      for (const term of searchTerms) {
-        try {
-          const res = await apiFetch(`${API_ROUTES.SERVICES.BASE}?search=${encodeURIComponent(term)}&limit=5`, {
-            headers: getAuthHeaders(),
-          });
-          if (res.ok) {
-            const data = await res.json();
-            const items: Service[] = Array.isArray(data) ? data : data.items || [];
-            const match = items.find((s) => isWasteDisposalService(s));
-            if (match) return match;
-          }
-        } catch {
-          // Continue to next search term
-        }
-      }
-      return null;
-    },
-  });
+export async function checkServiceCodeExists(
+  code: string,
+  getAuthHeaders?: () => Record<string, string>
+): Promise<boolean> {
+  const formattedCode = code.trim().toLowerCase().replace(/\s+/g, '-');
+  if (!formattedCode) return false;
+  try {
+    const res = await apiFetch(API_ROUTES.SERVICES.CHECK_CODE(formattedCode), {
+      headers: getAuthHeaders ? getAuthHeaders() : undefined,
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    return Boolean(data.exists);
+  } catch {
+    return false;
+  }
 }
 
 export function useCategoriesQuery(options?: { enabled?: boolean }) {

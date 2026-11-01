@@ -100,6 +100,118 @@ describe('ServiceModal', () => {
     });
   });
 
+  it('renders code/slug field as disabled and non-editable when editing an existing service', () => {
+    renderModal({ editingService: mockService, initialMode: 'edit' });
+
+    const codeInput = screen.getByLabelText(/lblServiceCode/i) as HTMLInputElement;
+    expect(codeInput).toBeInTheDocument();
+    expect(codeInput).toBeDisabled();
+    expect(screen.getByText('hintSlugNonEditable')).toBeInTheDocument();
+  });
+
+  it('checks if code exists on blur when creating a new service and prevents saving if duplicate', async () => {
+    const checkCodeExists = vi.fn().mockResolvedValue(true);
+    const onSaveService = vi.fn().mockResolvedValue({ success: true });
+    const onError = vi.fn();
+
+    renderModal({
+      editingService: null,
+      checkCodeExists,
+      onSaveService,
+      onError,
+    });
+
+    const codeInput = screen.getByLabelText(/lblServiceCode/i);
+    const nameInput = screen.getByLabelText(/lblServiceName/i);
+    const saveBtn = screen.getByText('btnSave').closest('button')!;
+
+    // Type a duplicate code
+    fireEvent.change(codeInput, { target: { value: 'existing-code' } });
+    fireEvent.blur(codeInput);
+
+    await waitFor(() => {
+      expect(checkCodeExists).toHaveBeenCalledWith('existing-code');
+      expect(screen.getByText('errServiceCodeExists')).toBeInTheDocument();
+      expect(saveBtn).toBeDisabled();
+    });
+
+    // Attempting to submit via form or save button should not call onSaveService
+    fireEvent.change(nameInput, { target: { value: 'Some Service' } });
+    fireEvent.click(saveBtn);
+
+    expect(onSaveService).not.toHaveBeenCalled();
+
+    // Changing code clears error
+    fireEvent.change(codeInput, { target: { value: 'new-unique-code' } });
+    expect(screen.queryByText('errServiceCodeExists')).not.toBeInTheDocument();
+    expect(saveBtn).not.toBeDisabled();
+  });
+
+  it('allows saving when code is unique', async () => {
+    const checkCodeExists = vi.fn().mockResolvedValue(false);
+    const onSaveService = vi.fn().mockResolvedValue({ success: true });
+
+    renderModal({
+      editingService: null,
+      checkCodeExists,
+      onSaveService,
+    });
+
+    const codeInput = screen.getByLabelText(/lblServiceCode/i);
+    const nameInput = screen.getByLabelText(/lblServiceName/i);
+    const saveBtn = screen.getByText('btnSave').closest('button')!;
+
+    fireEvent.change(codeInput, { target: { value: 'unique-service-slug' } });
+    fireEvent.blur(codeInput);
+
+    await waitFor(() => {
+      expect(checkCodeExists).toHaveBeenCalledWith('unique-service-slug');
+      expect(screen.queryByText('errServiceCodeExists')).not.toBeInTheDocument();
+      expect(saveBtn).not.toBeDisabled();
+    });
+
+    fireEvent.change(nameInput, { target: { value: 'Unique Service Name' } });
+    fireEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(onSaveService).toHaveBeenCalledWith(
+        expect.objectContaining({
+          code: 'unique-service-slug',
+          name: 'Unique Service Name',
+        })
+      );
+    });
+  });
+
+  it('validates uniqueness on submit if blurred was not triggered', async () => {
+    const checkCodeExists = vi.fn().mockResolvedValue(true);
+    const onSaveService = vi.fn().mockResolvedValue({ success: true });
+    const onError = vi.fn();
+
+    renderModal({
+      editingService: null,
+      checkCodeExists,
+      onSaveService,
+      onError,
+    });
+
+    const codeInput = screen.getByLabelText(/lblServiceCode/i);
+    const nameInput = screen.getByLabelText(/lblServiceName/i);
+    const saveBtn = screen.getByText('btnSave');
+
+    fireEvent.change(codeInput, { target: { value: 'duplicate-slug' } });
+    fireEvent.change(nameInput, { target: { value: 'Service' } });
+
+    // Click save directly without manual blur
+    fireEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(checkCodeExists).toHaveBeenCalledWith('duplicate-slug');
+      expect(onError).toHaveBeenCalledWith('errServiceCodeExists');
+      expect(onSaveService).not.toHaveBeenCalled();
+    });
+  });
+
   it('calls onDeleteService when delete button is clicked in view mode', () => {
     const onDeleteService = vi.fn();
     renderModal({ editingService: mockService, onDeleteService });

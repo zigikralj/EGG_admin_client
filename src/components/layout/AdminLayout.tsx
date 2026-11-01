@@ -12,6 +12,7 @@ import { SettingsDialog } from './SettingsDialog';
 import { CompanyInfoModal } from '../company/CompanyInfoModal';
 import { DashboardIcon, FolderIcon, BusinessIcon, AssignmentTurnedInIcon, PeopleIcon, BuildIcon, HandymanIcon, CategoryIcon, NotificationsActiveIcon, ReceiptLongIcon, SecurityIcon, AccessTimeIcon } from '../icons';
 import { useProjectModal } from '../../context/ProjectModalContext';
+import { useWasteDisposalServiceId } from '../../queries';
 
 interface Props {
   userPreferences?: Record<string, any>;
@@ -33,8 +34,10 @@ export const AdminLayout: React.FC<Props> = ({
     role,
     isRolesLoading,
     hasPermission,
+    isRealAdmin,
     logout,
   } = useAuth();
+  const { wasteDisposalServiceId, isLoading: isSettingsLoading } = useWasteDisposalServiceId();
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isStatisticExpanded, setIsStatisticExpanded] = useState(true);
@@ -63,7 +66,7 @@ export const AdminLayout: React.FC<Props> = ({
   ], [t, hasPermission]);
 
   useEffect(() => {
-    if (isRolesLoading) return;
+    if (isRolesLoading || isSettingsLoading) return;
 
     const parts = location.pathname.split('/').filter(Boolean);
     const appName = parts[0];
@@ -103,7 +106,19 @@ export const AdminLayout: React.FC<Props> = ({
         if (page === 'waste-disposal' || page === 'statistic-waste-disposal' || page === 'statistic-waste-management') resource = 'wasteDisposal';
       }
 
-      if (!hasPermission(resource, 'view')) {
+      let hasAccess = hasPermission(resource, 'view');
+      if (hasAccess && (page === 'statistic-waste-disposal' || page === 'statistic-waste-management')) {
+        if (!wasteDisposalServiceId) {
+          hasAccess = false;
+        }
+      }
+      if (hasAccess && (page === 'waste-disposal' || page === 'waste-management')) {
+        if (!wasteDisposalServiceId && !isRealAdmin) {
+          hasAccess = false;
+        }
+      }
+
+      if (!hasAccess) {
         if (appName === 'data-management') {
           const firstAllowed = navItems.find((item) => item.show && item.path.startsWith('/data-management/') && item.path !== location.pathname);
           if (firstAllowed) {
@@ -115,15 +130,16 @@ export const AdminLayout: React.FC<Props> = ({
             return;
           }
         } else if (appName === 'project-tracker') {
+          const canAccessWasteDisposal = hasPermission('wasteDisposal', 'view') && (Boolean(wasteDisposalServiceId) || Boolean(isRealAdmin));
           const trackerSubTabs = [
-            { path: '/project-tracker/projects', resource: 'tracker_projects' },
-            { path: '/project-tracker/updates', resource: 'tracker_updates' },
-            { path: '/project-tracker/invoices', resource: 'tracker_invoices' },
-            { path: '/project-tracker/reminders', resource: 'tracker_reminders' },
-            { path: '/project-tracker/waste-disposal', resource: 'wasteDisposal' },
-            { path: '/project-tracker/statistic', resource: 'statistics' },
+            { path: '/project-tracker/projects', allowed: hasPermission('tracker_projects', 'view') },
+            { path: '/project-tracker/updates', allowed: hasPermission('tracker_updates', 'view') },
+            { path: '/project-tracker/invoices', allowed: hasPermission('tracker_invoices', 'view') },
+            { path: '/project-tracker/reminders', allowed: hasPermission('tracker_reminders', 'view') },
+            { path: '/project-tracker/waste-disposal', allowed: canAccessWasteDisposal },
+            { path: '/project-tracker/statistic', allowed: hasPermission('statistics', 'view') },
           ];
-          const firstAllowedSub = trackerSubTabs.find((sub) => hasPermission(sub.resource, 'view') && sub.path !== location.pathname);
+          const firstAllowedSub = trackerSubTabs.find((sub) => sub.allowed && sub.path !== location.pathname);
           if (firstAllowedSub) {
             navigate(firstAllowedSub.path, { replace: true });
             return;
@@ -136,7 +152,7 @@ export const AdminLayout: React.FC<Props> = ({
         }
       }
     }
-  }, [role, isRolesLoading, hasPermission, location.pathname, navigate, navItems]);
+  }, [role, isRolesLoading, isSettingsLoading, wasteDisposalServiceId, isRealAdmin, hasPermission, location.pathname, navigate, navItems]);
 
   useEffect(() => {
     // Scroll window and main content

@@ -112,4 +112,23 @@ describe('PermitModal', () => {
     expect(screen.queryByLabelText(/lblPermitNumber/i)).not.toBeInTheDocument();
     expect(screen.getByText('btnEdit')).toBeInTheDocument();
   });
+
+  it('renders start and end dates with status badge properly in view mode', () => {
+    const existingPermit = {
+      id: 'p1',
+      permitNumber: 'PERMIT-999',
+      permitTypes: ['Transport'],
+      clientId: 'c1',
+      startDate: '2020-03-01T00:00:00.000Z',
+      endDate: '2025-03-01T00:00:00.000Z',
+      notes: 'Test notes',
+      wasteCatalogIds: ['w1'],
+      wasteCatalogs: [{ id: 'w1', code: '01 01 01', description: 'Waste desc' }],
+    };
+
+    renderModal({ editingPermit: existingPermit as any });
+
+    expect(screen.getByText('01.03.2020.')).toBeInTheDocument();
+    expect(screen.getByText('01.03.2025.')).toBeInTheDocument();
+  });
 });
