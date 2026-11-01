@@ -209,6 +209,13 @@ Modularized domain query modules re-exported through barrel `src/queries/index.t
 > The developer operates using an Administrator account. Administrator level **MUST see everything and have full access to all features**.
 > **NEVER hide any options, switches, menus, or features from Administrator.** If something is available to Manager, Accountant, or User, Administrator MUST have full access and visibility.
 
+### HARD RULE: NO HARDCODED NAMES OR STRINGS FOR FINDING SERVICES (E.G. WASTE DISPOSAL)
+> [!CAUTION]
+> **NO HARDCODED ENTITY IDENTIFICATION STRINGS:**
+> - **NEVER** use hardcoded service names, translations, or string aliases (e.g., `'Zbrinjavanje otpada'`, `'Waste Disposal'`, `'Odlaganje otpada'`, etc.) to search, identify, or auto-fallback to services in client or server logic.
+> - The active Waste Disposal Service is configured exclusively by the Administrator in the UI and stored in the database `SystemSetting` table under the key `'waste_disposal_service_id'`.
+> - If no service is configured in `SystemSetting`, components must treat it as unconfigured and never guess or match by service name. The Administrator will select it in the UI.
+
 ### Table Preferences
 Instead of prop-drilling preference states from `App.tsx`, pages consume `useTablePreferences(tableKey)`:
 ```typescript
