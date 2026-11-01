@@ -475,7 +475,7 @@ export const PermitModal: React.FC<PermitModalProps> = React.memo(({
           </Grid>
 
           {/* Permit Type (Multiple Select) */}
-          <Grid size={{ xs: 12, sm: 6 }}>
+          <Grid size={{ xs: 12 }}>
             <ViewEditField
               mode={currentMode}
               label={t('lblPermitType')}
@@ -522,11 +522,16 @@ export const PermitModal: React.FC<PermitModalProps> = React.memo(({
           </Grid>
 
           {/* Start Date (Required) */}
-          <Grid size={{ xs: 12, sm: 3 }}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <ViewEditField
               mode={currentMode}
               label={t('colStartDate')}
               value={formatDate(startDate)}
+              viewRender={() => (
+                <Typography variant="body1" sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
+                  {formatDate(startDate)}
+                </Typography>
+              )}
             >
               <TextField
                 fullWidth
@@ -542,14 +547,16 @@ export const PermitModal: React.FC<PermitModalProps> = React.memo(({
           </Grid>
 
           {/* End Date (Required) */}
-          <Grid size={{ xs: 12, sm: 3 }}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <ViewEditField
               mode={currentMode}
               label={t('colEndDate')}
               value={formatDate(endDate)}
               viewRender={() => (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="body1">{formatDate(endDate)}</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="body1" sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    {formatDate(endDate)}
+                  </Typography>
                   {endDate && <PermitStatusBadge endDate={endDate} />}
                 </Box>
               )}

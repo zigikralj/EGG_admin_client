@@ -85,7 +85,7 @@ export const ViewEditField: React.FC<ViewEditFieldProps> = ({
           alignItems: 'center',
           flexWrap: 'wrap',
           gap: 0.5,
-          wordBreak: 'break-word',
+          overflowWrap: 'break-word',
         }}
       >
         {renderedValue}

@@ -272,6 +272,7 @@ export const ServiceModal: React.FC<ServiceModalProps> = ({
               fullWidth
               value={group}
               valueMode="code"
+              initialOption={categories.find((c) => c.code === group)}
               onChange={(val) => setGroup(val || '')}
               label={t('lblCategoryGroup')}
             />

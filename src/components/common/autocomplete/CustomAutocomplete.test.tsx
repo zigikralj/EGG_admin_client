@@ -6,6 +6,7 @@ import { CustomAutocomplete } from './CustomAutocomplete';
 import { ClientAutocomplete } from './ClientAutocomplete';
 import { UserAutocomplete } from './UserAutocomplete';
 import { ServiceAutocomplete } from './ServiceAutocomplete';
+import { CategoryAutocomplete } from './CategoryAutocomplete';
 import { ReminderAutocomplete } from './ReminderAutocomplete';
 import { InvoiceAutocomplete } from './InvoiceAutocomplete';
 import * as api from '../../../api';
@@ -153,6 +154,23 @@ describe('CustomAutocomplete', () => {
 
     // Initial value resolved by code with service name display
     expect(screen.getByDisplayValue('Zbrinjavanje otpada')).toBeInTheDocument();
+  });
+
+  it('handles CategoryAutocomplete valueMode="code" and displays category name instead of code', async () => {
+    const handleChange = vi.fn();
+
+    renderWithProviders(
+      <CategoryAutocomplete
+        value="grp-advisory"
+        initialOption={{ id: 'cat-1', code: 'grp-advisory', name: 'Savetodavne usluge' }}
+        valueMode="code"
+        onChange={handleChange}
+        placeholder="Select category"
+      />
+    );
+
+    // Initial value resolved by code with category name display
+    expect(screen.getByDisplayValue('Savetodavne usluge')).toBeInTheDocument();
   });
 
   it('renders load more sentinel when hasMore is true and triggers fetchNextPage on click', async () => {
