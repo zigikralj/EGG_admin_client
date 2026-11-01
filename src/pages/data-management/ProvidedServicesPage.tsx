@@ -307,10 +307,10 @@ const ProvidedServicesPage: React.FC<Props> = ({
     setIsOpen(true);
   };
 
-  const isWasteManagementService = (srv?: Service) => {
-    if (!srv) return false;
-    const group = (srv.group || '').toLowerCase();
-    const code = (srv.code || '').toLowerCase();
+  const isWasteManagementService = (srv?: Service, item?: ProvidedService) => {
+    if (!srv && !item) return false;
+    const group = (srv?.group || (item as any)?.group || '').toLowerCase();
+    const code = (srv?.code || item?.serviceCode || '').toLowerCase();
     return (
       group === 'grp-waste' ||
       group.includes('waste') ||
@@ -321,7 +321,7 @@ const ProvidedServicesPage: React.FC<Props> = ({
   };
 
   const displayedItems = quickFilter === 'waste-management'
-    ? rawItems.filter((item: ProvidedService) => isWasteManagementService(item.service))
+    ? rawItems.filter((item: ProvidedService) => isWasteManagementService(item.service, item))
     : rawItems;
 
   useEffect(() => {
@@ -701,7 +701,7 @@ const ProvidedServicesPage: React.FC<Props> = ({
                       {activeCols.includes('service') && (
                         <TableCell>
                           <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                            {srv?.name || (srv ? getServiceLabel(srv.code) : item.serviceId)}
+                            {srv?.name || item.serviceName || (srv ? getServiceLabel(srv.code) : (item.serviceCode ? getServiceLabel(item.serviceCode) : item.serviceId))}
                           </Typography>
                         </TableCell>
                       )}

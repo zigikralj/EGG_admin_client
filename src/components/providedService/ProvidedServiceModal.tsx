@@ -306,7 +306,7 @@ export const ProvidedServiceModal: React.FC<ProvidedServiceModalProps> = ({
   const selectedServiceObj = services.find((s) => s.id === selectedServiceId) || editingItem?.service;
 
   const modalTitle = (m: ModalMode) => {
-    if (m === 'view') return selectedServiceObj?.name || t('tabProvidedServices');
+    if (m === 'view') return selectedServiceObj?.name || editingItem?.serviceName || t('tabProvidedServices');
     if (m === 'edit') return t('modalEditProvidedService');
     return t('modalNewProvidedService');
   };
