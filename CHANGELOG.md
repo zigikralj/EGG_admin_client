@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.11.8] - 2026-11-01
+
+- Waste disposal logic refactoring (#106) by @zigikralj
+
 ## [v1.11.7] - 2026-10-31
 
 - Refactoring (#103) by @zigikralj
