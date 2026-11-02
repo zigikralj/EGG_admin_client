@@ -30,6 +30,7 @@ import { useNotifications } from '../../context/NotificationContext';
 import { useRoleLabels } from '../../hooks/useRoleLabels';
 import { DRAWER_WIDTH } from './Sidebar';
 import { NotificationsMenu } from './NotificationsMenu';
+import { PAGE_ROUTES } from '../../constants';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   MenuIcon,
@@ -65,7 +66,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const currentApp = location.pathname.startsWith('/data-management') ? 'data-management' : 'project-tracker';
+  const currentApp = location.pathname.startsWith(PAGE_ROUTES.DATA_MANAGEMENT_PREFIX) ? 'data-management' : 'project-tracker';
   const { t } = useLanguage();
   const { getRoleBadgeLabel } = useRoleLabels();
   const { unreadCount } = useNotifications();
@@ -224,7 +225,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               py: 0.5,
             }}
             onClick={() => {
-              navigate('/project-tracker');
+              navigate(PAGE_ROUTES.PROJECT_TRACKER);
               setMobileOpen(false);
             }}
           >
@@ -513,7 +514,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               <MenuItem
                 onClick={() => {
                   handleAppsMenuClose();
-                  navigate('/project-tracker');
+                  navigate(PAGE_ROUTES.PROJECT_TRACKER);
                   setMobileOpen(false);
                 }}
                 selected={currentApp === 'project-tracker'}
@@ -567,7 +568,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               <MenuItem
                 onClick={() => {
                   handleAppsMenuClose();
-                  navigate('/data-management/projects');
+                  navigate(PAGE_ROUTES.PROJECTS);
                   setMobileOpen(false);
                 }}
                 selected={currentApp === 'data-management'}

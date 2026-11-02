@@ -13,7 +13,7 @@ import { createMentionExtension } from './mentionExtension';
 import { useLanguage } from '../../../context/LanguageContext';
 import type { User } from '../../../types';
 
-import { cleanWordHtml } from '../RichTextEditor';
+import { cleanWordHtml } from '../../../utils/cleanWordHtml';
 
 import { fetchMentionUsers } from '../../../queries';
 
@@ -129,6 +129,15 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = ({
       lastSavedValRef.current = value || '';
     }
   }, [value, editor]);
+
+  // Clear pending debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
 
   // Flush pending save on blur
   const handleBlur = async () => {

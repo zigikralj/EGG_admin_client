@@ -1,7 +1,7 @@
 /**
  * Unified Queries Barrel Export
  * Domain queries have been modularized into separate files:
- * - queryUtils.ts: common query and mutation helpers (useAuthHeaders, pagination, generic mutations)
+ * - queryUtils.ts: common query and mutation helpers (pagination, generic mutations)
  * - preferences.queries.ts: table & user preference queries
  * - projects.queries.ts: project list, details, notes, updates, mutations
  * - clients.queries.ts: client queries & mutations
@@ -14,6 +14,8 @@
  * - activity.queries.ts: activity log & analytics queries & mutations
  * - history.queries.ts: entity history, timeline, diff, and restore queries
  * - autocomplete.queries.ts: autocomplete suggestions
+ * - company.queries.ts: company info queries & mutations
+ * - systemSettings.queries.ts: system settings & notifications queries & mutations
  */
 
 export * from './queryUtils';
@@ -29,4 +31,5 @@ export * from './permits.queries';
 export * from './activity.queries';
 export * from './history.queries';
 export * from './autocomplete.queries';
+export * from './company.queries';
 export * from './systemSettings.queries';

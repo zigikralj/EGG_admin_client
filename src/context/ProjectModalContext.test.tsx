@@ -1,5 +1,6 @@
 import { render, screen, act } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ProjectModalProvider, useProjectModal } from './ProjectModalContext';
 
 vi.mock('../components/project/ProjectModal', () => ({
@@ -40,9 +41,16 @@ const TestConsumer = () => {
   );
 };
 
+const renderWithQueryClient = (ui: React.ReactElement) => {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>);
+};
+
 describe('ProjectModalContext', () => {
   it('opens and closes ProjectModal on openNewProject with create mode', async () => {
-    render(
+    renderWithQueryClient(
       <ProjectModalProvider>
         <TestConsumer />
       </ProjectModalProvider>
@@ -66,7 +74,7 @@ describe('ProjectModalContext', () => {
   });
 
   it('opens ProjectModal in view mode and can transition to edit in-place', async () => {
-    render(
+    renderWithQueryClient(
       <ProjectModalProvider>
         <TestConsumer />
       </ProjectModalProvider>

@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useInfiniteQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { apiFetch } from '../api';
 import { API_ROUTES } from '../constants/apiRoutes';
-import { useAuthHeaders } from './queryUtils';
 import type { ActivityLog, ActivityLogMonthlyStats, ActivityAnalytics } from '../types';
 import type { ActivityLogsSummaryResponse } from '../components/activityLogs/types';
 
@@ -10,13 +9,12 @@ import type { ActivityLogsSummaryResponse } from '../components/activityLogs/typ
  * @param from ISO timestamp — only logs at/after this time are fetched (server-side filter).
  */
 export function useActivityLogsQuery(from?: string) {
-  const getAuthHeaders = useAuthHeaders();
   return useQuery<ActivityLog[]>({
     queryKey: ['activity-logs', from ?? 'all'],
     queryFn: async () => {
       const params = new URLSearchParams({ includeDetails: 'false' });
       if (from) params.set('from', from);
-      const res = await apiFetch(`${API_ROUTES.ACTIVITY_LOGS.BASE}?${params.toString()}`, { headers: getAuthHeaders() });
+      const res = await apiFetch(`${API_ROUTES.ACTIVITY_LOGS.BASE}?${params.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch activity logs');
       return res.json();
     },
@@ -31,14 +29,13 @@ export function useActivityLogsQuery(from?: string) {
  * Zero raw logs transferred.
  */
 export function useActivityLogsSummaryQuery(from?: string) {
-  const getAuthHeaders = useAuthHeaders();
   return useQuery<ActivityLogsSummaryResponse>({
     queryKey: ['activity-logs', 'summary', from ?? 'all'],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (from) params.set('from', from);
       const q = params.toString() ? `?${params.toString()}` : '';
-      const res = await apiFetch(`${API_ROUTES.ACTIVITY_LOGS.SUMMARY}${q}`, { headers: getAuthHeaders() });
+      const res = await apiFetch(`${API_ROUTES.ACTIVITY_LOGS.SUMMARY}${q}`);
       if (!res.ok) throw new Error('Failed to fetch activity logs summary');
       return res.json();
     },
@@ -53,7 +50,6 @@ export function useActivityLogsSummaryQuery(from?: string) {
  * Uses cursor pagination (before, beforeId) with 50 logs per page.
  */
 export function useUserActivityLogsQuery(userId: string | undefined, from?: string, enabled: boolean = true) {
-  const getAuthHeaders = useAuthHeaders();
   return useInfiniteQuery<ActivityLog[], Error, { pages: ActivityLog[][]; pageParams: Array<{ before?: string; beforeId?: string } | undefined> }, [string, string, string | undefined, string | undefined], { before?: string; beforeId?: string } | undefined>({
     queryKey: ['activity-logs', 'user', userId, from],
     queryFn: async ({ pageParam }) => {
@@ -66,7 +62,7 @@ export function useUserActivityLogsQuery(userId: string | undefined, from?: stri
       if (pageParam?.before) params.set('before', pageParam.before);
       if (pageParam?.beforeId) params.set('beforeId', pageParam.beforeId);
 
-      const res = await apiFetch(`${API_ROUTES.ACTIVITY_LOGS.BASE}?${params.toString()}`, { headers: getAuthHeaders() });
+      const res = await apiFetch(`${API_ROUTES.ACTIVITY_LOGS.BASE}?${params.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch user activity logs');
       return res.json();
     },
@@ -90,7 +86,6 @@ export function useActivityMonthlyStatsQuery(
   filters?: { userId?: string; fromYearMonth?: string; toYearMonth?: string },
   options?: { enabled?: boolean }
 ) {
-  const getAuthHeaders = useAuthHeaders();
   return useQuery<ActivityLogMonthlyStats[]>({
     queryKey: ['activity-logs', 'monthly-stats', filters?.userId, filters?.fromYearMonth, filters?.toYearMonth],
     enabled: options?.enabled ?? true,
@@ -100,7 +95,7 @@ export function useActivityMonthlyStatsQuery(
       if (filters?.fromYearMonth) params.set('fromYearMonth', filters.fromYearMonth);
       if (filters?.toYearMonth) params.set('toYearMonth', filters.toYearMonth);
       const q = params.toString() ? `?${params.toString()}` : '';
-      const res = await apiFetch(`${API_ROUTES.ACTIVITY_LOGS.MONTHLY_STATS}${q}`, { headers: getAuthHeaders() });
+      const res = await apiFetch(`${API_ROUTES.ACTIVITY_LOGS.MONTHLY_STATS}${q}`);
       if (!res.ok) throw new Error('Failed to fetch activity monthly stats');
       return res.json();
     },
@@ -111,11 +106,10 @@ export function useActivityMonthlyStatsQuery(
 
 /** Lazy-loads a single activity log including its `details` (diff) when a row is expanded. */
 export function useActivityLogDetailsQuery(id: string | undefined, enabled: boolean) {
-  const getAuthHeaders = useAuthHeaders();
   return useQuery<ActivityLog>({
     queryKey: ['activity-log-details', id],
     queryFn: async () => {
-      const res = await apiFetch(API_ROUTES.ACTIVITY_LOGS.BY_ID(id!), { headers: getAuthHeaders() });
+      const res = await apiFetch(API_ROUTES.ACTIVITY_LOGS.BY_ID(id!));
       if (!res.ok) throw new Error('Failed to fetch activity log details');
       return res.json();
     },
@@ -139,7 +133,6 @@ export interface ActivityAnalyticsParams {
 export function useActivityAnalyticsQuery(params: ActivityAnalyticsParams) {
   const browserTz = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC';
   const effectiveParams = { tz: browserTz, ...params };
-  const getAuthHeaders = useAuthHeaders();
 
   return useQuery<ActivityAnalytics>({
     queryKey: ['activity-logs', 'analytics', effectiveParams],
@@ -157,9 +150,7 @@ export function useActivityAnalyticsQuery(params: ActivityAnalyticsParams) {
       if (effectiveParams.compare !== undefined) {
         searchParams.set('compare', String(effectiveParams.compare));
       }
-      const res = await apiFetch(`${API_ROUTES.ACTIVITY_LOGS.ANALYTICS}?${searchParams.toString()}`, {
-        headers: getAuthHeaders(),
-      });
+      const res = await apiFetch(`${API_ROUTES.ACTIVITY_LOGS.ANALYTICS}?${searchParams.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch activity analytics');
       return res.json();
     },
@@ -170,13 +161,11 @@ export function useActivityAnalyticsQuery(params: ActivityAnalyticsParams) {
 
 export function useActivityLogsMutations() {
   const queryClient = useQueryClient();
-  const getAuthHeaders = useAuthHeaders();
 
   const clearAllMutation = useMutation({
     mutationFn: async () => {
       const res = await apiFetch(API_ROUTES.ACTIVITY_LOGS.CLEAR_ALL, {
         method: 'DELETE',
-        headers: getAuthHeaders(),
       });
       if (!res.ok) throw new Error('Failed to clear all activity logs');
       return res.json();
@@ -192,7 +181,6 @@ export function useActivityLogsMutations() {
         const res = await apiFetch(API_ROUTES.ACTIVITY_LOGS.BULK_DELETE, {
           method: 'POST',
           headers: {
-            ...getAuthHeaders(),
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({ ids: payload.ids })
@@ -202,7 +190,6 @@ export function useActivityLogsMutations() {
       } else if (payload.sessionId) {
         const res = await apiFetch(API_ROUTES.ACTIVITY_LOGS.SESSION(payload.sessionId), {
           method: 'DELETE',
-          headers: getAuthHeaders(),
         });
         if (!res.ok) throw new Error('Failed to delete session activity logs');
         return res.json();
@@ -218,7 +205,6 @@ export function useActivityLogsMutations() {
     mutationFn: async (id: string) => {
       const res = await apiFetch(API_ROUTES.ACTIVITY_LOGS.BY_ID(id), {
         method: 'DELETE',
-        headers: getAuthHeaders(),
       });
       if (!res.ok) throw new Error('Failed to delete activity log');
       return res.json();
@@ -238,11 +224,10 @@ export interface ActivityLogStatus {
 
 /** Fetches whether activity logging is enabled globally and the retention policy (days). */
 export function useActivityLogStatusQuery() {
-  const getAuthHeaders = useAuthHeaders();
   return useQuery<ActivityLogStatus>({
     queryKey: ['activity-logs-status'],
     queryFn: async () => {
-      const res = await apiFetch(API_ROUTES.ACTIVITY_LOGS.STATUS, { headers: getAuthHeaders() });
+      const res = await apiFetch(API_ROUTES.ACTIVITY_LOGS.STATUS);
       if (!res.ok) throw new Error('Failed to fetch activity log status');
       return res.json();
     },
@@ -254,14 +239,12 @@ export function useActivityLogStatusQuery() {
 /** Updates activity log settings (enabled and/or retentionDays) globally (Administrator only). */
 export function useActivityLogUpdateSettingsMutation() {
   const queryClient = useQueryClient();
-  const getAuthHeaders = useAuthHeaders();
 
   return useMutation({
     mutationFn: async (settings: { enabled?: boolean; retentionDays?: number }) => {
       const res = await apiFetch(API_ROUTES.ACTIVITY_LOGS.STATUS, {
         method: 'PATCH',
         headers: {
-          ...getAuthHeaders(),
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(settings),

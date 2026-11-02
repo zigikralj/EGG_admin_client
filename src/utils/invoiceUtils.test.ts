@@ -38,8 +38,8 @@ describe('invoiceUtils', () => {
   describe('enhanceInvoicesWithLinks', () => {
     it('enhances invoices with proper links', () => {
       const invoices = [
-        { id: '1', notes: 'inv1', invoiceType: 'Standard' } as Invoice,
-        { id: '2', notes: 'inv2', parentInvoiceId: '1', invoiceType: 'Credit Memo' } as Invoice,
+        { id: '1', invoiceNumber: 'INV-1', status: 'Draft', notes: 'inv1', invoiceType: 'Standard' } as Invoice,
+        { id: '2', invoiceNumber: 'INV-2', status: 'Draft', notes: 'inv2', parentInvoiceId: '1', invoiceType: 'Advance' } as Invoice,
       ];
       const enhanced = enhanceInvoicesWithLinks(invoices);
       

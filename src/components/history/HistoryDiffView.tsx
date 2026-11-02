@@ -1,8 +1,8 @@
 import React from 'react';
 import { Box, Typography, alpha } from '@mui/material';
 import { formatDiffValue } from '../activityLogs/utils';
-
-import { stripHtmlToText } from '../common/RichTextEditor';
+import { useLanguage } from '../../context/LanguageContext';
+import { stripHtmlToText } from '../../utils/stripHtmlToText';
 
 interface DiffPart {
   type: 'added' | 'removed' | 'unchanged';
@@ -73,6 +73,14 @@ export const NotesWordDiffView: React.FC<{
   newHtml: string | null | undefined;
   isDark?: boolean;
 }> = ({ oldHtml, newHtml, isDark = false }) => {
+  let emptyLabel = '(prazno / bez promena)';
+  try {
+    const lang = useLanguage();
+    if (lang?.t) {
+      emptyLabel = lang.t('diffEmptyOrUnchanged');
+    }
+  } catch {}
+
   const oldText = typeof oldHtml === 'string' ? stripHtmlToText(oldHtml) : '';
   const newText = typeof newHtml === 'string' ? stripHtmlToText(newHtml) : '';
 
@@ -81,7 +89,7 @@ export const NotesWordDiffView: React.FC<{
   if (parts.length === 0) {
     return (
       <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', fontSize: '0.82rem' }}>
-        (prazno / bez promena)
+        {emptyLabel}
       </Typography>
     );
   }
@@ -162,10 +170,21 @@ export const HistoryDiffView: React.FC<HistoryDiffViewProps> = ({
   language = 'en',
   emptyMessage,
 }) => {
+  let defaultEmpty = language === 'en' ? 'No difference detected.' : 'Nema detektovanih razlika.';
+  let defaultNoFields = language === 'en' ? 'No fields modified between these versions.' : 'Nema izmenjenih polja između ovih verzija.';
+
+  try {
+    const lang = useLanguage();
+    if (lang?.t) {
+      defaultEmpty = lang.t('diffNoDifferenceDetected');
+      defaultNoFields = lang.t('diffNoFieldsModified');
+    }
+  } catch {}
+
   if (!diff || typeof diff !== 'object') {
     return (
       <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', py: 1 }}>
-        {emptyMessage || (language === 'en' ? 'No difference detected.' : 'Nema detektovanih razlika.')}
+        {emptyMessage || defaultEmpty}
       </Typography>
     );
   }
@@ -180,7 +199,7 @@ export const HistoryDiffView: React.FC<HistoryDiffViewProps> = ({
   if (entries.length === 0) {
     return (
       <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', py: 1 }}>
-        {emptyMessage || (language === 'en' ? 'No fields modified between these versions.' : 'Nema izmenjenih polja između ovih verzija.')}
+        {emptyMessage || defaultNoFields}
       </Typography>
     );
   }

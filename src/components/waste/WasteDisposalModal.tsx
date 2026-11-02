@@ -11,7 +11,7 @@ import {
   Autocomplete,
   Grid,
 } from '@mui/material';
-import SettingsIcon from '@mui/icons-material/Settings';
+import { SettingsIcon } from '../icons';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useLinkedListOptions } from '../../hooks/useLinkedListOptions';

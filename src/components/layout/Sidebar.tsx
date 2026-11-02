@@ -26,6 +26,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useWasteDisposalServiceId } from '../../queries';
+import { PAGE_ROUTES } from '../../constants';
 import type { DashboardSubTab, ProvidedServicesSubTab } from '../../types';
 import {
   ExpandMoreIcon,
@@ -102,8 +103,52 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const location = useLocation();
   const navigate = useNavigate();
-  const currentApp = location.pathname.startsWith('/data-management') ? 'data-management' : 'project-tracker';
-  const isDashboardActive = location.pathname.startsWith('/project-tracker');
+  const currentApp = location.pathname.startsWith(PAGE_ROUTES.DATA_MANAGEMENT_PREFIX) ? 'data-management' : 'project-tracker';
+  const isDashboardActive = location.pathname.startsWith(PAGE_ROUTES.PROJECT_TRACKER);
+
+  const canViewWaste = hasPermission('wasteDisposal', 'view');
+
+  const dashboardItems = React.useMemo(() => {
+    const items: { id: DashboardSubTab; label: string; icon: React.ReactNode; show?: boolean }[] = [];
+    if (hasPermission('tracker_projects', 'view')) {
+      items.push({ id: 'projects', label: t('subTabProjects'), icon: <FolderIcon fontSize="small" />, show: true });
+    }
+    if (hasPermission('tracker_updates', 'view')) {
+      items.push({ id: 'updates', label: t('subTabUpdates'), icon: <UpdateIcon fontSize="small" />, show: true });
+    }
+    if (hasPermission('tracker_reminders', 'view')) {
+      items.push({ id: 'reminders', label: t('subTabReminders'), icon: <NotificationsActiveIcon fontSize="small" />, show: true });
+    }
+    if (hasPermission('tracker_invoices', 'view')) {
+      items.push({ id: 'invoices', label: t('tabInvoices'), icon: <ReceiptLongIcon fontSize="small" />, show: true });
+    }
+    if (canViewWaste && (Boolean(wasteDisposalServiceId) || Boolean(isRealAdmin))) {
+      items.push({ id: 'waste-disposal', label: t('subTabWasteDisposal'), icon: <DeleteSweepIcon fontSize="small" />, show: true });
+    }
+    return items;
+  }, [hasPermission, t, canViewWaste, wasteDisposalServiceId, isRealAdmin]);
+
+  const statisticSubItems = React.useMemo(() => {
+    const items: { id: DashboardSubTab; label: string; icon: React.ReactNode }[] = [];
+    if (hasPermission('tracker_projects', 'view')) {
+      items.push({ id: 'statistic', label: t('subTabProjects'), icon: <FolderIcon fontSize="small" /> });
+    }
+    if (canViewWaste && Boolean(wasteDisposalServiceId)) {
+      items.push({
+        id: 'statistic-waste-disposal',
+        label: t('subTabWasteDisposal'),
+        icon: <DeleteSweepIcon fontSize="small" />,
+      });
+    }
+    return items;
+  }, [hasPermission, t, canViewWaste, wasteDisposalServiceId]);
+
+  const isStatisticActive =
+    isDashboardActive &&
+    (location.pathname === PAGE_ROUTES.PROJECT_TRACKER_STATISTICS ||
+      location.pathname === PAGE_ROUTES.PROJECT_TRACKER_WASTE_STATISTICS ||
+      location.pathname === '/project-tracker/statistic-waste-management' ||
+      location.pathname === '/project-tracker/waste-management');
 
   const SidebarContent = (
     <>
@@ -114,56 +159,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {currentApp === 'project-tracker' ? (
             <List component="nav" disablePadding sx={{ gap: 0.5, display: 'flex', flexDirection: 'column' }}>
               {(() => {
-                const dashboardItems: { id: DashboardSubTab; label: string; icon: React.ReactNode; show?: boolean }[] = [];
-                
-                if (hasPermission('tracker_projects', 'view')) {
-                  dashboardItems.push({ id: 'projects', label: t('subTabProjects'), icon: <FolderIcon fontSize="small" />, show: true });
-                }
-                if (hasPermission('tracker_updates', 'view')) {
-                  dashboardItems.push({ id: 'updates', label: t('subTabUpdates'), icon: <UpdateIcon fontSize="small" />, show: true });
-                }
-                if (hasPermission('tracker_reminders', 'view')) {
-                  dashboardItems.push({ id: 'reminders', label: t('subTabReminders'), icon: <NotificationsActiveIcon fontSize="small" />, show: true });
-                }
-                if (hasPermission('tracker_invoices', 'view')) {
-                  dashboardItems.push({ id: 'invoices', label: t('tabInvoices'), icon: <ReceiptLongIcon fontSize="small" />, show: true });
-                }
-                const canViewWaste = hasPermission('wasteDisposal', 'view');
-                if (canViewWaste && (Boolean(wasteDisposalServiceId) || Boolean(isRealAdmin))) {
-                  dashboardItems.push({ id: 'waste-disposal', label: t('subTabWasteDisposal'), icon: <DeleteSweepIcon fontSize="small" />, show: true });
-                }
-
-                const statisticSubItems: { id: DashboardSubTab; label: string; icon: React.ReactNode }[] = [];
-                if (hasPermission('tracker_projects', 'view')) {
-                  statisticSubItems.push({ id: 'statistic', label: t('subTabProjects'), icon: <FolderIcon fontSize="small" /> });
-                }
-                if (canViewWaste && Boolean(wasteDisposalServiceId)) {
-                  statisticSubItems.push({
-                    id: 'statistic-waste-disposal',
-                    label: t('subTabWasteDisposal'),
-                    icon: <DeleteSweepIcon fontSize="small" />,
-                  });
-                }
-
-                const isStatisticActive =
-                  isDashboardActive &&
-                  (location.pathname === '/project-tracker/statistic' ||
-                    location.pathname === '/project-tracker/statistic-waste-disposal' ||
-                    location.pathname === '/project-tracker/statistic-waste-management' ||
-                    location.pathname === '/project-tracker/waste-management');
-
                 return (
                   <>
                     {dashboardItems.map((sub) => {
                       const isSelected =
                         isDashboardActive &&
-                        (location.pathname === `/project-tracker/${sub.id}` || (sub.id === 'projects' && location.pathname === '/project-tracker'));
+                        (location.pathname === `${PAGE_ROUTES.PROJECT_TRACKER}/${sub.id}` || (sub.id === 'projects' && location.pathname === PAGE_ROUTES.PROJECT_TRACKER));
                       return (
                         <ListItemButton
                           key={sub.id}
                           selected={isSelected}
                           onClick={() => {
-                            navigate(sub.id === 'projects' ? '/project-tracker' : `/project-tracker/${sub.id}`);
+                            navigate(sub.id === 'projects' ? PAGE_ROUTES.PROJECT_TRACKER : `${PAGE_ROUTES.PROJECT_TRACKER}/${sub.id}`);
                             onMobileClose();
                           }}
                           sx={{
@@ -202,7 +209,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             selected={isStatisticActive}
                             onClick={() => {
                               if (!isStatisticActive) {
-                                navigate('/project-tracker/statistic');
+                                navigate(PAGE_ROUTES.PROJECT_TRACKER_STATISTICS);
                                 expandStatistic();
                               } else {
                                 toggleStatisticExpanded();
@@ -242,13 +249,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           <Collapse in={statisticExpanded || isStatisticActive} timeout="auto">
                             <List component="div" disablePadding sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, my: 0.25 }}>
                               {statisticSubItems.map((sub) => {
-                                const isSubSelected = isDashboardActive && (location.pathname === `/project-tracker/${sub.id}`);
+                                const isSubSelected = isDashboardActive && (location.pathname === `${PAGE_ROUTES.PROJECT_TRACKER}/${sub.id}`);
                                 return (
                                   <ListItemButton
                                     key={sub.id}
                                     selected={isSubSelected}
                                     onClick={() => {
-                                      navigate(`/project-tracker/${sub.id}`);
+                                      navigate(`${PAGE_ROUTES.PROJECT_TRACKER}/${sub.id}`);
                                       onMobileClose();
                                     }}
                                     sx={{
@@ -290,7 +297,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           key="statistic"
                           selected={isStatisticActive}
                           onClick={() => {
-                            navigate('/project-tracker/statistic');
+                            navigate(PAGE_ROUTES.PROJECT_TRACKER_STATISTICS);
                             onMobileClose();
                           }}
                           sx={{
@@ -327,7 +334,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           ) : (
             <List component="nav" disablePadding sx={{ gap: 0.5, display: 'flex', flexDirection: 'column' }}>
               {navItems
-                .filter((item) => item.show && item.path !== '/project-tracker')
+                .filter((item) => item.show && item.path !== PAGE_ROUTES.PROJECT_TRACKER)
                 .map((item) => {
                   const isSelected = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
                   return (

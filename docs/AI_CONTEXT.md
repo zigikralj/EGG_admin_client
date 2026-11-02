@@ -48,7 +48,7 @@ Modularized domain types defined in `src/types/` (re-exported via `src/types/ind
 ### API Layer
 | File | Purpose |
 |---|---|
-| `src/api.ts` | `getApiUrl(path)` — resolves base URL. `apiFetch(input, init)` — wrapper around `fetch()` that auto-attaches JWT `Authorization` header + `X-User-Id` from localStorage, and dispatches `auth:expired` custom event on 401 (triggers auto-logout). |
+| `src/api.ts` | `getApiUrl(path)` — resolves base URL. `apiFetch(input, init)` — wrapper around `fetch()` that auto-attaches JWT `Authorization` header + `X-Session-Id` from storage, and dispatches `auth:expired` custom event on 401 (triggers auto-logout). |
 
 ### Context Providers (`src/context/`)
 | File | Provider | Hook | Key Responsibilities |
@@ -74,7 +74,6 @@ Modularized domain types defined in `src/types/` (re-exported via `src/types/ind
 | `useInvoiceFormState.ts` | Form state for invoice create/edit — new/edit modes, line items, parent linking, currency, status. |
 | `useVersionCheck.ts` | Polls `/version.json` to detect new deployments, shows update banner. Uses Page Visibility API. |
 | `useRoleLabels.ts` | Maps `UserRole` strings to translated labels. |
-| `useStatusUpdate.ts` | Generic status-change helper (PATCH to arbitrary endpoint). |
 | `useLinkedListOptions.ts` | Handles dynamic hierarchical options fetching and dependency resolution for custom fields. |
 | `useActivityTracker.ts` | Non-intrusive batched page activity tracker with idle detection, session timeouts, multi-tab sync, and short-session purge. |
 
@@ -93,7 +92,9 @@ Modularized domain query modules re-exported through barrel `src/queries/index.t
 | `activity.queries.ts` | `useActivityLogsQuery`, `useActivityAnalyticsQuery`, `useActivityLogsMutations` |
 | `history.queries.ts` | `useEntityTimelineQuery`, `useVersionDiffQuery`, `useRestoreVersionMutation` |
 | `preferences.queries.ts` | `usePreferencesQuery`, `usePreferencesMutations`, `useTablePreferences(tableKey)` |
-| `queryUtils.ts` | `useAuthHeaders`, `buildPaginationQueryParams`, `useGenericMutations` |
+| `company.queries.ts` | `useCompanyInfoQuery`, `useCompanyInfoMutations` |
+| `systemSettings.queries.ts` | `useSystemSettingsQuery`, `useWasteDisposalServiceId`, `useSystemSettingsMutations`, `useNotificationsQuery`, `useNotificationsMutations` |
+| `queryUtils.ts` | `buildPaginationQueryParams`, `useGenericMutations`, `useGenericActionMutation` |
 | `autocomplete.queries.ts` | Autocomplete caching queries |
 
 ---

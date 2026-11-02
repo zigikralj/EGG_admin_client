@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { UserProfileDialog } from './UserProfileDialog';
 import * as AuthContext from '../../context/AuthContext';
 import * as LanguageContext from '../../context/LanguageContext';
@@ -24,6 +25,7 @@ window.URL.createObjectURL = vi.fn();
 describe('UserProfileDialog', () => {
   const mockOnClose = vi.fn();
   const mockSetCurrentUser = vi.fn();
+  let queryClient: QueryClient;
   
   const mockUser = {
     id: 1,
@@ -36,6 +38,9 @@ describe('UserProfileDialog', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
 
     (LanguageContext.useLanguage as any).mockReturnValue({
       t: (key: string) => key,
@@ -49,7 +54,11 @@ describe('UserProfileDialog', () => {
   });
 
   const renderComponent = (isOpen = true) => {
-    return render(<UserProfileDialog isOpen={isOpen} onClose={mockOnClose} />);
+    return render(
+      <QueryClientProvider client={queryClient}>
+        <UserProfileDialog isOpen={isOpen} onClose={mockOnClose} />
+      </QueryClientProvider>
+    );
   };
 
   it('renders user details correctly', () => {

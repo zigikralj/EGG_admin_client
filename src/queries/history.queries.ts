@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../api';
 import { API_ROUTES } from '../constants/apiRoutes';
-import { useAuthHeaders } from './queryUtils';
 import type {
   EntityTimelineResponse,
   VersionDiffResponse,
@@ -14,7 +13,6 @@ export function useEntityTimelineQuery(
   entityId: string | null | undefined,
   options?: { limit?: number; offset?: number; includeChildren?: boolean; enabled?: boolean }
 ) {
-  const getAuthHeaders = useAuthHeaders();
   const enabled = Boolean(entityType && entityId && (options?.enabled ?? true));
   const limit = options?.limit ?? 50;
   const offset = options?.offset ?? 0;
@@ -25,7 +23,7 @@ export function useEntityTimelineQuery(
     queryFn: async () => {
       const q = `?limit=${limit}&offset=${offset}&includeChildren=${includeChildren}`;
       const url = `${API_ROUTES.HISTORY.TIMELINE(entityType!, entityId!)}${q}`;
-      const res = await apiFetch(url, { headers: getAuthHeaders() });
+      const res = await apiFetch(url);
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || 'Failed to fetch entity timeline');
@@ -46,7 +44,6 @@ export function useVersionDiffQuery(
   vTo: number | null | undefined,
   enabled: boolean = true
 ) {
-  const getAuthHeaders = useAuthHeaders();
   const canFetch = Boolean(
     entityType &&
     entityId &&
@@ -61,7 +58,7 @@ export function useVersionDiffQuery(
     queryKey: ['history-diff', entityType, entityId, vFrom, vTo],
     queryFn: async () => {
       const url = API_ROUTES.HISTORY.DIFF(entityType!, entityId!, vFrom!, vTo!);
-      const res = await apiFetch(url, { headers: getAuthHeaders() });
+      const res = await apiFetch(url);
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || 'Failed to fetch version diff');
@@ -81,7 +78,6 @@ export function useDateRangeDiffQuery(
   dateTo: string | null | undefined,
   enabled: boolean = true
 ) {
-  const getAuthHeaders = useAuthHeaders();
   const canFetch = Boolean(
     entityType &&
     entityId &&
@@ -93,7 +89,7 @@ export function useDateRangeDiffQuery(
     queryKey: ['history-diff-date', entityType, entityId, dateFrom, dateTo],
     queryFn: async () => {
       const url = API_ROUTES.HISTORY.DIFF_BY_DATE(entityType!, entityId!, dateFrom || undefined, dateTo || undefined);
-      const res = await apiFetch(url, { headers: getAuthHeaders() });
+      const res = await apiFetch(url);
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || 'Failed to fetch date diff');
@@ -112,7 +108,6 @@ export function useRebuiltVersionQuery(
   version: number | null | undefined,
   enabled: boolean = true
 ) {
-  const getAuthHeaders = useAuthHeaders();
   const canFetch = Boolean(
     entityType &&
     entityId &&
@@ -125,7 +120,7 @@ export function useRebuiltVersionQuery(
     queryKey: ['history-version', entityType, entityId, version],
     queryFn: async () => {
       const url = API_ROUTES.HISTORY.VERSION(entityType!, entityId!, version!);
-      const res = await apiFetch(url, { headers: getAuthHeaders() });
+      const res = await apiFetch(url);
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || 'Failed to fetch version data');
@@ -140,7 +135,6 @@ export function useRebuiltVersionQuery(
 
 export function useRestoreVersionMutation() {
   const queryClient = useQueryClient();
-  const getAuthHeaders = useAuthHeaders();
 
   return useMutation<
     RestoreVersionResponse,
@@ -153,7 +147,6 @@ export function useRestoreVersionMutation() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...getAuthHeaders(),
         },
       });
       if (!res.ok) {

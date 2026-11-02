@@ -93,7 +93,12 @@ const UsersPage: React.FC<Props> = ({
   const { handleSave, handleDelete, handleApproveUser, handleRejectUser, handleForceLogoutUser } = useUsersMutations();
 
   const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
-  const onDeleteUser = (id: string) => handleDelete(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
+  const onDeleteUser = (id: string) =>
+    handleDelete(
+      id,
+      (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }),
+      (errMsg) => setErrorDialogState({ open: true, message: errMsg })
+    );
 
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -302,10 +307,18 @@ const UsersPage: React.FC<Props> = ({
     }
   };
 
-  const handleConfirmReject = async (u: User) => {
-    if (window.confirm(t('confirmRejectMessage', { name: u.name }))) {
-      await handleRejectUser(u.id);
-    }
+  const handleConfirmReject = (u: User) => {
+    setDeleteConfirmState({
+      open: true,
+      message: t('confirmRejectMessage', { name: u.name }),
+      onConfirm: async () => {
+        try {
+          await handleRejectUser(u.id);
+        } catch (e: any) {
+          setErrorDialogState({ open: true, message: e?.message || t('errorSaving') });
+        }
+      },
+    });
   };
 
   const handleConfirmForceLogout = async () => {

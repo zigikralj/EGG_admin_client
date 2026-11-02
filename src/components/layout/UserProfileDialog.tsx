@@ -18,9 +18,8 @@ import { BaseModal } from '../common/modal/BaseModal';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useRoleLabels } from '../../hooks/useRoleLabels';
-import { apiFetch } from '../../api';
-import { API_ROUTES } from '../../constants';
-import { PhotoCameraIcon, PersonIcon, EmailIcon, PhoneIcon, WcIcon, BadgeIcon, VpnKeyIcon, ExpandMoreIcon, ExpandLessIcon, LockIcon, Visibility, VisibilityOff } from '../icons';
+import { useUpdateUserProfileMutation } from '../../queries';
+import { PhotoCameraIcon, PersonIcon, EmailIcon, PhoneIcon, WcIcon, BadgeIcon, VpnKeyIcon, ExpandMoreIcon, ExpandLessIcon, LockIcon, VisibilityIcon, VisibilityOff } from '../icons';
 
 interface UserProfileDialogProps {
   isOpen: boolean;
@@ -31,6 +30,7 @@ export const UserProfileDialog: React.FC<UserProfileDialogProps> = ({ isOpen, on
   const { t } = useLanguage();
   const { currentUser, role, setCurrentUser } = useAuth();
   const { getRoleBadgeLabel } = useRoleLabels();
+  const updateProfileMutation = useUpdateUserProfileMutation();
 
   // Local State
   const [editProfileName, setEditProfileName] = useState('');
@@ -38,7 +38,8 @@ export const UserProfileDialog: React.FC<UserProfileDialogProps> = ({ isOpen, on
   const [editProfilePhone, setEditProfilePhone] = useState('');
   const [editProfileGender, setEditProfileGender] = useState('');
   const [editAvatarUrl, setEditAvatarUrl] = useState<string | null>(null);
-  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [profileAlert, setProfileAlert] = useState<{ severity: 'error' | 'success'; message: string } | null>(null);
+  const isSavingProfile = updateProfileMutation.isPending;
 
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -69,6 +70,7 @@ export const UserProfileDialog: React.FC<UserProfileDialogProps> = ({ isOpen, on
       setShowConfirmPassword(false);
       setPasswordError('');
       setPasswordSuccess('');
+      setProfileAlert(null);
     }
   }, [isOpen, currentUser]);
 
@@ -76,9 +78,10 @@ export const UserProfileDialog: React.FC<UserProfileDialogProps> = ({ isOpen, on
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
-      alert('Image size should be under 5MB');
+      setProfileAlert({ severity: 'error', message: t('avatarSizeLimitError') });
       return;
     }
+    setProfileAlert(null);
     const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result === 'string') {
@@ -95,8 +98,9 @@ export const UserProfileDialog: React.FC<UserProfileDialogProps> = ({ isOpen, on
 
   const handleSaveProfile = async () => {
     if (!currentUser) return;
+    setProfileAlert(null);
     if (!editProfileName.trim()) {
-      alert(t('alertUserNameRequired'));
+      setProfileAlert({ severity: 'error', message: t('alertUserNameRequired') });
       return;
     }
     if (changePasswordOpen || newPassword || currentPassword) {
@@ -114,41 +118,32 @@ export const UserProfileDialog: React.FC<UserProfileDialogProps> = ({ isOpen, on
       }
     }
 
-    setIsSavingProfile(true);
     try {
-      const res = await apiFetch(API_ROUTES.USERS.BY_ID(currentUser.id), {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Id': currentUser.id,
-        },
-        body: JSON.stringify({
+      const updated = await updateProfileMutation.mutateAsync({
+        userId: currentUser.id,
+        data: {
           name: editProfileName,
           email: editProfileEmail,
           phone: editProfilePhone,
           gender: editProfileGender,
           avatarUrl: editAvatarUrl !== null ? editAvatarUrl : currentUser.avatarUrl,
           ...(newPassword ? { password: newPassword, currentPassword } : {}),
-        }),
+        },
       });
-
-      if (res.ok) {
-        const updated = await res.json();
-        setCurrentUser(updated);
-        alert(newPassword ? t('passwordUpdatedSuccess') : 'Profile updated successfully!');
-        onClose();
+      setCurrentUser(updated);
+      onClose();
+    } catch (e: any) {
+      const errMsg = e?.message || t('errorSavingUser');
+      if (
+        errMsg.includes('password') ||
+        errMsg.includes('Password') ||
+        errMsg.includes('incorrect') ||
+        errMsg.includes('tačna')
+      ) {
+        setPasswordError(errMsg);
       } else {
-        const err = await res.json();
-        if (err.error && (err.error.includes('password') || err.error.includes('Password') || err.error.includes('incorrect') || err.error.includes('tačna'))) {
-          setPasswordError(err.error);
-        } else {
-          alert(err.error || t('errorSavingProject'));
-        }
+        setProfileAlert({ severity: 'error', message: errMsg });
       }
-    } catch (e) {
-      console.error('Error saving profile:', e);
-    } finally {
-      setIsSavingProfile(false);
     }
   };
 
@@ -204,7 +199,7 @@ export const UserProfileDialog: React.FC<UserProfileDialogProps> = ({ isOpen, on
           >
             {editInitials}
           </Avatar>
-          <Tooltip title="Upload photo">
+          <Tooltip title={t('uploadPhoto')}>
             <IconButton
               color="primary"
               onClick={() => fileInputRef.current?.click()}
@@ -238,10 +233,16 @@ export const UserProfileDialog: React.FC<UserProfileDialogProps> = ({ isOpen, on
             onClick={handleRemoveAvatar}
             sx={{ mt: 1, textTransform: 'none', fontSize: '0.75rem', fontWeight: 600 }}
           >
-            Remove photo
+            {t('removePhoto')}
           </Button>
         )}
       </Box>
+
+      {profileAlert && (
+        <Alert severity={profileAlert.severity} sx={{ mb: 1.5, py: 0.5, borderRadius: 2, fontSize: '0.8125rem' }}>
+          {profileAlert.message}
+        </Alert>
+      )}
 
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, py: 1 }}>
         <TextField
@@ -352,7 +353,7 @@ export const UserProfileDialog: React.FC<UserProfileDialogProps> = ({ isOpen, on
                   endAdornment: (
                     <InputAdornment position="end">
                       <IconButton size="small" onClick={() => setShowCurrentPassword(!showCurrentPassword)} edge="end">
-                        {showCurrentPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                        {showCurrentPassword ? <VisibilityOff fontSize="small" /> : <VisibilityIcon fontSize="small" />}
                       </IconButton>
                     </InputAdornment>
                   ),
@@ -373,7 +374,7 @@ export const UserProfileDialog: React.FC<UserProfileDialogProps> = ({ isOpen, on
                   endAdornment: (
                     <InputAdornment position="end">
                       <IconButton size="small" onClick={() => setShowNewPassword(!showNewPassword)} edge="end">
-                        {showNewPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                        {showNewPassword ? <VisibilityOff fontSize="small" /> : <VisibilityIcon fontSize="small" />}
                       </IconButton>
                     </InputAdornment>
                   ),
@@ -394,7 +395,7 @@ export const UserProfileDialog: React.FC<UserProfileDialogProps> = ({ isOpen, on
                   endAdornment: (
                     <InputAdornment position="end">
                       <IconButton size="small" onClick={() => setShowConfirmPassword(!showConfirmPassword)} edge="end">
-                        {showConfirmPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                        {showConfirmPassword ? <VisibilityOff fontSize="small" /> : <VisibilityIcon fontSize="small" />}
                       </IconButton>
                     </InputAdornment>
                   ),

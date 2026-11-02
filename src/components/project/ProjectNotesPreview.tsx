@@ -10,7 +10,8 @@ import {
 } from '@mui/material';
 
 import { useLanguage } from '../../context/LanguageContext';
-import { stripHtmlToText } from '../common/RichTextEditor';
+import { stripHtmlToText } from '../../utils/stripHtmlToText';
+import { sanitizeHtml } from '../../utils/cleanWordHtml';
 import { useProjectNoteQuery } from '../../queries';
 import {
   NotesIcon,
@@ -492,7 +493,7 @@ export const ProjectNotesPreview: React.FC<ProjectNotesPreviewProps> = ({
             ) : (
               <Box
                 ref={innerHtmlRef}
-                dangerouslySetInnerHTML={{ __html: fullNotes || '' }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(fullNotes || '') }}
               />
             )}
           </Box>

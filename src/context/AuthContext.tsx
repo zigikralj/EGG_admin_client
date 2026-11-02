@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { User, UserRole, Project, Role } from '../types';
+import type { User, UserRole, Project } from '../types';
 import { apiFetch } from '../api';
 import { API_ROUTES } from '../constants';
 
@@ -18,7 +18,6 @@ interface AuthContextType {
   actualRole: UserRole;
   isRealAdmin: boolean;
   isRestrictedToOwn: (resource: string) => boolean;
-  roles: Role[];
   canManageInvoices: boolean;
   canManageProvidedServices: boolean;
   canManageClients: boolean;
@@ -66,7 +65,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   });
 
-  const [roles] = useState<Role[]>([]);
   const [isRolesLoading, setIsRolesLoading] = useState<boolean>(() => {
     if (!currentUser?.id) return false;
     if (
@@ -117,9 +115,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const requestPromise = (async () => {
       try {
-        const res = await apiFetch(API_ROUTES.AUTH.ME, {
-          headers: { 'X-User-Id': currentUser.id },
-        });
+        const res = await apiFetch(API_ROUTES.AUTH.ME);
         lastAuthRefreshAtRef.current = Date.now();
         if (res.status === 403) {
           const data = await res.json();
@@ -585,7 +581,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       actualRole,
       isRealAdmin,
       isRestrictedToOwn,
-      roles,
       canManageInvoices,
       canManageProvidedServices,
       canManageClients,
@@ -611,7 +606,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       actualRole,
       isRealAdmin,
       isRestrictedToOwn,
-      roles,
       canManageInvoices,
       canManageProvidedServices,
       canManageClients,

@@ -16,7 +16,6 @@ In development, Vite proxies `/api/*` to `http://localhost:5000`.
 All requests are made through [`apiFetch()`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/api.ts), which automatically:
 - Prepends the base URL
 - Attaches `Authorization: Bearer <token>` header from localStorage
-- Attaches `X-User-Id` header from stored user
 - Dispatches `auth:expired` custom event on 401 responses (auto-logout)
 
 ---
@@ -95,7 +94,7 @@ Register a new user (requires admin approval).
 
 Check current auth status (periodic polling for blocked user detection).
 
-**Headers:** `X-User-Id: uuid`
+**Headers:** `Authorization: Bearer <token>`
 
 **Success Response (200):** User object  
 **Error Response (403):** `{ "error": "ACCOUNT_BLOCKED" }` — triggers logout
@@ -625,7 +624,7 @@ List Serbian waste catalog entries. Auto-seeds ~50 entries on first call if empt
 
 Fetch user's notifications (from @mentions).
 
-**Headers:** `X-User-Id: uuid`
+**Headers:** `Authorization: Bearer <token>`
 
 **Response:**
 ```json

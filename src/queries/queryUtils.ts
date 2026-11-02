@@ -1,26 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../api';
-import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import type { TranslationKeys } from '../i18n/translations';
 import type { SaveResult } from '../types';
-
-export function useAuthHeaders() {
-  const { currentUser } = useAuth();
-  return () => {
-    const headers: Record<string, string> = {};
-    if (currentUser?.id) headers['X-User-Id'] = currentUser.id;
-
-    const sid =
-      (typeof localStorage !== 'undefined' ? localStorage.getItem('activity_session_id') : null) ||
-      (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('activity_session_id') : null);
-    if (sid) {
-      headers['X-Session-Id'] = sid;
-    }
-
-    return headers;
-  };
-}
 
 // --- Pagination Helpers ---
 
@@ -68,7 +50,6 @@ export interface MutationConfig {
 }
 
 export function useGenericMutations<T extends { id?: string }>(config: MutationConfig) {
-  const getAuthHeaders = useAuthHeaders();
   const queryClient = useQueryClient();
   const { t } = useLanguage();
 
@@ -83,7 +64,7 @@ export function useGenericMutations<T extends { id?: string }>(config: MutationC
   };
 
   const saveMutationFn = async (data: Partial<T>) => {
-    const headers = { 'Content-Type': 'application/json', ...getAuthHeaders() };
+    const headers = { 'Content-Type': 'application/json' };
     let res;
     if (data.id) {
       res = await apiFetch(`${config.basePath}/${data.id}`, { method: 'PUT', headers, body: JSON.stringify(data) });
@@ -119,7 +100,6 @@ export function useGenericMutations<T extends { id?: string }>(config: MutationC
     mutationFn: async (id) => {
       const res = await apiFetch(`${config.basePath}/${id}`, {
         method: 'DELETE',
-        headers: getAuthHeaders(),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -154,20 +134,33 @@ export function useGenericMutations<T extends { id?: string }>(config: MutationC
         return { success: false, error: e.message };
       }
     },
-    handleDelete: async (id: string, onDeleteConfirm: (msg: string, cb: () => void) => void) => {
+    handleDelete: async (
+      id: string,
+      onDeleteConfirm: (msg: string, cb: () => void) => void,
+      onError?: (msg: string) => void
+    ) => {
+      const reportError = (err: any) => {
+        const message = err?.message || t(config.permissionDeniedMessageKey || 'permissionDeniedOnlyOwnProjects');
+        if (onError) {
+          onError(message);
+        } else {
+          console.error(message);
+        }
+      };
+
       if (config.deleteConfirmMessageKey) {
         onDeleteConfirm(t(config.deleteConfirmMessageKey), async () => {
           try {
             await deleteMutation.mutateAsync(id);
           } catch (e: any) {
-            alert(e.message);
+            reportError(e);
           }
         });
       } else {
         try {
           await deleteMutation.mutateAsync(id);
         } catch (e: any) {
-          alert(e.message);
+          reportError(e);
         }
       }
     },
@@ -175,7 +168,6 @@ export function useGenericMutations<T extends { id?: string }>(config: MutationC
 }
 
 export function useGenericActionMutation() {
-  const getAuthHeaders = useAuthHeaders();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -192,7 +184,7 @@ export function useGenericActionMutation() {
     }) => {
       const res = await apiFetch(path, {
         method,
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        headers: { 'Content-Type': 'application/json' },
         body: body ? JSON.stringify(body) : undefined,
       });
       if (!res.ok) {

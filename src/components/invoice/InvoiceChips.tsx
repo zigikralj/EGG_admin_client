@@ -19,9 +19,19 @@ export const InvoiceStatusChip = ({ status }: { status?: string }) => {
   }
 };
 
-export const InvoiceTypeChip = ({ type }: { type?: string | null }) => {
+export const InvoiceTypeChip = ({ type, showStandard = false }: { type?: string | null; showStandard?: boolean }) => {
   const { t } = useLanguage();
-  if (!type || type === 'Standard') return null;
+  if (!type || type === 'Standard') {
+    if (!showStandard) return null;
+    return (
+      <Chip
+        label={t('typeStandard')}
+        size="small"
+        variant="outlined"
+        sx={{ height: 20, fontSize: '0.7rem', fontWeight: 500, color: 'text.secondary', borderColor: 'divider' }}
+      />
+    );
+  }
   switch (type) {
     case 'Advance':
       return (

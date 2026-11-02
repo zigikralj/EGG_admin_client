@@ -1,18 +1,15 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { apiFetch } from '../api';
 import { API_ROUTES } from '../constants';
-import { useAuthHeaders, buildPaginationQueryParams, useGenericMutations, useGenericActionMutation } from './queryUtils';
+import { buildPaginationQueryParams, useGenericMutations, useGenericActionMutation } from './queryUtils';
 import type { User, Role, PaginatedResponse } from '../types';
 
 export function useUsersSummaryQuery(options?: { enabled?: boolean }) {
-  const getAuthHeaders = useAuthHeaders();
   return useQuery<User[]>({
     queryKey: ['users', 'summary'],
     enabled: options?.enabled ?? true,
     queryFn: async () => {
-      const res = await apiFetch(`${API_ROUTES.USERS.BASE}?fields=summary`, {
-        headers: getAuthHeaders(),
-      });
+      const res = await apiFetch(`${API_ROUTES.USERS.BASE}?fields=summary`);
       if (!res.ok) throw new Error('Failed to fetch users summary');
       return res.json();
     },
@@ -52,18 +49,8 @@ export async function fetchMentionUsers(
     params.set('search', trimmed);
   }
 
-  const headers: Record<string, string> = {};
-  const storedUser = typeof localStorage !== 'undefined' ? localStorage.getItem('auth_user') : null;
-  if (storedUser) {
-    try {
-      const parsed = JSON.parse(storedUser);
-      if (parsed?.id) headers['X-User-Id'] = parsed.id;
-    } catch {}
-  }
-
   try {
     const res = await apiFetch(`${API_ROUTES.USERS.BASE}?${params.toString()}`, {
-      headers,
       signal,
     });
 
@@ -94,7 +81,6 @@ export interface PaginatedUsersParams {
 }
 
 export function usePaginatedUsersQuery(params: PaginatedUsersParams, enabled: boolean = true) {
-  const getAuthHeaders = useAuthHeaders();
   const queryKey = [
     'users',
     'paginated',
@@ -123,9 +109,7 @@ export function usePaginatedUsersQuery(params: PaginatedUsersParams, enabled: bo
           status: params.status && params.status !== 'all' ? params.status : undefined,
         }
       );
-      const res = await apiFetch(`${API_ROUTES.USERS.BASE}?${q.toString()}`, {
-        headers: getAuthHeaders(),
-      });
+      const res = await apiFetch(`${API_ROUTES.USERS.BASE}?${q.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch paginated users');
       const data = await res.json();
       if (Array.isArray(data)) {
@@ -191,13 +175,41 @@ export function useUsersMutations() {
   };
 }
 
+export function useUpdateUserProfileMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['users', 'profile'],
+    mutationFn: async ({
+      userId,
+      data,
+    }: {
+      userId: string;
+      data: Partial<User> & { password?: string; currentPassword?: string };
+    }) => {
+      const res = await apiFetch(API_ROUTES.USERS.BY_ID(userId), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to update profile');
+      }
+      return res.json() as Promise<User>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+  });
+}
+
 export function useRolesQuery(options?: { enabled?: boolean }) {
-  const getAuthHeaders = useAuthHeaders();
   return useQuery<Role[]>({
     queryKey: ['roles'],
     enabled: options?.enabled ?? true,
     queryFn: async () => {
-      const res = await apiFetch(API_ROUTES.ROLES.BASE, { headers: getAuthHeaders() });
+      const res = await apiFetch(API_ROUTES.ROLES.BASE);
       if (!res.ok) throw new Error('Failed to fetch roles');
       return res.json();
     },
@@ -206,13 +218,12 @@ export function useRolesQuery(options?: { enabled?: boolean }) {
 
 export function useRoleMutations() {
   const queryClient = useQueryClient();
-  const getAuthHeaders = useAuthHeaders();
 
   const createMutation = useMutation({
     mutationFn: async (data: Partial<Role>) => {
       const res = await apiFetch(API_ROUTES.ROLES.BASE, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
       if (!res.ok) {
@@ -231,7 +242,7 @@ export function useRoleMutations() {
     mutationFn: async ({ name, data }: { name: string; data: Partial<Role> }) => {
       const res = await apiFetch(API_ROUTES.ROLES.BY_NAME(name), {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
       if (!res.ok) {
@@ -250,7 +261,6 @@ export function useRoleMutations() {
     mutationFn: async (name: string) => {
       const res = await apiFetch(API_ROUTES.ROLES.BY_NAME(name), {
         method: 'DELETE',
-        headers: getAuthHeaders(),
       });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));

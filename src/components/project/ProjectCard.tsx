@@ -16,7 +16,8 @@ import {
 import type { Project, Invoice } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import { stripHtmlToText } from '../common/RichTextEditor';
+import { stripHtmlToText } from '../../utils/stripHtmlToText';
+import { fmtDate, isLate, isNearDeadline, isStale } from '../../utils/dateUtils';
 import {
   EditIcon,
   VisibilityIcon,
@@ -34,46 +35,6 @@ interface Props {
   onDelete?: (id: string) => void;
 }
 
-function fmtDate(d: string | null): string {
-  if (!d) return '—';
-  const [y, m, day] = d.split('-');
-  return `${day}.${m}.${y}.`;
-}
-
-function isLate(p: Project): boolean {
-  if (p.done || !p.deadline) return false;
-  const clean = p.deadline.split('T')[0];
-  const parts = clean.split('-').map(Number);
-  if (parts.length !== 3) return false;
-  const [y, m, d] = parts;
-  const deadlineDate = new Date(y, m - 1, d);
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  return deadlineDate < today;
-}
-
-function isNearDeadline(p: Project, days = 14): boolean {
-  if (p.done || !p.deadline) return false;
-  const clean = p.deadline.split('T')[0];
-  const parts = clean.split('-').map(Number);
-  if (parts.length !== 3) return false;
-  const [y, m, d] = parts;
-  const deadlineDate = new Date(y, m - 1, d);
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const diffTime = deadlineDate.getTime() - today.getTime();
-  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-  return diffDays >= 0 && diffDays <= days;
-}
-
-function isStale(p: Project): boolean {
-  if (p.done || !p.start) return false;
-  const start = new Date(p.start);
-  const cutoff = new Date();
-  cutoff.setMonth(cutoff.getMonth() - 2);
-  return start < cutoff;
-}
-
 export { ProjectNotesPreview } from './ProjectNotesPreview';
 
 
@@ -88,9 +49,9 @@ export const ProjectCard: React.FC<Props> = ({
 
   const [notesExpanded, setNotesExpanded] = useState(false);
   const canEdit = canEditProject(p);
-  const late = isLate(p);
-  const nearDeadline = !late && isNearDeadline(p);
-  const stale = isStale(p);
+  const late = isLate(p.deadline, p.done);
+  const nearDeadline = !late && isNearDeadline(p.deadline, p.done);
+  const stale = isStale(p.start, p.done);
   const hasNotes = Boolean((p.notesPreview && p.notesPreview.trim().length > 0) || (p.notes && stripHtmlToText(p.notes).length > 0));
 
   // Match reminders for this project (already scoped on project payload)

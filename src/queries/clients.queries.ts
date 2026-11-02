@@ -1,18 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '../api';
 import { API_ROUTES } from '../constants';
-import { useAuthHeaders, buildPaginationQueryParams, useGenericMutations } from './queryUtils';
+import { buildPaginationQueryParams, useGenericMutations } from './queryUtils';
 import type { Client, PaginatedResponse } from '../types';
 
 export function useClientsSummaryQuery(options?: { enabled?: boolean }) {
-  const getAuthHeaders = useAuthHeaders();
   return useQuery<Array<{ id: string; name: string; city?: string }>>({
     queryKey: ['clients', 'summary'],
     enabled: options?.enabled ?? true,
     queryFn: async () => {
-      const res = await apiFetch(`${API_ROUTES.CLIENTS.BASE}?fields=summary`, {
-        headers: getAuthHeaders(),
-      });
+      const res = await apiFetch(`${API_ROUTES.CLIENTS.BASE}?fields=summary`);
       if (!res.ok) throw new Error('Failed to fetch clients summary');
       return res.json();
     },
@@ -31,7 +28,6 @@ export interface PaginatedClientsParams {
 }
 
 export function usePaginatedClientsQuery(params: PaginatedClientsParams, enabled: boolean = true) {
-  const getAuthHeaders = useAuthHeaders();
   const queryKey = [
     'clients',
     'paginated',
@@ -61,9 +57,7 @@ export function usePaginatedClientsQuery(params: PaginatedClientsParams, enabled
         }
       );
 
-      const res = await apiFetch(`${API_ROUTES.CLIENTS.BASE}?${q.toString()}`, {
-        headers: getAuthHeaders(),
-      });
+      const res = await apiFetch(`${API_ROUTES.CLIENTS.BASE}?${q.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch paginated clients');
       const data = await res.json();
       if (Array.isArray(data)) {

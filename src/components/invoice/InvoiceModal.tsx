@@ -25,7 +25,9 @@ import type {
 } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import { parseInvoiceNotes, serializeInvoiceNotes } from '../../utils/invoiceUtils';
+import { formatInvoiceAmount, parseInvoiceNotes, serializeInvoiceNotes } from '../../utils/invoiceUtils';
+import { fmtDate } from '../../utils/dateUtils';
+import { InvoiceStatusChip, InvoiceTypeChip } from './InvoiceChips';
 import { AddIcon, DeleteIcon, LinkIcon, ReceiptLongIcon } from '../icons';
 import {
   ClientAutocomplete,
@@ -193,7 +195,8 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         items: [{ description: '', quantity: 1, unitPrice: 0, currency: 'RSD' }],
       });
     }
-  }, [open, editingInvoice]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editingInvoice?.id]);
 
   // Available parent invoices for linking
   const availableParentInvoices = useMemo(() => {
@@ -236,108 +239,10 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
     );
   }, [formData.items]);
 
-  const formatAmount = (amount?: number | null, currency?: string | null) => {
-    const val = amount || 0;
-    const curr = currency || 'RSD';
-    const formatted = val.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-    return `${formatted} ${curr}`;
-  };
+  const formatAmount = (amount?: number | null, currency?: string | null) =>
+    formatInvoiceAmount(amount || 0, currency || 'RSD');
 
-  const formatDate = (iso: string | null | undefined) => {
-    if (!iso) return '—';
-    try {
-      const clean = iso.split('T')[0];
-      const parts = clean.split('-');
-      if (parts.length === 3) {
-        return `${parts[2]}.${parts[1]}.${parts[0]}.`;
-      }
-      return iso;
-    } catch {
-      return iso;
-    }
-  };
-
-  const getStatusChipColor = (
-    status?: string
-  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
-    switch (status) {
-      case 'Paid':
-        return 'success';
-      case 'Sent':
-        return 'info';
-      case 'Overdue':
-        return 'error';
-      case 'Cancelled':
-        return 'default';
-      case 'Draft':
-      default:
-        return 'warning';
-    }
-  };
-
-  const getStatusLabel = (status?: string) => {
-    switch (status) {
-      case 'Draft':
-        return t('statusDraft');
-      case 'Sent':
-        return t('statusSent');
-      case 'Paid':
-        return t('statusPaid');
-      case 'Overdue':
-        return t('statusOverdue');
-      case 'Cancelled':
-        return t('statusCancelled');
-      default:
-        return status || t('statusDraft');
-    }
-  };
-
-  const getInvoiceTypeChip = (type?: string | null) => {
-    if (!type || type === 'Standard') {
-      return (
-        <Chip
-          label={t('typeStandard')}
-          size="small"
-          variant="outlined"
-          sx={{ height: 20, fontSize: '0.7rem', fontWeight: 500, color: 'text.secondary', borderColor: 'divider' }}
-        />
-      );
-    }
-    switch (type) {
-      case 'Advance':
-        return (
-          <Chip
-            label={t('badgeAdvance')}
-            size="small"
-            color="secondary"
-            sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700, px: 0.25 }}
-          />
-        );
-      case 'Final':
-        return (
-          <Chip
-            label={t('badgeFinal')}
-            size="small"
-            color="primary"
-            sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700, px: 0.25 }}
-          />
-        );
-      case 'Partial':
-        return (
-          <Chip
-            label={t('badgePartial')}
-            size="small"
-            color="info"
-            sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700, px: 0.25 }}
-          />
-        );
-      default:
-        return <Chip label={type} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 600 }} />;
-    }
-  };
+  const formatDate = (iso: string | null | undefined) => fmtDate(iso);
 
   const getLinkedInvoiceLabel = (linkedInv?: Invoice | null) => {
     const type = linkedInv?.invoiceType || 'Standard';
@@ -484,7 +389,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
           <ViewEditField
             mode={mode}
             label={t('lblInvoiceType')}
-            value={getInvoiceTypeChip(formData.invoiceType)}
+            value={<InvoiceTypeChip type={formData.invoiceType} showStandard />}
             editRender={() => (
               <FormControl fullWidth size="small">
                 <InputLabel>{t('lblInvoiceType')}</InputLabel>
@@ -510,14 +415,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
           <ViewEditField
             mode={mode}
             label={t('lblInvoiceStatus')}
-            value={
-              <Chip
-                label={getStatusLabel(formData.status)}
-                size="small"
-                color={getStatusChipColor(formData.status)}
-                sx={{ height: 22, fontSize: '0.75rem', fontWeight: 700 }}
-              />
-            }
+            value={<InvoiceStatusChip status={formData.status} />}
             editRender={() => (
               <FormControl fullWidth size="small">
                 <InputLabel>{t('lblInvoiceStatus')}</InputLabel>

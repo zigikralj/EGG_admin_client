@@ -17,21 +17,6 @@ export async function apiFetch(input: string | URL | Request, init?: RequestInit
     }
   }
 
-  // Fallback X-User-Id
-  if (!headers.has('X-User-Id')) {
-    try {
-      const storedUser = localStorage.getItem('auth_user');
-      if (storedUser) {
-        const user = JSON.parse(storedUser);
-        if (user && user.id) {
-          headers.set('X-User-Id', user.id);
-        }
-      }
-    } catch (e) {
-      // Ignore JSON parse errors
-    }
-  }
-
   // Fallback X-Session-Id
   if (!headers.has('X-Session-Id')) {
     try {

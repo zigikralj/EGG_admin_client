@@ -128,7 +128,7 @@ export const WasteDisposalStatistics: React.FC<Props> = ({
             );
 
       const curr = inv.currency || 'RSD';
-      if (curr === 'EUR' || curr === '€') {
+      if (curr === '€') {
         eur += total;
       } else {
         rsd += total;

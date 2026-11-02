@@ -117,6 +117,8 @@ export function useActivityTracker() {
   const location = useLocation();
   const queryClient = useQueryClient();
   const isEnabled = currentUser?.activityLoggingEnabled ?? true;
+  const isEnabledRef = useRef<boolean>(isEnabled);
+  isEnabledRef.current = isEnabled;
 
   const queueRef = useRef<TrackerEvent[]>([]);
   const sessionStartTimeRef = useRef<number>(Date.now());
@@ -161,7 +163,7 @@ export function useActivityTracker() {
   };
 
   const enqueue = (type: TrackerEventType, path: string, durationSeconds = 0) => {
-    if (!isEnabled) return;
+    if (!isEnabledRef.current) return;
     if (type !== 'LOGOUT') {
       rotateSessionIfExpired();
     }
@@ -179,7 +181,7 @@ export function useActivityTracker() {
 
   /** Close the current visible segment (if any) as a PAGE_VIEW and start a new one. */
   const closeSegment = (isSleepOrIdleCutoff = false) => {
-    if (!isEnabled) return;
+    if (!isEnabledRef.current) return;
     const now = Date.now();
     if (!pausedRef.current && !isIdleRef.current) {
       // Effective end time cannot exceed last interaction + MAX_IDLE_SECONDS
@@ -197,7 +199,7 @@ export function useActivityTracker() {
   };
 
   const flush = (urgent = false): Promise<void> => {
-    if (!isEnabled || queueRef.current.length === 0) return Promise.resolve();
+    if (!isEnabledRef.current || queueRef.current.length === 0) return Promise.resolve();
 
     const isOnlyLifecycle = queueRef.current.every(
       (e) => e.type === 'LOGIN' || e.type === 'LOGOUT'

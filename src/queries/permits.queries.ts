@@ -3,12 +3,11 @@ import { apiFetch } from '../api';
 import { fetchWithDeltaSync } from '../utils/deltaSync';
 import { syncWasteCatalog, sortWasteCatalog, upsertCatalogItemInDB, getMemoryCachedCatalog } from '../utils/wasteCatalogStorage';
 import { API_ROUTES } from '../constants';
-import { useAuthHeaders, buildPaginationQueryParams, useGenericMutations } from './queryUtils';
+import { buildPaginationQueryParams, useGenericMutations } from './queryUtils';
 import type { Permit, WasteCatalog, PaginatedResponse } from '../types';
 
 /** Lightweight permits query without nested relations (waste catalogs, reminders, etc.) for linking and dropdowns. */
 export function usePermitsSummaryQuery(options?: { enabled?: boolean }) {
-  const getAuthHeaders = useAuthHeaders();
   const queryClient = useQueryClient();
   const queryKey = ['permits', 'summary'] as const;
 
@@ -20,7 +19,6 @@ export function usePermitsSummaryQuery(options?: { enabled?: boolean }) {
         url: `${API_ROUTES.PERMITS.BASE}?fields=summary`,
         queryKey,
         queryClient,
-        headers: getAuthHeaders(),
       }),
   });
 }
@@ -40,7 +38,6 @@ export interface PaginatedPermitsParams {
 }
 
 export function usePaginatedPermitsQuery(params: PaginatedPermitsParams, enabled: boolean = true) {
-  const getAuthHeaders = useAuthHeaders();
   const queryKey = [
     'permits',
     'paginated',
@@ -78,9 +75,7 @@ export function usePaginatedPermitsQuery(params: PaginatedPermitsParams, enabled
         }
       );
 
-      const res = await apiFetch(`${API_ROUTES.PERMITS.BASE}?${q.toString()}`, {
-        headers: getAuthHeaders(),
-      });
+      const res = await apiFetch(`${API_ROUTES.PERMITS.BASE}?${q.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch paginated permits');
       const data = await res.json();
       if (Array.isArray(data)) {
@@ -102,12 +97,11 @@ export function usePaginatedPermitsQuery(params: PaginatedPermitsParams, enabled
 }
 
 export function useWasteCatalogQuery(options?: { enabled?: boolean }) {
-  const getAuthHeaders = useAuthHeaders();
   return useQuery<WasteCatalog[]>({
     queryKey: ['waste-catalog'],
     enabled: options?.enabled ?? true,
     queryFn: async () => {
-      return syncWasteCatalog(getAuthHeaders());
+      return syncWasteCatalog();
     },
     initialData: () => getMemoryCachedCatalog() ?? undefined,
     staleTime: 1000 * 60 * 60, // 1 hour stale time since catalog updates rarely
@@ -117,7 +111,6 @@ export function useWasteCatalogQuery(options?: { enabled?: boolean }) {
 
 export function useWasteCatalogMutations() {
   const queryClient = useQueryClient();
-  const getAuthHeaders = useAuthHeaders();
 
   const toggleFrequent = useMutation({
     mutationFn: async ({ id, frequent }: { id: string; frequent?: number | boolean | null }) => {
@@ -125,7 +118,6 @@ export function useWasteCatalogMutations() {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          ...getAuthHeaders(),
         },
         body: JSON.stringify({ frequent }),
       });
@@ -151,6 +143,6 @@ export function usePermitsMutations() {
     queryKeyToInvalidate: ['permits'],
     additionalInvalidates: [['clients']],
     errorSaveMessageKey: 'errorSavingService',
-    deleteConfirmMessageKey: 'confirmDeletePermit' as any,
+    deleteConfirmMessageKey: 'confirmDeletePermit',
   });
 }

@@ -3,7 +3,7 @@ import { apiFetch } from '../api';
 import { API_ROUTES } from '../constants';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { useAuthHeaders, buildPaginationQueryParams, useGenericMutations } from './queryUtils';
+import { buildPaginationQueryParams, useGenericMutations } from './queryUtils';
 import type {
   Project,
   ProjectUpdateSummary,
@@ -13,14 +13,11 @@ import type {
 } from '../types';
 
 export function useProjectsSummaryQuery(options?: { enabled?: boolean }) {
-  const getAuthHeaders = useAuthHeaders();
   return useQuery<Project[]>({
     queryKey: ['projects', 'summary'],
     enabled: options?.enabled ?? true,
     queryFn: async () => {
-      const res = await apiFetch(`${API_ROUTES.PROJECTS.BASE}?fields=summary`, {
-        headers: getAuthHeaders(),
-      });
+      const res = await apiFetch(`${API_ROUTES.PROJECTS.BASE}?fields=summary`);
       if (!res.ok) throw new Error('Failed to fetch projects summary');
       return res.json();
     },
@@ -47,7 +44,6 @@ export interface PaginatedProjectsParams {
 
 export function usePaginatedProjectsQuery(params: PaginatedProjectsParams, enabled: boolean = true) {
   const { currentUser } = useAuth();
-  const getAuthHeaders = useAuthHeaders();
   const queryKey = [
     'projects',
     'paginated',
@@ -92,9 +88,7 @@ export function usePaginatedProjectsQuery(params: PaginatedProjectsParams, enabl
         }
       );
 
-      const res = await apiFetch(`${API_ROUTES.PROJECTS.BASE}?${q.toString()}`, {
-        headers: getAuthHeaders(),
-      });
+      const res = await apiFetch(`${API_ROUTES.PROJECTS.BASE}?${q.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch paginated projects');
       const data = await res.json();
       if (Array.isArray(data)) {
@@ -133,7 +127,6 @@ export interface InfiniteProjectsParams {
 
 export function useInfiniteProjectsQuery(params: InfiniteProjectsParams = {}, enabled: boolean = true) {
   const { currentUser } = useAuth();
-  const getAuthHeaders = useAuthHeaders();
   const limit = params.limit || 12;
   const queryKey = [
     'projects',
@@ -174,9 +167,7 @@ export function useInfiniteProjectsQuery(params: InfiniteProjectsParams = {}, en
       if (params.dateField) q.set('dateField', params.dateField);
       if (params.done !== undefined) q.set('done', String(params.done));
 
-      const res = await apiFetch(`${API_ROUTES.PROJECTS.BASE}?${q.toString()}`, {
-        headers: getAuthHeaders(),
-      });
+      const res = await apiFetch(`${API_ROUTES.PROJECTS.BASE}?${q.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch projects');
       const data = await res.json();
       if (Array.isArray(data)) {
@@ -203,11 +194,10 @@ export function useInfiniteProjectsQuery(params: InfiniteProjectsParams = {}, en
  * Used on-demand for modals, popovers, and expanded project cards.
  */
 export function useProjectDetailsQuery(id: string | undefined, enabled: boolean = true) {
-  const getAuthHeaders = useAuthHeaders();
   return useQuery<Project>({
     queryKey: ['projects', 'details', id],
     queryFn: async () => {
-      const res = await apiFetch(`${API_ROUTES.PROJECTS.BASE}/${id}`, { headers: getAuthHeaders() });
+      const res = await apiFetch(API_ROUTES.PROJECTS.BY_ID(id!));
       if (!res.ok) throw new Error('Failed to fetch project details');
       return res.json();
     },
@@ -227,12 +217,11 @@ export interface ProjectNoteData {
 }
 
 export function useProjectNoteQuery(projectId: string | undefined, enabled: boolean = true) {
-  const getAuthHeaders = useAuthHeaders();
   const queryClient = useQueryClient();
   return useQuery<ProjectNoteData>({
     queryKey: ['projects', 'note', projectId],
     queryFn: async () => {
-      const res = await apiFetch(API_ROUTES.PROJECTS.NOTE(projectId!), { headers: getAuthHeaders() });
+      const res = await apiFetch(API_ROUTES.PROJECTS.NOTE(projectId!));
       if (!res.ok) throw new Error('Failed to fetch project note');
       return res.json();
     },
@@ -277,7 +266,6 @@ export function useProjectUpdatesQuery(
   },
   enabled: boolean = true
 ) {
-  const getAuthHeaders = useAuthHeaders();
   return useQuery<ProjectUpdatesResponse>({
     queryKey: ['projects', 'updates', params],
     queryFn: async () => {
@@ -290,7 +278,7 @@ export function useProjectUpdatesQuery(
       if (params.offset !== undefined) q.set('offset', String(params.offset));
 
       const queryStr = q.toString() ? `?${q.toString()}` : '';
-      const res = await apiFetch(`${API_ROUTES.PROJECTS.UPDATES}${queryStr}`, { headers: getAuthHeaders() });
+      const res = await apiFetch(`${API_ROUTES.PROJECTS.UPDATES}${queryStr}`);
       if (!res.ok) throw new Error('Failed to fetch project updates');
       return res.json();
     },
@@ -307,7 +295,6 @@ export function useProjectUpdatesDiffQuery(
   dateTo: string | undefined,
   enabled: boolean = true
 ) {
-  const getAuthHeaders = useAuthHeaders();
   return useQuery<ProjectUpdatesDiffResult>({
     queryKey: ['projects', 'updates-diff', projectId, dateFrom, dateTo],
     queryFn: async () => {
@@ -316,7 +303,7 @@ export function useProjectUpdatesDiffQuery(
       if (dateTo) q.set('dateTo', dateTo);
 
       const queryStr = q.toString() ? `?${q.toString()}` : '';
-      const res = await apiFetch(`${API_ROUTES.PROJECTS.UPDATES_DIFF(projectId!)}${queryStr}`, { headers: getAuthHeaders() });
+      const res = await apiFetch(`${API_ROUTES.PROJECTS.UPDATES_DIFF(projectId!)}${queryStr}`);
       if (!res.ok) throw new Error('Failed to fetch project updates diff');
       return res.json();
     },
@@ -373,7 +360,6 @@ export function useProjectsMutations() {
     permissionDeniedMessageKey: 'permissionDeniedOnlyOwnProjects',
   });
 
-  const getAuthHeaders = useAuthHeaders();
   const queryClient = useQueryClient();
   const { t } = useLanguage();
 
@@ -382,7 +368,6 @@ export function useProjectsMutations() {
     mutationFn: async ({ id }: { id: string; isCompleting: boolean }) => {
       const res = await apiFetch(API_ROUTES.PROJECTS.TOGGLE_DONE(id), {
         method: 'PATCH',
-        headers: getAuthHeaders(),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -404,7 +389,6 @@ export function useProjectsMutations() {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          ...getAuthHeaders(),
         },
         body: JSON.stringify({ notes }),
       });
@@ -448,7 +432,6 @@ export function useProjectsMutations() {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          ...getAuthHeaders(),
         },
         body: JSON.stringify({ content, reason }),
       });

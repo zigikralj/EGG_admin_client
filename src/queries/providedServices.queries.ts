@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '../api';
 import { API_ROUTES } from '../constants';
-import { useAuthHeaders, buildPaginationQueryParams, useGenericMutations } from './queryUtils';
+import { buildPaginationQueryParams, useGenericMutations } from './queryUtils';
 import type { ProvidedService, PaginatedResponse } from '../types';
 
 export interface PaginatedProvidedServicesParams {
@@ -24,7 +24,6 @@ export interface PaginatedProvidedServicesParams {
 }
 
 export function usePaginatedProvidedServicesQuery(params: PaginatedProvidedServicesParams, enabled: boolean = true) {
-  const getAuthHeaders = useAuthHeaders();
   const queryKey = [
     'provided-services',
     'paginated',
@@ -71,9 +70,7 @@ export function usePaginatedProvidedServicesQuery(params: PaginatedProvidedServi
           missingInvoice: params.missingInvoice ? true : undefined,
         }
       );
-      const res = await apiFetch(`${API_ROUTES.PROVIDED_SERVICES.BASE}?${q.toString()}`, {
-        headers: getAuthHeaders(),
-      });
+      const res = await apiFetch(`${API_ROUTES.PROVIDED_SERVICES.BASE}?${q.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch paginated provided services');
       const data = await res.json();
       if (Array.isArray(data)) {
@@ -96,7 +93,7 @@ export function useProvidedServicesMutations() {
   return useGenericMutations<ProvidedService>({
     basePath: API_ROUTES.PROVIDED_SERVICES.BASE,
     queryKeyToInvalidate: ['provided-services'],
-    errorSaveMessageKey: 'errorSavingService',
-    deleteConfirmMessageKey: 'confirmDeleteProvidedService' as any,
+    errorSaveMessageKey: 'errorSavingProvidedService',
+    deleteConfirmMessageKey: 'confirmDeleteProvidedService',
   });
 }

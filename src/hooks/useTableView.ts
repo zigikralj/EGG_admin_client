@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useLoading } from '../context/LoadingContext';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -145,24 +145,9 @@ export function useTableView(options: UseTableViewOptions = {}): UseTableViewRet
     rowsPerPageOptionsProp ?? defaultRowsPerPageOptions,
   );
 
-  useEffect(() => {
-    if (rowsPerPageProp !== undefined) {
-      setLocalRowsPerPage(rowsPerPageProp);
-    }
-  }, [rowsPerPageProp]);
-
-  useEffect(() => {
-    if (rowsPerPageOptionsProp !== undefined) {
-      setLocalRowsPerPageOptions(rowsPerPageOptionsProp);
-    }
-  }, [rowsPerPageOptionsProp]);
-
-  const activeRowsPerPage =
-    onRowsPerPageChange && rowsPerPageProp !== undefined ? rowsPerPageProp : localRowsPerPage;
+  const activeRowsPerPage = rowsPerPageProp !== undefined ? rowsPerPageProp : localRowsPerPage;
   const activeRowsPerPageOptions =
-    onRowsPerPageOptionsChange && rowsPerPageOptionsProp !== undefined
-      ? rowsPerPageOptionsProp
-      : localRowsPerPageOptions;
+    rowsPerPageOptionsProp !== undefined ? rowsPerPageOptionsProp : localRowsPerPageOptions;
 
   const setRowsPerPageValue = useCallback(
     (rpp: number) => {
@@ -182,17 +167,13 @@ export function useTableView(options: UseTableViewOptions = {}): UseTableViewRet
 
   // ── Sorting ────────────────────────────────────────────────────────────────
 
-  const [sortColumn, setSortColumn] = useState<string>(sortState?.field || defaultSortField);
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(
+  const [localSortColumn, setLocalSortColumn] = useState<string>(sortState?.field || defaultSortField);
+  const [localSortDirection, setLocalSortDirection] = useState<'asc' | 'desc'>(
     sortState?.direction || defaultSortDirection,
   );
 
-  useEffect(() => {
-    if (sortState) {
-      setSortColumn(sortState.field || defaultSortField);
-      setSortDirection(sortState.direction || defaultSortDirection);
-    }
-  }, [sortState, defaultSortField, defaultSortDirection]);
+  const sortColumn = sortState?.field || localSortColumn;
+  const sortDirection = sortState?.direction || localSortDirection;
 
   const handleSort = useCallback(
     (colId: string) => {
@@ -200,8 +181,8 @@ export function useTableView(options: UseTableViewOptions = {}): UseTableViewRet
       if (sortColumn === colId) {
         newDir = sortDirection === 'asc' ? 'desc' : 'asc';
       }
-      setSortColumn(colId);
-      setSortDirection(newDir);
+      setLocalSortColumn(colId);
+      setLocalSortDirection(newDir);
       if (onSortChange) {
         onSortChange({ field: colId, direction: newDir });
       }
@@ -211,7 +192,7 @@ export function useTableView(options: UseTableViewOptions = {}): UseTableViewRet
 
   const handleSortColumnChange = useCallback(
     (colId: string) => {
-      setSortColumn(colId);
+      setLocalSortColumn(colId);
       if (onSortChange) {
         onSortChange({ field: colId, direction: sortDirection });
       }
@@ -221,15 +202,15 @@ export function useTableView(options: UseTableViewOptions = {}): UseTableViewRet
 
   const handleToggleSortDirection = useCallback(() => {
     const newDir = sortDirection === 'asc' ? 'desc' : 'asc';
-    setSortDirection(newDir);
+    setLocalSortDirection(newDir);
     if (onSortChange) {
       onSortChange({ field: sortColumn, direction: newDir });
     }
   }, [sortColumn, sortDirection, onSortChange]);
 
   const resetSort = useCallback(() => {
-    setSortColumn(defaultSortField);
-    setSortDirection(defaultSortDirection);
+    setLocalSortColumn(defaultSortField);
+    setLocalSortDirection(defaultSortDirection);
     if (onSortChange) {
       onSortChange({ field: defaultSortField, direction: defaultSortDirection });
     }

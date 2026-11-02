@@ -294,10 +294,10 @@ export const ProvidedServiceModal: React.FC<ProvidedServiceModalProps> = ({
       if (res.success) {
         onClose();
       } else if (res.error) {
-        onError?.(res.error || (t('errorSaving' as any)));
+        onError?.(res.error || t('errorSavingProvidedService'));
       }
     } catch (err: any) {
-      onError?.(err?.message || (t('errorSaving' as any)));
+      onError?.(err?.message || t('errorSavingProvidedService'));
     } finally {
       setIsSaving(false);
     }

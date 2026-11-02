@@ -9,9 +9,7 @@ import {
   Chip,
   IconButton,
 } from '@mui/material';
-import RefreshIcon from '@mui/icons-material/Refresh';
-import CloseIcon from '@mui/icons-material/Close';
-import SystemUpdateAltIcon from '@mui/icons-material/SystemUpdateAlt';
+import { RefreshIcon, CloseIcon, SystemUpdateAltIcon } from '../../icons';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useVersionCheck } from '../../../hooks/useVersionCheck';
 

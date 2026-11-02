@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Toolbar } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -13,6 +13,7 @@ import { CompanyInfoModal } from '../company/CompanyInfoModal';
 import { DashboardIcon, FolderIcon, BusinessIcon, AssignmentTurnedInIcon, PeopleIcon, BuildIcon, HandymanIcon, CategoryIcon, NotificationsActiveIcon, ReceiptLongIcon, SecurityIcon, AccessTimeIcon } from '../icons';
 import { useProjectModal } from '../../context/ProjectModalContext';
 import { useWasteDisposalServiceId } from '../../queries';
+import { PAGE_ROUTES } from '../../constants';
 
 interface Props {
   userPreferences?: Record<string, any>;
@@ -46,23 +47,24 @@ export const AdminLayout: React.FC<Props> = ({
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isPreferencesOpen, setIsPreferencesOpen] = useState(false);
   const [isCompanyInfoOpen, setIsCompanyInfoOpen] = useState(false);
+  const mainContentRef = useRef<HTMLElement | null>(null);
 
   const location = useLocation();
   const navigate = useNavigate();
 
   const navItems = useMemo(() => [
-    { path: '/project-tracker', label: t('tabDashboard'), icon: <DashboardIcon />, show: true },
-    { path: '/data-management/projects', label: t('tabProjects'), icon: <FolderIcon />, show: hasPermission('projects', 'view') },
-    { path: '/data-management/clients', label: t('tabClients'), icon: <BusinessIcon />, show: hasPermission('clients', 'view') },
-    { path: '/data-management/permits', label: t('tabPermits'), icon: <AssignmentTurnedInIcon />, show: hasPermission('permits', 'view') },
-    { path: '/data-management/users', label: t('tabUsers'), icon: <PeopleIcon />, show: hasPermission('users', 'view') },
-    { path: '/data-management/services', label: t('tabServices'), icon: <BuildIcon />, show: hasPermission('services', 'view') },
-    { path: '/data-management/provided-services', label: t('tabProvidedServices'), icon: <HandymanIcon />, show: hasPermission('providedServices', 'view') },
-    { path: '/data-management/categories', label: t('tabCategories'), icon: <CategoryIcon />, show: hasPermission('categories', 'view') },
-    { path: '/data-management/reminders', label: t('tabReminders'), icon: <NotificationsActiveIcon />, show: hasPermission('reminders', 'view') },
-    { path: '/data-management/invoices', label: t('tabInvoices'), icon: <ReceiptLongIcon />, show: hasPermission('invoices', 'view') },
-    { path: '/data-management/roles', label: 'Roles', icon: <SecurityIcon />, show: hasPermission('roles', 'view') },
-    { path: '/data-management/activity-logs', label: t('tabActivityLogs'), icon: <AccessTimeIcon />, show: hasPermission('activityLogs', 'view') },
+    { path: PAGE_ROUTES.PROJECT_TRACKER, label: t('tabDashboard'), icon: <DashboardIcon />, show: true },
+    { path: PAGE_ROUTES.PROJECTS, label: t('tabProjects'), icon: <FolderIcon />, show: hasPermission('projects', 'view') },
+    { path: PAGE_ROUTES.CLIENTS, label: t('tabClients'), icon: <BusinessIcon />, show: hasPermission('clients', 'view') },
+    { path: PAGE_ROUTES.PERMITS, label: t('tabPermits'), icon: <AssignmentTurnedInIcon />, show: hasPermission('permits', 'view') },
+    { path: PAGE_ROUTES.USERS, label: t('tabUsers'), icon: <PeopleIcon />, show: hasPermission('users', 'view') },
+    { path: PAGE_ROUTES.SERVICES, label: t('tabServices'), icon: <BuildIcon />, show: hasPermission('services', 'view') },
+    { path: PAGE_ROUTES.PROVIDED_SERVICES, label: t('tabProvidedServices'), icon: <HandymanIcon />, show: hasPermission('providedServices', 'view') },
+    { path: PAGE_ROUTES.CATEGORIES, label: t('tabCategories'), icon: <CategoryIcon />, show: hasPermission('categories', 'view') },
+    { path: PAGE_ROUTES.REMINDERS, label: t('tabReminders'), icon: <NotificationsActiveIcon />, show: hasPermission('reminders', 'view') },
+    { path: PAGE_ROUTES.INVOICES, label: t('tabInvoices'), icon: <ReceiptLongIcon />, show: hasPermission('invoices', 'view') },
+    { path: PAGE_ROUTES.ROLES, label: t('tabRoles'), icon: <SecurityIcon />, show: hasPermission('roles', 'view') },
+    { path: PAGE_ROUTES.ACTIVITY_LOGS, label: t('tabActivityLogs'), icon: <AccessTimeIcon />, show: hasPermission('activityLogs', 'view') },
   ], [t, hasPermission]);
 
   useEffect(() => {
@@ -81,12 +83,12 @@ export const AdminLayout: React.FC<Props> = ({
 
     if (!canAccessApp) {
       if (appName === 'data-management' && canAccessTracker) {
-        navigate('/project-tracker', { replace: true });
+        navigate(PAGE_ROUTES.PROJECT_TRACKER, { replace: true });
         return;
       }
       if (appName === 'project-tracker' && canAccessDataMgmt) {
-        const firstAllowed = navItems.find((item) => item.show && item.path.startsWith('/data-management/'));
-        navigate(firstAllowed ? firstAllowed.path : '/data-management/projects', { replace: true });
+        const firstAllowed = navItems.find((item) => item.show && item.path.startsWith(`${PAGE_ROUTES.DATA_MANAGEMENT_PREFIX}/`));
+        navigate(firstAllowed ? firstAllowed.path : PAGE_ROUTES.PROJECTS, { replace: true });
         return;
       }
       // If neither app is accessible, do not navigate in an infinite loop
@@ -120,24 +122,24 @@ export const AdminLayout: React.FC<Props> = ({
 
       if (!hasAccess) {
         if (appName === 'data-management') {
-          const firstAllowed = navItems.find((item) => item.show && item.path.startsWith('/data-management/') && item.path !== location.pathname);
+          const firstAllowed = navItems.find((item) => item.show && item.path.startsWith(`${PAGE_ROUTES.DATA_MANAGEMENT_PREFIX}/`) && item.path !== location.pathname);
           if (firstAllowed) {
             navigate(firstAllowed.path, { replace: true });
             return;
           }
           if (canAccessTracker) {
-            navigate('/project-tracker', { replace: true });
+            navigate(PAGE_ROUTES.PROJECT_TRACKER, { replace: true });
             return;
           }
         } else if (appName === 'project-tracker') {
           const canAccessWasteDisposal = hasPermission('wasteDisposal', 'view') && (Boolean(wasteDisposalServiceId) || Boolean(isRealAdmin));
           const trackerSubTabs = [
-            { path: '/project-tracker/projects', allowed: hasPermission('tracker_projects', 'view') },
-            { path: '/project-tracker/updates', allowed: hasPermission('tracker_updates', 'view') },
-            { path: '/project-tracker/invoices', allowed: hasPermission('tracker_invoices', 'view') },
-            { path: '/project-tracker/reminders', allowed: hasPermission('tracker_reminders', 'view') },
-            { path: '/project-tracker/waste-disposal', allowed: canAccessWasteDisposal },
-            { path: '/project-tracker/statistic', allowed: hasPermission('statistics', 'view') },
+            { path: PAGE_ROUTES.PROJECT_TRACKER_PROJECTS, allowed: hasPermission('tracker_projects', 'view') },
+            { path: PAGE_ROUTES.PROJECT_TRACKER_UPDATES, allowed: hasPermission('tracker_updates', 'view') },
+            { path: PAGE_ROUTES.PROJECT_TRACKER_INVOICES, allowed: hasPermission('tracker_invoices', 'view') },
+            { path: PAGE_ROUTES.PROJECT_TRACKER_REMINDERS, allowed: hasPermission('tracker_reminders', 'view') },
+            { path: PAGE_ROUTES.PROJECT_TRACKER_WASTE, allowed: canAccessWasteDisposal },
+            { path: PAGE_ROUTES.PROJECT_TRACKER_STATISTICS, allowed: hasPermission('statistics', 'view') },
           ];
           const firstAllowedSub = trackerSubTabs.find((sub) => sub.allowed && sub.path !== location.pathname);
           if (firstAllowedSub) {
@@ -145,8 +147,8 @@ export const AdminLayout: React.FC<Props> = ({
             return;
           }
           if (canAccessDataMgmt) {
-            const firstAllowed = navItems.find((item) => item.show && item.path.startsWith('/data-management/'));
-            navigate(firstAllowed ? firstAllowed.path : '/data-management/projects', { replace: true });
+            const firstAllowed = navItems.find((item) => item.show && item.path.startsWith(`${PAGE_ROUTES.DATA_MANAGEMENT_PREFIX}/`));
+            navigate(firstAllowed ? firstAllowed.path : PAGE_ROUTES.PROJECTS, { replace: true });
             return;
           }
         }
@@ -158,9 +160,8 @@ export const AdminLayout: React.FC<Props> = ({
     // Scroll window and main content
     const resetScroll = () => {
       window.scrollTo({ top: 0, behavior: 'instant' });
-      const mainEl = document.getElementById('main-content');
-      if (mainEl) {
-        mainEl.scrollTo({ top: 0, behavior: 'instant' });
+      if (mainContentRef.current) {
+        mainContentRef.current.scrollTo({ top: 0, behavior: 'instant' });
       }
     };
     
@@ -200,6 +201,7 @@ export const AdminLayout: React.FC<Props> = ({
       <Box
         component="main"
         id="main-content"
+        ref={mainContentRef}
         sx={{
           flexGrow: 1,
           p: { xs: 2, sm: 3 },
