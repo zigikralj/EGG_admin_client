@@ -3,6 +3,7 @@ import { serviceTypeTranslations, errorMessageTranslations } from '../i18n/trans
 import type { Language, TranslationKeys } from '../i18n/translations';
 import { loadTranslation } from '../i18n/loader';
 import type { Service } from '../types';
+import { STORAGE_KEYS } from '../constants';
 
 interface LanguageContextType {
   language: Language;
@@ -17,7 +18,7 @@ interface LanguageContextType {
   getPermitTypeLabel: (type?: string | null) => string;
 }
 
-const STORAGE_KEY = 'app_language';
+const STORAGE_KEY = STORAGE_KEYS.APP_LANGUAGE;
 
 export const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 

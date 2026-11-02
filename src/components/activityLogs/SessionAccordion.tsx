@@ -44,8 +44,8 @@ export interface SessionAccordionProps {
   onToggleRowDetail: (rowKey: string) => void;
   onDeleteSession: (session: Session) => void;
   isDark: boolean;
-  language: string;
-  t: (key: any) => string;
+  language?: string;
+  t: (key: any, params?: Record<string, string | number>) => string;
 }
 
 export const SessionAccordion: React.FC<SessionAccordionProps> = ({
@@ -56,10 +56,11 @@ export const SessionAccordion: React.FC<SessionAccordionProps> = ({
   onToggleRowDetail,
   onDeleteSession,
   isDark,
-  language,
+  language = 'en',
   t
 }) => {
   const theme = useTheme();
+  const eventCount = session.logs.filter(l => !LIFECYCLE_TYPES.has(l.type) && !isEmptyUpdateLog(l)).length;
 
   return (
     <Paper
@@ -144,7 +145,7 @@ export const SessionAccordion: React.FC<SessionAccordionProps> = ({
             sx={{ fontWeight: 600, height: 24 }}
           />
           <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'inline' } }}>
-            {session.logs.filter(l => !LIFECYCLE_TYPES.has(l.type) && !isEmptyUpdateLog(l)).length} {language === 'en' ? 'events' : 'događaja'}
+            {t(eventCount === 1 ? 'countEvent' : 'countEvents', { count: eventCount })}
           </Typography>
           <IconButton
             size="small"
@@ -155,7 +156,7 @@ export const SessionAccordion: React.FC<SessionAccordionProps> = ({
           >
             {isExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
           </IconButton>
-          <Tooltip title={language === 'en' ? 'Delete session' : 'Obriši sesiju'}>
+          <Tooltip title={t('tooltipDeleteSession')}>
             <IconButton
               size="small"
               color="error"
@@ -177,10 +178,10 @@ export const SessionAccordion: React.FC<SessionAccordionProps> = ({
             <Table size="small">
               <TableHead sx={{ bgcolor: isDark ? alpha('#fff', 0.03) : alpha('#000', 0.02) }}>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>{language === 'en' ? 'Page / Activity' : 'Stranica / Aktivnost'}</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>{t('colPageActivity')}</TableCell>
                   <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>{t('colDuration')}</TableCell>
                   <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem', textAlign: 'center' }}>{t('visitsCount')}</TableCell>
-                  <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>{language === 'en' ? 'Time Window' : 'Vreme posete'}</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>{t('colTimeWindow')}</TableCell>
                   <TableCell sx={{ width: 40 }} />
                 </TableRow>
               </TableHead>
@@ -189,7 +190,7 @@ export const SessionAccordion: React.FC<SessionAccordionProps> = ({
                   <TableRow>
                     <TableCell colSpan={5} sx={{ textAlign: 'center', py: 2.5, color: 'text.secondary' }}>
                       <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
-                        {language === 'en' ? 'No page activity recorded in this session' : 'Nema zabeleženih aktivnosti na stranicama u ovoj sesiji'}
+                        {t('noPageActivityInSession')}
                       </Typography>
                     </TableCell>
                   </TableRow>

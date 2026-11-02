@@ -1,4 +1,5 @@
 import type { ActivityAnalytics } from '../../types';
+import { INTL_LOCALE_MAP, SUPPORTED_LANGUAGES } from '../../constants';
 import {
   getCanonicalPagePath,
   getPathLabelAndIcon,
@@ -96,18 +97,23 @@ export function aggregateCanonicalPages(
 export function formatBucketLabel(
   bucket: string,
   granularity: 'day' | 'week' | 'month',
-  language: string = 'en'
+  language: string = SUPPORTED_LANGUAGES.EN
 ): string {
   const date = new Date(bucket);
   if (isNaN(date.getTime())) return bucket;
 
-  const locale = language === 'en' ? 'en-US' : language === 'sr-Cyrl' ? 'sr-Cyrl-RS' : 'sr-Latn-RS';
+  const locale = INTL_LOCALE_MAP[language];
 
   if (granularity === 'month') {
     return date.toLocaleDateString(locale, { month: 'short', year: 'numeric' });
   }
   if (granularity === 'week') {
-    const weekPrefix = language === 'en' ? 'W' : language === 'sr-Cyrl' ? 'Нед. ' : 'Ned. ';
+    const weekPrefixMap: Record<string, string> = {
+      [SUPPORTED_LANGUAGES.EN]: 'W',
+      [SUPPORTED_LANGUAGES.SR_CYRL]: 'Нед. ',
+      [SUPPORTED_LANGUAGES.SR_LATN]: 'Ned. ',
+    };
+    const weekPrefix = weekPrefixMap[language];
     return `${weekPrefix}${getWeekNumber(date)} • ${date.toLocaleDateString(locale, { month: 'short', day: 'numeric' })}`;
   }
   return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });

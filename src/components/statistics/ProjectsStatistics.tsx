@@ -22,6 +22,7 @@ import { LineChart } from '@mui/x-charts/LineChart';
 import { BarChart } from '@mui/x-charts/BarChart';
 import type { Project, User, Category, Service, Client, Invoice } from '../../types';
 import { typeGroup } from '../../types';
+import { isInvoicePaid, INTL_LOCALE_MAP } from '../../constants';
 import { useLanguage } from '../../context/LanguageContext';
 import { PersonOutlinedIcon, CategoryOutlinedIcon, FilterListIcon, LandscapeOutlinedIcon, LeaderboardOutlinedIcon } from '../icons';
 
@@ -36,6 +37,9 @@ interface Props {
 
 type FilterStatus = 'all' | 'active' | 'done';
 type TrendMode = 'cumulative' | 'monthly';
+
+const UNASSIGNED_KEY = '__unassigned__';
+const OTHER_KEY = '__other__';
 
 // Mountain palette inspired by MUI X-Charts Overview (vibrant blue, gold/amber, coral/rose, purple, emerald)
 const MOUNTAIN_COLORS = [
@@ -70,7 +74,7 @@ const ProjectsStatistics: React.FC<Props> = ({
   categories,
   services,
 }) => {
-  const { language, t, getServiceLabel } = useLanguage();
+  const { language, t } = useLanguage();
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [trendMode, setTrendMode] = useState<TrendMode>('cumulative');
 
@@ -86,7 +90,7 @@ const ProjectsStatistics: React.FC<Props> = ({
 
   const isAdminUser = useCallback(
     (userNameOrId: string) => {
-      if (!userNameOrId) return false;
+      if (!userNameOrId || userNameOrId === UNASSIGNED_KEY) return false;
       const trimmed = userNameOrId.trim().toLowerCase();
       if (adminNames.has(trimmed)) return true;
       const found = users.find(
@@ -105,9 +109,9 @@ const ProjectsStatistics: React.FC<Props> = ({
         const found = users.find((u) => u.id === (p as any).responsibleId);
         if (found) return found.name;
       }
-      return t('unassignedUser');
+      return UNASSIGNED_KEY;
     },
-    [users, t]
+    [users]
   );
 
   // Filter projects by status and exclude projects assigned to Administrators
@@ -156,26 +160,24 @@ const ProjectsStatistics: React.FC<Props> = ({
   const userChartData = useMemo(() => {
     if (totalFiltered === 0) return [];
 
-    const userCountMap = new Map<string, { label: string; count: number }>();
+    const userCountMap = new Map<string, { key: string; count: number }>();
 
     filteredProjects.forEach((p) => {
-      let userName = '';
+      let userKey = UNASSIGNED_KEY;
       if (p.responsible && p.responsible.trim()) {
-        userName = p.responsible.trim();
+        userKey = p.responsible.trim();
       } else if ((p as any).responsibleId) {
         const foundUser = users.find((u) => u.id === (p as any).responsibleId);
-        userName = foundUser ? foundUser.name : t('unassignedUser');
-      } else {
-        userName = t('unassignedUser');
+        userKey = foundUser ? foundUser.name : UNASSIGNED_KEY;
       }
 
-      if (isAdminUser(userName) || ((p as any).responsibleId && isAdminUser((p as any).responsibleId))) {
+      if (isAdminUser(userKey) || ((p as any).responsibleId && isAdminUser((p as any).responsibleId))) {
         return;
       }
 
-      const existing = userCountMap.get(userName) || { label: userName, count: 0 };
+      const existing = userCountMap.get(userKey) || { key: userKey, count: 0 };
       existing.count += 1;
-      userCountMap.set(userName, existing);
+      userCountMap.set(userKey, existing);
     });
 
     const list = Array.from(userCountMap.values()).sort((a, b) => b.count - a.count);
@@ -184,7 +186,7 @@ const ProjectsStatistics: React.FC<Props> = ({
     return list.map((item, idx) => ({
       id: `user-${idx}`,
       value: item.count,
-      label: item.label,
+      label: item.key === UNASSIGNED_KEY ? t('unassignedUser') : item.key,
       color: MOUNTAIN_COLORS[idx % MOUNTAIN_COLORS.length],
       percentage: totalUserProjects > 0 ? ((item.count / totalUserProjects) * 100).toFixed(1) : '0',
     }));
@@ -194,34 +196,30 @@ const ProjectsStatistics: React.FC<Props> = ({
   const categoryChartData = useMemo(() => {
     if (totalFiltered === 0) return [];
 
-    const categoryCountMap = new Map<string, { label: string; count: number }>();
+    const categoryCountMap = new Map<string, { grpCode: string; count: number }>();
 
     filteredProjects.forEach((p) => {
       const matchedService = services.find((s) => s.code === p.type || s.id === p.type);
-      const grpCode = matchedService?.group || typeGroup[p.type] || 'other';
+      const grpCode = matchedService?.group || typeGroup[p.type] || OTHER_KEY;
 
-      let catName = '';
-      if (grpCode === 'other') {
-        catName = getServiceLabel(p.type, services) || t('otherCategory');
-      } else {
-        catName = getCategoryLabel(grpCode);
-      }
-
-      const existing = categoryCountMap.get(catName) || { label: catName, count: 0 };
+      const existing = categoryCountMap.get(grpCode) || { grpCode, count: 0 };
       existing.count += 1;
-      categoryCountMap.set(catName, existing);
+      categoryCountMap.set(grpCode, existing);
     });
 
     const list = Array.from(categoryCountMap.values()).sort((a, b) => b.count - a.count);
 
-    return list.map((item, idx) => ({
-      id: `cat-${idx}`,
-      value: item.count,
-      label: item.label,
-      color: CATEGORY_COLORS[idx % CATEGORY_COLORS.length],
-      percentage: totalFiltered > 0 ? ((item.count / totalFiltered) * 100).toFixed(1) : '0',
-    }));
-  }, [filteredProjects, services, totalFiltered, getCategoryLabel, t, getServiceLabel]);
+    return list.map((item, idx) => {
+      const label = item.grpCode === OTHER_KEY ? t('otherCategory') : getCategoryLabel(item.grpCode);
+      return {
+        id: `cat-${idx}`,
+        value: item.count,
+        label,
+        color: CATEGORY_COLORS[idx % CATEGORY_COLORS.length],
+        percentage: totalFiltered > 0 ? ((item.count / totalFiltered) * 100).toFixed(1) : '0',
+      };
+    });
+  }, [filteredProjects, services, totalFiltered, getCategoryLabel, t]);
 
   // 3. Stacked Mountain Area Chart: Last 12 Months Completed Projects by Owner
   const last12Months = useMemo(() => {
@@ -232,12 +230,7 @@ const ProjectsStatistics: React.FC<Props> = ({
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 
-      const locale =
-        language === 'sr-Latn'
-          ? 'sr-Latn-RS'
-          : language === 'sr-Cyrl'
-          ? 'sr-Cyrl-RS'
-          : 'en-US';
+      const locale = INTL_LOCALE_MAP[language];
 
       const monthName = d.toLocaleDateString(locale, { month: 'short' });
       const yearShort = String(d.getFullYear()).slice(-2);
@@ -346,7 +339,7 @@ const ProjectsStatistics: React.FC<Props> = ({
     const series = sortedOwners.map((o) => ({
       id: o.name,
       data: o.data,
-      label: o.name,
+      label: o.name === UNASSIGNED_KEY ? t('unassignedUser') : o.name,
       area: true,
       stack: 'total',
       curve: 'monotoneX' as const, // Smooth mountain peaks
@@ -365,13 +358,12 @@ const ProjectsStatistics: React.FC<Props> = ({
 
   // Helper to check if an invoice is paid
   const isPaidInvoice = useCallback((inv: Invoice) => {
-    const s = (inv.status || '').trim().toLowerCase();
-    return s === 'paid' || s === 'plaćeno' || s === 'плаћено';
+    return isInvoicePaid(inv.status);
   }, []);
 
   // Top 10 Clients by Sum of Paid Invoices
   const top10ClientsData = useMemo(() => {
-    const map = new Map<string, { clientName: string; totalPaid: number; count: number }>();
+    const map = new Map<string, { clientKey: string; clientName: string; totalPaid: number; count: number }>();
 
     invoices.forEach((inv) => {
       if (!isPaidInvoice(inv)) return;
@@ -381,22 +373,22 @@ const ProjectsStatistics: React.FC<Props> = ({
         const found = clients.find((c) => c.id === inv.clientId);
         if (found) name = found.name.trim();
       }
-      if (!name) {
-        name = t('unassignedUser') || 'Other';
-      }
+      const clientKey = inv.clientId || (name ? `name_${name}` : UNASSIGNED_KEY);
+      const displayName = name || t('unassignedUser');
 
       let amount = Number(inv.totalAmount) || 0;
       if (!amount && inv.items && inv.items.length > 0) {
         amount = inv.items.reduce((sum, it) => sum + (Number(it.quantity) || 0) * (Number(it.unitPrice) || 0), 0);
       }
 
-      const existing = map.get(name);
+      const existing = map.get(clientKey);
       if (existing) {
         existing.totalPaid += amount;
         existing.count += 1;
       } else {
-        map.set(name, {
-          clientName: name,
+        map.set(clientKey, {
+          clientKey,
+          clientName: displayName,
           totalPaid: amount,
           count: 1,
         });

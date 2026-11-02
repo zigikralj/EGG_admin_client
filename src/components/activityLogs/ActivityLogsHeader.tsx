@@ -30,7 +30,7 @@ export interface ActivityLogsHeaderProps {
   onRetentionSelect: (value: number | 'custom') => void;
   onClearAllClick: () => void;
   onRefreshClick: () => void;
-  language: string;
+  language?: string;
   t: (key: any) => string;
   isDark: boolean;
 }
@@ -47,7 +47,6 @@ export const ActivityLogsHeader: React.FC<ActivityLogsHeaderProps> = ({
   onRetentionSelect,
   onClearAllClick,
   onRefreshClick,
-  language,
   t,
   isDark
 }) => {
@@ -59,9 +58,7 @@ export const ActivityLogsHeader: React.FC<ActivityLogsHeaderProps> = ({
           {t('tabActivityLogs')}
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-          {language === 'en'
-            ? 'Grouped user sessions and accumulated active usage insights'
-            : 'Grupisano po korisnicima i sesijama sa zbirnim prikazom aktivnosti'}
+          {t('activityLogsSubtitle')}
         </Typography>
       </Box>
 
@@ -196,9 +193,9 @@ export const ActivityLogsHeader: React.FC<ActivityLogsHeaderProps> = ({
           startIcon={<DeleteIcon />}
           sx={{ textTransform: 'none', borderRadius: 2 }}
         >
-          {language === 'en' ? 'Clear All' : 'Obriši sve'}
+          {t('btnClearAll')}
         </Button>
-        <Tooltip title={language === 'en' ? 'Refresh data' : 'Osveži podatke'}>
+        <Tooltip title={t('refreshData')}>
           <span>
             <IconButton
               onClick={onRefreshClick}

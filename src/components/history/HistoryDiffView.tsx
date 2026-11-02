@@ -1,8 +1,8 @@
 import React from 'react';
 import { Box, Typography, alpha } from '@mui/material';
 import { formatDiffValue } from '../activityLogs/utils';
-import { useLanguage } from '../../context/LanguageContext';
 import { stripHtmlToText } from '../../utils/stripHtmlToText';
+import { LanguageContext } from '../../context/LanguageContext';
 
 interface DiffPart {
   type: 'added' | 'removed' | 'unchanged';
@@ -72,14 +72,11 @@ export const NotesWordDiffView: React.FC<{
   oldHtml: string | null | undefined;
   newHtml: string | null | undefined;
   isDark?: boolean;
-}> = ({ oldHtml, newHtml, isDark = false }) => {
-  let emptyLabel = '(prazno / bez promena)';
-  try {
-    const lang = useLanguage();
-    if (lang?.t) {
-      emptyLabel = lang.t('diffEmptyOrUnchanged');
-    }
-  } catch {}
+  t?: (key: any) => string;
+}> = ({ oldHtml, newHtml, isDark = false, t: propT }) => {
+  const lang = React.useContext(LanguageContext);
+  const t = propT || lang?.t || ((key: string) => key);
+  const emptyLabel = t('diffEmptyOrUnchanged');
 
   const oldText = typeof oldHtml === 'string' ? stripHtmlToText(oldHtml) : '';
   const newText = typeof newHtml === 'string' ? stripHtmlToText(newHtml) : '';
@@ -162,24 +159,19 @@ export interface HistoryDiffViewProps {
   isDark?: boolean;
   language?: string;
   emptyMessage?: string;
+  t?: (key: any) => string;
 }
 
 export const HistoryDiffView: React.FC<HistoryDiffViewProps> = ({
   diff,
   isDark = false,
-  language = 'en',
   emptyMessage,
+  t: propT,
 }) => {
-  let defaultEmpty = language === 'en' ? 'No difference detected.' : 'Nema detektovanih razlika.';
-  let defaultNoFields = language === 'en' ? 'No fields modified between these versions.' : 'Nema izmenjenih polja između ovih verzija.';
-
-  try {
-    const lang = useLanguage();
-    if (lang?.t) {
-      defaultEmpty = lang.t('diffNoDifferenceDetected');
-      defaultNoFields = lang.t('diffNoFieldsModified');
-    }
-  } catch {}
+  const langCtx = React.useContext(LanguageContext);
+  const t = propT || langCtx?.t || ((key: string) => key);
+  const defaultEmpty = t('diffNoDifferenceDetected');
+  const defaultNoFields = t('diffNoFieldsModified');
 
   if (!diff || typeof diff !== 'object') {
     return (
@@ -250,7 +242,7 @@ export const HistoryDiffView: React.FC<HistoryDiffViewProps> = ({
               >
                 {key}:
               </Typography>
-              <NotesWordDiffView oldHtml={val.old} newHtml={val.new} isDark={isDark} />
+              <NotesWordDiffView oldHtml={val.old} newHtml={val.new} isDark={isDark} t={t} />
             </Box>
           );
         }
@@ -338,7 +330,7 @@ export const HistoryDiffView: React.FC<HistoryDiffViewProps> = ({
                     component="span"
                     sx={{ color: 'text.disabled', fontFamily: 'monospace', fontSize: '0.82rem' }}
                   >
-                    (empty)
+                    {t('diffEmptyOrUnchanged')}
                   </Typography>
                 )}
               </Box>

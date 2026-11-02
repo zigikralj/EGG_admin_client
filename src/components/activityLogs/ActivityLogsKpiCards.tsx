@@ -19,14 +19,13 @@ import { formatDuration } from './utils';
 
 export interface ActivityLogsKpiCardsProps {
   kpiStats: KpiStats;
-  language: string;
+  language?: string;
   t: (key: any) => string;
   isDark: boolean;
 }
 
 export const ActivityLogsKpiCards: React.FC<ActivityLogsKpiCardsProps> = ({
   kpiStats,
-  language,
   t,
   isDark
 }) => {
@@ -49,7 +48,7 @@ export const ActivityLogsKpiCards: React.FC<ActivityLogsKpiCardsProps> = ({
             {kpiStats.totalUsers}
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-            {kpiStats.activeToday} {language === 'en' ? 'active in the last 24h' : 'aktivno u poslednja 24h'}
+            {kpiStats.activeToday} {t('activeInLast24h')}
           </Typography>
         </CardContent>
       </Card>
@@ -69,7 +68,7 @@ export const ActivityLogsKpiCards: React.FC<ActivityLogsKpiCardsProps> = ({
             {kpiStats.totalSessions}
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-            {kpiStats.totalUsers > 0 ? `~${Math.round(kpiStats.totalSessions / kpiStats.totalUsers)} ${language === 'en' ? 'sessions / user' : 'sesija po korisniku'}` : '-'}
+            {kpiStats.totalUsers > 0 ? `~${Math.round(kpiStats.totalSessions / kpiStats.totalUsers)} ${t('sessionsPerUser')}` : '-'}
           </Typography>
         </CardContent>
       </Card>
@@ -90,7 +89,7 @@ export const ActivityLogsKpiCards: React.FC<ActivityLogsKpiCardsProps> = ({
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
             {kpiStats.totalSessions > 0
-              ? `${formatDuration(Math.round(kpiStats.totalTrackedSeconds / kpiStats.totalSessions))} ${language === 'en' ? 'avg per session' : 'prosečno po sesiji'}`
+              ? `${formatDuration(Math.round(kpiStats.totalTrackedSeconds / kpiStats.totalSessions))} ${t('avgPerSession')}`
               : '-'}
           </Typography>
         </CardContent>
@@ -111,7 +110,7 @@ export const ActivityLogsKpiCards: React.FC<ActivityLogsKpiCardsProps> = ({
             {kpiStats.topModule}
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-            {kpiStats.topModulePercent > 0 ? `${kpiStats.topModulePercent}% ${language === 'en' ? 'of overall usage' : 'ukupnog korišćenja'}` : '-'}
+            {kpiStats.topModulePercent > 0 ? `${kpiStats.topModulePercent}% ${t('ofOverallUsage')}` : '-'}
           </Typography>
         </CardContent>
       </Card>

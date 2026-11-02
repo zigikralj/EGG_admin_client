@@ -992,6 +992,53 @@ export interface TranslationKeys {
   historyRebuiltStateTitle: string;
   historyReconstructingState: string;
   historyRestoring: string;
+  // Activity Logs UI Keys
+  clearAllLogsTitle: string;
+  deleteSessionTitle: string;
+  clearAllLogsConfirm: string;
+  deleteSessionConfirm: string;
+  noFieldsModified: string;
+  labelModified: string;
+  activityLoggingPermanentlyActive: string;
+  btnClearAll: string;
+  activityLogsSubtitle: string;
+  btnDeactivate: string;
+  activeInLast24h: string;
+  sessionsPerUser: string;
+  avgPerSession: string;
+  ofOverallUsage: string;
+  refreshUserActivity: string;
+  btnLoadOlderActivities: string;
+  badgeChanges: string;
+  actionsAndDataChanges: string;
+  tooltipDeleteSession: string;
+  colPageActivity: string;
+  colTimeWindow: string;
+  noPageActivityInSession: string;
+  loadingChangeDetails: string;
+  tagLogin: string;
+  tagLogout: string;
+  tagOffline: string;
+  tagOnline: string;
+  loadingActivityHistory: string;
+  errorLoadingActivityLogs: string;
+  btnTryAgain: string;
+  tabDailyActivities: string;
+  tabMonthlyOverview: string;
+  loadingMonthlyStats: string;
+  colMonth: string;
+  colTotalTime: string;
+  colSessions: string;
+  colTopModules: string;
+  noMonthlyStatsYet: string;
+  countSession: string;
+  countSessions: string;
+  countEvent: string;
+  countEvents: string;
+  countVisit: string;
+  countVisits: string;
+  countAction: string;
+  countActions: string;
 }
 
 export const serviceTypeTranslations: Record<Language, Record<string, string>> = {

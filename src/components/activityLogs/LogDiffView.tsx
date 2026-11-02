@@ -1,14 +1,18 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { Box, Typography, alpha } from '@mui/material';
+import { LanguageContext } from '../../context/LanguageContext';
 import { formatDiffValue } from './utils';
 
 export interface LogDiffViewProps {
   detailsStr?: string | null;
   isDark: boolean;
-  language: string;
+  language?: string;
+  t?: (key: any) => string;
 }
 
-export const LogDiffView: React.FC<LogDiffViewProps> = ({ detailsStr, isDark, language }) => {
+export const LogDiffView: React.FC<LogDiffViewProps> = ({ detailsStr, isDark, t: propT }) => {
+  const langCtx = useContext(LanguageContext);
+  const t = propT || langCtx?.t || ((key: string) => key);
   if (!detailsStr) return null;
   let detailsObj: any = null;
   try {
@@ -40,7 +44,7 @@ export const LogDiffView: React.FC<LogDiffViewProps> = ({ detailsStr, isDark, la
   if (entries.length === 0) {
     return (
       <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic', display: 'block', mt: 0.5 }}>
-        {language === 'en' ? '(No fields modified)' : '(Nema izmenjenih polja)'}
+        {t('noFieldsModified')}
       </Typography>
     );
   }
@@ -110,7 +114,7 @@ export const LogDiffView: React.FC<LogDiffViewProps> = ({ detailsStr, isDark, la
                   component="span"
                   sx={{ fontStyle: 'italic', color: 'text.secondary', fontSize: '0.7rem' }}
                 >
-                  ({language === 'en' ? 'modified' : 'izmenjeno'})
+                  ({t('labelModified')})
                 </Typography>
               </Box>
             ) : isOldNew ? (

@@ -228,11 +228,11 @@ describe('ReminderModal (Unified View/Edit/Create)', () => {
     fireEvent.click(markDoneBtns[0]);
 
     await waitFor(() => {
-      expect(mockOnStatusChange).toHaveBeenCalledWith('rem-1', 'Completed');
+      expect(mockOnStatusChange).toHaveBeenCalledWith('rem-1', 'completed');
     });
   });
 
-  it('falls back to onSave with status Completed when onStatusChange is omitted', async () => {
+  it('falls back to onSave with status completed when onStatusChange is omitted', async () => {
     render(
       <ReminderModal
         open={true}
@@ -252,7 +252,7 @@ describe('ReminderModal (Unified View/Edit/Create)', () => {
       expect(mockOnSave).toHaveBeenCalledWith(
         expect.objectContaining({
           id: 'rem-1',
-          status: 'Completed',
+          status: 'completed',
         })
       );
     });

@@ -25,6 +25,7 @@ import {
 } from '../common/autocomplete';
 import { ViewEditModalBase, type ModalMode } from '../common/modal/ViewEditModalBase';
 import { isKeyMatch } from '../../utils/customFields';
+import { PROVIDED_SERVICE_STATUSES, isProvidedServiceCompleted } from '../../constants';
 import type {
   Client,
   Project,
@@ -400,6 +401,15 @@ interface FormData {
   customData: Record<string, any>;
 }
 
+const normalizeProvidedServiceStatus = (status?: string): string => {
+  if (!status) return PROVIDED_SERVICE_STATUSES.PLANNED;
+  const lower = status.toLowerCase().trim();
+  if (lower === PROVIDED_SERVICE_STATUSES.IN_PROGRESS || lower === 'in progress') return PROVIDED_SERVICE_STATUSES.IN_PROGRESS;
+  if (lower === PROVIDED_SERVICE_STATUSES.COMPLETED) return PROVIDED_SERVICE_STATUSES.COMPLETED;
+  if (lower === PROVIDED_SERVICE_STATUSES.CANCELLED || lower === 'canceled') return PROVIDED_SERVICE_STATUSES.CANCELLED;
+  return lower;
+};
+
 export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(({
   open,
   onClose,
@@ -522,7 +532,7 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
     projectId: '',
     projectName: '',
     invoiceId: '',
-    status: 'Planned',
+    status: PROVIDED_SERVICE_STATUSES.PLANNED,
     scheduledDate: new Date().toISOString().slice(0, 10),
     completionDate: '',
     location: '',
@@ -549,7 +559,7 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
         projectId: editingItem.projectId || '',
         projectName: editingItem.project?.name || '',
         invoiceId: editingItem.invoiceId || '',
-        status: editingItem.status || 'Planned',
+        status: normalizeProvidedServiceStatus(editingItem.status),
         scheduledDate: editingItem.scheduledDate ? editingItem.scheduledDate.slice(0, 10) : '',
         completionDate: editingItem.completionDate ? editingItem.completionDate.slice(0, 10) : '',
         location: editingItem.location || '',
@@ -567,7 +577,7 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
         projectId: '',
         projectName: '',
         invoiceId: '',
-        status: 'Planned',
+        status: PROVIDED_SERVICE_STATUSES.PLANNED,
         scheduledDate: new Date().toISOString().slice(0, 10),
         completionDate: '',
         location: '',
@@ -598,15 +608,10 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
   }, [services, formData.serviceId, editingItem, targetWasteService]);
 
   const activeCustomFields: CustomFieldDefinition[] = useMemo(() => {
-    if (selectedService?.customDataModel && Array.isArray(selectedService.customDataModel) && selectedService.customDataModel.length > 0) {
+    if (selectedService?.customDataModel && Array.isArray(selectedService.customDataModel)) {
       return selectedService.customDataModel;
     }
-    return [
-      { id: 'vrsta_otpada', name: 'Vrsta otpada', type: 'text' },
-      { id: 'kolicina', name: 'Količina (kg)', type: 'number', unit: 'kg' },
-      { id: 'indeksni_broj', name: 'Indeksni broj otpada', type: 'text' },
-      { id: 'kretanje_otpada_br', name: 'Dokument o kretanju otpada br.', type: 'text' },
-    ];
+    return [];
   }, [selectedService]);
 
   const { resolveListOptions } = useLinkedListOptions({
@@ -803,7 +808,7 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
         projectId: editingItem.projectId || '',
         projectName: editingItem.project?.name || '',
         invoiceId: editingItem.invoiceId || '',
-        status: editingItem.status || 'Planned',
+        status: normalizeProvidedServiceStatus(editingItem.status),
         scheduledDate: editingItem.scheduledDate ? editingItem.scheduledDate.slice(0, 10) : '',
         completionDate: editingItem.completionDate ? editingItem.completionDate.slice(0, 10) : '',
         location: editingItem.location || '',
@@ -822,10 +827,10 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
     return t('modalNewWasteDisposal');
   };
 
-  const isCompleted = (formData.status || '').toLowerCase() === 'completed' || (formData.status || '').toLowerCase() === 'završeno';
+  const isCompleted = isProvidedServiceCompleted(formData.status);
 
   const handleToggleComplete = async () => {
-    const nextStatus = isCompleted ? 'Planned' : 'Completed';
+    const nextStatus = isCompleted ? PROVIDED_SERVICE_STATUSES.PLANNED : PROVIDED_SERVICE_STATUSES.COMPLETED;
     const nextCompletionDate = !isCompleted ? (formData.completionDate || new Date().toISOString().slice(0, 10)) : '';
     setFormData((prev) => ({
       ...prev,
@@ -915,10 +920,10 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
                 label={t('colStatus')}
                 onChange={handleStatusChange}
               >
-                <MenuItem value="Planned">{t('statusPlanned')}</MenuItem>
-                <MenuItem value="In Progress">{t('statusInProgress')}</MenuItem>
-                <MenuItem value="Completed">{t('statusCompleted')}</MenuItem>
-                <MenuItem value="Cancelled">{t('statusCancelled')}</MenuItem>
+                <MenuItem value={PROVIDED_SERVICE_STATUSES.PLANNED}>{t('statusPlanned')}</MenuItem>
+                <MenuItem value={PROVIDED_SERVICE_STATUSES.IN_PROGRESS}>{t('statusInProgress')}</MenuItem>
+                <MenuItem value={PROVIDED_SERVICE_STATUSES.COMPLETED}>{t('statusCompleted')}</MenuItem>
+                <MenuItem value={PROVIDED_SERVICE_STATUSES.CANCELLED}>{t('statusCancelled')}</MenuItem>
               </Select>
             </FormControl>
           </Grid>

@@ -17,7 +17,7 @@ export function parseInvoiceNotes(rawNotes?: string | null): {
   parentInvoiceId: string | null;
 } {
   if (!rawNotes) {
-    return { cleanNotes: '', invoiceType: 'Standard', parentInvoiceId: null };
+    return { cleanNotes: '', invoiceType: 'standard', parentInvoiceId: null };
   }
   const match = rawNotes.match(META_REGEX);
   if (match) {
@@ -25,12 +25,12 @@ export function parseInvoiceNotes(rawNotes?: string | null): {
       const parsed = JSON.parse(match[1]);
       return {
         cleanNotes: rawNotes.replace(META_REGEX, '').trim(),
-        invoiceType: parsed.type || 'Standard',
+        invoiceType: (parsed.type?.toLowerCase() as InvoiceType) || 'standard',
         parentInvoiceId: parsed.parentId || null,
       };
     } catch { }
   }
-  return { cleanNotes: rawNotes, invoiceType: 'Standard', parentInvoiceId: null };
+  return { cleanNotes: rawNotes, invoiceType: 'standard', parentInvoiceId: null };
 }
 
 /**
@@ -56,7 +56,7 @@ export function enhanceInvoicesWithLinks(invoices: Invoice[]): Invoice[] {
     const { cleanNotes, invoiceType: parsedType, parentInvoiceId: parsedParentId } = parseInvoiceNotes(inv.notes);
     
     // Explicit fields take precedence, fallback to parsed metadata from notes
-    const effectiveType = inv.invoiceType || parsedType || 'Standard';
+    const effectiveType = (inv.invoiceType?.toLowerCase() as InvoiceType) || parsedType || 'standard';
     const effectiveParentId = inv.parentInvoiceId !== undefined ? inv.parentInvoiceId : parsedParentId;
 
     const clone = {

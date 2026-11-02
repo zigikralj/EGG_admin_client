@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { User, UserRole, Project } from '../types';
 import { apiFetch } from '../api';
-import { API_ROUTES } from '../constants';
+import { API_ROUTES, STORAGE_KEYS, APP_EVENTS } from '../constants';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -41,19 +41,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [serverPendingUsersCount, setServerPendingUsersCount] = useState<number>(0);
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     try {
-      const expiresAt = localStorage.getItem('auth_session_expires_at');
+      const expiresAt = localStorage.getItem(STORAGE_KEYS.AUTH_SESSION_EXPIRES_AT);
       if (expiresAt && Date.now() >= Number(expiresAt)) {
-        localStorage.removeItem('auth_user');
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('auth_session_expires_at');
+        localStorage.removeItem(STORAGE_KEYS.AUTH_USER);
+        localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+        localStorage.removeItem(STORAGE_KEYS.AUTH_SESSION_EXPIRES_AT);
         return null;
       }
-      const stored = localStorage.getItem('auth_user');
+      const stored = localStorage.getItem(STORAGE_KEYS.AUTH_USER);
       if (stored) {
         const parsed = JSON.parse(stored);
         if (parsed && parsed.id) {
           if (!expiresAt) {
-            localStorage.setItem('auth_session_expires_at', (Date.now() + 9 * 3600 * 1000).toString());
+            localStorage.setItem(STORAGE_KEYS.AUTH_SESSION_EXPIRES_AT, (Date.now() + 9 * 3600 * 1000).toString());
           }
           return parsed;
         }
@@ -87,15 +87,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (e) {}
     inFlightAuthPromiseRef.current = null;
     lastAuthRefreshAtRef.current = 0;
-    localStorage.removeItem('auth_user');
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('auth_session_expires_at');
-    localStorage.removeItem('activity_session_id');
-    localStorage.removeItem('activity_session_last_active');
-    localStorage.removeItem('activity_login_logged');
-    sessionStorage.removeItem('activity_session_id');
-    sessionStorage.removeItem('activity_session_last_active');
-    sessionStorage.removeItem('activity_login_logged');
+    localStorage.removeItem(STORAGE_KEYS.AUTH_USER);
+    localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.AUTH_SESSION_EXPIRES_AT);
+    localStorage.removeItem(STORAGE_KEYS.ACTIVITY_SESSION_ID);
+    localStorage.removeItem(STORAGE_KEYS.ACTIVITY_SESSION_LAST_ACTIVE);
+    localStorage.removeItem(STORAGE_KEYS.ACTIVITY_LOGIN_LOGGED);
+    sessionStorage.removeItem(STORAGE_KEYS.ACTIVITY_SESSION_ID);
+    sessionStorage.removeItem(STORAGE_KEYS.ACTIVITY_SESSION_LAST_ACTIVE);
+    sessionStorage.removeItem(STORAGE_KEYS.ACTIVITY_LOGIN_LOGGED);
     setServerPendingUsersCount(0);
     setCurrentUser(null);
   }, [queryClient]);
@@ -152,7 +152,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 isSystemAdmin: nextIsSystemAdmin,
                 activityLoggingEnabled: nextActivityLoggingEnabled,
               };
-              localStorage.setItem('auth_user', JSON.stringify(merged));
+              localStorage.setItem(STORAGE_KEYS.AUTH_USER, JSON.stringify(merged));
               return merged;
             });
           }
@@ -183,16 +183,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setCurrentUser((prev) => {
           if (!prev || prev.activityLoggingEnabled === enabled) return prev;
           const merged = { ...prev, activityLoggingEnabled: enabled };
-          localStorage.setItem('auth_user', JSON.stringify(merged));
+          localStorage.setItem(STORAGE_KEYS.AUTH_USER, JSON.stringify(merged));
           return merged;
         });
       }
     };
-    window.addEventListener('roles:changed', handleRolesChanged);
-    window.addEventListener('activity-logging:changed', handleActivityLoggingChanged);
+    window.addEventListener(APP_EVENTS.ROLES_CHANGED, handleRolesChanged);
+    window.addEventListener(APP_EVENTS.ACTIVITY_LOGGING_CHANGED, handleActivityLoggingChanged);
     return () => {
-      window.removeEventListener('roles:changed', handleRolesChanged);
-      window.removeEventListener('activity-logging:changed', handleActivityLoggingChanged);
+      window.removeEventListener(APP_EVENTS.ROLES_CHANGED, handleRolesChanged);
+      window.removeEventListener(APP_EVENTS.ACTIVITY_LOGGING_CHANGED, handleActivityLoggingChanged);
     };
   }, [performAuthRefresh]);
 
@@ -227,7 +227,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             roleEntity: updated.roleEntity ?? prev.roleEntity,
             isSystemAdmin: updated.isSystemAdmin ?? prev.isSystemAdmin,
           };
-          localStorage.setItem('auth_user', JSON.stringify(merged));
+          localStorage.setItem(STORAGE_KEYS.AUTH_USER, JSON.stringify(merged));
           return merged;
         });
       }
@@ -285,7 +285,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const checkSession = () => {
-      const expiresAt = localStorage.getItem('auth_session_expires_at');
+      const expiresAt = localStorage.getItem(STORAGE_KEYS.AUTH_SESSION_EXPIRES_AT);
       if (expiresAt && Date.now() >= Number(expiresAt)) {
         logout();
       }
@@ -301,13 +301,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    window.addEventListener('auth:expired', onAuthExpired);
+    window.addEventListener(APP_EVENTS.AUTH_EXPIRED, onAuthExpired);
     window.addEventListener('focus', checkSession);
     document.addEventListener('visibilitychange', handleVisibility);
     const interval = setInterval(checkSession, 15000); // Check every 15 seconds
 
     return () => {
-      window.removeEventListener('auth:expired', onAuthExpired);
+      window.removeEventListener(APP_EVENTS.AUTH_EXPIRED, onAuthExpired);
       window.removeEventListener('focus', checkSession);
       document.removeEventListener('visibilitychange', handleVisibility);
       clearInterval(interval);
@@ -337,12 +337,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch (e) {}
         lastAuthRefreshAtRef.current = Date.now();
         setCurrentUser(data.user);
-        localStorage.setItem('auth_user', JSON.stringify(data.user));
+        localStorage.setItem(STORAGE_KEYS.AUTH_USER, JSON.stringify(data.user));
         if (data.token) {
-          localStorage.setItem('auth_token', data.token);
+          localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, data.token);
         }
         const expiresInMs = (data.expiresIn || 9 * 3600) * 1000;
-        localStorage.setItem('auth_session_expires_at', (Date.now() + expiresInMs).toString());
+        localStorage.setItem(STORAGE_KEYS.AUTH_SESSION_EXPIRES_AT, (Date.now() + expiresInMs).toString());
         return { success: true };
       }
       return { success: false, message: 'Invalid response from server.' };
@@ -381,9 +381,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const handleSetCurrentUser = React.useCallback((user: User | null) => {
     if (user) {
-      localStorage.setItem('auth_user', JSON.stringify(user));
+      localStorage.setItem(STORAGE_KEYS.AUTH_USER, JSON.stringify(user));
     } else {
-      localStorage.removeItem('auth_user');
+      localStorage.removeItem(STORAGE_KEYS.AUTH_USER);
     }
     setCurrentUser(user);
   }, []);

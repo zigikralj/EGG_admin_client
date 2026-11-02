@@ -26,6 +26,7 @@ import {
 
 
 import type { Reminder, TableViewProps } from '../../types';
+import { REMINDER_STATUSES, isReminderCompleted } from '../../constants';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { TableOptionsSelector, type ColumnDef } from '../../components/common/ColumnSelector';
@@ -244,8 +245,8 @@ const RemindersPage: React.FC<Props> = ({
       }
     } else if (filterKey === 'pending') {
       if (checked) {
-        setFilterStatus('Pending');
-      } else if (!checked && filterStatus === 'Pending') {
+        setFilterStatus(REMINDER_STATUSES.PENDING);
+      } else if (!checked && filterStatus === REMINDER_STATUSES.PENDING) {
         setFilterStatus('all');
       }
     }
@@ -284,7 +285,7 @@ const RemindersPage: React.FC<Props> = ({
 
   const handleFilterStatusChange = (val: string) => {
     setFilterStatus(val);
-    if (val === 'Pending') {
+    if (val === REMINDER_STATUSES.PENDING) {
       if (!quickFilters.includes('pending')) {
         const updated = [...quickFilters, 'pending'];
         setQuickFilters(updated);
@@ -404,28 +405,19 @@ const RemindersPage: React.FC<Props> = ({
     setPage(0);
   };
 
-  const getStatusChip = (st: string) => {
-    switch (st.toLowerCase()) {
-      case 'completed':
-      case 'završeno':
-      case 'завршено':
-        return <Chip label={t('statusCompleted')} color="success" size="small" sx={{ fontWeight: 600 }} />;
-      case 'in progress':
-      case 'u toku':
-      case 'у току':
-        return <Chip label={t('statusInProgress')} color="info" size="small" sx={{ fontWeight: 600 }} />;
-      case 'overdue':
-      case 'prekoračeno':
-      case 'прекорачено':
-      case 'kasni':
-      case 'касни':
-        return <Chip label={t('statusOverdue')} color="error" size="small" sx={{ fontWeight: 600 }} />;
-      case 'pending':
-      case 'na čekanju':
-      case 'на чекању':
-      default:
-        return <Chip label={t('statusPending')} color="warning" size="small" sx={{ fontWeight: 600 }} />;
+  const getStatusChip = (st?: string) => {
+    if (!st) return null;
+    const lower = st.toLowerCase();
+    if (lower === REMINDER_STATUSES.COMPLETED) {
+      return <Chip label={t('statusCompleted')} color="success" size="small" sx={{ fontWeight: 600 }} />;
     }
+    if (lower === REMINDER_STATUSES.IN_PROGRESS || lower === 'in progress') {
+      return <Chip label={t('statusInProgress')} color="info" size="small" sx={{ fontWeight: 600 }} />;
+    }
+    if (lower === REMINDER_STATUSES.OVERDUE) {
+      return <Chip label={t('statusOverdue')} color="error" size="small" sx={{ fontWeight: 600 }} />;
+    }
+    return <Chip label={t('statusPending')} color="warning" size="small" sx={{ fontWeight: 600 }} />;
   };
 
   const sortOptions = useMemo(() => [
@@ -439,10 +431,11 @@ const RemindersPage: React.FC<Props> = ({
   ], [t]);
 
   const statusOptions = useMemo(() => [
-    { value: 'Pending', label: t('statusPending') },
-    { value: 'In Progress', label: t('statusInProgress') },
-    { value: 'Completed', label: t('statusCompleted') },
-    { value: 'Overdue', label: t('statusOverdue') },
+    { value: 'all', label: t('filterAllStatus') },
+    { value: REMINDER_STATUSES.PENDING, label: t('statusPending') },
+    { value: REMINDER_STATUSES.IN_PROGRESS, label: t('statusInProgress') },
+    { value: REMINDER_STATUSES.COMPLETED, label: t('statusCompleted') },
+    { value: REMINDER_STATUSES.OVERDUE, label: t('statusOverdue') },
   ], [t]);
 
   return (
@@ -744,14 +737,14 @@ const RemindersPage: React.FC<Props> = ({
                     {hasAnyRowAction && (
                       <TableCell align="right">
                         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
-                          {itemCanEdit && rem.status !== 'Completed' && (
+                          {itemCanEdit && !isReminderCompleted(rem.status) && (
                             <Tooltip title={t('statusCompleted')}>
                               <IconButton
                                 size="small"
                                 color="success"
                                 onClick={async (e) => {
                                   e.stopPropagation();
-                                  await handleStatusChange(rem.id, 'Completed');
+                                  await handleStatusChange(rem.id, REMINDER_STATUSES.COMPLETED);
                                 }}
                               >
                                 <CheckIcon fontSize="small" />

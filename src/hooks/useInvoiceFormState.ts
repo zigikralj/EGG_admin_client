@@ -11,12 +11,12 @@ export function useInvoiceFormState() {
 
   // New Invoice State
   const [newInvoiceNumber, setNewInvoiceNumber] = useState('');
-  const [newInvoiceType, setNewInvoiceType] = useState<InvoiceType>('Standard');
+  const [newInvoiceType, setNewInvoiceType] = useState<InvoiceType>('standard');
   const [newParentInvoiceId, setNewParentInvoiceId] = useState('');
   const [newInvoiceDateCreated, setNewInvoiceDateCreated] = useState(todayStr);
   const [newInvoiceDueDate, setNewInvoiceDueDate] = useState('');
   const [newInvoiceCurrency, setNewInvoiceCurrency] = useState<InvoiceCurrency>('RSD');
-  const [newInvoiceStatus, setNewInvoiceStatus] = useState<InvoiceStatus>('Draft');
+  const [newInvoiceStatus, setNewInvoiceStatus] = useState<InvoiceStatus>('draft');
   const [newInvoiceNotes, setNewInvoiceNotes] = useState('');
   const [newInvoiceItems, setNewInvoiceItems] = useState<{ description: string; quantity: number; unitPrice: number; currency: InvoiceCurrency }[]>([
     { description: '', quantity: 1, unitPrice: 0, currency: 'RSD' },
@@ -26,24 +26,24 @@ export function useInvoiceFormState() {
   // Edit Linked Invoice State
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [editInvoiceNumber, setEditInvoiceNumber] = useState('');
-  const [editInvoiceType, setEditInvoiceType] = useState<InvoiceType>('Standard');
+  const [editInvoiceType, setEditInvoiceType] = useState<InvoiceType>('standard');
   const [editParentInvoiceId, setEditParentInvoiceId] = useState('');
   const [editInvoiceDateCreated, setEditInvoiceDateCreated] = useState('');
   const [editInvoiceDueDate, setEditInvoiceDueDate] = useState('');
   const [editInvoicePaymentDate, setEditInvoicePaymentDate] = useState('');
-  const [editInvoiceStatus, setEditInvoiceStatus] = useState<InvoiceStatus>('Draft');
+  const [editInvoiceStatus, setEditInvoiceStatus] = useState<InvoiceStatus>('draft');
   const [editInvoiceCurrency, setEditInvoiceCurrency] = useState<InvoiceCurrency>('RSD');
   const [editInvoiceNotes, setEditInvoiceNotes] = useState('');
   const [editInvoiceItems, setEditInvoiceItems] = useState<{ description: string; quantity: number; unitPrice: number; currency: InvoiceCurrency }[]>([]);
 
   const resetNewInvoiceForm = () => {
     setNewInvoiceNumber('');
-    setNewInvoiceType('Standard');
+    setNewInvoiceType('standard');
     setNewParentInvoiceId('');
     setNewInvoiceDateCreated(todayStr);
     setNewInvoiceDueDate('');
     setNewInvoiceCurrency('RSD');
-    setNewInvoiceStatus('Draft');
+    setNewInvoiceStatus('draft');
     setNewInvoiceNotes('');
     setNewInvoiceItems([{ description: '', quantity: 1, unitPrice: 0, currency: 'RSD' }]);
     setSelectedExistingInvoiceId('');
@@ -53,11 +53,11 @@ export function useInvoiceFormState() {
     const { cleanNotes, invoiceType: pType, parentInvoiceId: pParentId } = parseInvoiceNotes(inv.notes);
     setEditingInvoice(inv);
     setEditInvoiceNumber(inv.invoiceNumber || '');
-    setEditInvoiceType((inv.invoiceType as InvoiceType) || (pType as InvoiceType) || 'Standard');
+    setEditInvoiceType(((inv.invoiceType?.toLowerCase() as InvoiceType) || (pType as InvoiceType) || 'standard'));
     setEditParentInvoiceId(inv.parentInvoiceId || pParentId || '');
     setEditInvoiceDateCreated(inv.dateCreated || '');
     setEditInvoiceDueDate(inv.dueDate || '');
-    setEditInvoiceStatus((inv.status as InvoiceStatus) || 'Draft');
+    setEditInvoiceStatus(((inv.status?.toLowerCase() as InvoiceStatus) || 'draft'));
     setEditInvoiceCurrency((inv.currency as InvoiceCurrency) || 'RSD');
     setEditInvoiceNotes(cleanNotes || '');
     setEditInvoiceItems(inv.items && inv.items.length > 0 ? [...inv.items] : []);
@@ -66,11 +66,11 @@ export function useInvoiceFormState() {
   const resetEditInvoiceForm = () => {
     setEditingInvoice(null);
     setEditInvoiceNumber('');
-    setEditInvoiceType('Standard');
+    setEditInvoiceType('standard');
     setEditParentInvoiceId('');
     setEditInvoiceDateCreated('');
     setEditInvoiceDueDate('');
-    setEditInvoiceStatus('Draft');
+    setEditInvoiceStatus('draft');
     setEditInvoiceCurrency('RSD');
     setEditInvoiceNotes('');
     setEditInvoiceItems([]);

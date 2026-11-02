@@ -10,6 +10,7 @@ import {
   Autocomplete,
 } from '@mui/material';
 import type { Project, Reminder, Client, User, SaveResult } from '../../types';
+import { REMINDER_STATUSES, isReminderCompleted } from '../../constants';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { TableFilterSelector } from '../common/TableFilterSelector';
@@ -76,17 +77,13 @@ function fmtDate(d: string | null): string {
   return d;
 }
 
-const isCompletedStatus = (status?: string): boolean => {
-  if (!status) return false;
-  const s = status.toLowerCase();
-  return s === 'completed' || s === 'završeno' || s === 'завршено';
-};
+const isCompletedStatus = (status?: string): boolean => isReminderCompleted(status);
 
 const isOverdueItem = (item: ReminderItem): boolean => {
   if (isCompletedStatus(item.status)) return false;
   if (!item.status) return false;
   const s = item.status.toLowerCase();
-  if (s === 'overdue' || s === 'prekoračeno' || s === 'прекорачено' || s === 'kasni' || s === 'касни') return true;
+  if (s === REMINDER_STATUSES.OVERDUE || s === 'overdue' || s === 'prekoračeno' || s === 'прекорачено' || s === 'kasni' || s === 'касни') return true;
   if (!item.dueDate) return false;
   const due = new Date(item.dueDate.split('T')[0]);
   const today = new Date(new Date().toDateString());
@@ -287,8 +284,10 @@ export const ReminderPanel: React.FC<Props> = ({
 
   const statusOptions = useMemo(() => [
     { value: 'all', label: t('filterAll') },
-    { value: 'Pending', label: t('statusPending') },
-    { value: 'Completed', label: t('statusCompleted') },
+    { value: REMINDER_STATUSES.PENDING, label: t('statusPending') },
+    { value: REMINDER_STATUSES.IN_PROGRESS, label: t('statusInProgress') },
+    { value: REMINDER_STATUSES.COMPLETED, label: t('statusCompleted') },
+    { value: REMINDER_STATUSES.OVERDUE, label: t('statusOverdue') },
   ], [t]);
 
 
@@ -327,11 +326,14 @@ export const ReminderPanel: React.FC<Props> = ({
 
         // Popover dropdown filters
         if (filterStatus !== 'all') {
-          if (filterStatus === 'Overdue' && !isLate) return false;
-          if (filterStatus === 'Pending' && item.status?.toLowerCase() !== 'pending' && item.status !== 'Na čekanju' && item.status !== 'На чекању') {
+          if (filterStatus === REMINDER_STATUSES.OVERDUE && !isLate) return false;
+          if (filterStatus === REMINDER_STATUSES.PENDING && (item.status?.toLowerCase() !== REMINDER_STATUSES.PENDING && item.status !== 'Pending' && item.status !== 'Na čekanju' && item.status !== 'На чекању')) {
             return false;
           }
-          if (filterStatus === 'In Progress' && item.status?.toLowerCase() !== 'in progress' && item.status !== 'U toku' && item.status !== 'У току') {
+          if (filterStatus === REMINDER_STATUSES.IN_PROGRESS && (item.status?.toLowerCase() !== REMINDER_STATUSES.IN_PROGRESS && item.status?.toLowerCase() !== 'in progress' && item.status !== 'U toku' && item.status !== 'У току')) {
+            return false;
+          }
+          if (filterStatus === REMINDER_STATUSES.COMPLETED && !isCompletedStatus(item.status)) {
             return false;
           }
         }
@@ -527,27 +529,17 @@ export const ReminderPanel: React.FC<Props> = ({
 
   const getStatusChip = (st?: string) => {
     if (!st) return null;
-    switch (st.toLowerCase()) {
-      case 'completed':
-      case 'završeno':
-      case 'завршено':
-        return <Chip label={t('statusCompleted')} color="success" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 600 }} />;
-      case 'in progress':
-      case 'u toku':
-      case 'у току':
-        return <Chip label={t('statusInProgress')} color="info" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 600 }} />;
-      case 'overdue':
-      case 'prekoračeno':
-      case 'прекорачено':
-      case 'kasni':
-      case 'касни':
-        return <Chip label={t('statusOverdue')} color="error" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 600 }} />;
-      case 'pending':
-      case 'na čekanju':
-      case 'на чекању':
-      default:
-        return <Chip label={t('statusPending')} color="warning" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 600 }} />;
+    const lower = st.toLowerCase();
+    if (lower === REMINDER_STATUSES.COMPLETED) {
+      return <Chip label={t('statusCompleted')} color="success" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 600 }} />;
     }
+    if (lower === REMINDER_STATUSES.IN_PROGRESS || lower === 'in progress') {
+      return <Chip label={t('statusInProgress')} color="info" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 600 }} />;
+    }
+    if (lower === REMINDER_STATUSES.OVERDUE) {
+      return <Chip label={t('statusOverdue')} color="error" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 600 }} />;
+    }
+    return <Chip label={t('statusPending')} color="warning" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 600 }} />;
   };
 
   const paginatedItems = isServerPaginated
@@ -811,9 +803,9 @@ export const ReminderPanel: React.FC<Props> = ({
                         onClick={(e) => {
                           e.stopPropagation();
                           if (onStatusChangeReminder) {
-                            onStatusChangeReminder(item.id, isCompleted ? 'Pending' : 'Completed');
+                            onStatusChangeReminder(item.id, isCompleted ? REMINDER_STATUSES.PENDING : REMINDER_STATUSES.COMPLETED);
                           } else if (onSaveReminder) {
-                            onSaveReminder({ id: item.id, status: isCompleted ? 'Pending' : 'Completed' });
+                            onSaveReminder({ id: item.id, status: isCompleted ? REMINDER_STATUSES.PENDING : REMINDER_STATUSES.COMPLETED });
                           }
                         }}
                       >

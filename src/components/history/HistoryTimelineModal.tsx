@@ -31,6 +31,7 @@ import {
 import { BaseModal } from '../common/modal/BaseModal';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import { INTL_LOCALE_MAP } from '../../constants';
 import {
   useEntityTimelineQuery,
   useVersionDiffQuery,
@@ -186,7 +187,7 @@ const VersionItem: React.FC<VersionItemProps> = ({
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
             <AccessTimeIcon sx={{ fontSize: '1rem' }} />
             <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              {new Date(version.createdAt).toLocaleString(language === 'en' ? 'en-US' : 'sr-RS', { hour12: false })}
+              {new Date(version.createdAt).toLocaleString(INTL_LOCALE_MAP[language], { hour12: false })}
             </Typography>
           </Box>
         </Box>
@@ -272,7 +273,7 @@ const VersionItem: React.FC<VersionItemProps> = ({
                 </Typography>
               </Box>
             ) : (
-              <HistoryDiffView diff={diffData?.diff} isDark={isDark} language={language} />
+              <HistoryDiffView diff={diffData?.diff} isDark={isDark} language={language} t={t} />
             )
           ) : (
             <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', py: 0.5 }}>
@@ -586,7 +587,7 @@ export const HistoryTimelineModal: React.FC<HistoryTimelineModalProps> = ({
                       variant="outlined"
                     />
                   </Box>
-                  <HistoryDiffView diff={dateDiffData.diff} isDark={isDark} language={language} />
+                  <HistoryDiffView diff={dateDiffData.diff} isDark={isDark} language={language} t={t} />
                 </Box>
               ) : null}
             </Box>

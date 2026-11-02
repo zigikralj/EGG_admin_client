@@ -21,7 +21,7 @@ import {
   CloudOffIcon,
 } from '../icons';
 import type { ActivityLog } from '../../types';
-import { API_BASE_PREFIX, API_ROUTES, PAGE_ROUTES } from '../../constants';
+import { API_BASE_PREFIX, API_ROUTES, PAGE_ROUTES, INTL_LOCALE_MAP, SUPPORTED_LANGUAGES } from '../../constants';
 
 export const LIFECYCLE_TYPES = new Set(['LOGIN', 'LOGOUT', 'ONLINE', 'OFFLINE']);
 
@@ -127,8 +127,8 @@ export const formatDuration = (seconds?: number) => {
   return `${h}h ${remainingM > 0 ? `${remainingM}m` : ''}`.trim();
 };
 
-export const formatDateTime = (date: Date, language: string = 'en') => {
-  return date.toLocaleString(language === 'en' ? 'en-US' : 'sr-RS', {
+export const formatDateTime = (date: Date, language: string = SUPPORTED_LANGUAGES.SR_LATN) => {
+  return date.toLocaleString(INTL_LOCALE_MAP[language], {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
@@ -137,15 +137,15 @@ export const formatDateTime = (date: Date, language: string = 'en') => {
   });
 };
 
-export const formatDateOnly = (date: Date, language: string = 'en') => {
-  return date.toLocaleDateString(language === 'en' ? 'en-US' : 'sr-RS', {
+export const formatDateOnly = (date: Date, language: string = SUPPORTED_LANGUAGES.SR_LATN) => {
+  return date.toLocaleDateString(INTL_LOCALE_MAP[language], {
     month: 'short',
     day: 'numeric'
   });
 };
 
-export const formatTimeOnly = (date: Date, language: string = 'en') => {
-  return date.toLocaleTimeString(language === 'en' ? 'en-US' : 'sr-RS', {
+export const formatTimeOnly = (date: Date, language: string = SUPPORTED_LANGUAGES.SR_LATN) => {
+  return date.toLocaleTimeString(INTL_LOCALE_MAP[language], {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit'
@@ -189,29 +189,29 @@ export const getPathLabelAndIcon = (
   path?: string,
   type?: string,
   t: (key: any) => string = (k) => k,
-  language: string = 'en'
+  _language?: string
 ): { label: string; icon: React.ReactElement } => {
   if (!path && type === 'LOGIN') {
     return {
-      label: language === 'en' ? 'Login' : language === 'sr-Cyrl' ? 'Пријава' : 'Prijava',
+      label: t('tagLogin'),
       icon: <LoginIcon fontSize="small" sx={{ color: '#16a34a' }} />,
     };
   }
   if (!path && type === 'LOGOUT') {
     return {
-      label: language === 'en' ? 'Logout' : language === 'sr-Cyrl' ? 'Одјава' : 'Odjava',
+      label: t('tagLogout'),
       icon: <LogoutIcon fontSize="small" sx={{ color: '#dc2626' }} />,
     };
   }
   if (!path && type === 'OFFLINE') {
     return {
-      label: language === 'en' ? 'Offline' : language === 'sr-Cyrl' ? 'Неактиван' : 'Neaktivan',
+      label: t('tagOffline'),
       icon: <CloudOffIcon fontSize="small" sx={{ color: '#94a3b8' }} />,
     };
   }
   if (!path && type === 'ONLINE') {
     return {
-      label: language === 'en' ? 'Online' : language === 'sr-Cyrl' ? 'Активан' : 'Aktivan',
+      label: t('tagOnline'),
       icon: <CheckCircleIcon fontSize="small" sx={{ color: '#16a34a' }} />,
     };
   }
@@ -270,7 +270,7 @@ export const getPathLabelAndIcon = (
   }
   if (path.includes(PAGE_ROUTES.LOGIN) || path.includes(API_ROUTES.AUTH.LOGIN) || path.includes('/login')) {
     return {
-      label: language === 'en' ? 'Login' : language === 'sr-Cyrl' ? 'Пријава' : 'Prijava',
+      label: t('tagLogin'),
       icon: <LoginIcon fontSize="small" />,
     };
   }

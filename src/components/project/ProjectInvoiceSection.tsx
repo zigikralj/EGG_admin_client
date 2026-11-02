@@ -22,7 +22,7 @@ import {
 
 
 
-import type { Invoice, Project } from '../../types';
+import type { Invoice, Project, InvoiceType, InvoiceStatus } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { parseInvoiceNotes, serializeInvoiceNotes } from '../../utils/invoiceUtils';
@@ -209,11 +209,11 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
     const { cleanNotes, invoiceType: pType, parentInvoiceId: pParentId } = parseInvoiceNotes(inv.notes);
     setEditingProjectInvoice(inv);
     setEditInvoiceNumber(inv.invoiceNumber || '');
-    setEditInvoiceType(inv.invoiceType || pType || 'Standard');
+    setEditInvoiceType(((inv.invoiceType?.toLowerCase() as InvoiceType) || pType || 'standard'));
     setEditParentInvoiceId(inv.parentInvoiceId || pParentId || '');
     setEditInvoiceDateCreated(inv.dateCreated || '');
     setEditInvoiceDueDate(inv.dueDate || '');
-    setEditInvoiceStatus(inv.status || 'Draft');
+    setEditInvoiceStatus(((inv.status?.toLowerCase() as InvoiceStatus) || 'draft'));
     setEditInvoiceCurrency(inv.currency || 'RSD');
     setEditInvoiceNotes(cleanNotes || '');
     setEditInvoiceItems(inv.items && inv.items.length > 0 ? [...inv.items] : []);
@@ -352,7 +352,7 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
                     return isSameProj ? (projectName || projectToEdit?.name || t("tabProjects")) : t("other");
                   }}
                   parentInvoiceGetOptionLabel={(inv) =>
-                    `${inv.invoiceNumber}${inv.invoiceType && inv.invoiceType !== 'Standard' ? ` [${inv.invoiceType}]` : ''} (${inv.status})`
+                    `${inv.invoiceNumber}${inv.invoiceType && inv.invoiceType.toLowerCase() !== 'standard' ? ` [${inv.invoiceType}]` : ''} (${inv.status})`
                   }
                   parentInvoiceId={newParentInvoiceId}
                   onParentInvoiceIdChange={setNewParentInvoiceId}
@@ -437,7 +437,7 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
         ) : (
           <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75 }}>
             {projectInvoices.map((inv: Invoice) => {
-              const isPaid = inv.status === "Paid";
+              const isPaid = inv.status?.toLowerCase() === "paid";
               return (
                 <Box
                   key={inv.id}
@@ -603,7 +603,7 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
                   return isSameProj ? (projectName || projectToEdit?.name || t("tabProjects")) : t("other");
                 }}
                 parentInvoiceGetOptionLabel={(inv) =>
-                  `${inv.invoiceNumber}${inv.invoiceType && inv.invoiceType !== 'Standard' ? ` [${inv.invoiceType}]` : ''} (${inv.status})`
+                  `${inv.invoiceNumber}${inv.invoiceType && inv.invoiceType.toLowerCase() !== 'standard' ? ` [${inv.invoiceType}]` : ''} (${inv.status})`
                 }
                 parentInvoiceId={editParentInvoiceId}
                 onParentInvoiceIdChange={setEditParentInvoiceId}

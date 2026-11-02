@@ -13,6 +13,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 import type { Reminder, Project, Client, Permit, User } from '../../types';
+import { REMINDER_STATUSES, isReminderCompleted } from '../../constants';
 import { useLanguage } from '../../context/LanguageContext';
 import { CheckIcon } from '../icons';
 import {
@@ -58,6 +59,16 @@ const fmtDate = (d: string | null | undefined): string => {
     return `${day}.${m}.${y}.`;
   }
   return d;
+};
+
+const normalizeReminderStatus = (st?: string | null): string => {
+  if (!st) return REMINDER_STATUSES.PENDING;
+  const s = st.toLowerCase().trim();
+  if (s === REMINDER_STATUSES.COMPLETED) return REMINDER_STATUSES.COMPLETED;
+  if (s === REMINDER_STATUSES.IN_PROGRESS || s === 'in progress') return REMINDER_STATUSES.IN_PROGRESS;
+  if (s === REMINDER_STATUSES.OVERDUE) return REMINDER_STATUSES.OVERDUE;
+  if (s === REMINDER_STATUSES.DRAFT) return REMINDER_STATUSES.DRAFT;
+  return REMINDER_STATUSES.PENDING;
 };
 
 export const ReminderModal: React.FC<ReminderModalProps> = ({
@@ -113,7 +124,7 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
   const [permitNumber, setPermitNumber] = useState('');
   const [selectedResponsibleId, setSelectedResponsibleId] = useState('');
   const [responsible, setResponsible] = useState('');
-  const [status, setStatus] = useState('Pending');
+  const [status, setStatus] = useState<string>(REMINDER_STATUSES.PENDING);
   const [dueDate, setDueDate] = useState('');
   const [notes, setNotes] = useState('');
 
@@ -141,7 +152,7 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
       setPermitNumber(editingReminder.permitNumber || '');
       setSelectedResponsibleId(editingReminder.responsibleId || '');
       setResponsible(editingReminder.responsible || '');
-      setStatus(editingReminder.status || 'Pending');
+      setStatus(normalizeReminderStatus(editingReminder.status));
       setDueDate(editingReminder.dueDate ? editingReminder.dueDate.split('T')[0] : '');
       setNotes(editingReminder.notes || '');
     } else {
@@ -159,7 +170,7 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
         setSelectedResponsibleId('');
         setResponsible('');
       }
-      setStatus('Pending');
+      setStatus(REMINDER_STATUSES.PENDING);
       setDueDate('');
       setNotes('');
     }
@@ -176,7 +187,7 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
       setPermitNumber(editingReminder.permitNumber || '');
       setSelectedResponsibleId(editingReminder.responsibleId || '');
       setResponsible(editingReminder.responsible || '');
-      setStatus(editingReminder.status || 'Pending');
+      setStatus(normalizeReminderStatus(editingReminder.status));
       setDueDate(editingReminder.dueDate ? editingReminder.dueDate.split('T')[0] : '');
       setNotes(editingReminder.notes || '');
     }
@@ -223,18 +234,18 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
   const isResponsibleDisabled = isRestricted || (!editingReminder ? !canCreate : !canEdit);
 
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
-  const isCompleted = status.toLowerCase() === 'completed' || status.toLowerCase() === 'završeno';
+  const isCompleted = isReminderCompleted(status);
 
   const getStatusChip = (st?: string) => {
     if (!st) return null;
     const lower = st.toLowerCase();
-    if (lower === 'completed' || lower === 'završeno' || lower === 'завршено') {
+    if (lower === REMINDER_STATUSES.COMPLETED) {
       return <Chip label={t('statusCompleted')} color="success" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 600 }} />;
     }
-    if (lower === 'in progress' || lower === 'u toku' || lower === 'у току') {
+    if (lower === REMINDER_STATUSES.IN_PROGRESS || lower === 'in progress') {
       return <Chip label={t('statusInProgress')} color="info" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 600 }} />;
     }
-    if (lower === 'overdue' || lower === 'prekoračeno' || lower === 'прекорачено' || lower === 'kasni' || lower === 'касни') {
+    if (lower === REMINDER_STATUSES.OVERDUE) {
       return <Chip label={t('statusOverdue')} color="error" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 600 }} />;
     }
     return <Chip label={t('statusPending')} color="warning" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 600 }} />;
@@ -242,7 +253,7 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
 
   const handleToggleStatus = async () => {
     if (!editingReminder?.id || !canEdit || isUpdatingStatus) return;
-    const nextStatus = isCompleted ? 'Pending' : 'Completed';
+    const nextStatus = isCompleted ? REMINDER_STATUSES.PENDING : REMINDER_STATUSES.COMPLETED;
     setIsUpdatingStatus(true);
     try {
       if (onStatusChange) {
@@ -504,10 +515,10 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
             <FormControl fullWidth size="small">
               <InputLabel>{t('lblStatus')}</InputLabel>
               <Select value={status} label={t('lblStatus')} onChange={(e) => setStatus(e.target.value)}>
-                <MenuItem value="Pending">{t('statusPending')}</MenuItem>
-                <MenuItem value="In Progress">{t('statusInProgress')}</MenuItem>
-                <MenuItem value="Completed">{t('statusCompleted')}</MenuItem>
-                <MenuItem value="Overdue">{t('statusOverdue')}</MenuItem>
+                <MenuItem value={REMINDER_STATUSES.PENDING}>{t('statusPending')}</MenuItem>
+                <MenuItem value={REMINDER_STATUSES.IN_PROGRESS}>{t('statusInProgress')}</MenuItem>
+                <MenuItem value={REMINDER_STATUSES.COMPLETED}>{t('statusCompleted')}</MenuItem>
+                <MenuItem value={REMINDER_STATUSES.OVERDUE}>{t('statusOverdue')}</MenuItem>
               </Select>
             </FormControl>
           </ViewEditField>

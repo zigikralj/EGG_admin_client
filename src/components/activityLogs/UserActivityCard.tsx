@@ -44,8 +44,8 @@ export interface UserActivityCardProps {
   onToggleRowDetail: (rowKey: string) => void;
   onDeleteSession: (session: Session) => void;
   isDark: boolean;
-  language: string;
-  t: (key: any) => string;
+  language?: string;
+  t: (key: any, params?: Record<string, string | number>) => string;
 }
 
 export const UserActivityCard: React.FC<UserActivityCardProps> = ({
@@ -61,7 +61,7 @@ export const UserActivityCard: React.FC<UserActivityCardProps> = ({
   onToggleRowDetail,
   onDeleteSession,
   isDark,
-  language,
+  language = 'en',
   t
 }) => {
   const theme = useTheme();
@@ -199,7 +199,7 @@ export const UserActivityCard: React.FC<UserActivityCardProps> = ({
               {formatDuration(totalDurationSeconds)}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              {totalSessionsCount} {language === 'en' ? (totalSessionsCount === 1 ? 'session' : 'sessions') : 'sesija'} • {totalActivitiesCount} {language === 'en' ? 'events' : 'radnji'}
+              {t(totalSessionsCount === 1 ? 'countSession' : 'countSessions', { count: totalSessionsCount })} • {t(totalActivitiesCount === 1 ? 'countEvent' : 'countEvents', { count: totalActivitiesCount })}
             </Typography>
           </Box>
 
@@ -242,7 +242,7 @@ export const UserActivityCard: React.FC<UserActivityCardProps> = ({
 
           {/* Per-user refresh button */}
           {isLazy && (
-            <Tooltip title={language === 'en' ? 'Refresh user activity' : 'Osveži aktivnosti korisnika'}>
+            <Tooltip title={t('refreshUserActivity')}>
               <IconButton
                 size="small"
                 sx={{ color: 'text.secondary' }}
@@ -317,7 +317,7 @@ export const UserActivityCard: React.FC<UserActivityCardProps> = ({
                   {isFetchingNextPage ? (
                     <CircularProgress size={18} />
                   ) : (
-                    language === 'en' ? 'Load older activities' : 'Učitaj starije aktivnosti'
+                    t('btnLoadOlderActivities')
                   )}
                 </Button>
               </Box>

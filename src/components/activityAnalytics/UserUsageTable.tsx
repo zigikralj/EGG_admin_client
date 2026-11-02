@@ -16,6 +16,7 @@ import {
   useTheme,
 } from '@mui/material';
 import type { ActivityAnalytics } from '../../types';
+import { INTL_LOCALE_MAP } from '../../constants';
 import { formatDuration, getPathLabelAndIcon } from './utils';
 import { useRoleLabels } from '../../hooks/useRoleLabels';
 
@@ -228,7 +229,7 @@ export const UserUsageTable: React.FC<UserUsageTableProps> = ({
                     </TableCell>
                     <TableCell align="right" sx={{ color: 'text.secondary', fontSize: '0.78rem' }}>
                       {new Date(user.lastActive).toLocaleDateString(
-                        language === 'en' ? 'en-US' : language === 'sr-Cyrl' ? 'sr-Cyrl-RS' : 'sr-Latn-RS',
+                        INTL_LOCALE_MAP[language],
                         {
                           month: 'short',
                           day: 'numeric',

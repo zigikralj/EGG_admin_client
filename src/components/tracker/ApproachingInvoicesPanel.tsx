@@ -222,30 +222,31 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
   };
 
   const getStatusChipColor = (status?: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
-    switch (status) {
-      case 'Draft': return 'default';
-      case 'Sent': return 'info';
-      case 'Paid': return 'success';
-      case 'Overdue': return 'error';
-      case 'Cancelled': return 'default';
+    switch (status?.toLowerCase()) {
+      case 'draft': return 'default';
+      case 'sent': return 'info';
+      case 'paid': return 'success';
+      case 'overdue': return 'error';
+      case 'cancelled': return 'default';
       default: return 'default';
     }
   };
 
   const getStatusLabel = (st?: string) => {
-    switch (st) {
-      case 'Draft': return t('statusDraft');
-      case 'Sent': return t('statusSent');
-      case 'Paid': return t('statusPaid');
-      case 'Overdue': return t('statusOverdue');
-      case 'Cancelled': return t('statusCancelled');
+    switch (st?.toLowerCase()) {
+      case 'draft': return t('statusDraft');
+      case 'sent': return t('statusSent');
+      case 'paid': return t('statusPaid');
+      case 'overdue': return t('statusOverdue');
+      case 'cancelled': return t('statusCancelled');
       default: return st || '—';
     }
   };
 
   const isOverdueInvoice = (inv: Invoice): boolean => {
-    if (inv.status === 'Paid' || inv.status === 'Cancelled') return false;
-    if (inv.status === 'Overdue') return true;
+    const s = inv.status?.toLowerCase();
+    if (s === 'paid' || s === 'cancelled') return false;
+    if (s === 'overdue') return true;
     if (!inv.dueDate) return false;
     const due = new Date(inv.dueDate.split('T')[0]);
     const today = new Date(new Date().toDateString());
@@ -253,7 +254,8 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
   };
 
   const isApproachingInvoice = (inv: Invoice): boolean => {
-    if (inv.status === 'Paid' || inv.status === 'Cancelled') return false;
+    const s = inv.status?.toLowerCase();
+    if (s === 'paid' || s === 'cancelled') return false;
     if (!inv.dueDate) return true;
     const due = new Date(inv.dueDate.split('T')[0]);
     const today = new Date(new Date().toDateString());
@@ -272,7 +274,8 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
   }, [paginatedData?.items]);
 
   const getInvoiceTypeChip = (type?: string | null) => {
-    if (!type || type === 'Standard') {
+    const tLower = type?.toLowerCase();
+    if (!tLower || tLower === 'standard') {
       return (
         <Chip
           label={t('typeStandard')}
@@ -282,8 +285,8 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
         />
       );
     }
-    switch (type) {
-      case 'Advance':
+    switch (tLower) {
+      case 'advance':
         return (
           <Chip
             label={t('badgeAdvance')}
@@ -292,7 +295,7 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
             sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700, px: 0.25 }}
           />
         );
-      case 'Final':
+      case 'final':
         return (
           <Chip
             label={t('badgeFinal')}
@@ -301,7 +304,7 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
             sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700, px: 0.25 }}
           />
         );
-      case 'Partial':
+      case 'partial':
         return (
           <Chip
             label={t('badgePartial')}
@@ -323,13 +326,13 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
   };
 
   const getLinkedInvoiceLabel = (linkedInv?: Invoice | null) => {
-    const type = linkedInv?.invoiceType || 'Standard';
+    const type = linkedInv?.invoiceType?.toLowerCase() || 'standard';
     switch (type) {
-      case 'Advance':
+      case 'advance':
         return t('badgeAdvance');
-      case 'Final':
+      case 'final':
         return t('badgeFinal');
-      case 'Partial':
+      case 'partial':
         return t('badgePartial');
       default:
         return t('typeStandard');
@@ -337,12 +340,12 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
   };
 
   const getLinkedInvoiceChipColor = (type?: string | null): 'secondary' | 'primary' | 'info' | 'default' => {
-    switch (type) {
-      case 'Advance':
+    switch (type?.toLowerCase()) {
+      case 'advance':
         return 'secondary';
-      case 'Final':
+      case 'final':
         return 'primary';
-      case 'Partial':
+      case 'partial':
         return 'info';
       default:
         return 'default';
@@ -386,11 +389,11 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
   const statusOptions = useMemo(() => [
     { value: 'all', label: t('filterAll') },
     { value: 'unpaid', label: t('statusUnpaid') },
-    { value: 'Draft', label: t('statusDraft') },
-    { value: 'Sent', label: t('statusSent') },
-    { value: 'Paid', label: t('statusPaid') },
-    { value: 'Overdue', label: t('statusOverdue') },
-    { value: 'Cancelled', label: t('statusCancelled') },
+    { value: 'draft', label: t('statusDraft') },
+    { value: 'sent', label: t('statusSent') },
+    { value: 'paid', label: t('statusPaid') },
+    { value: 'overdue', label: t('statusOverdue') },
+    { value: 'cancelled', label: t('statusCancelled') },
   ], [t]);
 
   const filteredAndSortedItems = useMemo(() => {
@@ -409,14 +412,15 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
       }
 
       if (filterStatus !== 'all') {
+        const s = inv.status?.toLowerCase();
         if (filterStatus === 'unpaid') {
-          if (inv.status === 'Paid' || inv.status === 'Cancelled') return false;
-        } else if (filterStatus === 'Overdue') {
+          if (s === 'paid' || s === 'cancelled') return false;
+        } else if (filterStatus === 'overdue') {
           if (!isOverdueInvoice(inv)) return false;
-        } else if (filterStatus === 'Sent') {
-          if (inv.status !== 'Sent') return false;
+        } else if (filterStatus === 'sent') {
+          if (s !== 'sent') return false;
         } else {
-          if (inv.status !== filterStatus) return false;
+          if (s !== filterStatus.toLowerCase()) return false;
         }
       }
 
@@ -522,7 +526,7 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
 
   const handleMarkAsPaid = async (inv: Invoice) => {
     if (onStatusChangeInvoice) {
-      await onStatusChangeInvoice(inv.id, 'Paid', new Date().toISOString().slice(0, 10));
+      await onStatusChangeInvoice(inv.id, 'paid', new Date().toISOString().slice(0, 10));
     }
   };
 
@@ -745,8 +749,8 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
             displayItems.map((inv) => {
             const isLate = isOverdueInvoice(inv);
             const isApproaching = isApproachingInvoice(inv);
-            const isPaid = inv.status === 'Paid';
-            const isCancelled = inv.status === 'Cancelled';
+            const isPaid = inv.status?.toLowerCase() === 'paid';
+            const isCancelled = inv.status?.toLowerCase() === 'cancelled';
 
             const uniqueLinks: Invoice[] = [];
             if (inv.parentInvoice) {

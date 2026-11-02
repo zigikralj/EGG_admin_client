@@ -5,9 +5,13 @@ import * as LanguageContext from '../../context/LanguageContext';
 import * as AuthContext from '../../context/AuthContext';
 import * as Queries from '../../queries';
 
-vi.mock('../../context/LanguageContext', () => ({
-  useLanguage: vi.fn(),
-}));
+vi.mock('../../context/LanguageContext', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../context/LanguageContext')>();
+  return {
+    ...actual,
+    useLanguage: vi.fn(),
+  };
+});
 
 vi.mock('../../context/AuthContext', () => ({
   useAuth: vi.fn(),

@@ -1,5 +1,7 @@
 import React from 'react';
 import { Box, Typography, CircularProgress, alpha } from '@mui/material';
+import { useLanguage } from '../../context/LanguageContext';
+import { INTL_LOCALE_MAP, SUPPORTED_LANGUAGES } from '../../constants';
 import { useActivityLogDetailsQuery } from '../../queries';
 import type { ActivityLog } from '../../types';
 import { getActionChip } from './utils';
@@ -9,15 +11,16 @@ export interface ActionLogItemRowProps {
   actItem: ActivityLog;
   isExpanded: boolean;
   isDark: boolean;
-  language: string;
+  language?: string;
 }
 
 export const ActionLogItemRow: React.FC<ActionLogItemRowProps> = ({
   actItem,
   isExpanded,
   isDark,
-  language
+  language = SUPPORTED_LANGUAGES.SR_LATN
 }) => {
+  const { t } = useLanguage();
   const { data: fullLog, isLoading } = useActivityLogDetailsQuery(
     actItem.id,
     Boolean(isExpanded && !actItem.details)
@@ -34,7 +37,7 @@ export const ActionLogItemRow: React.FC<ActionLogItemRowProps> = ({
   const actionChip = getActionChip(subDetails?.action, actItem.type);
 
   const formattedTime = new Date(actItem.timestamp).toLocaleString(
-    language === 'en' ? 'en-US' : 'sr-RS',
+    INTL_LOCALE_MAP[language],
     {
       month: 'short',
       day: 'numeric',
@@ -73,11 +76,11 @@ export const ActionLogItemRow: React.FC<ActionLogItemRowProps> = ({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.8, py: 0.5 }}>
           <CircularProgress size={14} thickness={4} />
           <Typography variant="caption" color="text.secondary">
-            {language === 'en' ? 'Loading change details...' : 'Učitavanje detalja izmene...'}
+            {t('loadingChangeDetails')}
           </Typography>
         </Box>
       ) : detailsStr ? (
-        <LogDiffView detailsStr={detailsStr} isDark={isDark} language={language} />
+        <LogDiffView detailsStr={detailsStr} isDark={isDark} language={language} t={t} />
       ) : null}
     </Box>
   );

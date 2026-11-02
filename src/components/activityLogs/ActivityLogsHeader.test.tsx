@@ -39,7 +39,7 @@ describe('ActivityLogsHeader component', () => {
     expect(handleToggleClick).toHaveBeenCalledWith(false);
 
     // Clear All button
-    const clearButton = screen.getByRole('button', { name: 'Clear All' });
+    const clearButton = screen.getByRole('button', { name: 'btnClearAll' });
     fireEvent.click(clearButton);
     expect(handleClearAllClick).toHaveBeenCalled();
 

@@ -15,6 +15,13 @@ import {
 } from '@mui/material';
 import { LineChart } from '@mui/x-charts/LineChart';
 import type { ProvidedService, Service, Client, Category, Invoice, Project } from '../../types';
+import {
+  PROVIDED_SERVICE_STATUSES,
+  isProvidedServiceCompleted,
+  isProvidedServiceCancelled,
+  isInvoicePaid,
+  INTL_LOCALE_MAP,
+} from '../../constants';
 import { useLanguage } from '../../context/LanguageContext';
 import { useWasteDisposalServiceId } from '../../queries';
 import { extractWasteKg as getWasteKg } from '../../utils/customFields';
@@ -87,17 +94,25 @@ export const WasteDisposalStatistics: React.FC<Props> = ({
   const totalCount = providedServices.length;
 
   const completedCount = useMemo(
-    () => providedServices.filter((item) => item.status === 'Completed').length,
+    () => providedServices.filter((item) => isProvidedServiceCompleted(item.status)).length,
     [providedServices]
   );
 
   const inProgressCount = useMemo(
-    () => providedServices.filter((item) => item.status === 'In Progress').length,
+    () =>
+      providedServices.filter((item) => {
+        const s = (item.status || '').toLowerCase();
+        return s === PROVIDED_SERVICE_STATUSES.IN_PROGRESS || s === 'in progress';
+      }).length,
     [providedServices]
   );
 
   const plannedCount = useMemo(
-    () => providedServices.filter((item) => item.status === 'Planned').length,
+    () =>
+      providedServices.filter((item) => {
+        const s = (item.status || '').toLowerCase();
+        return s === PROVIDED_SERVICE_STATUSES.PLANNED;
+      }).length,
     [providedServices]
   );
 
@@ -114,7 +129,7 @@ export const WasteDisposalStatistics: React.FC<Props> = ({
       if (!invId) return;
 
       const inv = item.invoice || invoices.find((i) => i.id === invId);
-      if (!inv || inv.status !== 'Paid') return;
+      if (!inv || !isInvoicePaid(inv.status)) return;
 
       if (processedInvoiceIds.has(inv.id)) return;
       processedInvoiceIds.add(inv.id);
@@ -155,8 +170,9 @@ export const WasteDisposalStatistics: React.FC<Props> = ({
 
     providedServices.forEach((item) => {
       const cli = item.client || clients.find((c) => c.id === item.clientId);
-      const clientName = cli?.name || t('colClient');
-      const existing = map.get(clientName) || {
+      const clientKey = item.clientId || cli?.name?.trim() || '__unassigned_client__';
+      const clientName = cli?.name?.trim() || t('colClient');
+      const existing = map.get(clientKey) || {
         label: clientName,
         count: 0,
         paidRevenueRSD: 0,
@@ -174,7 +190,7 @@ export const WasteDisposalStatistics: React.FC<Props> = ({
       const invId = item.invoiceId || item.invoice?.id;
       if (invId) {
         const inv = item.invoice || invoices.find((i) => i.id === invId);
-        if (inv && inv.status === 'Paid' && !existing.paidInvoiceIds.has(inv.id)) {
+        if (inv && isInvoicePaid(inv.status) && !existing.paidInvoiceIds.has(inv.id)) {
           existing.paidInvoiceIds.add(inv.id);
           const total =
             inv.totalAmount !== undefined && inv.totalAmount !== null
@@ -190,7 +206,7 @@ export const WasteDisposalStatistics: React.FC<Props> = ({
         }
       }
 
-      map.set(clientName, existing);
+      map.set(clientKey, existing);
     });
 
     const sorted = Array.from(map.values())
@@ -252,12 +268,7 @@ export const WasteDisposalStatistics: React.FC<Props> = ({
 
     const sortedMonthIndices = Array.from(monthsSet).sort((a, b) => a - b);
 
-    const locale =
-      language === 'sr-Latn'
-        ? 'sr-Latn-RS'
-        : language === 'sr-Cyrl'
-        ? 'sr-Cyrl-RS'
-        : 'en-US';
+    const locale = INTL_LOCALE_MAP[language];
 
     return sortedMonthIndices.map((m) => {
       const d = new Date(currentWasteYear, m, 1);
@@ -394,12 +405,7 @@ export const WasteDisposalStatistics: React.FC<Props> = ({
 
   // 6. Year-over-Year Waste Comparison (Jan to Dec)
   const fullYearMonthLabels = useMemo(() => {
-    const locale =
-      language === 'sr-Latn'
-        ? 'sr-Latn-RS'
-        : language === 'sr-Cyrl'
-        ? 'sr-Cyrl-RS'
-        : 'en-US';
+    const locale = INTL_LOCALE_MAP[language];
 
     return Array.from({ length: 12 }, (_, m) => {
       const d = new Date(2024, m, 1);
@@ -434,14 +440,16 @@ export const WasteDisposalStatistics: React.FC<Props> = ({
       const srv = item.service || services.find((s) => s.id === item.serviceId);
       if (!isWasteService(srv)) return;
 
-      const st = item.status || 'Planned';
+      const isCompleted = isProvidedServiceCompleted(item.status);
+      const isCancelled = isProvidedServiceCancelled(item.status);
+
       if (wasteChartStatusFilter === 'completed') {
-        if (st !== 'Completed' && st !== 'Završeno' && st !== 'Завршено') return;
+        if (!isCompleted) return;
       } else if (wasteChartStatusFilter === 'canceled') {
-        if (st !== 'Cancelled' && st !== 'Canceled' && st !== 'Otkazano' && st !== 'Отказано') return;
+        if (!isCancelled) return;
       } else {
         // 'all': planned, in progress, and completed (excludes canceled)
-        if (st === 'Cancelled' || st === 'Canceled' || st === 'Otkazano' || st === 'Отказано') return;
+        if (isCancelled) return;
       }
 
       const dateStr = item.completionDate || item.scheduledDate || item.createdAt;

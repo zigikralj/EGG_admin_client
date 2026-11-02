@@ -19,6 +19,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useRoleLabels } from '../../hooks/useRoleLabels';
 import { useUpdateUserProfileMutation } from '../../queries';
+import { ERROR_CODES } from '../../constants';
 import { PhotoCameraIcon, PersonIcon, EmailIcon, PhoneIcon, WcIcon, BadgeIcon, VpnKeyIcon, ExpandMoreIcon, ExpandLessIcon, LockIcon, VisibilityIcon, VisibilityOff } from '../icons';
 
 interface UserProfileDialogProps {
@@ -133,14 +134,16 @@ export const UserProfileDialog: React.FC<UserProfileDialogProps> = ({ isOpen, on
       setCurrentUser(updated);
       onClose();
     } catch (e: any) {
-      const errMsg = e?.message || t('errorSavingUser');
+      const errorCode = e?.code || e?.response?.data?.code;
+      const errMsg = e?.message || e?.response?.data?.error || t('errorSavingUser');
       if (
-        errMsg.includes('password') ||
-        errMsg.includes('Password') ||
-        errMsg.includes('incorrect') ||
-        errMsg.includes('tačna')
+        errorCode === ERROR_CODES.INCORRECT_CURRENT_PASSWORD ||
+        errorCode === ERROR_CODES.PASSWORD_TOO_SHORT ||
+        errorCode === ERROR_CODES.PASSWORD_MISMATCH ||
+        errMsg.toLowerCase().includes('password') ||
+        errMsg.toLowerCase().includes('incorrect')
       ) {
-        setPasswordError(errMsg);
+        setPasswordError(errorCode === ERROR_CODES.INCORRECT_CURRENT_PASSWORD ? t('currentPasswordIncorrectError') : errMsg);
       } else {
         setProfileAlert({ severity: 'error', message: errMsg });
       }

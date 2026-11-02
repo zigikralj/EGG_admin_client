@@ -102,7 +102,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
 
   const [formData, setFormData] = useState({
     invoiceNumber: '',
-    invoiceType: 'Standard' as InvoiceType,
+    invoiceType: 'standard' as InvoiceType,
     parentInvoiceId: '',
     dateCreated: '',
     dueDate: '',
@@ -112,7 +112,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
     projectId: '',
     projectName: '',
     providedServiceId: '',
-    status: 'Draft' as InvoiceStatus,
+    status: 'draft' as InvoiceStatus,
     currency: 'RSD' as InvoiceCurrency,
     notes: '',
     items: [
@@ -142,7 +142,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
 
       setFormData({
         invoiceNumber: editingInvoice.invoiceNumber || '',
-        invoiceType: (editingInvoice.invoiceType || parsedType || 'Standard') as InvoiceType,
+        invoiceType: ((editingInvoice.invoiceType?.toLowerCase() as InvoiceType) || parsedType || 'standard') as InvoiceType,
         parentInvoiceId: editingInvoice.parentInvoiceId || parsedParentId || '',
         dateCreated: editingInvoice.dateCreated || '',
         dueDate: editingInvoice.dueDate || '',
@@ -152,7 +152,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         projectId: editingInvoice.projectId || editingInvoice.project?.id || '',
         projectName: editingInvoice.projectName || editingInvoice.project?.name || '',
         providedServiceId: initialPs,
-        status: (editingInvoice.status as InvoiceStatus) || 'Draft',
+        status: ((editingInvoice.status?.toLowerCase() as InvoiceStatus) || 'draft'),
         currency: (editingInvoice.currency as InvoiceCurrency) || 'RSD',
         notes: cleanNotes || '',
         items:
@@ -179,7 +179,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
       setInitialPsId('');
       setFormData({
         invoiceNumber: '',
-        invoiceType: 'Standard',
+        invoiceType: 'standard',
         parentInvoiceId: '',
         dateCreated: new Date().toISOString().slice(0, 10),
         dueDate: '',
@@ -189,7 +189,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         projectId: '',
         projectName: '',
         providedServiceId: '',
-        status: 'Draft',
+        status: 'draft',
         currency: 'RSD',
         notes: '',
         items: [{ description: '', quantity: 1, unitPrice: 0, currency: 'RSD' }],
@@ -245,13 +245,13 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   const formatDate = (iso: string | null | undefined) => fmtDate(iso);
 
   const getLinkedInvoiceLabel = (linkedInv?: Invoice | null) => {
-    const type = linkedInv?.invoiceType || 'Standard';
+    const type = linkedInv?.invoiceType?.toLowerCase() || 'standard';
     switch (type) {
-      case 'Advance':
+      case 'advance':
         return t('badgeAdvance');
-      case 'Final':
+      case 'final':
         return t('badgeFinal');
-      case 'Partial':
+      case 'partial':
         return t('badgePartial');
       default:
         return t('typeStandard');
@@ -400,10 +400,10 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                     setFormData({ ...formData, invoiceType: e.target.value as InvoiceType })
                   }
                 >
-                  <MenuItem value="Standard">{t('typeStandard')}</MenuItem>
-                  <MenuItem value="Advance">{t('typeAdvance')}</MenuItem>
-                  <MenuItem value="Final">{t('typeFinal')}</MenuItem>
-                  <MenuItem value="Partial">{t('typePartial')}</MenuItem>
+                  <MenuItem value="standard">{t('typeStandard')}</MenuItem>
+                  <MenuItem value="advance">{t('typeAdvance')}</MenuItem>
+                  <MenuItem value="final">{t('typeFinal')}</MenuItem>
+                  <MenuItem value="partial">{t('typePartial')}</MenuItem>
                 </Select>
               </FormControl>
             )}
@@ -428,17 +428,17 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                       ...formData,
                       status: newStatus,
                       paymentDate:
-                        newStatus === 'Paid' && !formData.paymentDate
+                        newStatus === 'paid' && !formData.paymentDate
                           ? new Date().toISOString().slice(0, 10)
                           : formData.paymentDate,
                     });
                   }}
                 >
-                  <MenuItem value="Draft">{t('statusDraft')}</MenuItem>
-                  <MenuItem value="Sent">{t('statusSent')}</MenuItem>
-                  <MenuItem value="Paid">{t('statusPaid')}</MenuItem>
-                  <MenuItem value="Overdue">{t('statusOverdue')}</MenuItem>
-                  <MenuItem value="Cancelled">{t('statusCancelled')}</MenuItem>
+                  <MenuItem value="draft">{t('statusDraft')}</MenuItem>
+                  <MenuItem value="sent">{t('statusSent')}</MenuItem>
+                  <MenuItem value="paid">{t('statusPaid')}</MenuItem>
+                  <MenuItem value="overdue">{t('statusOverdue')}</MenuItem>
+                  <MenuItem value="cancelled">{t('statusCancelled')}</MenuItem>
                 </Select>
               </FormControl>
             )}

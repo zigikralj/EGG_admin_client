@@ -1,19 +1,21 @@
 import { Chip } from '@mui/material';
 import { useLanguage } from '../../context/LanguageContext';
+import { INVOICE_STATUSES, INVOICE_TYPES } from '../../constants';
 
 export const InvoiceStatusChip = ({ status }: { status?: string }) => {
   const { t } = useLanguage();
   if (!status) return null;
-  switch (status) {
-    case 'Paid':
+  const s = status.toLowerCase();
+  switch (s) {
+    case INVOICE_STATUSES.PAID:
       return <Chip label={t('statusPaid')} color="success" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, px: 0.25 }} />;
-    case 'Sent':
+    case INVOICE_STATUSES.SENT:
       return <Chip label={t('statusSent')} color="info" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, px: 0.25 }} />;
-    case 'Overdue':
+    case INVOICE_STATUSES.OVERDUE:
       return <Chip label={t('statusOverdue')} color="error" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, px: 0.25 }} />;
-    case 'Cancelled':
+    case INVOICE_STATUSES.CANCELLED:
       return <Chip label={t('statusCancelled')} color="default" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, px: 0.25 }} />;
-    case 'Draft':
+    case INVOICE_STATUSES.DRAFT:
     default:
       return <Chip label={t('statusDraft')} color="warning" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, px: 0.25 }} />;
   }
@@ -21,7 +23,8 @@ export const InvoiceStatusChip = ({ status }: { status?: string }) => {
 
 export const InvoiceTypeChip = ({ type, showStandard = false }: { type?: string | null; showStandard?: boolean }) => {
   const { t } = useLanguage();
-  if (!type || type === 'Standard') {
+  const lower = (type || '').toLowerCase();
+  if (!type || lower === INVOICE_TYPES.STANDARD) {
     if (!showStandard) return null;
     return (
       <Chip
@@ -32,8 +35,8 @@ export const InvoiceTypeChip = ({ type, showStandard = false }: { type?: string 
       />
     );
   }
-  switch (type) {
-    case 'Advance':
+  switch (lower) {
+    case INVOICE_TYPES.ADVANCE:
       return (
         <Chip
           label={t('badgeAdvance')}
@@ -43,7 +46,7 @@ export const InvoiceTypeChip = ({ type, showStandard = false }: { type?: string 
           sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700, px: 0.25 }}
         />
       );
-    case 'Final':
+    case INVOICE_TYPES.FINAL:
       return (
         <Chip
           label={t('badgeFinal')}
@@ -53,7 +56,7 @@ export const InvoiceTypeChip = ({ type, showStandard = false }: { type?: string 
           sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700, px: 0.25 }}
         />
       );
-    case 'Partial':
+    case INVOICE_TYPES.PARTIAL:
       return (
         <Chip
           label={t('badgePartial')}
@@ -70,20 +73,20 @@ export const InvoiceTypeChip = ({ type, showStandard = false }: { type?: string 
 
 export const LinkedInvoiceChip = ({ linked }: { linked: any }) => {
   const { t } = useLanguage();
-  const type = linked?.invoiceType || 'Standard';
+  const type = (linked?.invoiceType || INVOICE_TYPES.STANDARD).toLowerCase();
   let labelType = t('typeStandard');
   let chipColor: 'default' | 'secondary' | 'primary' | 'info' = 'default';
   
   switch (type) {
-    case 'Advance':
+    case INVOICE_TYPES.ADVANCE:
       labelType = t('badgeAdvance');
       chipColor = 'secondary';
       break;
-    case 'Final':
+    case INVOICE_TYPES.FINAL:
       labelType = t('badgeFinal');
       chipColor = 'primary';
       break;
-    case 'Partial':
+    case INVOICE_TYPES.PARTIAL:
       labelType = t('badgePartial');
       chipColor = 'info';
       break;
@@ -99,4 +102,3 @@ export const LinkedInvoiceChip = ({ linked }: { linked: any }) => {
     />
   );
 };
-

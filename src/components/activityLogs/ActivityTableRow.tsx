@@ -30,8 +30,8 @@ export interface ActivityTableRowProps {
   isRowExpanded: boolean;
   onToggleRowDetail: (rowKey: string) => void;
   isDark: boolean;
-  language: string;
-  t: (key: any) => string;
+  language?: string;
+  t: (key: any, params?: Record<string, string | number>) => string;
 }
 
 export const ActivityTableRow: React.FC<ActivityTableRowProps> = ({
@@ -40,7 +40,7 @@ export const ActivityTableRow: React.FC<ActivityTableRowProps> = ({
   isRowExpanded,
   onToggleRowDetail,
   isDark,
-  language,
+  language = 'en',
   t
 }) => {
   const { icon } = getPathLabelAndIcon(act.path, act.type, t, language);
@@ -83,7 +83,7 @@ export const ActivityTableRow: React.FC<ActivityTableRowProps> = ({
                         ? 'CREATE'
                         : actions.some(i => i.type === 'DELETE')
                         ? 'DELETE'
-                        : (language === 'en' ? 'CHANGES' : 'IZMENE')
+                        : t('badgeChanges')
                     }
                     size="small"
                     sx={{
@@ -111,14 +111,14 @@ export const ActivityTableRow: React.FC<ActivityTableRowProps> = ({
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, flexWrap: 'wrap' }}>
             {visits.length > 0 && (
               <Chip
-                label={`${visits.length} ${language === 'en' ? (visits.length === 1 ? 'visit' : 'visits') : 'poseta'}`}
+                label={t(visits.length === 1 ? 'countVisit' : 'countVisits', { count: visits.length })}
                 size="small"
                 sx={{ height: 20, fontSize: '0.7rem', fontWeight: 600 }}
               />
             )}
             {actions.length > 0 && (
               <Chip
-                label={`${actions.length} ${language === 'en' ? (actions.length === 1 ? 'action' : 'actions') : 'akcija'}`}
+                label={t(actions.length === 1 ? 'countAction' : 'countActions', { count: actions.length })}
                 size="small"
                 sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700, bgcolor: alpha('#f59e0b', 0.15), color: '#d97706' }}
               />
@@ -161,7 +161,7 @@ export const ActivityTableRow: React.FC<ActivityTableRowProps> = ({
               <Box sx={{ p: 1.5, pl: { xs: 2, sm: 4 } }}>
                 <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 0.8, mb: 1, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                   <BuildIcon sx={{ fontSize: 14, color: '#f59e0b' }} />
-                  {language === 'en' ? `Actions & Data Changes (${actions.length}):` : `Akcije i izmene podataka (${actions.length}):`}
+                  {t('actionsAndDataChanges', { count: actions.length })}
                 </Typography>
                 <Stack spacing={1}>
                   {actions.map((actItem, aIdx) => (

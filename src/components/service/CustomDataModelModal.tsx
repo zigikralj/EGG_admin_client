@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import type { Service, CustomFieldDefinition, CustomFieldType } from '../../types';
 import { PERMIT_TYPE_OPTIONS } from '../../types';
+import { CUSTOM_FIELD_TYPES, LINKED_LIST_TYPES } from '../../constants';
 import { useLanguage } from '../../context/LanguageContext';
 import { useClientsSummaryQuery, usePermitsSummaryQuery } from '../../queries';
 import { clientHasPermitType } from '../../hooks/useLinkedListOptions';
@@ -193,31 +194,31 @@ export const CustomDataModelModal: React.FC<Props> = ({
                       handleUpdateField(idx, {
                         type: newType,
                         options:
-                          newType === 'list'
+                          newType === CUSTOM_FIELD_TYPES.LIST
                             ? field.options?.length
                               ? field.options
-                              : ['Opcija 1', 'Opcija 2']
+                              : []
                             : undefined,
                         linkedList:
-                          newType === 'list'
+                          newType === CUSTOM_FIELD_TYPES.LIST
                             ? field.linkedList
-                            : newType === 'client'
-                            ? 'clients'
+                            : newType === CUSTOM_FIELD_TYPES.CLIENT
+                            ? LINKED_LIST_TYPES.CLIENTS
                             : undefined,
                         permitTypeFilter:
-                          newType === 'client' || (newType === 'list' && field.linkedList === 'clients')
+                          newType === CUSTOM_FIELD_TYPES.CLIENT || (newType === CUSTOM_FIELD_TYPES.LIST && field.linkedList === LINKED_LIST_TYPES.CLIENTS)
                             ? field.permitTypeFilter
                             : undefined,
-                        unit: newType === 'number' ? field.unit || '' : undefined,
+                        unit: newType === CUSTOM_FIELD_TYPES.NUMBER ? field.unit || '' : undefined,
                       });
                     }}
                   >
-                    <MenuItem value="text">{t('typeText')}</MenuItem>
-                    <MenuItem value="number">{t('typeNumber')}</MenuItem>
-                    <MenuItem value="list">{t('typeList')}</MenuItem>
-                    <MenuItem value="client">{t('typeClient')}</MenuItem>
-                    <MenuItem value="datetime">{t('typeDateTime')}</MenuItem>
-                    <MenuItem value="date">{t('typeDate')}</MenuItem>
+                    <MenuItem value={CUSTOM_FIELD_TYPES.TEXT}>{t('typeText')}</MenuItem>
+                    <MenuItem value={CUSTOM_FIELD_TYPES.NUMBER}>{t('typeNumber')}</MenuItem>
+                    <MenuItem value={CUSTOM_FIELD_TYPES.LIST}>{t('typeList')}</MenuItem>
+                    <MenuItem value={CUSTOM_FIELD_TYPES.CLIENT}>{t('typeClient')}</MenuItem>
+                    <MenuItem value={CUSTOM_FIELD_TYPES.DATETIME}>{t('typeDateTime')}</MenuItem>
+                    <MenuItem value={CUSTOM_FIELD_TYPES.DATE}>{t('typeDate')}</MenuItem>
                   </Select>
                 </FormControl>
 
@@ -265,25 +266,25 @@ export const CustomDataModelModal: React.FC<Props> = ({
               {field.type === 'list' && (
                 <Box sx={{ display: 'flex', gap: 2, flexDirection: 'column' }}>
                   <FormControl size="small" fullWidth>
-                    <InputLabel>{t('lblLinkedList') || 'Link to existing list'}</InputLabel>
+                    <InputLabel>{t('lblLinkedList')}</InputLabel>
                     <Select
-                      value={field.linkedList || 'none'}
-                      label={t('lblLinkedList') || 'Link to existing list'}
+                      value={field.linkedList || LINKED_LIST_TYPES.NONE}
+                      label={t('lblLinkedList')}
                       onChange={(e) => {
                         const val = e.target.value;
                         handleUpdateField(idx, { 
-                          linkedList: val === 'none' ? undefined : val,
-                          permitTypeFilter: val === 'clients' ? field.permitTypeFilter : undefined,
-                          options: val === 'none' ? field.options || ['Opcija 1', 'Opcija 2'] : []
+                          linkedList: val === LINKED_LIST_TYPES.NONE ? undefined : val,
+                          permitTypeFilter: val === LINKED_LIST_TYPES.CLIENTS ? field.permitTypeFilter : undefined,
+                          options: val === LINKED_LIST_TYPES.NONE ? field.options || [] : []
                         });
                       }}
                     >
-                      <MenuItem value="none">{t('valNone') || 'Custom list (None)'}</MenuItem>
-                      <MenuItem value="clients">{t('valClients') || 'Clients'}</MenuItem>
-                      <MenuItem value="index_number">{t('valIndexNumber') || 'Index Number'}</MenuItem>
-                      <MenuItem value="permit_type">{t('valPermitType') || 'Permit Type'}</MenuItem>
-                      <MenuItem value="users">{t('valUsers') || 'Users'}</MenuItem>
-                      <MenuItem value="category">{t('valCategory') || 'Category'}</MenuItem>
+                      <MenuItem value={LINKED_LIST_TYPES.NONE}>{t('valNone')}</MenuItem>
+                      <MenuItem value={LINKED_LIST_TYPES.CLIENTS}>{t('valClients')}</MenuItem>
+                      <MenuItem value={LINKED_LIST_TYPES.INDEX_NUMBER}>{t('valIndexNumber')}</MenuItem>
+                      <MenuItem value={LINKED_LIST_TYPES.PERMIT_TYPE}>{t('valPermitType')}</MenuItem>
+                      <MenuItem value={LINKED_LIST_TYPES.USERS}>{t('valUsers')}</MenuItem>
+                      <MenuItem value={LINKED_LIST_TYPES.CATEGORY}>{t('valCategory')}</MenuItem>
                     </Select>
                   </FormControl>
 

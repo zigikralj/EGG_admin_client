@@ -16,9 +16,11 @@ export interface UsageHeatmapProps {
   language: string;
 }
 
-const DAYS_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const DAYS_SR_LATN = ['Pon', 'Uto', 'Sre', 'Čet', 'Pet', 'Sub', 'Ned'];
-const DAYS_SR_CYRL = ['Пон', 'Уто', 'Сре', 'Чет', 'Пет', 'Суб', 'Нед'];
+const DAYS_BY_LANG: Record<string, string[]> = {
+  en: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+  'sr-Cyrl': ['Пон', 'Уто', 'Сре', 'Чет', 'Пет', 'Суб', 'Нед'],
+  'sr-Latn': ['Pon', 'Uto', 'Sre', 'Čet', 'Pet', 'Sub', 'Ned'],
+};
 
 export const UsageHeatmap: React.FC<UsageHeatmapProps> = ({
   heatmap,
@@ -26,7 +28,7 @@ export const UsageHeatmap: React.FC<UsageHeatmapProps> = ({
   language,
 }) => {
   const theme = useTheme();
-  const days = language === 'en' ? DAYS_EN : language === 'sr-Cyrl' ? DAYS_SR_CYRL : DAYS_SR_LATN;
+  const days = DAYS_BY_LANG[language] || DAYS_BY_LANG['sr-Latn'];
 
   // Build 7x24 matrix
   const matrix: Array<Array<{ trackedSeconds: number; actions: number }>> = Array.from(
