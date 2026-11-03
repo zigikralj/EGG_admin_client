@@ -59,10 +59,10 @@ export const InvoiceFormFields: React.FC<InvoiceFormFieldsProps> = ({
             label={t("lblInvoiceType")}
             onChange={(e) => onInvoiceTypeChange(e.target.value as InvoiceType)}
           >
-            <MenuItem value="Standard">{t("typeStandard")}</MenuItem>
-            <MenuItem value="Advance">{t("typeAdvance")}</MenuItem>
-            <MenuItem value="Final">{t("typeFinal")}</MenuItem>
-            <MenuItem value="Partial">{t("typePartial")}</MenuItem>
+            <MenuItem value="standard">{t("typeStandard")}</MenuItem>
+            <MenuItem value="advance">{t("typeAdvance")}</MenuItem>
+            <MenuItem value="final">{t("typeFinal")}</MenuItem>
+            <MenuItem value="partial">{t("typePartial")}</MenuItem>
           </Select>
         </FormControl>
       </Grid>
@@ -74,11 +74,11 @@ export const InvoiceFormFields: React.FC<InvoiceFormFieldsProps> = ({
             label={t("lblInvoiceStatus")}
             onChange={(e) => onInvoiceStatusChange(e.target.value as InvoiceStatus)}
           >
-            <MenuItem value="Draft">{t("statusDraft")}</MenuItem>
-            <MenuItem value="Sent">{t("statusSent")}</MenuItem>
-            <MenuItem value="Paid">{t("statusPaid")}</MenuItem>
-            <MenuItem value="Overdue">{t("statusOverdue")}</MenuItem>
-            <MenuItem value="Cancelled">{t("statusCancelled")}</MenuItem>
+            <MenuItem value="draft">{t("statusDraft")}</MenuItem>
+            <MenuItem value="sent">{t("statusSent")}</MenuItem>
+            <MenuItem value="paid">{t("statusPaid")}</MenuItem>
+            <MenuItem value="overdue">{t("statusOverdue")}</MenuItem>
+            <MenuItem value="cancelled">{t("statusCancelled")}</MenuItem>
           </Select>
         </FormControl>
       </Grid>
