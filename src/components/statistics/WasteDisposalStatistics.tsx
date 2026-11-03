@@ -24,7 +24,7 @@ import {
 } from '../../constants';
 import { useLanguage } from '../../context/LanguageContext';
 import { useWasteDisposalServiceId } from '../../queries';
-import { extractWasteKg as getWasteKg } from '../../utils/customFields';
+import { extractWeight } from '../../utils/customFields';
 import {
   HandymanIcon,
   CheckCircleOutlinedIcon,
@@ -153,7 +153,7 @@ export const WasteDisposalStatistics: React.FC<Props> = ({
     return { paidRSD: rsd, paidEUR: eur, paidInvoicesCount: processedInvoiceIds.size };
   }, [providedServices, invoices]);
 
-  const extractWasteKg = (item: ProvidedService): number => getWasteKg(item, services);
+  const extractItemWeightKg = (item: ProvidedService): number => extractWeight(item, services, 'kg');
 
   // 3. Top Clients by Provided Services
   const topClientsChartData = useMemo(() => {
@@ -183,7 +183,7 @@ export const WasteDisposalStatistics: React.FC<Props> = ({
 
       const srv = item.service || services.find((s) => s.id === item.serviceId);
       if (isWasteService(srv)) {
-        const kg = extractWasteKg(item);
+        const kg = extractItemWeightKg(item);
         existing.totalWasteKg += kg;
       }
 
@@ -318,7 +318,7 @@ export const WasteDisposalStatistics: React.FC<Props> = ({
         if (isNaN(d.getTime())) return;
         if (d.getFullYear() !== currentWasteYear) return;
 
-        const kg = extractWasteKg(item);
+        const kg = extractItemWeightKg(item);
         totalKg += kg;
         totalEntries += 1;
         const cli = item.client || clients.find((c) => c.id === item.clientId);
@@ -371,7 +371,7 @@ export const WasteDisposalStatistics: React.FC<Props> = ({
         const itemMonthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
         if (itemMonthKey !== selectedMonthKey) return;
 
-        const kg = extractWasteKg(item);
+        const kg = extractItemWeightKg(item);
         const cli = item.client || clients.find((c) => c.id === item.clientId);
         const clientName = cli?.name || t('colClient');
         const clientId = item.clientId || clientName;
@@ -462,7 +462,7 @@ export const WasteDisposalStatistics: React.FC<Props> = ({
           const m = d.getMonth();
           if (m >= 0 && m < 12) {
             const currentVal = yearDataMap[yr][m];
-            const kg = extractWasteKg(item);
+            const kg = extractItemWeightKg(item);
             yearDataMap[yr][m] = (currentVal ?? 0) + kg;
           }
         }

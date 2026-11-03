@@ -132,6 +132,12 @@ export interface TranslationKeys {
   modalCustomDataModelTitle: string;
   modalCustomDataModelDesc: string;
   btnAddField: string;
+  lblFieldId: string;
+  phFieldId: string;
+  errFieldIdRequired: string;
+  errFieldIdFormat: string;
+  errFieldIdDuplicate: string;
+  fieldIdLocked: string;
   lblFieldName: string;
   phFieldName: string;
   lblFieldType: string;

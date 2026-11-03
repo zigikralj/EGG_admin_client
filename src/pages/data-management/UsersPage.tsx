@@ -54,6 +54,7 @@ const DEFAULT_COLUMNS = ['name', 'role', 'status', 'email', 'phone', 'gender'];
 import { usePaginatedUsersQuery, useUsersMutations, useRolesQuery, useTablePreferences } from '../../queries';
 import { useDebounce } from '../../hooks/useDebounce';
 import { ConfirmDialog } from '../../components/common/dialogs/ConfirmDialog';
+import { USER_STATUSES } from '../../constants';
 
 const UsersPage: React.FC<Props> = ({
   visibleColumns: visibleColumnsProp,
@@ -589,8 +590,8 @@ const UsersPage: React.FC<Props> = ({
                 paginatedUsers.map((u: any) => {
                   const editable = canEditUser(u);
                   const deletable = canDeleteUser(u);
-                  const isPending = u.status === 'PENDING';
-                  const isBlocked = u.status === 'BLOCKED';
+                  const isPending = u.status === USER_STATUSES.PENDING;
+                  const isBlocked = u.status === USER_STATUSES.BLOCKED;
                   return (
                     <TableRow key={u.id} hover sx={{ bgcolor: isPending ? 'action.hover' : 'inherit', cursor: 'pointer' }} onClick={() => openView(u)}>
                       {activeCols.includes('name') && (

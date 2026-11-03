@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Button,
   IconButton,
@@ -43,6 +43,10 @@ export const CustomDataModelModal: React.FC<Props> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const initialFieldIds = useMemo(() => {
+    return new Set((initialFields || []).map((f) => f.id).filter(Boolean));
+  }, [initialFields]);
+
   const getClientCountForPermitType = (permitType: string) => {
     return clients.filter((c) => clientHasPermitType(c, permits, permitType)).length;
   };
@@ -56,7 +60,7 @@ export const CustomDataModelModal: React.FC<Props> = ({
 
   const handleAddField = () => {
     const newField: CustomFieldDefinition = {
-      id: `field_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      id: '',
       name: '',
       type: 'text',
       options: [],
@@ -80,10 +84,29 @@ export const CustomDataModelModal: React.FC<Props> = ({
     e.preventDefault();
     if (!service) return;
 
-    // Validation: make sure all fields have a name
+    const FIELD_ID_REGEX = /^[a-z0-9_-]+$/;
+    const seenIds = new Set<string>();
+
     for (let i = 0; i < fields.length; i++) {
       const f = fields[i];
-      if (!f.name.trim()) {
+      const fieldId = f.id ? f.id.trim() : '';
+      const fieldName = f.name ? f.name.trim() : '';
+
+      if (!fieldId) {
+        setError(t('errFieldIdRequired'));
+        return;
+      }
+      if (!FIELD_ID_REGEX.test(fieldId)) {
+        setError(t('errFieldIdFormat'));
+        return;
+      }
+      if (seenIds.has(fieldId)) {
+        setError(t('errFieldIdDuplicate'));
+        return;
+      }
+      seenIds.add(fieldId);
+
+      if (!fieldName) {
         setError(t('alertServiceRequired'));
         return;
       }
@@ -174,6 +197,24 @@ export const CustomDataModelModal: React.FC<Props> = ({
               </Box>
 
               <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
+                <TextField
+                  size="small"
+                  label={t('lblFieldId')}
+                  placeholder={t('phFieldId')}
+                  value={field.id}
+                  disabled={Boolean(field.id && initialFieldIds.has(field.id))}
+                  onChange={(e) =>
+                    handleUpdateField(idx, {
+                      id: e.target.value.toLowerCase().replace(/\s+/g, '_'),
+                    })
+                  }
+                  required
+                  helperText={
+                    field.id && initialFieldIds.has(field.id) ? t('fieldIdLocked') : undefined
+                  }
+                  sx={{ minWidth: { xs: '100%', sm: 180 } }}
+                />
+
                 <TextField
                   fullWidth
                   size="small"

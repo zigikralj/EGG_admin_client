@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { User, UserRole, Project } from '../types';
 import { apiFetch } from '../api';
-import { API_ROUTES, STORAGE_KEYS, APP_EVENTS } from '../constants';
+import { API_ROUTES, STORAGE_KEYS, APP_EVENTS, USER_STATUSES } from '../constants';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -201,7 +201,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (currentUser && users.length > 0) {
       const updated = users.find((u) => u.id === currentUser.id);
       if (updated) {
-        if (updated.status === 'BLOCKED' || (updated.isApproved === false && updated.status !== 'PENDING')) {
+        if (updated.status === USER_STATUSES.BLOCKED || !updated.isApproved || updated.status !== USER_STATUSES.APPROVED) {
           logout();
           return;
         }
@@ -390,7 +390,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const pendingUsersCount = React.useMemo(() => {
     if (users.length > 0) {
-      return users.filter((u) => u.status === 'PENDING').length;
+      return users.filter((u) => u.status === USER_STATUSES.PENDING).length;
     }
     return serverPendingUsersCount;
   }, [users, serverPendingUsersCount]);

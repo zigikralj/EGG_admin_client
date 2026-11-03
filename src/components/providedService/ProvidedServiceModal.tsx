@@ -182,16 +182,9 @@ export const ProvidedServiceModal: React.FC<ProvidedServiceModalProps> = ({
       const savedCustomData = item.customData || {};
 
       fields.forEach((f) => {
-        let val: any;
-        if (savedCustomData[f.id] !== undefined) {
-          val = savedCustomData[f.id];
-        } else {
-          const legacyKey = f.name.toLowerCase().replace(/\s+/g, '_');
-          if (savedCustomData[legacyKey] !== undefined) {
-            val = savedCustomData[legacyKey];
-          } else {
-            val = f.type === 'number' ? '' : f.type === 'list' && (f.linkedList === 'index_number' || f.id === 'indeksni_broj') ? [] : '';
-          }
+        let val = savedCustomData[f.id];
+        if (val === undefined || val === null) {
+          val = f.type === 'number' ? '' : f.type === 'list' && f.linkedList === 'index_number' ? [] : '';
         }
         if (typeof val === 'object' && val !== null && !Array.isArray(val) && val.name) {
           val = val.name;
@@ -603,7 +596,7 @@ export const ProvidedServiceModal: React.FC<ProvidedServiceModalProps> = ({
                       />
                     )}
                     {(field.type === 'list' || field.type === 'client') && (
-                      (field.type === 'list' && field.linkedList === 'index_number') || field.id === 'indeksni_broj' ? (
+                      field.type === 'list' && field.linkedList === 'index_number' ? (
                         <WasteCatalogAutocomplete
                           multiple={true}
                           size="small"

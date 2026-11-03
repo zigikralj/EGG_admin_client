@@ -24,7 +24,6 @@ import {
   ServiceAutocomplete,
 } from '../common/autocomplete';
 import { ViewEditModalBase, type ModalMode } from '../common/modal/ViewEditModalBase';
-import { isKeyMatch } from '../../utils/customFields';
 import { PROVIDED_SERVICE_STATUSES, isProvidedServiceCompleted } from '../../constants';
 import type {
   Client,
@@ -170,7 +169,7 @@ const CustomFieldItem: React.FC<CustomFieldItemProps> = React.memo(({
     [onChange, field.id]
   );
 
-  if ((field.type === 'list' && field.linkedList === 'index_number') || field.id === 'indeksni_broj') {
+  if (field.type === 'list' && field.linkedList === 'index_number') {
     return (
       <WasteCatalogAutocomplete
         multiple={true}
@@ -486,26 +485,18 @@ export const WasteDisposalModal: React.FC<WasteDisposalModalProps> = React.memo(
 
     if (serviceFields.length > 0) {
       serviceFields.forEach((field) => {
-        let val = rawCustomData[field.id];
-        const isValEmpty = val === undefined || val === null || val === '' || (Array.isArray(val) && val.length === 0);
-        if (isValEmpty) {
-          for (const [k, v] of Object.entries(rawCustomData)) {
-            if (v !== undefined && v !== null && v !== '' && (!Array.isArray(v) || v.length > 0) && isKeyMatch(k, field)) {
-              val = v;
-              break;
-            }
-          }
-        }
+        const val = rawCustomData[field.id];
         if (val !== undefined && val !== null && val !== '' && (!Array.isArray(val) || val.length > 0)) {
-          if (typeof val === 'object' && !Array.isArray(val) && val.name) {
-            val = val.name;
+          let cleanVal = val;
+          if (typeof cleanVal === 'object' && !Array.isArray(cleanVal) && cleanVal.name) {
+            cleanVal = cleanVal.name;
           }
-          initialCustomData[field.id] = val;
+          initialCustomData[field.id] = cleanVal;
         }
       });
       // Preserve any other non-matched keys
       for (const [k, v] of Object.entries(rawCustomData)) {
-        if (initialCustomData[k] === undefined && !serviceFields.some((f) => isKeyMatch(k, f))) {
+        if (initialCustomData[k] === undefined && !serviceFields.some((f) => f.id === k)) {
           let cleanV = v;
           if (typeof cleanV === 'object' && cleanV !== null && !Array.isArray(cleanV) && cleanV.name) {
             cleanV = cleanV.name;
