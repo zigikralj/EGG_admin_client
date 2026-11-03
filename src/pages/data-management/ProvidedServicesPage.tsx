@@ -310,6 +310,9 @@ const ProvidedServicesPage: React.FC<Props> = ({
 
   const isWasteManagementService = (srv?: Service, item?: ProvidedService) => {
     if (!srv && !item) return false;
+    if (wasteDisposalServiceId && (item?.serviceId === wasteDisposalServiceId || srv?.id === wasteDisposalServiceId)) {
+      return true;
+    }
     const group = (srv?.group || (item as any)?.group || '').toLowerCase();
     const code = (srv?.code || item?.serviceCode || '').toLowerCase();
     return (

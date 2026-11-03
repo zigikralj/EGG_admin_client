@@ -17,6 +17,20 @@ export function useInvoicesSummaryQuery(options?: { enabled?: boolean }) {
   });
 }
 
+export function useInvoiceDetailsQuery(id: string | null | undefined, enabled: boolean = true) {
+  return useQuery<Invoice | null>({
+    queryKey: ['invoices', 'details', id],
+    enabled: Boolean(id && enabled),
+    queryFn: async () => {
+      if (!id) return null;
+      const res = await apiFetch(`${API_ROUTES.INVOICES.BASE}/${id}`);
+      if (!res.ok) throw new Error('Failed to fetch invoice details');
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
+}
+
 export interface PaginatedInvoicesParams {
   page: number; // 0-indexed from MUI
   rowsPerPage: number;

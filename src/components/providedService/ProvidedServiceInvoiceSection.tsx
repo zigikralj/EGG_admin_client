@@ -24,6 +24,7 @@ import { InvoiceFormFields } from '../invoice/InvoiceFormFields';
 import { InvoiceItemsList } from '../invoice/InvoiceItemsList';
 import { InvoiceAutocomplete } from '../common/autocomplete';
 import { serializeInvoiceNotes, enhanceInvoicesWithLinks } from '../../utils/invoiceUtils';
+import { useInvoiceDetailsQuery } from '../../queries';
 import {
   ReceiptLongIcon,
   AddIcon,
@@ -115,7 +116,7 @@ export const ProvidedServiceInvoiceSection: React.FC<ProvidedServiceInvoiceSecti
     return enhanceInvoicesWithLinks(invoices);
   }, [invoices]);
 
-  const linkedInvoice = useMemo(() => {
+  const localLinkedInvoice = useMemo(() => {
     if (!selectedInvoiceId) return null;
     const found = linkedInvoicesList.find((inv) => inv.id === selectedInvoiceId);
     if (found) return found;
@@ -127,6 +128,13 @@ export const ProvidedServiceInvoiceSection: React.FC<ProvidedServiceInvoiceSecti
     }
     return null;
   }, [selectedInvoiceId, linkedInvoicesList, createdInvoiceFallback, initialInvoice]);
+
+  const { data: fetchedInvoice } = useInvoiceDetailsQuery(
+    selectedInvoiceId,
+    Boolean(selectedInvoiceId && !localLinkedInvoice)
+  );
+
+  const linkedInvoice = localLinkedInvoice || (fetchedInvoice as Invoice) || null;
 
   const availableExistingInvoices = useMemo(() => {
     return linkedInvoicesList;
@@ -205,7 +213,6 @@ export const ProvidedServiceInvoiceSection: React.FC<ProvidedServiceInvoiceSecti
   const handleLinkExistingInvoice = () => {
     if (!selectedExistingInvoiceId) return;
     onSelectInvoiceId(selectedExistingInvoiceId);
-    setCreatedInvoiceFallback(null);
     setIsAddingInvoice(false);
     setSelectedExistingInvoiceId('');
   };
