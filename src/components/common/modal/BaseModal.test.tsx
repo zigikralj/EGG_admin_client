@@ -9,7 +9,6 @@ vi.mock('../../../context/LanguageContext', () => ({
 
 describe('BaseModal', () => {
   const mockOnClose = vi.fn();
-  const mockOnSubmit = vi.fn((e) => e.preventDefault());
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -75,16 +74,13 @@ describe('BaseModal', () => {
     expect(screen.getByRole('progressbar')).toBeInTheDocument();
   });
 
-  it('wraps dialog paper in a form and triggers onSubmit when onSubmit is passed', () => {
+  it('renders dialog paper as a non-form standard container', () => {
     renderComponent({
-      onSubmit: mockOnSubmit,
-      actions: <button type="submit">Submit Form</button>,
+      actions: <button type="button">Save Action</button>,
     });
 
-    const submitBtn = screen.getByText('Submit Form');
-    fireEvent.click(submitBtn);
-
-    expect(mockOnSubmit).toHaveBeenCalled();
+    const dialogPaper = screen.getByRole('dialog');
+    expect(dialogPaper.tagName.toLowerCase()).not.toBe('form');
   });
 
   it('fits content by default (height: auto) and expands to maxHeight when fullHeight is true', () => {

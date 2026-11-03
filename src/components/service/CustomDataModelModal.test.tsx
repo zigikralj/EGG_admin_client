@@ -94,9 +94,7 @@ describe('CustomDataModelModal', () => {
     ];
     renderComponent(fields);
     
-    const dialog = screen.getByRole('dialog');
-    const form = dialog.tagName === 'FORM' ? dialog : dialog.querySelector('form');
-    fireEvent.submit(form!);
+    fireEvent.click(screen.getByText('btnSave'));
     
     expect(mockOnSave).not.toHaveBeenCalled();
     expect(await screen.findByText('alertServiceRequired')).toBeInTheDocument();
@@ -109,9 +107,7 @@ describe('CustomDataModelModal', () => {
     const nameInput = screen.getByPlaceholderText('phFieldName');
     fireEvent.change(nameInput, { target: { value: 'Valid Name' } });
 
-    const dialog = screen.getByRole('dialog');
-    const form = dialog.tagName === 'FORM' ? dialog : dialog.querySelector('form');
-    fireEvent.submit(form!);
+    fireEvent.click(screen.getByText('btnSave'));
 
     expect(mockOnSave).not.toHaveBeenCalled();
     expect(await screen.findByText('errFieldIdRequired')).toBeInTheDocument();
@@ -127,9 +123,7 @@ describe('CustomDataModelModal', () => {
     const nameInput = screen.getByPlaceholderText('phFieldName');
     fireEvent.change(nameInput, { target: { value: 'Valid Name' } });
 
-    const dialog = screen.getByRole('dialog');
-    const form = dialog.tagName === 'FORM' ? dialog : dialog.querySelector('form');
-    fireEvent.submit(form!);
+    fireEvent.click(screen.getByText('btnSave'));
 
     expect(mockOnSave).not.toHaveBeenCalled();
     expect(await screen.findByText('errFieldIdFormat')).toBeInTheDocument();

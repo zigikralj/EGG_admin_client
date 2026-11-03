@@ -49,8 +49,7 @@ export const PermitQuickReminderDialog: React.FC<PermitQuickReminderDialogProps>
     }
   }, [open, permit, t]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     if (!title.trim() || isSubmitting) return;
 
     setIsSubmitting(true);
@@ -73,8 +72,6 @@ export const PermitQuickReminderDialog: React.FC<PermitQuickReminderDialogProps>
       fullWidth
       slotProps={{
         paper: {
-          component: 'form',
-          onSubmit: handleSubmit,
           sx: {
             borderRadius: 3,
             maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
@@ -150,7 +147,8 @@ export const PermitQuickReminderDialog: React.FC<PermitQuickReminderDialogProps>
             {t('btnCancel')}
           </Button>
           <Button
-            type="submit"
+            type="button"
+            onClick={handleSubmit}
             variant="contained"
             color="primary"
             disabled={isSubmitting || !title.trim()}
@@ -198,8 +196,7 @@ export const PermitEditReminderModal: React.FC<PermitEditReminderModalProps> = (
 
   if (!reminder) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     if (!title.trim() || isSubmitting) return;
 
     setIsSubmitting(true);
@@ -224,8 +221,6 @@ export const PermitEditReminderModal: React.FC<PermitEditReminderModalProps> = (
       fullWidth
       slotProps={{
         paper: {
-          component: 'form',
-          onSubmit: handleSubmit,
           sx: {
             borderRadius: 3,
             maxHeight: { xs: 'calc(100% - 32px)', sm: 'calc(100% - 64px)' },
@@ -314,7 +309,8 @@ export const PermitEditReminderModal: React.FC<PermitEditReminderModalProps> = (
             {t('btnCancel')}
           </Button>
           <Button
-            type="submit"
+            type="button"
+            onClick={handleSubmit}
             variant="contained"
             color="primary"
             disabled={isSubmitting || !title.trim()}

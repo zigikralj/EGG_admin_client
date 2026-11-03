@@ -113,10 +113,11 @@ describe('ViewEditModalBase', () => {
       expect(screen.queryByText('btnClose')).not.toBeInTheDocument();
     });
 
-    it('submits form via onSave when Save is clicked', () => {
+    it('triggers onSave when Save is clicked', () => {
       renderComponent({ mode: 'edit' });
 
       const saveBtn = screen.getByText('btnSave');
+      expect(saveBtn).toHaveAttribute('type', 'button');
       fireEvent.click(saveBtn);
 
       expect(mockOnSave).toHaveBeenCalled();

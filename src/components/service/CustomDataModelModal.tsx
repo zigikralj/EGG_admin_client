@@ -80,8 +80,7 @@ export const CustomDataModelModal: React.FC<Props> = ({
     setFields((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     if (!service) return;
 
     const FIELD_ID_REGEX = /^[a-z0-9_-]+$/;
@@ -136,13 +135,12 @@ export const CustomDataModelModal: React.FC<Props> = ({
       onClose={onClose}
       title={t('modalCustomDataModelTitle')}
       maxWidth="md"
-      onSubmit={handleSubmit}
       actions={
         <>
           <Button onClick={onClose} variant="outlined" disabled={isSaving}>
             {t('btnCancel')}
           </Button>
-          <Button type="submit" variant="contained" color="primary" disabled={isSaving}>
+          <Button type="button" onClick={handleSubmit} variant="contained" color="primary" disabled={isSaving}>
             {isSaving ? '...' : t('btnSave')}
           </Button>
         </>

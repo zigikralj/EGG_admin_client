@@ -58,7 +58,6 @@ export interface BaseModalProps {
   isLoading?: boolean;
   children: React.ReactNode;
   actions?: React.ReactNode;
-  onSubmit?: (e: React.FormEvent<HTMLFormElement>) => void;
   hideCloseButton?: boolean;
   disableBackdropClick?: boolean;
   contentDividers?: boolean;
@@ -85,7 +84,6 @@ export const BaseModal: React.FC<BaseModalProps> = ({
   isLoading = false,
   children,
   actions,
-  onSubmit,
   hideCloseButton = false,
   disableBackdropClick = false,
   contentDividers = true,
@@ -124,7 +122,6 @@ export const BaseModal: React.FC<BaseModalProps> = ({
   };
 
   const mergedPaperSlot = {
-    ...(onSubmit ? { component: 'form', onSubmit } : {}),
     sx: defaultPaperSx,
     ...slotProps?.paper,
   };
