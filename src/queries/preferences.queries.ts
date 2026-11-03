@@ -30,6 +30,7 @@ export function usePreferencesQuery() {
       return undefined;
     },
     staleTime: 60 * 60 * 1000,
+    enabled: !!currentUser?.id,
   });
 }
 
@@ -41,6 +42,7 @@ export function usePreferencesMutations() {
     mutationKey: ['preferences', currentUser?.id],
     meta: { silent: true },
     mutationFn: async ({ key, value }: { key: string; value: any }) => {
+      if (!currentUser?.id) return;
       const res = await apiFetch(API_ROUTES.PREFERENCES.BY_KEY(key), {
         method: 'PUT',
         headers: {

@@ -13,25 +13,10 @@ import { useActivityTracker } from './hooks/useActivityTracker';
 import { AppRoutes } from './routes';
 import './index.css';
 
-function MainApp() {
-  useActivityTracker();
-  const { currentUser } = useAuth();
+function AuthenticatedApp() {
   const { data: userPreferences = {} } = usePreferencesQuery();
   const { updatePreferenceMutation } = usePreferencesMutations();
   const updatePreference = (key: string, value: any) => updatePreferenceMutation.mutate({ key, value });
-
-  if (!currentUser) {
-    return (
-      <CustomThemeProvider
-        initialMode={userPreferences.theme || 'light'}
-        onThemeChange={(mode) => updatePreference('theme', mode)}
-      >
-        <LoginPage />
-        <LoadingMask />
-        <VersionUpdatePrompt />
-      </CustomThemeProvider>
-    );
-  }
 
   return (
     <CustomThemeProvider
@@ -50,6 +35,23 @@ function MainApp() {
       <LoadingMask />
     </CustomThemeProvider>
   );
+}
+
+function MainApp() {
+  useActivityTracker();
+  const { currentUser } = useAuth();
+
+  if (!currentUser) {
+    return (
+      <CustomThemeProvider initialMode="light">
+        <LoginPage />
+        <LoadingMask />
+        <VersionUpdatePrompt />
+      </CustomThemeProvider>
+    );
+  }
+
+  return <AuthenticatedApp />;
 }
 
 export function App() {
