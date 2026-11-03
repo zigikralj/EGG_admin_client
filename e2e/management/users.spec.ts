@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { USER_ROLES, USER_STATUSES } from '../../src/constants';
 
 test.describe('Users & Roles Management', () => {
   let usersData = [
@@ -6,8 +7,8 @@ test.describe('Users & Roles Management', () => {
       id: '1',
       name: 'Petar Petrović',
       email: 'petar@ekosgreen.rs',
-      role: 'Manager',
-      status: 'APPROVED',
+      role: USER_ROLES.MANAGER,
+      status: USER_STATUSES.APPROVED,
       phone: '+381641234567',
       gender: 'Male',
     },
@@ -15,8 +16,8 @@ test.describe('Users & Roles Management', () => {
       id: '2',
       name: 'Jelena Jovanović',
       email: 'jelena@ekosgreen.rs',
-      role: 'User',
-      status: 'APPROVED',
+      role: USER_ROLES.USER,
+      status: USER_STATUSES.APPROVED,
       phone: '+381649876543',
       gender: 'Female',
     },
@@ -25,7 +26,7 @@ test.describe('Users & Roles Management', () => {
   let rolesData = [
     {
       id: 'r-1',
-      name: 'Administrator',
+      name: USER_ROLES.ADMINISTRATOR,
       description: 'Puni sistemski pristup',
       isSystemAdmin: true,
       permissions: { all: true },
@@ -33,7 +34,7 @@ test.describe('Users & Roles Management', () => {
     },
     {
       id: 'r-2',
-      name: 'Manager',
+      name: USER_ROLES.MANAGER,
       description: 'Menadžer projekata i klijenata',
       isSystemAdmin: false,
       permissions: { projects: ['view', 'create', 'edit'] },
@@ -41,7 +42,7 @@ test.describe('Users & Roles Management', () => {
     },
     {
       id: 'r-3',
-      name: 'User',
+      name: USER_ROLES.USER,
       description: 'Standardni korisnik sistema',
       isSystemAdmin: false,
       permissions: { projects: ['view'] },
@@ -55,8 +56,8 @@ test.describe('Users & Roles Management', () => {
         id: '1',
         name: 'Petar Petrović',
         email: 'petar@ekosgreen.rs',
-        role: 'Manager',
-        status: 'APPROVED',
+        role: USER_ROLES.MANAGER,
+        status: USER_STATUSES.APPROVED,
         phone: '+381641234567',
         gender: 'Male',
       },
@@ -64,8 +65,8 @@ test.describe('Users & Roles Management', () => {
         id: '2',
         name: 'Jelena Jovanović',
         email: 'jelena@ekosgreen.rs',
-        role: 'User',
-        status: 'APPROVED',
+        role: USER_ROLES.USER,
+        status: USER_STATUSES.APPROVED,
         phone: '+381649876543',
         gender: 'Female',
       },
@@ -74,7 +75,7 @@ test.describe('Users & Roles Management', () => {
     rolesData = [
       {
         id: 'r-1',
-        name: 'Administrator',
+        name: USER_ROLES.ADMINISTRATOR,
         description: 'Puni sistemski pristup',
         isSystemAdmin: true,
         permissions: { all: true },
@@ -82,7 +83,7 @@ test.describe('Users & Roles Management', () => {
       },
       {
         id: 'r-2',
-        name: 'Manager',
+        name: USER_ROLES.MANAGER,
         description: 'Menadžer projekata i klijenata',
         isSystemAdmin: false,
         permissions: { projects: ['view', 'create', 'edit'] },
@@ -90,7 +91,7 @@ test.describe('Users & Roles Management', () => {
       },
       {
         id: 'r-3',
-        name: 'User',
+        name: USER_ROLES.USER,
         description: 'Standardni korisnik sistema',
         isSystemAdmin: false,
         permissions: { projects: ['view'] },
@@ -107,7 +108,7 @@ test.describe('Users & Roles Management', () => {
         });
       } else if (route.request().method() === 'POST') {
         const payload = route.request().postDataJSON();
-        const created = { id: '3', status: 'APPROVED', ...payload };
+        const created = { id: '3', status: USER_STATUSES.APPROVED, ...payload };
         usersData.push(created);
         await route.fulfill({
           status: 201,
@@ -239,7 +240,7 @@ test.describe('Users & Roles Management', () => {
     await page.route(/\/api\/users(\?.*)?$/, async (route) => {
       if (route.request().method() === 'POST') {
         createdPayload = route.request().postDataJSON();
-        const created = { id: '3', status: 'APPROVED', ...createdPayload };
+        const created = { id: '3', status: USER_STATUSES.APPROVED, ...createdPayload };
         await route.fulfill({
           status: 201,
           contentType: 'application/json',
@@ -287,7 +288,7 @@ test.describe('Users & Roles Management', () => {
     expect(createdPayload).not.toBeNull();
     expect(createdPayload.name).toBe('Milan Nikolić');
     expect(createdPayload.email).toBe('milan@ekosgreen.rs');
-    expect(createdPayload.role).toBe('Manager');
+    expect(createdPayload.role).toBe(USER_ROLES.MANAGER);
   });
 
   test('should edit existing user role', async ({ page }) => {
@@ -325,13 +326,13 @@ test.describe('Users & Roles Management', () => {
 
     await expect(dialog).not.toBeVisible();
     expect(updatedPayload).not.toBeNull();
-    expect(updatedPayload.role).toBe('Manager');
+    expect(updatedPayload.role).toBe(USER_ROLES.MANAGER);
   });
 
   test('should display the roles page with roles list', async ({ page }) => {
     await page.goto('/data-management/roles');
 
-    await expect(page.getByRole('heading', { name: /Roles & Permissions/i })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: /Uloge i dozvole|Roles & Permissions/i })).toBeVisible({ timeout: 10000 });
     await expect(page.locator('td', { hasText: 'Administrator' })).toBeVisible();
     await expect(page.locator('td', { hasText: 'Manager' })).toBeVisible();
     await expect(page.locator('td', { hasText: 'User' })).toBeVisible();
