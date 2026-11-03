@@ -21,6 +21,7 @@ export interface WasteCatalogDeltaResponse {
   items: WasteCatalog[];
   deletedIds: string[];
   syncedAt: string;
+  totalCount?: number;
 }
 
 // In-memory cache for 0ms synchronous access
@@ -200,8 +201,10 @@ export async function saveCatalogToDB(items: WasteCatalog[], syncedAt: string): 
       const metaStore = tx.objectStore(META_STORE);
 
       catalogStore.clear();
+      const seenCodes = new Set<string>();
       for (const item of sorted) {
-        if (item.id) {
+        if (item.id && item.code && !seenCodes.has(item.code)) {
+          seenCodes.add(item.code);
           catalogStore.put(item);
         }
       }
@@ -216,10 +219,20 @@ export async function saveCatalogToDB(items: WasteCatalog[], syncedAt: string): 
 
       tx.oncomplete = () => {
         broadcastUpdate(syncedAt, sorted.length);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('ekos:waste-catalog-updated', {
+              detail: { syncedAt, count: sorted.length },
+            })
+          );
+        }
         resolve();
       };
 
-      tx.onerror = () => resolve();
+      tx.onerror = (e) => {
+        console.warn('[WasteCatalogStorage] Failed to save catalog to IndexedDB:', e);
+        resolve();
+      };
     } catch (err) {
       console.warn('[WasteCatalogStorage] Failed to save catalog to IndexedDB:', err);
       resolve();
@@ -238,14 +251,12 @@ export async function applyDeltaToDB(delta: WasteCatalogDeltaResponse): Promise<
   if (!db) {
     // In-memory fallback
     const current = memoryCache || [];
-    const updatedMap = new Map(updatedItems.map((it) => [it.id, it]));
-    const preserved = current
-      .filter((it) => !deletedSet.has(it.id))
-      .map((it) => updatedMap.get(it.id) ?? it);
-
-    const existingIdSet = new Set(current.map((it) => it.id));
-    const brandNew = updatedItems.filter((it) => !existingIdSet.has(it.id) && !deletedSet.has(it.id));
-    const merged = sortWasteCatalog([...brandNew, ...preserved]);
+    const updatedCodeMap = new Map(updatedItems.map((it) => [it.code, it]));
+    const preserved = current.filter(
+      (it) => !deletedSet.has(it.id) && !updatedCodeMap.has(it.code)
+    );
+    const validIncoming = updatedItems.filter((it) => !deletedSet.has(it.id));
+    const merged = sortWasteCatalog([...validIncoming, ...preserved]);
     memoryCache = merged;
     memorySyncedAt = syncedAt;
     return merged;
@@ -262,37 +273,73 @@ export async function applyDeltaToDB(delta: WasteCatalogDeltaResponse): Promise<
         catalogStore.delete(delId);
       }
 
-      // 2. Put created/updated items
-      for (const item of updatedItems) {
-        if (item.id) {
-          catalogStore.put(item);
+      // Read current items to prevent unique index constraint error on `code`
+      const getAllReq = catalogStore.getAll();
+      getAllReq.onsuccess = () => {
+        try {
+          const currentItems = (getAllReq.result as WasteCatalog[]) || [];
+          const currentCodeMap = new Map(currentItems.map((it) => [it.code, it]));
+
+          // 2. Put created/updated items, resolving any code conflicts
+          // (if existing item has same code but different id, delete old id first to avoid ConstraintError)
+          const seenIncomingCodes = new Set<string>();
+          for (const item of updatedItems) {
+            if (!item.id || !item.code) continue;
+            if (seenIncomingCodes.has(item.code)) continue;
+            seenIncomingCodes.add(item.code);
+
+            const existingWithSameCode = currentCodeMap.get(item.code);
+            if (existingWithSameCode && existingWithSameCode.id !== item.id) {
+              catalogStore.delete(existingWithSameCode.id);
+            }
+            catalogStore.put(item);
+          }
+
+          // 3. Update memoryCache by merging
+          const incomingCodeMap = new Map(updatedItems.map((it) => [it.code, it]));
+          const preserved = currentItems.filter(
+            (it) => !deletedSet.has(it.id) && !incomingCodeMap.has(it.code)
+          );
+          const validIncoming = updatedItems.filter((it) => !deletedSet.has(it.id));
+          const merged = sortWasteCatalog([...validIncoming, ...preserved]);
+
+          memoryCache = merged;
+          memorySyncedAt = syncedAt;
+
+          const meta: CatalogMetadata = {
+            key: META_KEY,
+            syncedAt,
+            count: merged.length,
+            version: DB_VERSION,
+          };
+          metaStore.put(meta);
+        } catch (innerErr) {
+          console.warn('[WasteCatalogStorage] Error processing delta items:', innerErr);
         }
-      }
-
-      // 3. Update metadata
-      const itemsRequest = catalogStore.getAll();
-      itemsRequest.onsuccess = () => {
-        const allItems = (itemsRequest.result as WasteCatalog[]) || [];
-        const sorted = sortWasteCatalog(allItems);
-        memoryCache = sorted;
-        memorySyncedAt = syncedAt;
-
-        const meta: CatalogMetadata = {
-          key: META_KEY,
-          syncedAt,
-          count: sorted.length,
-          version: DB_VERSION,
-        };
-        metaStore.put(meta);
       };
 
       tx.oncomplete = () => {
         broadcastUpdate(syncedAt, memoryCache?.length || 0);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('ekos:waste-catalog-updated', {
+              detail: { syncedAt, count: memoryCache?.length || 0 },
+            })
+          );
+        }
         resolve(memoryCache || []);
       };
 
-      tx.onerror = () => {
-        resolve(memoryCache || []);
+      tx.onerror = (txErr) => {
+        console.warn('[WasteCatalogStorage] Transaction error in applyDeltaToDB, recovering:', txErr);
+        // Fallback: if delta transaction aborted, attempt full save of updatedItems
+        if (updatedItems.length > 0) {
+          saveCatalogToDB(updatedItems, syncedAt)
+            .then(() => resolve(memoryCache || updatedItems))
+            .catch(() => resolve(memoryCache || []));
+        } else {
+          resolve(memoryCache || []);
+        }
       };
     } catch (err) {
       console.warn('[WasteCatalogStorage] Failed to apply delta to IndexedDB:', err);
@@ -359,14 +406,54 @@ export async function clearCatalogDB(): Promise<void> {
   });
 }
 
+export interface SyncWasteCatalogOptions {
+  headers?: Record<string, string>;
+  forceFull?: boolean;
+}
+
 /**
  * Synchronizes the waste catalog:
  * - Reads from IndexedDB first for instant UI response.
  * - Performs background delta query against /api/waste-catalog?since=...
  * - Reconciles any changes and updates the local storage.
+ * - Self-heals with full snapshot if local count diverges from server totalCount.
  */
-export async function syncWasteCatalog(headers?: Record<string, string>): Promise<WasteCatalog[]> {
+export async function syncWasteCatalog(
+  optionsOrHeaders?: SyncWasteCatalogOptions | Record<string, string>
+): Promise<WasteCatalog[]> {
+  const options: SyncWasteCatalogOptions =
+    optionsOrHeaders && !('headers' in optionsOrHeaders || 'forceFull' in optionsOrHeaders)
+      ? { headers: optionsOrHeaders as Record<string, string> }
+      : ((optionsOrHeaders as SyncWasteCatalogOptions) || {});
+
+  const headers = options.headers;
   const local = await loadCatalogFromDB();
+
+  const fetchFullCatalog = async (): Promise<WasteCatalog[]> => {
+    try {
+      const url = `${API_ROUTES.WASTE_CATALOG.BASE}?fresh=true`;
+      const res = await apiFetch(url, { headers });
+      if (!res.ok) {
+        throw new Error(`Failed to fetch waste catalog (status: ${res.status})`);
+      }
+
+      const raw = await res.json();
+      const items: WasteCatalog[] = Array.isArray(raw)
+        ? raw
+        : (raw && Array.isArray(raw.items) ? raw.items : []);
+      const serverDate = res.headers?.get ? res.headers.get('date') : null;
+      const syncedAt = serverDate ? new Date(serverDate).toISOString() : new Date().toISOString();
+      await saveCatalogToDB(items, syncedAt);
+      return sortWasteCatalog(items);
+    } catch (err) {
+      console.error('[WasteCatalogStorage] Failed to fetch full waste catalog:', err);
+      return local.items;
+    }
+  };
+
+  if (options.forceFull) {
+    return await fetchFullCatalog();
+  }
 
   // If we already have cached data and a sync timestamp, execute delta sync
   if (local.items.length > 0 && local.syncedAt) {
@@ -378,8 +465,23 @@ export async function syncWasteCatalog(headers?: Record<string, string>): Promis
         const json = await res.json();
         if (json && typeof json === 'object' && json.delta === true) {
           const deltaEnvelope = json as WasteCatalogDeltaResponse;
+
+          // Self-healing check: if server totalCount shows local cache is missing entries
+          if (
+            typeof deltaEnvelope.totalCount === 'number' &&
+            deltaEnvelope.totalCount > 0 &&
+            local.items.length + deltaEnvelope.items.length < deltaEnvelope.totalCount
+          ) {
+            console.log('[WasteCatalogStorage] Local count mismatch with server totalCount, performing full sync');
+            return await fetchFullCatalog();
+          }
+
           if (deltaEnvelope.items.length > 0 || (deltaEnvelope.deletedIds && deltaEnvelope.deletedIds.length > 0)) {
-            return await applyDeltaToDB(deltaEnvelope);
+            const merged = await applyDeltaToDB(deltaEnvelope);
+            if (typeof deltaEnvelope.totalCount === 'number' && merged.length < deltaEnvelope.totalCount) {
+              return await fetchFullCatalog();
+            }
+            return merged;
           }
           // No changes since last sync; update timestamp if provided
           if (deltaEnvelope.syncedAt) {
@@ -405,25 +507,7 @@ export async function syncWasteCatalog(headers?: Record<string, string>): Promis
   }
 
   // Cold start: full fetch from server
-  try {
-    const res = await apiFetch(API_ROUTES.WASTE_CATALOG.BASE, { headers });
-    if (!res.ok) {
-      throw new Error(`Failed to fetch waste catalog (status: ${res.status})`);
-    }
-
-    const raw = await res.json();
-    const items: WasteCatalog[] = Array.isArray(raw)
-      ? raw
-      : (raw && Array.isArray(raw.items) ? raw.items : []);
-    const serverDate = res.headers?.get ? res.headers.get('date') : null;
-    const syncedAt = serverDate ? new Date(serverDate).toISOString() : new Date().toISOString();
-    await saveCatalogToDB(items, syncedAt);
-    return sortWasteCatalog(items);
-  } catch (err) {
-    console.error('[WasteCatalogStorage] Failed to fetch full waste catalog:', err);
-    // If network fails on cold start, return whatever was in local DB if any
-    return local.items;
-  }
+  return await fetchFullCatalog();
 }
 
 /**

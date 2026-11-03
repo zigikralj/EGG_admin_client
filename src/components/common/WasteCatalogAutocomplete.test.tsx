@@ -145,4 +145,34 @@ describe('WasteCatalogAutocomplete', () => {
     );
     expect(paginatedCalls.length).toBe(0);
   });
+
+  it('lazy loads in local mode when catalog has many items', async () => {
+    const { saveCatalogToDB } = await import('../../utils/wasteCatalogStorage');
+    const cachedItems = Array.from({ length: 120 }, (_, i) => ({
+      id: `item-${i}`,
+      code: `15 01 ${i < 10 ? '0' + i : i}`,
+      description: `Test item ${i}`,
+      isHazardous: false,
+    }));
+    await saveCatalogToDB(cachedItems, new Date().toISOString());
+
+    render(<WasteCatalogAutocomplete value={[]} onChange={vi.fn()} placeholder="Search waste" />);
+
+    const input = screen.getByRole('combobox');
+    fireEvent.focus(input);
+    fireEvent.mouseDown(input);
+
+    // Initial batch displays first 50 items and sentinel
+    await waitFor(() => {
+      expect(screen.getByText('+ btnLoadMore')).toBeInTheDocument();
+    });
+
+    const loadMoreBtn = screen.getByText('+ btnLoadMore');
+    fireEvent.click(loadMoreBtn);
+
+    // After expanding, next 50 items are displayed (total 100)
+    await waitFor(() => {
+      expect(screen.getByText('15 01 75')).toBeInTheDocument();
+    });
+  });
 });
