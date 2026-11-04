@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { apiFetch } from '../api';
-import { fetchWithDeltaSync } from '../utils/deltaSync';
 import { syncWasteCatalog, sortWasteCatalog, upsertCatalogItemInDB, getMemoryCachedCatalog } from '../utils/wasteCatalogStorage';
 import { API_ROUTES } from '../constants';
 import { buildPaginationQueryParams, useGenericMutations } from './queryUtils';
@@ -8,18 +7,15 @@ import type { Permit, WasteCatalog, PaginatedResponse } from '../types';
 
 /** Lightweight permits query without nested relations (waste catalogs, reminders, etc.) for linking and dropdowns. */
 export function usePermitsSummaryQuery(options?: { enabled?: boolean }) {
-  const queryClient = useQueryClient();
-  const queryKey = ['permits', 'summary'] as const;
-
   return useQuery<Permit[]>({
-    queryKey,
+    queryKey: ['permits', 'summary'],
     enabled: options?.enabled ?? true,
-    queryFn: () =>
-      fetchWithDeltaSync<Permit>({
-        url: `${API_ROUTES.PERMITS.BASE}?fields=summary`,
-        queryKey,
-        queryClient,
-      }),
+    queryFn: async () => {
+      const res = await apiFetch(`${API_ROUTES.PERMITS.BASE}?fields=summary`);
+      if (!res.ok) throw new Error('Failed to fetch permits summary');
+      return res.json();
+    },
+    staleTime: 60_000,
   });
 }
 
