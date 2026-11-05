@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CompanyInfoModal } from './CompanyInfoModal';
 import * as LanguageContext from '../../context/LanguageContext';
 import * as AuthContext from '../../context/AuthContext';
@@ -20,9 +21,13 @@ vi.mock('../../api', () => ({
 
 describe('CompanyInfoModal', () => {
   const mockOnClose = vi.fn();
+  let queryClient: QueryClient;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
 
     (LanguageContext.useLanguage as any).mockReturnValue({
       t: (key: string) => key,
@@ -54,10 +59,12 @@ describe('CompanyInfoModal', () => {
 
   const renderComponent = () => {
     return render(
-      <CompanyInfoModal
-        open={true}
-        onClose={mockOnClose}
-      />
+      <QueryClientProvider client={queryClient}>
+        <CompanyInfoModal
+          open={true}
+          onClose={mockOnClose}
+        />
+      </QueryClientProvider>
     );
   };
 

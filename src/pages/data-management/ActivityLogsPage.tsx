@@ -272,7 +272,7 @@ export const ActivityLogsPage: React.FC = () => {
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 350, gap: 2 }}>
         <CircularProgress size={44} color="primary" />
         <Typography variant="body2" color="text.secondary">
-          {language === 'en' ? 'Loading activity history...' : 'Učitavanje istorije aktivnosti...'}
+          {t('loadingActivityHistory')}
         </Typography>
       </Box>
     );
@@ -281,9 +281,9 @@ export const ActivityLogsPage: React.FC = () => {
   if (summaryError && activeTab === 'daily') {
     return (
       <Box sx={{ p: 4 }}>
-        <Typography color="error">{language === 'en' ? 'Error loading activity logs.' : 'Greška pri učitavanju istorije aktivnosti.'}</Typography>
+        <Typography color="error">{t('errorLoadingActivityLogs')}</Typography>
         <Button variant="outlined" onClick={() => refetchSummary()} sx={{ mt: 2 }}>
-          {language === 'en' ? 'Try Again' : 'Pokušaj ponovo'}
+          {t('btnTryAgain')}
         </Button>
       </Box>
     );
@@ -322,8 +322,8 @@ export const ActivityLogsPage: React.FC = () => {
             },
           }}
         >
-          <Tab value="daily" label={language === 'en' ? 'Daily Activities' : 'Dnevne aktivnosti'} />
-          <Tab value="monthly" label={language === 'en' ? 'Monthly Overview' : 'Mesečni pregled'} />
+          <Tab value="daily" label={t('tabDailyActivities')} />
+          <Tab value="monthly" label={t('tabMonthlyOverview')} />
         </Tabs>
       </Box>
 
@@ -352,7 +352,7 @@ export const ActivityLogsPage: React.FC = () => {
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 250, gap: 2 }}>
             <CircularProgress size={36} color="primary" />
             <Typography variant="body2" color="text.secondary">
-              {language === 'en' ? 'Loading monthly stats...' : 'Učitavanje mesečnih statistika...'}
+              {t('loadingMonthlyStats')}
             </Typography>
           </Box>
         ) : (
@@ -361,19 +361,19 @@ export const ActivityLogsPage: React.FC = () => {
               <Table>
                 <TableHead sx={{ bgcolor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)' }}>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 700 }}>{language === 'en' ? 'User' : 'Korisnik'}</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>{language === 'en' ? 'Month' : 'Mesec'}</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>{language === 'en' ? 'Total Time' : 'Ukupno vreme'}</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>{language === 'en' ? 'Sessions' : 'Sesije'}</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>{language === 'en' ? 'Actions' : 'Radnje'}</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>{language === 'en' ? 'Top Modules' : 'Glavni moduli'}</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>{t('colUser')}</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>{t('colMonth')}</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>{t('colTotalTime')}</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>{t('colSessions')}</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>{t('colActions')}</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>{t('colTopModules')}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {monthlyStats.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                        {language === 'en' ? 'No monthly statistics recorded yet.' : 'Nema zabeleženih mesečnih statistika.'}
+                        {t('noMonthlyStatsYet')}
                       </TableCell>
                     </TableRow>
                   ) : (

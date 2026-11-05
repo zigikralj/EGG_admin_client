@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { apiFetch } from '../api';
 import { API_ROUTES } from '../constants';
-import { useAuth } from '../context/AuthContext';
 import type { PaginatedResponse } from '../types';
 
 export type AutocompleteEntity =
@@ -43,20 +42,6 @@ export function useEntityAutocompleteInfiniteQuery<T = any>({
   queryParams,
   enabled = true,
 }: UseEntityAutocompleteInfiniteQueryParams) {
-  const { currentUser } = useAuth();
-
-  const getAuthHeaders = () => {
-    const headers: Record<string, string> = {};
-    if (currentUser?.id) headers['X-User-Id'] = currentUser.id;
-    const sid =
-      (typeof localStorage !== 'undefined' ? localStorage.getItem('activity_session_id') : null) ||
-      (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('activity_session_id') : null);
-    if (sid) {
-      headers['X-Session-Id'] = sid;
-    }
-    return headers;
-  };
-
   const queryKey = [
     'autocomplete',
     entity,
@@ -93,9 +78,7 @@ export function useEntityAutocompleteInfiniteQuery<T = any>({
         });
       }
 
-      const res = await apiFetch(`${baseUrl}?${q.toString()}`, {
-        headers: getAuthHeaders(),
-      });
+      const res = await apiFetch(`${baseUrl}?${q.toString()}`);
 
       if (!res.ok) {
         throw new Error(`Failed to fetch autocomplete options for ${entity}`);

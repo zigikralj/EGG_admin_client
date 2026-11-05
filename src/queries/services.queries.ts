@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '../api';
 import { API_ROUTES } from '../constants';
-import { useAuthHeaders, buildPaginationQueryParams, useGenericMutations } from './queryUtils';
+import { buildPaginationQueryParams, useGenericMutations } from './queryUtils';
 import type { Service, Category, PaginatedResponse } from '../types';
 
 export interface PaginatedServicesParams {
@@ -15,7 +15,6 @@ export interface PaginatedServicesParams {
 }
 
 export function usePaginatedServicesQuery(params: PaginatedServicesParams, enabled: boolean = true) {
-  const getAuthHeaders = useAuthHeaders();
   const queryKey = [
     'services',
     'paginated',
@@ -45,9 +44,7 @@ export function usePaginatedServicesQuery(params: PaginatedServicesParams, enabl
         }
       );
 
-      const res = await apiFetch(`${API_ROUTES.SERVICES.BASE}?${q.toString()}`, {
-        headers: getAuthHeaders(),
-      });
+      const res = await apiFetch(`${API_ROUTES.SERVICES.BASE}?${q.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch paginated services');
       const data = await res.json();
       if (Array.isArray(data)) {
@@ -67,31 +64,23 @@ export function usePaginatedServicesQuery(params: PaginatedServicesParams, enabl
 }
 
 export function useServiceDetailsQuery(id: string | null | undefined, enabled: boolean = true) {
-  const getAuthHeaders = useAuthHeaders();
   return useQuery<Service | null>({
     queryKey: ['services', 'details', id],
     enabled: Boolean(id && enabled),
     queryFn: async () => {
       if (!id) return null;
-      const res = await apiFetch(`${API_ROUTES.SERVICES.BASE}/${id}`, {
-        headers: getAuthHeaders(),
-      });
+      const res = await apiFetch(`${API_ROUTES.SERVICES.BASE}/${id}`);
       if (!res.ok) throw new Error('Failed to fetch service details');
       return res.json();
     },
   });
 }
 
-export async function checkServiceCodeExists(
-  code: string,
-  getAuthHeaders?: () => Record<string, string>
-): Promise<boolean> {
+export async function checkServiceCodeExists(code: string): Promise<boolean> {
   const formattedCode = code.trim().toLowerCase().replace(/\s+/g, '-');
   if (!formattedCode) return false;
   try {
-    const res = await apiFetch(API_ROUTES.SERVICES.CHECK_CODE(formattedCode), {
-      headers: getAuthHeaders ? getAuthHeaders() : undefined,
-    });
+    const res = await apiFetch(API_ROUTES.SERVICES.CHECK_CODE(formattedCode));
     if (!res.ok) return false;
     const data = await res.json();
     return Boolean(data.exists);
@@ -101,12 +90,11 @@ export async function checkServiceCodeExists(
 }
 
 export function useCategoriesQuery(options?: { enabled?: boolean }) {
-  const getAuthHeaders = useAuthHeaders();
   return useQuery<Category[]>({
     queryKey: ['categories'],
     enabled: options?.enabled ?? true,
     queryFn: async () => {
-      const res = await apiFetch(API_ROUTES.CATEGORIES.BASE, { headers: getAuthHeaders() });
+      const res = await apiFetch(API_ROUTES.CATEGORIES.BASE);
       if (!res.ok) throw new Error('Failed to fetch categories');
       return res.json();
     },
@@ -126,7 +114,7 @@ export function useCategoriesMutations() {
   return useGenericMutations<Category>({
     basePath: API_ROUTES.CATEGORIES.BASE,
     queryKeyToInvalidate: ['categories'],
-    errorSaveMessageKey: 'errorSavingService',
-    deleteConfirmMessageKey: 'confirmDeleteCategory' as any,
+    errorSaveMessageKey: 'errorSavingCategory',
+    deleteConfirmMessageKey: 'confirmDeleteCategory',
   });
 }

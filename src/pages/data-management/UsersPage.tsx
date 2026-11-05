@@ -54,6 +54,7 @@ const DEFAULT_COLUMNS = ['name', 'role', 'status', 'email', 'phone', 'gender'];
 import { usePaginatedUsersQuery, useUsersMutations, useRolesQuery, useTablePreferences } from '../../queries';
 import { useDebounce } from '../../hooks/useDebounce';
 import { ConfirmDialog } from '../../components/common/dialogs/ConfirmDialog';
+import { USER_STATUSES } from '../../constants';
 
 const UsersPage: React.FC<Props> = ({
   visibleColumns: visibleColumnsProp,
@@ -93,7 +94,12 @@ const UsersPage: React.FC<Props> = ({
   const { handleSave, handleDelete, handleApproveUser, handleRejectUser, handleForceLogoutUser } = useUsersMutations();
 
   const [deleteConfirmState, setDeleteConfirmState] = useState<{ open: boolean; message: string; onConfirm: () => void }>({ open: false, message: '', onConfirm: () => {} });
-  const onDeleteUser = (id: string) => handleDelete(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
+  const onDeleteUser = (id: string) =>
+    handleDelete(
+      id,
+      (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }),
+      (errMsg) => setErrorDialogState({ open: true, message: errMsg })
+    );
 
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -302,10 +308,18 @@ const UsersPage: React.FC<Props> = ({
     }
   };
 
-  const handleConfirmReject = async (u: User) => {
-    if (window.confirm(t('confirmRejectMessage', { name: u.name }))) {
-      await handleRejectUser(u.id);
-    }
+  const handleConfirmReject = (u: User) => {
+    setDeleteConfirmState({
+      open: true,
+      message: t('confirmRejectMessage', { name: u.name }),
+      onConfirm: async () => {
+        try {
+          await handleRejectUser(u.id);
+        } catch (e: any) {
+          setErrorDialogState({ open: true, message: e?.message || t('errorSaving') });
+        }
+      },
+    });
   };
 
   const handleConfirmForceLogout = async () => {
@@ -576,8 +590,8 @@ const UsersPage: React.FC<Props> = ({
                 paginatedUsers.map((u: any) => {
                   const editable = canEditUser(u);
                   const deletable = canDeleteUser(u);
-                  const isPending = u.status === 'PENDING';
-                  const isBlocked = u.status === 'BLOCKED';
+                  const isPending = u.status === USER_STATUSES.PENDING;
+                  const isBlocked = u.status === USER_STATUSES.BLOCKED;
                   return (
                     <TableRow key={u.id} hover sx={{ bgcolor: isPending ? 'action.hover' : 'inherit', cursor: 'pointer' }} onClick={() => openView(u)}>
                       {activeCols.includes('name') && (

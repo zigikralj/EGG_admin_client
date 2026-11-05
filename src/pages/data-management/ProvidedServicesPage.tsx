@@ -26,6 +26,7 @@ import type {
   ProvidedServicesSubTab,
   TableViewProps,
 } from '../../types';
+import { PROVIDED_SERVICE_STATUSES } from '../../constants';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { TableOptionsSelector, type ColumnDef } from '../../components/common/ColumnSelector';
@@ -309,6 +310,9 @@ const ProvidedServicesPage: React.FC<Props> = ({
 
   const isWasteManagementService = (srv?: Service, item?: ProvidedService) => {
     if (!srv && !item) return false;
+    if (wasteDisposalServiceId && (item?.serviceId === wasteDisposalServiceId || srv?.id === wasteDisposalServiceId)) {
+      return true;
+    }
     const group = (srv?.group || (item as any)?.group || '').toLowerCase();
     const code = (srv?.code || item?.serviceCode || '').toLowerCase();
     return (
@@ -355,10 +359,11 @@ const ProvidedServicesPage: React.FC<Props> = ({
 
   const statusOptions = useMemo(
     () => [
-      { value: 'Planned', label: t('statusPlanned') },
-      { value: 'In Progress', label: t('statusInProgress') },
-      { value: 'Completed', label: t('statusCompleted') },
-      { value: 'Cancelled', label: t('statusCancelled') },
+      { value: 'all', label: t('filterAllStatus') },
+      { value: PROVIDED_SERVICE_STATUSES.PLANNED, label: t('statusPlanned') },
+      { value: PROVIDED_SERVICE_STATUSES.IN_PROGRESS, label: t('statusInProgress') },
+      { value: PROVIDED_SERVICE_STATUSES.COMPLETED, label: t('statusCompleted') },
+      { value: PROVIDED_SERVICE_STATUSES.CANCELLED, label: t('statusCancelled') },
     ],
     [t]
   );
@@ -366,40 +371,31 @@ const ProvidedServicesPage: React.FC<Props> = ({
   const getStatusChipColor = (
     st?: string
   ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
-    switch (st) {
-      case 'Completed':
-      case 'Završeno':
-      case 'Завршено':
-        return 'success';
-      case 'In Progress':
-      case 'U toku':
-      case 'У току':
-        return 'info';
-      case 'Cancelled':
-      case 'Otkazano':
-      case 'Отказано':
-        return 'default';
-      case 'Planned':
-      case 'Planirano':
-      case 'Планирано':
-      default:
-        return 'warning';
+    const lower = (st || '').toLowerCase();
+    if (lower === PROVIDED_SERVICE_STATUSES.COMPLETED) {
+      return 'success';
     }
+    if (lower === PROVIDED_SERVICE_STATUSES.IN_PROGRESS || lower === 'in progress') {
+      return 'info';
+    }
+    if (lower === PROVIDED_SERVICE_STATUSES.CANCELLED || lower === 'canceled') {
+      return 'default';
+    }
+    return 'warning';
   };
 
   const getStatusLabel = (st?: string) => {
-    switch (st) {
-      case 'Planned':
-        return t('statusPlanned');
-      case 'In Progress':
-        return t('statusInProgress');
-      case 'Completed':
-        return t('statusCompleted');
-      case 'Cancelled':
-        return t('statusCancelled');
-      default:
-        return st || t('statusPlanned');
+    const lower = (st || '').toLowerCase();
+    if (lower === PROVIDED_SERVICE_STATUSES.COMPLETED) {
+      return t('statusCompleted');
     }
+    if (lower === PROVIDED_SERVICE_STATUSES.IN_PROGRESS || lower === 'in progress') {
+      return t('statusInProgress');
+    }
+    if (lower === PROVIDED_SERVICE_STATUSES.CANCELLED || lower === 'canceled') {
+      return t('statusCancelled');
+    }
+    return t('statusPlanned');
   };
 
   return (

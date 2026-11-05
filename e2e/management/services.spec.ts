@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { PROVIDED_SERVICE_STATUSES } from '../../src/constants';
 
 test.describe('Services & Provided Services Management', () => {
   let servicesData = [
@@ -22,7 +23,7 @@ test.describe('Services & Provided Services Management', () => {
       clientName: 'Eko Metal d.o.o.',
       projectId: 'p-1',
       projectName: 'Otpad 2024',
-      status: 'Completed',
+      status: PROVIDED_SERVICE_STATUSES.COMPLETED,
       scheduledDate: '2024-05-01',
       completionDate: '2024-05-10',
       location: 'Kraljevo',
@@ -52,7 +53,7 @@ test.describe('Services & Provided Services Management', () => {
         clientName: 'Eko Metal d.o.o.',
         projectId: 'p-1',
         projectName: 'Otpad 2024',
-        status: 'Completed',
+        status: PROVIDED_SERVICE_STATUSES.COMPLETED,
         scheduledDate: '2024-05-01',
         completionDate: '2024-05-10',
         location: 'Kraljevo',
@@ -84,6 +85,16 @@ test.describe('Services & Provided Services Management', () => {
     await page.route('**/api/services/*', async (route) => {
       const url = route.request().url();
       const method = route.request().method();
+
+      if (url.includes('/check-code')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ exists: false }),
+        });
+        return;
+      }
+
       const idMatch = url.match(/\/api\/services\/([^/?#]+)/);
       const id = idMatch ? idMatch[1] : null;
 
@@ -227,6 +238,13 @@ test.describe('Services & Provided Services Management', () => {
 
   test('should add a new service', async ({ page }) => {
     let createdPayload: any = null;
+    await page.route('**/api/services/check-code**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ exists: false }),
+      });
+    });
     await page.route(/\/api\/services(\?.*)?$/, async (route) => {
       if (route.request().method() === 'POST') {
         createdPayload = route.request().postDataJSON();

@@ -24,6 +24,7 @@ import { InvoiceFormFields } from '../invoice/InvoiceFormFields';
 import { InvoiceItemsList } from '../invoice/InvoiceItemsList';
 import { InvoiceAutocomplete } from '../common/autocomplete';
 import { serializeInvoiceNotes, enhanceInvoicesWithLinks } from '../../utils/invoiceUtils';
+import { useInvoiceDetailsQuery } from '../../queries';
 import {
   ReceiptLongIcon,
   AddIcon,
@@ -115,7 +116,7 @@ export const ProvidedServiceInvoiceSection: React.FC<ProvidedServiceInvoiceSecti
     return enhanceInvoicesWithLinks(invoices);
   }, [invoices]);
 
-  const linkedInvoice = useMemo(() => {
+  const localLinkedInvoice = useMemo(() => {
     if (!selectedInvoiceId) return null;
     const found = linkedInvoicesList.find((inv) => inv.id === selectedInvoiceId);
     if (found) return found;
@@ -127,6 +128,13 @@ export const ProvidedServiceInvoiceSection: React.FC<ProvidedServiceInvoiceSecti
     }
     return null;
   }, [selectedInvoiceId, linkedInvoicesList, createdInvoiceFallback, initialInvoice]);
+
+  const { data: fetchedInvoice } = useInvoiceDetailsQuery(
+    selectedInvoiceId,
+    Boolean(selectedInvoiceId && !localLinkedInvoice)
+  );
+
+  const linkedInvoice = localLinkedInvoice || (fetchedInvoice as Invoice) || null;
 
   const availableExistingInvoices = useMemo(() => {
     return linkedInvoicesList;
@@ -205,7 +213,6 @@ export const ProvidedServiceInvoiceSection: React.FC<ProvidedServiceInvoiceSecti
   const handleLinkExistingInvoice = () => {
     if (!selectedExistingInvoiceId) return;
     onSelectInvoiceId(selectedExistingInvoiceId);
-    setCreatedInvoiceFallback(null);
     setIsAddingInvoice(false);
     setSelectedExistingInvoiceId('');
   };
@@ -267,12 +274,12 @@ export const ProvidedServiceInvoiceSection: React.FC<ProvidedServiceInvoiceSecti
                 setIsAddingInvoice(!isAddingInvoice);
                 setAddInvoiceMode('new');
                 setNewInvoiceNumber('');
-                setNewInvoiceType('Standard');
+                setNewInvoiceType('standard');
                 setNewParentInvoiceId('');
                 setNewInvoiceDateCreated(todayStr);
                 setNewInvoiceDueDate('');
                 setNewInvoiceCurrency('RSD');
-                setNewInvoiceStatus('Draft');
+                setNewInvoiceStatus('draft');
                 setNewInvoiceNotes('');
                 setNewInvoiceItems([{ description: '', quantity: 1, unitPrice: 0, currency: 'RSD' }]);
                 setSelectedExistingInvoiceId('');
@@ -353,7 +360,7 @@ export const ProvidedServiceInvoiceSection: React.FC<ProvidedServiceInvoiceSecti
                     return isSameClient ? `${t('colClient')}: ${clientName || ''}` : t('other');
                   }}
                   parentInvoiceGetOptionLabel={(inv) =>
-                    `${inv.invoiceNumber}${inv.invoiceType && inv.invoiceType !== 'Standard' ? ` [${inv.invoiceType}]` : ''} (${inv.status})`
+                    `${inv.invoiceNumber}${inv.invoiceType && inv.invoiceType.toLowerCase() !== 'standard' ? ` [${inv.invoiceType}]` : ''} (${inv.status})`
                   }
                   parentInvoiceId={newParentInvoiceId}
                   onParentInvoiceIdChange={setNewParentInvoiceId}
@@ -480,13 +487,13 @@ export const ProvidedServiceInvoiceSection: React.FC<ProvidedServiceInvoiceSecti
               {/* ACTIONS */}
               {!disabled && (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
-                  {canEditInvoice && linkedInvoice.status !== 'Paid' && onStatusChangeInvoice && (
+                  {canEditInvoice && linkedInvoice.status?.toLowerCase() !== 'paid' && onStatusChangeInvoice && (
                     <Tooltip title={t('markAsPaid')}>
                       <IconButton
                         size="small"
                         color="success"
                         onClick={() =>
-                          onStatusChangeInvoice(linkedInvoice.id, 'Paid', new Date().toISOString().slice(0, 10))
+                          onStatusChangeInvoice(linkedInvoice.id, 'paid', new Date().toISOString().slice(0, 10))
                         }
                         sx={{ p: 0.25 }}
                       >
@@ -576,7 +583,7 @@ export const ProvidedServiceInvoiceSection: React.FC<ProvidedServiceInvoiceSecti
                   return isSameClient ? `${t('colClient')}: ${clientName || ''}` : t('other');
                 }}
                 parentInvoiceGetOptionLabel={(inv) =>
-                  `${inv.invoiceNumber}${inv.invoiceType && inv.invoiceType !== 'Standard' ? ` [${inv.invoiceType}]` : ''} (${inv.status})`
+                  `${inv.invoiceNumber}${inv.invoiceType && inv.invoiceType.toLowerCase() !== 'standard' ? ` [${inv.invoiceType}]` : ''} (${inv.status})`
                 }
                 parentInvoiceId={editParentInvoiceId}
                 onParentInvoiceIdChange={setEditParentInvoiceId}

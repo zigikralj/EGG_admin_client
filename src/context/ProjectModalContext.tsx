@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, Suspense } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { Project } from '../types';
 import { apiFetch } from '../api';
 import { API_ROUTES } from '../constants';
@@ -17,6 +18,7 @@ export interface ProjectModalContextType {
 const ProjectModalContext = createContext<ProjectModalContextType | undefined>(undefined);
 
 export const ProjectModalProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const queryClient = useQueryClient();
   const [modalState, setModalState] = useState<{
     isOpen: boolean;
     project: Project | null;
@@ -53,9 +55,16 @@ export const ProjectModalProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const openProjectById = useCallback(async (projectId: string) => {
     try {
-      const res = await apiFetch(`${API_ROUTES.PROJECTS.BASE}/${projectId}`);
-      if (res.ok) {
-        const target: Project = await res.json();
+      const target = await queryClient.fetchQuery<Project>({
+        queryKey: ['projects', 'details', projectId],
+        queryFn: async () => {
+          const res = await apiFetch(API_ROUTES.PROJECTS.BY_ID(projectId));
+          if (!res.ok) throw new Error('Failed to fetch project details');
+          return res.json();
+        },
+        staleTime: 60_000,
+      });
+      if (target) {
         setModalState({
           isOpen: true,
           project: target,
@@ -66,7 +75,7 @@ export const ProjectModalProvider: React.FC<{ children: React.ReactNode }> = ({ 
     } catch (e) {
       console.error('Error fetching project by id:', e);
     }
-  }, []);
+  }, [queryClient]);
 
   const closeModal = useCallback(() => {
     setModalState((prev) => ({

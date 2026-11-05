@@ -11,9 +11,7 @@ import {
   Grid,
   Chip,
 } from '@mui/material';
-import Visibility from '@mui/icons-material/Visibility';
-import VisibilityOff from '@mui/icons-material/VisibilityOff';
-import VpnKeyIcon from '@mui/icons-material/VpnKey';
+import { VisibilityIcon, VisibilityOff, VpnKeyIcon } from '../icons';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { ViewEditModalBase, type ModalMode } from '../common/modal/ViewEditModalBase';
@@ -417,7 +415,7 @@ export const UserModal: React.FC<UserModalProps> = ({
                         onClick={() => setShowPassword(!showPassword)}
                         edge="end"
                       >
-                        {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                        {showPassword ? <VisibilityOff fontSize="small" /> : <VisibilityIcon fontSize="small" />}
                       </IconButton>
                     </InputAdornment>
                   ),

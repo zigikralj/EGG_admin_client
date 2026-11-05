@@ -1,19 +1,30 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { apiFetch } from '../api';
 import { API_ROUTES } from '../constants';
-import { useAuthHeaders, buildPaginationQueryParams, useGenericMutations, useGenericActionMutation } from './queryUtils';
+import { buildPaginationQueryParams, useGenericMutations, useGenericActionMutation } from './queryUtils';
 import type { Invoice, PaginatedResponse } from '../types';
 
 export function useInvoicesSummaryQuery(options?: { enabled?: boolean }) {
-  const getAuthHeaders = useAuthHeaders();
   return useQuery<Invoice[]>({
     queryKey: ['invoices', 'summary'],
     enabled: options?.enabled ?? true,
     queryFn: async () => {
-      const res = await apiFetch(`${API_ROUTES.INVOICES.BASE}?fields=summary`, {
-        headers: getAuthHeaders(),
-      });
+      const res = await apiFetch(`${API_ROUTES.INVOICES.BASE}?fields=summary`);
       if (!res.ok) throw new Error('Failed to fetch invoices summary');
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
+}
+
+export function useInvoiceDetailsQuery(id: string | null | undefined, enabled: boolean = true) {
+  return useQuery<Invoice | null>({
+    queryKey: ['invoices', 'details', id],
+    enabled: Boolean(id && enabled),
+    queryFn: async () => {
+      if (!id) return null;
+      const res = await apiFetch(`${API_ROUTES.INVOICES.BASE}/${id}`);
+      if (!res.ok) throw new Error('Failed to fetch invoice details');
       return res.json();
     },
     staleTime: 60_000,
@@ -38,7 +49,6 @@ export interface PaginatedInvoicesParams {
 }
 
 export function usePaginatedInvoicesQuery(params: PaginatedInvoicesParams, enabled: boolean = true) {
-  const getAuthHeaders = useAuthHeaders();
   const queryKey = [
     'invoices',
     'paginated',
@@ -82,9 +92,7 @@ export function usePaginatedInvoicesQuery(params: PaginatedInvoicesParams, enabl
         }
       );
 
-      const res = await apiFetch(`${API_ROUTES.INVOICES.BASE}?${q.toString()}`, {
-        headers: getAuthHeaders(),
-      });
+      const res = await apiFetch(`${API_ROUTES.INVOICES.BASE}?${q.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch paginated invoices');
       const data = await res.json();
       if (Array.isArray(data)) {
@@ -111,7 +119,7 @@ export function useInvoicesMutations() {
     queryKeyToInvalidate: ['invoices'],
     additionalInvalidates: [['projects', 'details'], ['autocomplete', 'invoices'], ['provided-services']],
     errorSaveMessageKey: 'errorSavingService',
-    deleteConfirmMessageKey: 'confirmDeleteInvoice' as any,
+    deleteConfirmMessageKey: 'confirmDeleteInvoice',
   });
 
   const actionMutation = useGenericActionMutation();

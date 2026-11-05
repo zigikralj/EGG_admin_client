@@ -1,9 +1,9 @@
 import type { Client } from './client.types';
 import type { Project } from './project.types';
 
-export type InvoiceCurrency = 'RSD' | '€' | string;
-export type InvoiceStatus = 'Draft' | 'Sent' | 'Paid' | 'Overdue' | 'Cancelled' | string;
-export type InvoiceType = 'Standard' | 'Advance' | 'Final' | 'Partial' | string;
+export type InvoiceCurrency = 'RSD' | '€';
+export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled';
+export type InvoiceType = 'standard' | 'advance' | 'final' | 'partial';
 
 export interface InvoiceItem {
   id?: string;

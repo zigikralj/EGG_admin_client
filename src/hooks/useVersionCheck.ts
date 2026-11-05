@@ -8,6 +8,7 @@ interface VersionInfo {
 export function useVersionCheck(intervalMs = 3 * 60 * 1000) {
   const [hasUpdate, setHasUpdate] = useState(false);
   const [latestVersion, setLatestVersion] = useState<string>(typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0');
+  const [latestBuildTime, setLatestBuildTime] = useState<string>(typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : '');
   const [dismissedVersion, setDismissedVersion] = useState<string | null>(null);
   const isCheckingRef = useRef(false);
 
@@ -45,6 +46,7 @@ export function useVersionCheck(intervalMs = 3 * 60 * 1000) {
           const updateIdentifier = `${data.version}_${data.buildTime || ''}`;
           if (dismissedVersion !== updateIdentifier) {
             setLatestVersion(data.version);
+            setLatestBuildTime(data.buildTime || '');
             setHasUpdate(true);
           }
         }
@@ -92,8 +94,8 @@ export function useVersionCheck(intervalMs = 3 * 60 * 1000) {
 
   const dismissUpdate = useCallback(() => {
     setHasUpdate(false);
-    setDismissedVersion(`${latestVersion}_${Date.now()}`);
-  }, [latestVersion]);
+    setDismissedVersion(`${latestVersion}_${latestBuildTime}`);
+  }, [latestVersion, latestBuildTime]);
 
   return {
     hasUpdate,

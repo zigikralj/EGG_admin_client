@@ -31,6 +31,7 @@ import {
 import { BaseModal } from '../common/modal/BaseModal';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import { INTL_LOCALE_MAP } from '../../constants';
 import {
   useEntityTimelineQuery,
   useVersionDiffQuery,
@@ -160,12 +161,12 @@ const VersionItem: React.FC<VersionItemProps> = ({
           <Tooltip
             title={
               version.kind === 'S'
-                ? 'Keyframe Snapshot (full record state stored)'
-                : 'Delta Compressed (storing only modified attributes)'
+                ? t('historySnapshotTooltip')
+                : t('historyDeltaTooltip')
             }
           >
             <Chip
-              label={version.kind === 'S' ? 'Snapshot' : 'Delta'}
+              label={version.kind === 'S' ? t('historySnapshotBadge') : t('historyDeltaBadge')}
               size="small"
               variant="outlined"
               sx={{
@@ -186,7 +187,7 @@ const VersionItem: React.FC<VersionItemProps> = ({
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
             <AccessTimeIcon sx={{ fontSize: '1rem' }} />
             <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              {new Date(version.createdAt).toLocaleString(language === 'en' ? 'en-US' : 'sr-RS', { hour12: false })}
+              {new Date(version.createdAt).toLocaleString(INTL_LOCALE_MAP[language], { hour12: false })}
             </Typography>
           </Box>
         </Box>
@@ -223,7 +224,7 @@ const VersionItem: React.FC<VersionItemProps> = ({
         {version.changeSet.reason && (
           <Box sx={{ mb: 1.5, p: 1, borderRadius: 1, bgcolor: isDark ? alpha('#000', 0.2) : alpha('#000', 0.04) }}>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 600 }}>
-              Context / Reason:
+              {t('historyContextReason')}:
             </Typography>
             <Typography variant="body2">{version.changeSet.reason}</Typography>
           </Box>
@@ -250,7 +251,7 @@ const VersionItem: React.FC<VersionItemProps> = ({
         <Box sx={{ mt: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-              {prevVersion ? `${t('historyDiff')} (v${prevVersion} → v${version.version})` : 'Initial Baseline Data'}
+              {prevVersion ? `${t('historyDiff')} (v${prevVersion} → v${version.version})` : t('historyInitialBaselineTitle')}
             </Typography>
 
             <Button
@@ -259,7 +260,7 @@ const VersionItem: React.FC<VersionItemProps> = ({
               onClick={() => setShowRawState((prev) => !prev)}
               sx={{ textTransform: 'none', fontSize: '0.75rem' }}
             >
-              {showRawState ? 'Hide Full State' : 'View Full Rebuilt State'}
+              {showRawState ? t('historyHideFullState') : t('historyViewFullState')}
             </Button>
           </Box>
 
@@ -268,27 +269,27 @@ const VersionItem: React.FC<VersionItemProps> = ({
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 2 }}>
                 <CircularProgress size={16} />
                 <Typography variant="caption" color="text.secondary">
-                  Calculating diff...
+                  {t('historyLoadingDiff')}
                 </Typography>
               </Box>
             ) : (
-              <HistoryDiffView diff={diffData?.diff} isDark={isDark} language={language} />
+              <HistoryDiffView diff={diffData?.diff} isDark={isDark} language={language} t={t} />
             )
           ) : (
             <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', py: 0.5 }}>
-              This is the initial baseline record (Version 1).
+              {t('historyInitialBaselineDesc')}
             </Typography>
           )}
 
           {showRawState && (
             <Box sx={{ mt: 1.5 }}>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, fontWeight: 600 }}>
-                Rebuilt Record State (v{version.version}):
+                {t('historyRebuiltStateTitle')} (v{version.version}):
               </Typography>
               {isRebuiltLoading ? (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1 }}>
                   <CircularProgress size={16} />
-                  <Typography variant="caption">Reconstructing state...</Typography>
+                  <Typography variant="caption">{t('historyReconstructingState')}</Typography>
                 </Box>
               ) : (
                 <Box
@@ -586,7 +587,7 @@ export const HistoryTimelineModal: React.FC<HistoryTimelineModalProps> = ({
                       variant="outlined"
                     />
                   </Box>
-                  <HistoryDiffView diff={dateDiffData.diff} isDark={isDark} language={language} />
+                  <HistoryDiffView diff={dateDiffData.diff} isDark={isDark} language={language} t={t} />
                 </Box>
               ) : null}
             </Box>
@@ -653,7 +654,7 @@ export const HistoryTimelineModal: React.FC<HistoryTimelineModalProps> = ({
               disabled={restoreMutation.isPending}
               startIcon={restoreMutation.isPending ? <CircularProgress size={16} /> : <RestoreIcon />}
             >
-              {restoreMutation.isPending ? 'Restoring...' : t('historyRestore')}
+              {restoreMutation.isPending ? t('historyRestoring') : t('historyRestore')}
             </Button>
           </>
         }

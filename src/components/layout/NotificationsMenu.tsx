@@ -20,6 +20,7 @@ import type { TranslationKeys } from '../../i18n/translations';
 import { useNotifications } from '../../context/NotificationContext';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { PAGE_ROUTES } from '../../constants';
 import {
   NotificationsIcon,
   NotificationsNoneIcon,
@@ -89,7 +90,7 @@ export const NotificationsMenu: React.FC<NotificationsMenuProps> = ({
 
   const handlePendingUsersClick = () => {
     onClose();
-    navigate('/data-management/users');
+    navigate(PAGE_ROUTES.USERS);
   };
 
   return (

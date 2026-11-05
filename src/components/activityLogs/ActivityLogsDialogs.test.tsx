@@ -4,7 +4,12 @@ import { ActivityLogsDialogs } from './ActivityLogsDialogs';
 import type { DeleteDialogState } from './types';
 
 describe('ActivityLogsDialogs component', () => {
-  const mockT = (key: string) => key;
+  const mockT = (key: string, params?: Record<string, string | number>) => {
+    if (params?.label) {
+      return `${key}:${params.label}`;
+    }
+    return key;
+  };
 
   const defaultProps = {
     deleteDialog: { isOpen: false, type: 'all' } as DeleteDialogState,
@@ -36,10 +41,10 @@ describe('ActivityLogsDialogs component', () => {
       />
     );
 
-    expect(screen.getByText('Clear All Activity Logs')).toBeInTheDocument();
-    expect(screen.getByText(/Are you sure you want to delete ALL activity logs/i)).toBeInTheDocument();
+    expect(screen.getByText('clearAllLogsTitle')).toBeInTheDocument();
+    expect(screen.getByText('clearAllLogsConfirm')).toBeInTheDocument();
 
-    const deleteBtn = screen.getByRole('button', { name: 'Delete' });
+    const deleteBtn = screen.getByRole('button', { name: 'btnDelete' });
     fireEvent.click(deleteBtn);
     expect(handleConfirmDelete).toHaveBeenCalled();
   });
@@ -52,8 +57,8 @@ describe('ActivityLogsDialogs component', () => {
       />
     );
 
-    expect(screen.getByText('Delete Session')).toBeInTheDocument();
-    expect(screen.getByText(/Are you sure you want to delete all activity logs for Session #1 \(Alice\)/i)).toBeInTheDocument();
+    expect(screen.getByText('deleteSessionTitle')).toBeInTheDocument();
+    expect(screen.getByText('deleteSessionConfirm:Session #1 (Alice)')).toBeInTheDocument();
   });
 
   it('renders Deactivate Confirmation Dialog', () => {
@@ -70,7 +75,7 @@ describe('ActivityLogsDialogs component', () => {
     expect(screen.getByText('activityLogsDeactivateTitle')).toBeInTheDocument();
     expect(screen.getByText('activityLogsDeactivateMessage')).toBeInTheDocument();
 
-    const deactivateBtn = screen.getByRole('button', { name: 'Deactivate' });
+    const deactivateBtn = screen.getByRole('button', { name: 'btnDeactivate' });
     fireEvent.click(deactivateBtn);
     expect(handleConfirmDeactivate).toHaveBeenCalled();
   });
@@ -90,7 +95,7 @@ describe('ActivityLogsDialogs component', () => {
     );
 
     expect(screen.getByText('retentionCustomTitle')).toBeInTheDocument();
-    const saveButton = screen.getByRole('button', { name: 'Save' });
+    const saveButton = screen.getByRole('button', { name: 'btnSave' });
     expect(saveButton).not.toBeDisabled();
 
     fireEvent.click(saveButton);
@@ -106,7 +111,7 @@ describe('ActivityLogsDialogs component', () => {
       />
     );
 
-    const saveButton = screen.getByRole('button', { name: 'Save' });
+    const saveButton = screen.getByRole('button', { name: 'btnSave' });
     expect(saveButton).toBeDisabled();
   });
 });

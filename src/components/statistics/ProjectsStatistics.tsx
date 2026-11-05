@@ -20,22 +20,30 @@ import {
 import { PieChart } from '@mui/x-charts/PieChart';
 import { LineChart } from '@mui/x-charts/LineChart';
 import { BarChart } from '@mui/x-charts/BarChart';
-import type { Project, User, Category, Service, Client, Invoice } from '../../types';
+import type { Project, User, Category, Service, Client, Invoice, ProjectStatisticsResult } from '../../types';
 import { typeGroup } from '../../types';
+import { isInvoicePaid, INTL_LOCALE_MAP } from '../../constants';
 import { useLanguage } from '../../context/LanguageContext';
 import { PersonOutlinedIcon, CategoryOutlinedIcon, FilterListIcon, LandscapeOutlinedIcon, LeaderboardOutlinedIcon } from '../icons';
 
+export type FilterStatus = 'all' | 'active' | 'done';
+
 interface Props {
-  projects: Project[];
+  stats?: ProjectStatisticsResult;
+  filterStatus?: FilterStatus;
+  onFilterStatusChange?: (status: FilterStatus) => void;
+  projects?: Project[];
   clients?: Client[];
   invoices?: Invoice[];
-  users: User[];
-  categories: Category[];
-  services: Service[];
+  users?: User[];
+  categories?: Category[];
+  services?: Service[];
 }
 
-type FilterStatus = 'all' | 'active' | 'done';
 type TrendMode = 'cumulative' | 'monthly';
+
+const UNASSIGNED_KEY = '__unassigned__';
+const OTHER_KEY = '__other__';
 
 // Mountain palette inspired by MUI X-Charts Overview (vibrant blue, gold/amber, coral/rose, purple, emerald)
 const MOUNTAIN_COLORS = [
@@ -63,16 +71,25 @@ const CATEGORY_COLORS = [
 ];
 
 const ProjectsStatistics: React.FC<Props> = ({
-  projects,
+  stats,
+  filterStatus: filterStatusProp,
+  onFilterStatusChange,
+  projects = [],
   clients = [],
   invoices = [],
-  users,
-  categories,
-  services,
+  users = [],
+  categories = [],
+  services = [],
 }) => {
-  const { language, t, getServiceLabel } = useLanguage();
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
+  const { language, t } = useLanguage();
+  const [internalFilterStatus, setInternalFilterStatus] = useState<FilterStatus>('all');
   const [trendMode, setTrendMode] = useState<TrendMode>('cumulative');
+
+  const filterStatus = filterStatusProp ?? internalFilterStatus;
+  const setFilterStatus = (val: FilterStatus) => {
+    if (onFilterStatusChange) onFilterStatusChange(val);
+    else setInternalFilterStatus(val);
+  };
 
   const adminNames = useMemo(() => {
     const set = new Set<string>();
@@ -86,7 +103,7 @@ const ProjectsStatistics: React.FC<Props> = ({
 
   const isAdminUser = useCallback(
     (userNameOrId: string) => {
-      if (!userNameOrId) return false;
+      if (!userNameOrId || userNameOrId === UNASSIGNED_KEY) return false;
       const trimmed = userNameOrId.trim().toLowerCase();
       if (adminNames.has(trimmed)) return true;
       const found = users.find(
@@ -105,9 +122,9 @@ const ProjectsStatistics: React.FC<Props> = ({
         const found = users.find((u) => u.id === (p as any).responsibleId);
         if (found) return found.name;
       }
-      return t('unassignedUser');
+      return UNASSIGNED_KEY;
     },
-    [users, t]
+    [users]
   );
 
   // Filter projects by status and exclude projects assigned to Administrators
@@ -124,7 +141,12 @@ const ProjectsStatistics: React.FC<Props> = ({
     return nonAdminProjects;
   }, [projects, filterStatus, isAdminUser, getProjectOwner]);
 
-  const totalFiltered = filteredProjects.length;
+  const totalFiltered = useMemo(() => {
+    if (stats) {
+      return stats.statusCounts[filterStatus] ?? 0;
+    }
+    return filteredProjects.length;
+  }, [stats, filterStatus, filteredProjects]);
 
   // Fallback category labels from translations
   const groupLabels: Record<string, string> = useMemo(
@@ -154,28 +176,39 @@ const ProjectsStatistics: React.FC<Props> = ({
 
   // 1. Projects per User data (Pie Chart)
   const userChartData = useMemo(() => {
+    if (stats) {
+      if (stats.userStats.length === 0) return [];
+      const totalUserProjects = stats.userStats.reduce((acc, item) => acc + item.count, 0);
+
+      return stats.userStats.map((item, idx) => ({
+        id: `user-${idx}`,
+        value: item.count,
+        label: item.userName === UNASSIGNED_KEY ? t('unassignedUser') : item.userName,
+        color: MOUNTAIN_COLORS[idx % MOUNTAIN_COLORS.length],
+        percentage: totalUserProjects > 0 ? ((item.count / totalUserProjects) * 100).toFixed(1) : '0',
+      }));
+    }
+
     if (totalFiltered === 0) return [];
 
-    const userCountMap = new Map<string, { label: string; count: number }>();
+    const userCountMap = new Map<string, { key: string; count: number }>();
 
     filteredProjects.forEach((p) => {
-      let userName = '';
+      let userKey = UNASSIGNED_KEY;
       if (p.responsible && p.responsible.trim()) {
-        userName = p.responsible.trim();
+        userKey = p.responsible.trim();
       } else if ((p as any).responsibleId) {
         const foundUser = users.find((u) => u.id === (p as any).responsibleId);
-        userName = foundUser ? foundUser.name : t('unassignedUser');
-      } else {
-        userName = t('unassignedUser');
+        userKey = foundUser ? foundUser.name : UNASSIGNED_KEY;
       }
 
-      if (isAdminUser(userName) || ((p as any).responsibleId && isAdminUser((p as any).responsibleId))) {
+      if (isAdminUser(userKey) || ((p as any).responsibleId && isAdminUser((p as any).responsibleId))) {
         return;
       }
 
-      const existing = userCountMap.get(userName) || { label: userName, count: 0 };
+      const existing = userCountMap.get(userKey) || { key: userKey, count: 0 };
       existing.count += 1;
-      userCountMap.set(userName, existing);
+      userCountMap.set(userKey, existing);
     });
 
     const list = Array.from(userCountMap.values()).sort((a, b) => b.count - a.count);
@@ -184,44 +217,56 @@ const ProjectsStatistics: React.FC<Props> = ({
     return list.map((item, idx) => ({
       id: `user-${idx}`,
       value: item.count,
-      label: item.label,
+      label: item.key === UNASSIGNED_KEY ? t('unassignedUser') : item.key,
       color: MOUNTAIN_COLORS[idx % MOUNTAIN_COLORS.length],
       percentage: totalUserProjects > 0 ? ((item.count / totalUserProjects) * 100).toFixed(1) : '0',
     }));
-  }, [filteredProjects, users, totalFiltered, isAdminUser, t]);
+  }, [stats, filteredProjects, users, totalFiltered, isAdminUser, t]);
 
   // 2. Projects per Category data (Pie Chart)
   const categoryChartData = useMemo(() => {
+    if (stats) {
+      if (stats.categoryStats.length === 0) return [];
+      const totalCategoryProjects = stats.categoryStats.reduce((acc, item) => acc + item.count, 0);
+
+      return stats.categoryStats.map((item, idx) => {
+        const label = item.grpCode === OTHER_KEY ? t('otherCategory') : (groupLabels[item.grpCode] || item.categoryName);
+        return {
+          id: `cat-${idx}`,
+          value: item.count,
+          label,
+          color: CATEGORY_COLORS[idx % CATEGORY_COLORS.length],
+          percentage: totalCategoryProjects > 0 ? ((item.count / totalCategoryProjects) * 100).toFixed(1) : '0',
+        };
+      });
+    }
+
     if (totalFiltered === 0) return [];
 
-    const categoryCountMap = new Map<string, { label: string; count: number }>();
+    const categoryCountMap = new Map<string, { grpCode: string; count: number }>();
 
     filteredProjects.forEach((p) => {
       const matchedService = services.find((s) => s.code === p.type || s.id === p.type);
-      const grpCode = matchedService?.group || typeGroup[p.type] || 'other';
+      const grpCode = matchedService?.group || typeGroup[p.type] || OTHER_KEY;
 
-      let catName = '';
-      if (grpCode === 'other') {
-        catName = getServiceLabel(p.type, services) || t('otherCategory');
-      } else {
-        catName = getCategoryLabel(grpCode);
-      }
-
-      const existing = categoryCountMap.get(catName) || { label: catName, count: 0 };
+      const existing = categoryCountMap.get(grpCode) || { grpCode, count: 0 };
       existing.count += 1;
-      categoryCountMap.set(catName, existing);
+      categoryCountMap.set(grpCode, existing);
     });
 
     const list = Array.from(categoryCountMap.values()).sort((a, b) => b.count - a.count);
 
-    return list.map((item, idx) => ({
-      id: `cat-${idx}`,
-      value: item.count,
-      label: item.label,
-      color: CATEGORY_COLORS[idx % CATEGORY_COLORS.length],
-      percentage: totalFiltered > 0 ? ((item.count / totalFiltered) * 100).toFixed(1) : '0',
-    }));
-  }, [filteredProjects, services, totalFiltered, getCategoryLabel, t, getServiceLabel]);
+    return list.map((item, idx) => {
+      const label = item.grpCode === OTHER_KEY ? t('otherCategory') : getCategoryLabel(item.grpCode);
+      return {
+        id: `cat-${idx}`,
+        value: item.count,
+        label,
+        color: CATEGORY_COLORS[idx % CATEGORY_COLORS.length],
+        percentage: totalFiltered > 0 ? ((item.count / totalFiltered) * 100).toFixed(1) : '0',
+      };
+    });
+  }, [stats, filteredProjects, services, totalFiltered, getCategoryLabel, groupLabels, t]);
 
   // 3. Stacked Mountain Area Chart: Last 12 Months Completed Projects by Owner
   const last12Months = useMemo(() => {
@@ -232,12 +277,7 @@ const ProjectsStatistics: React.FC<Props> = ({
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 
-      const locale =
-        language === 'sr-Latn'
-          ? 'sr-Latn-RS'
-          : language === 'sr-Cyrl'
-          ? 'sr-Cyrl-RS'
-          : 'en-US';
+      const locale = INTL_LOCALE_MAP[language];
 
       const monthName = d.toLocaleDateString(locale, { month: 'short' });
       const yearShort = String(d.getFullYear()).slice(-2);
@@ -266,6 +306,36 @@ const ProjectsStatistics: React.FC<Props> = ({
 
   // Build series for Mountain Area Chart
   const { stackedSeries, totalCompletedIn12Months } = useMemo(() => {
+    if (stats) {
+      const { months, owners, totalCompletedIn12Months } = stats.mountainStats;
+      const series = owners.map((o, idx) => {
+        const monthlyData = months.map((m) => o.countsByMonth[m.key] || 0);
+        let cumSum = 0;
+        const cumulativeData = monthlyData.map((val) => {
+          cumSum += val;
+          return cumSum;
+        });
+        const activeData = trendMode === 'cumulative' ? cumulativeData : monthlyData;
+
+        return {
+          id: o.owner,
+          data: activeData,
+          label: o.owner === UNASSIGNED_KEY ? t('unassignedUser') : o.owner,
+          area: true,
+          stack: 'total',
+          curve: 'monotoneX' as const,
+          showMark: false,
+          color: MOUNTAIN_COLORS[idx % MOUNTAIN_COLORS.length],
+          valueFormatter: (v: number | null) => (v !== null ? `${v} ${t('statDone').toLowerCase()}` : '0'),
+        };
+      });
+
+      return {
+        stackedSeries: series,
+        totalCompletedIn12Months,
+      };
+    }
+
     const completedProjects = projects.filter((p) => {
       if (!p.done) return false;
       const owner = getProjectOwner(p);
@@ -346,7 +416,7 @@ const ProjectsStatistics: React.FC<Props> = ({
     const series = sortedOwners.map((o) => ({
       id: o.name,
       data: o.data,
-      label: o.name,
+      label: o.name === UNASSIGNED_KEY ? t('unassignedUser') : o.name,
       area: true,
       stack: 'total',
       curve: 'monotoneX' as const, // Smooth mountain peaks
@@ -359,19 +429,34 @@ const ProjectsStatistics: React.FC<Props> = ({
       stackedSeries: series,
       totalCompletedIn12Months: totalCompleted,
     };
-  }, [projects, users, last12Months, getProjectOwner, isAdminUser, trendMode, t]);
+  }, [stats, projects, users, last12Months, getProjectOwner, isAdminUser, trendMode, t]);
 
-  const xLabels = useMemo(() => last12Months.map((m) => m.label), [last12Months]);
+  const xLabels = useMemo(() => {
+    if (stats) {
+      return stats.mountainStats.months.map((m) => m.label);
+    }
+    return last12Months.map((m) => m.label);
+  }, [stats, last12Months]);
 
   // Helper to check if an invoice is paid
   const isPaidInvoice = useCallback((inv: Invoice) => {
-    const s = (inv.status || '').trim().toLowerCase();
-    return s === 'paid' || s === 'plaćeno' || s === 'плаћено';
+    return isInvoicePaid(inv.status);
   }, []);
 
   // Top 10 Clients by Sum of Paid Invoices
   const top10ClientsData = useMemo(() => {
-    const map = new Map<string, { clientName: string; totalPaid: number; count: number }>();
+    if (stats) {
+      return {
+        topClients: stats.topClients.map((c) => ({
+          clientKey: c.clientKey,
+          clientName: c.clientName === UNASSIGNED_KEY ? t('unassignedUser') : c.clientName,
+          totalPaid: c.totalPaid,
+          count: c.count,
+        })),
+      };
+    }
+
+    const map = new Map<string, { clientKey: string; clientName: string; totalPaid: number; count: number }>();
 
     invoices.forEach((inv) => {
       if (!isPaidInvoice(inv)) return;
@@ -381,22 +466,22 @@ const ProjectsStatistics: React.FC<Props> = ({
         const found = clients.find((c) => c.id === inv.clientId);
         if (found) name = found.name.trim();
       }
-      if (!name) {
-        name = t('unassignedUser') || 'Other';
-      }
+      const clientKey = inv.clientId || (name ? `name_${name}` : UNASSIGNED_KEY);
+      const displayName = name || t('unassignedUser');
 
       let amount = Number(inv.totalAmount) || 0;
       if (!amount && inv.items && inv.items.length > 0) {
         amount = inv.items.reduce((sum, it) => sum + (Number(it.quantity) || 0) * (Number(it.unitPrice) || 0), 0);
       }
 
-      const existing = map.get(name);
+      const existing = map.get(clientKey);
       if (existing) {
         existing.totalPaid += amount;
         existing.count += 1;
       } else {
-        map.set(name, {
-          clientName: name,
+        map.set(clientKey, {
+          clientKey,
+          clientName: displayName,
           totalPaid: amount,
           count: 1,
         });
@@ -411,7 +496,7 @@ const ProjectsStatistics: React.FC<Props> = ({
     return {
       topClients: sorted,
     };
-  }, [invoices, clients, isPaidInvoice, t]);
+  }, [stats, invoices, clients, isPaidInvoice, t]);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 1 }}>

@@ -140,24 +140,30 @@ describe('Activity Logs Utils', () => {
     const mockT = (key: string) => key;
 
     it('handles lifecycle types without path', () => {
-      const login = getPathLabelAndIcon(undefined, 'LOGIN', mockT, 'en');
-      expect(login.label).toBe('Login');
+      const login = getPathLabelAndIcon(undefined, 'LOGIN', mockT);
+      expect(login.label).toBe('tagLogin');
 
-      const logout = getPathLabelAndIcon(undefined, 'LOGOUT', mockT, 'en');
-      expect(logout.label).toBe('Logout');
+      const logout = getPathLabelAndIcon(undefined, 'LOGOUT', mockT);
+      expect(logout.label).toBe('tagLogout');
 
-      const offline = getPathLabelAndIcon(undefined, 'OFFLINE', mockT, 'en');
-      expect(offline.label).toBe('Offline');
+      const offline = getPathLabelAndIcon(undefined, 'OFFLINE', mockT);
+      expect(offline.label).toBe('tagOffline');
 
-      const online = getPathLabelAndIcon(undefined, 'ONLINE', mockT, 'en');
-      expect(online.label).toBe('Online');
+      const online = getPathLabelAndIcon(undefined, 'ONLINE', mockT);
+      expect(online.label).toBe('tagOnline');
     });
 
     it('handles Serbian translations for lifecycle types', () => {
-      const login = getPathLabelAndIcon(undefined, 'LOGIN', mockT, 'sr');
+      const srDict: Record<string, string> = {
+        tagLogin: 'Prijava',
+        tagLogout: 'Odjava',
+      };
+      const srT = (key: string) => srDict[key] || key;
+
+      const login = getPathLabelAndIcon(undefined, 'LOGIN', srT);
       expect(login.label).toBe('Prijava');
 
-      const logout = getPathLabelAndIcon(undefined, 'LOGOUT', mockT, 'sr');
+      const logout = getPathLabelAndIcon(undefined, 'LOGOUT', srT);
       expect(logout.label).toBe('Odjava');
     });
 

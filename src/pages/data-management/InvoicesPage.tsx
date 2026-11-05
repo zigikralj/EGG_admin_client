@@ -25,6 +25,7 @@ import {
 } from '@mui/material';
 
 import type { Invoice, TableViewProps } from '../../types';
+import { INVOICE_STATUSES, INVOICE_TYPES, isInvoicePaid } from '../../constants';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { TableOptionsSelector, type ColumnDef } from '../../components/common/ColumnSelector';
@@ -241,32 +242,44 @@ const InvoicesPage: React.FC<Props> = ({
   };
 
   const getStatusChipColor = (status?: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
-    switch (status) {
-      case 'Paid':
+    const s = (status || '').toLowerCase();
+    switch (s) {
+      case INVOICE_STATUSES.PAID:
+      case 'paid':
         return 'success';
-      case 'Sent':
+      case INVOICE_STATUSES.SENT:
+      case 'sent':
         return 'info';
-      case 'Overdue':
+      case INVOICE_STATUSES.OVERDUE:
+      case 'overdue':
         return 'error';
-      case 'Cancelled':
+      case INVOICE_STATUSES.CANCELLED:
+      case 'cancelled':
         return 'default';
-      case 'Draft':
+      case INVOICE_STATUSES.DRAFT:
+      case 'draft':
       default:
         return 'warning';
     }
   };
 
   const getStatusLabel = (status?: string) => {
-    switch (status) {
-      case 'Draft':
+    const s = (status || '').toLowerCase();
+    switch (s) {
+      case INVOICE_STATUSES.DRAFT:
+      case 'draft':
         return t('statusDraft');
-      case 'Sent':
+      case INVOICE_STATUSES.SENT:
+      case 'sent':
         return t('statusSent');
-      case 'Paid':
+      case INVOICE_STATUSES.PAID:
+      case 'paid':
         return t('statusPaid');
-      case 'Overdue':
+      case INVOICE_STATUSES.OVERDUE:
+      case 'overdue':
         return t('statusOverdue');
-      case 'Cancelled':
+      case INVOICE_STATUSES.CANCELLED:
+      case 'cancelled':
         return t('statusCancelled');
       default:
         return status || t('statusDraft');
@@ -274,7 +287,8 @@ const InvoicesPage: React.FC<Props> = ({
   };
 
   const getInvoiceTypeChip = (type?: string | null) => {
-    if (!type || type === 'Standard') {
+    const tLower = type?.toLowerCase();
+    if (!tLower || tLower === 'standard') {
       return (
         <Chip
           label={t('typeStandard')}
@@ -284,8 +298,8 @@ const InvoicesPage: React.FC<Props> = ({
         />
       );
     }
-    switch (type) {
-      case 'Advance':
+    switch (tLower) {
+      case 'advance':
         return (
           <Chip
             label={t('badgeAdvance')}
@@ -294,7 +308,7 @@ const InvoicesPage: React.FC<Props> = ({
             sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700, px: 0.25 }}
           />
         );
-      case 'Final':
+      case 'final':
         return (
           <Chip
             label={t('badgeFinal')}
@@ -303,7 +317,7 @@ const InvoicesPage: React.FC<Props> = ({
             sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700, px: 0.25 }}
           />
         );
-      case 'Partial':
+      case 'partial':
         return (
           <Chip
             label={t('badgePartial')}
@@ -318,13 +332,13 @@ const InvoicesPage: React.FC<Props> = ({
   };
 
   const getLinkedInvoiceLabel = (linkedInv?: Invoice | null) => {
-    const type = linkedInv?.invoiceType || 'Standard';
+    const type = linkedInv?.invoiceType?.toLowerCase() || 'standard';
     switch (type) {
-      case 'Advance':
+      case 'advance':
         return t('badgeAdvance');
-      case 'Final':
+      case 'final':
         return t('badgeFinal');
-      case 'Partial':
+      case 'partial':
         return t('badgePartial');
       default:
         return t('typeStandard');
@@ -332,12 +346,12 @@ const InvoicesPage: React.FC<Props> = ({
   };
 
   const getLinkedInvoiceChipColor = (type?: string | null): 'secondary' | 'primary' | 'info' | 'default' => {
-    switch (type) {
-      case 'Advance':
+    switch (type?.toLowerCase()) {
+      case 'advance':
         return 'secondary';
-      case 'Final':
+      case 'final':
         return 'primary';
-      case 'Partial':
+      case 'partial':
         return 'info';
       default:
         return 'default';
@@ -400,7 +414,7 @@ const InvoicesPage: React.FC<Props> = ({
 
   // Quick mark as Paid
   const handleMarkAsPaid = async (inv: Invoice) => {
-      await handleUpdateInvoiceStatus(inv.id, 'Paid', new Date().toISOString().slice(0, 10));
+      await handleUpdateInvoiceStatus(inv.id, 'paid', new Date().toISOString().slice(0, 10));
   };
 
   const displayedInvoices = enhancedInvoices;
@@ -535,12 +549,12 @@ const InvoicesPage: React.FC<Props> = ({
                       label={t('lblInvoiceStatus')}
                       onChange={(e) => setFilterStatus(e.target.value)}
                     >
-                      <MenuItem value="all">{t('filterAllStatus') || 'All'}</MenuItem>
-                      <MenuItem value="Draft">{t('statusDraft')}</MenuItem>
-                      <MenuItem value="Sent">{t('statusSent')}</MenuItem>
-                      <MenuItem value="Paid">{t('statusPaid')}</MenuItem>
-                      <MenuItem value="Overdue">{t('statusOverdue')}</MenuItem>
-                      <MenuItem value="Cancelled">{t('statusCancelled')}</MenuItem>
+                      <MenuItem value="all">{t('filterAllStatus')}</MenuItem>
+                      <MenuItem value={INVOICE_STATUSES.DRAFT}>{t('statusDraft')}</MenuItem>
+                      <MenuItem value={INVOICE_STATUSES.SENT}>{t('statusSent')}</MenuItem>
+                      <MenuItem value={INVOICE_STATUSES.PAID}>{t('statusPaid')}</MenuItem>
+                      <MenuItem value={INVOICE_STATUSES.OVERDUE}>{t('statusOverdue')}</MenuItem>
+                      <MenuItem value={INVOICE_STATUSES.CANCELLED}>{t('statusCancelled')}</MenuItem>
                     </Select>
                   </FormControl>
 
@@ -553,10 +567,10 @@ const InvoicesPage: React.FC<Props> = ({
                       onChange={(e) => setFilterInvoiceType(e.target.value)}
                     >
                       <MenuItem value="all">{t('filterAllInvoiceTypes')}</MenuItem>
-                      <MenuItem value="Standard">{t('typeStandard')}</MenuItem>
-                      <MenuItem value="Advance">{t('typeAdvance')}</MenuItem>
-                      <MenuItem value="Final">{t('typeFinal')}</MenuItem>
-                      <MenuItem value="Partial">{t('typePartial')}</MenuItem>
+                      <MenuItem value={INVOICE_TYPES.STANDARD}>{t('typeStandard')}</MenuItem>
+                      <MenuItem value={INVOICE_TYPES.ADVANCE}>{t('typeAdvance')}</MenuItem>
+                      <MenuItem value={INVOICE_TYPES.FINAL}>{t('typeFinal')}</MenuItem>
+                      <MenuItem value={INVOICE_TYPES.PARTIAL}>{t('typePartial')}</MenuItem>
                     </Select>
                   </FormControl>
 
@@ -772,10 +786,10 @@ const InvoicesPage: React.FC<Props> = ({
                     const isExpanded = !!expandedRows[inv.id];
                     const itemsCount = inv.items ? inv.items.length : 0;
                     const isOverdue =
-                      inv.status !== 'Paid' &&
+                      !isInvoicePaid(inv.status) &&
                       inv.dueDate &&
                       new Date(inv.dueDate) < new Date(new Date().toDateString());
-                    const isPaid = inv.status === 'Paid';
+                    const isPaid = isInvoicePaid(inv.status);
                     const hasLinks = Boolean(inv.parentInvoice || (inv.childInvoices && inv.childInvoices.length > 0));
 
                     return (

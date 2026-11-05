@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../api';
-import { API_ROUTES, PAGE_ROUTES } from '../constants';
+import { API_ROUTES, PAGE_ROUTES, STORAGE_KEYS } from '../constants';
 
 /**
  * Lightweight, batched page-activity tracker.
@@ -30,9 +30,9 @@ const MAX_QUEUE_SIZE = 100;
 export const MAX_IDLE_SECONDS = 120; // 2 minutes without user interaction considered idle
 const HEARTBEAT_INTERVAL_MS = 5_000; // 5-second tick for idle & sleep detection
 
-export const SESSION_STORAGE_KEY = 'activity_session_id';
-export const SESSION_ACTIVITY_KEY = 'activity_session_last_active';
-export const SESSION_LOGIN_KEY = 'activity_login_logged';
+export const SESSION_STORAGE_KEY = STORAGE_KEYS.ACTIVITY_SESSION_ID;
+export const SESSION_ACTIVITY_KEY = STORAGE_KEYS.ACTIVITY_SESSION_LAST_ACTIVE;
+export const SESSION_LOGIN_KEY = STORAGE_KEYS.ACTIVITY_LOGIN_LOGGED;
 export const SESSION_INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 
 export function getSessionId(): string {
@@ -117,6 +117,8 @@ export function useActivityTracker() {
   const location = useLocation();
   const queryClient = useQueryClient();
   const isEnabled = currentUser?.activityLoggingEnabled ?? true;
+  const isEnabledRef = useRef<boolean>(isEnabled);
+  isEnabledRef.current = isEnabled;
 
   const queueRef = useRef<TrackerEvent[]>([]);
   const sessionStartTimeRef = useRef<number>(Date.now());
@@ -161,7 +163,7 @@ export function useActivityTracker() {
   };
 
   const enqueue = (type: TrackerEventType, path: string, durationSeconds = 0) => {
-    if (!isEnabled) return;
+    if (!isEnabledRef.current) return;
     if (type !== 'LOGOUT') {
       rotateSessionIfExpired();
     }
@@ -179,7 +181,7 @@ export function useActivityTracker() {
 
   /** Close the current visible segment (if any) as a PAGE_VIEW and start a new one. */
   const closeSegment = (isSleepOrIdleCutoff = false) => {
-    if (!isEnabled) return;
+    if (!isEnabledRef.current) return;
     const now = Date.now();
     if (!pausedRef.current && !isIdleRef.current) {
       // Effective end time cannot exceed last interaction + MAX_IDLE_SECONDS
@@ -197,7 +199,7 @@ export function useActivityTracker() {
   };
 
   const flush = (urgent = false): Promise<void> => {
-    if (!isEnabled || queueRef.current.length === 0) return Promise.resolve();
+    if (!isEnabledRef.current || queueRef.current.length === 0) return Promise.resolve();
 
     const isOnlyLifecycle = queueRef.current.every(
       (e) => e.type === 'LOGIN' || e.type === 'LOGOUT'
@@ -220,7 +222,7 @@ export function useActivityTracker() {
 
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     // apiFetch attaches the stored token; after logout fall back to the cached one.
-    if (!localStorage.getItem('auth_token') && tokenRef.current) {
+    if (!localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN) && tokenRef.current) {
       headers['Authorization'] = `Bearer ${tokenRef.current}`;
     }
 
@@ -288,7 +290,7 @@ export function useActivityTracker() {
       return;
     }
 
-    tokenRef.current = localStorage.getItem('auth_token');
+    tokenRef.current = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
     if (prevId) return; // user switch while logged in — keep the running session
 
     sessionIdRef.current = getSessionId();

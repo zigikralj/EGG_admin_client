@@ -23,8 +23,8 @@ export interface ActivityLogsDialogsProps {
   customDaysInput: string;
   onCustomDaysInputChange: (val: string) => void;
   isCustomRetentionPending: boolean;
-  language: string;
-  t: (key: any) => string;
+  language?: string;
+  t: (key: any, params?: Record<string, string | number>) => string;
 }
 
 export const ActivityLogsDialogs: React.FC<ActivityLogsDialogsProps> = ({
@@ -40,7 +40,6 @@ export const ActivityLogsDialogs: React.FC<ActivityLogsDialogsProps> = ({
   customDaysInput,
   onCustomDaysInputChange,
   isCustomRetentionPending,
-  language,
   t
 }) => {
   const parsedDays = parseInt(customDaysInput, 10);
@@ -58,25 +57,22 @@ export const ActivityLogsDialogs: React.FC<ActivityLogsDialogsProps> = ({
         onClose={onCloseDeleteDialog}
       >
         <DialogTitle>
-          {deleteDialog.type === 'all' && (language === 'en' ? 'Clear All Activity Logs' : 'Brisanje svih logova')}
-          {deleteDialog.type === 'session' && (language === 'en' ? 'Delete Session' : 'Brisanje sesije')}
+          {deleteDialog.type === 'all' && t('clearAllLogsTitle')}
+          {deleteDialog.type === 'session' && t('deleteSessionTitle')}
         </DialogTitle>
         <DialogContent>
           <DialogContentText>
-            {deleteDialog.type === 'all' && (language === 'en'
-              ? 'Are you sure you want to delete ALL activity logs? This action cannot be undone.'
-              : 'Da li ste sigurni da želite da obrišete SVE logove aktivnosti? Ova radnja se ne može opozvati.')}
-            {deleteDialog.type === 'session' && (language === 'en'
-              ? `Are you sure you want to delete all activity logs for ${deleteDialog.label}? This action cannot be undone.`
-              : `Da li ste sigurni da želite da obrišete sve logove aktivnosti za ${deleteDialog.label}? Ova radnja se ne može opozvati.`)}
+            {deleteDialog.type === 'all' && t('clearAllLogsConfirm')}
+            {deleteDialog.type === 'session' &&
+              t('deleteSessionConfirm', { label: deleteDialog.label || '' })}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={onCloseDeleteDialog}>
-            {language === 'en' ? 'Cancel' : 'Otkaži'}
+            {t('btnCancel')}
           </Button>
           <Button color="error" variant="contained" onClick={onConfirmDelete}>
-            {language === 'en' ? 'Delete' : 'Obriši'}
+            {t('btnDelete')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -103,7 +99,7 @@ export const ActivityLogsDialogs: React.FC<ActivityLogsDialogsProps> = ({
             variant="outlined"
             sx={{ textTransform: 'none', borderRadius: 2 }}
           >
-            {language === 'en' ? 'Cancel' : 'Otkaži'}
+            {t('btnCancel')}
           </Button>
           <Button
             onClick={onConfirmDeactivate}
@@ -111,7 +107,7 @@ export const ActivityLogsDialogs: React.FC<ActivityLogsDialogsProps> = ({
             color="warning"
             sx={{ textTransform: 'none', borderRadius: 2 }}
           >
-            {language === 'en' ? 'Deactivate' : 'Deaktiviraj'}
+            {t('btnDeactivate')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -149,7 +145,7 @@ export const ActivityLogsDialogs: React.FC<ActivityLogsDialogsProps> = ({
             variant="outlined"
             sx={{ textTransform: 'none', borderRadius: 2 }}
           >
-            {language === 'en' ? 'Cancel' : 'Otkaži'}
+            {t('btnCancel')}
           </Button>
           <Button
             onClick={onSubmitCustomRetention}
@@ -157,7 +153,7 @@ export const ActivityLogsDialogs: React.FC<ActivityLogsDialogsProps> = ({
             disabled={!isCustomDaysValid || isCustomRetentionPending}
             sx={{ textTransform: 'none', borderRadius: 2 }}
           >
-            {language === 'en' ? 'Save' : 'Sačuvaj'}
+            {t('btnSave')}
           </Button>
         </DialogActions>
       </Dialog>

@@ -22,11 +22,13 @@ import { ConfirmDeleteDialog } from '../../components/common/dialogs/ConfirmDele
 import { ErrorDialog } from '../../components/common/dialogs/ErrorDialog';
 import type { Role } from '../../types';
 import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
 
 const RolesPage: React.FC = () => {
   const { data: roles, isLoading, error } = useRolesQuery();
   const { createMutation, updateMutation, deleteMutation } = useRoleMutations();
   const { hasPermission } = useAuth();
+  const { t } = useLanguage();
   
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<ModalMode>('view');
@@ -42,8 +44,8 @@ const RolesPage: React.FC = () => {
   const canEdit = hasPermission('roles', 'edit');
   const canDelete = hasPermission('roles', 'delete');
 
-  if (isLoading) return <Typography>Loading roles...</Typography>;
-  if (error) return <Typography color="error">Failed to load roles.</Typography>;
+  if (isLoading) return <Typography>{t('loadingRoles')}</Typography>;
+  if (error) return <Typography color="error">{t('errorLoadingRoles')}</Typography>;
 
   const handleAddClick = () => {
     setEditingRole(null);
@@ -98,11 +100,11 @@ const RolesPage: React.FC = () => {
     <Box sx={{ p: 3, maxWidth: 1200, margin: '0 auto' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-          Roles & Permissions
+          {t('rolesAndPermissions')}
         </Typography>
         {canCreate && (
           <Button variant="contained" startIcon={<AddIcon />} onClick={handleAddClick}>
-            Create Role
+            {t('btnCreateRole')}
           </Button>
         )}
       </Box>
@@ -111,10 +113,10 @@ const RolesPage: React.FC = () => {
         <Table>
           <TableHead sx={{ bgcolor: 'grey.100' }}>
             <TableRow>
-              <TableCell><strong>Role Name</strong></TableCell>
-              <TableCell><strong>Description</strong></TableCell>
-              <TableCell align="center"><strong>Access Level</strong></TableCell>
-              <TableCell align="right"><strong>Actions</strong></TableCell>
+              <TableCell><strong>{t('colRoleName')}</strong></TableCell>
+              <TableCell><strong>{t('colDescription')}</strong></TableCell>
+              <TableCell align="center"><strong>{t('colAccessLevel')}</strong></TableCell>
+              <TableCell align="right"><strong>{t('colActions')}</strong></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -127,22 +129,22 @@ const RolesPage: React.FC = () => {
                 <TableCell align="center">
                   <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center', flexWrap: 'wrap' }}>
                     {role.isSystemAdmin ? (
-                      <Chip label="System Admin" color="error" size="small" />
+                      <Chip label={t('badgeSystemAdmin')} color="error" size="small" />
                     ) : (
-                      <Chip label="Custom" color="primary" size="small" variant="outlined" />
+                      <Chip label={t('badgeCustomRole')} color="primary" size="small" variant="outlined" />
                     )}
                   </Box>
                 </TableCell>
                 <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                   {canEdit && (
-                    <Tooltip title="Edit Role">
+                    <Tooltip title={t('modalEditRole')}>
                       <IconButton onClick={() => handleEditClick(role)} color="primary">
                         <EditIcon />
                       </IconButton>
                     </Tooltip>
                   )}
                   {canDelete && !role.isSystemAdmin && (
-                    <Tooltip title="Delete Role">
+                    <Tooltip title={t('btnDeleteRole')}>
                       <IconButton onClick={() => handleDeleteClick(role)} color="error">
                         <DeleteIcon />
                       </IconButton>
@@ -154,7 +156,7 @@ const RolesPage: React.FC = () => {
             {roles?.length === 0 && (
               <TableRow>
                 <TableCell colSpan={4} align="center" sx={{ py: 3 }}>
-                  No roles found.
+                  {t('emptyRoles')}
                 </TableCell>
               </TableRow>
             )}
@@ -182,8 +184,8 @@ const RolesPage: React.FC = () => {
         open={deleteConfirmOpen}
         onClose={() => setDeleteConfirmOpen(false)}
         onConfirm={confirmDelete}
-        title="Delete Role"
-        message={`Are you sure you want to delete the role "${roleToDelete?.name}"?`}
+        title={t('btnDeleteRole')}
+        message={t('confirmDeleteRoleMessage', { name: roleToDelete?.name || '' })}
       />
 
       <ErrorDialog

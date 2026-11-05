@@ -12,7 +12,7 @@ import { useLanguage } from '../../../context/LanguageContext';
 export type ModalMode = 'view' | 'edit' | 'create';
 
 export interface ViewEditModalBaseProps
-  extends Omit<BaseModalProps, 'title' | 'actions' | 'onSubmit' | 'headerAdornment'> {
+  extends Omit<BaseModalProps, 'title' | 'actions' | 'headerAdornment'> {
   mode: ModalMode;
   onModeChange?: (newMode: ModalMode) => void;
   title: React.ReactNode | ((mode: ModalMode) => React.ReactNode);
@@ -21,7 +21,7 @@ export interface ViewEditModalBaseProps
   canDelete?: boolean;
   isSaving?: boolean;
   isSaveDisabled?: boolean;
-  onSave?: (e: React.FormEvent<HTMLFormElement>) => void | Promise<void>;
+  onSave?: (e?: any) => void | Promise<void>;
   onDelete?: () => void;
   onCancel?: () => void;
 
@@ -226,7 +226,8 @@ export const ViewEditModalBase: React.FC<ViewEditModalBaseProps> = ({
               {cancelLabel || t('btnCancel')}
             </Button>
             <Button
-              type="submit"
+              type="button"
+              onClick={onSave}
               variant="contained"
               color="primary"
               disabled={isSaving || isSaveDisabled}
@@ -250,7 +251,6 @@ export const ViewEditModalBase: React.FC<ViewEditModalBaseProps> = ({
       headerAdornment={statusChip}
       headerActions={headerActionsContent}
       actions={footerActionsContent}
-      onSubmit={!isView && onSave ? onSave : undefined}
       onClose={onClose}
     />
   );

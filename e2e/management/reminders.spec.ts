@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { REMINDER_STATUSES } from '../../src/constants';
 
 test.describe('Reminders Management', () => {
   let remindersData = [
@@ -11,7 +12,7 @@ test.describe('Reminders Management', () => {
       clientName: 'Eko Metal d.o.o.',
       responsibleId: 'u-1',
       responsible: 'Petar Petrović',
-      status: 'Pending',
+      status: REMINDER_STATUSES.PENDING,
       notes: 'Podneti izveštaj do kraja meseca',
       dueDate: '2026-11-15',
       permitId: null,
@@ -26,7 +27,7 @@ test.describe('Reminders Management', () => {
       clientName: 'BioReciklaža d.o.o.',
       responsibleId: 'u-2',
       responsible: 'Marko Marković',
-      status: 'Completed',
+      status: REMINDER_STATUSES.COMPLETED,
       notes: 'Dozvola uspešno obnovljena',
       dueDate: '2026-10-01',
       permitId: null,
@@ -41,7 +42,7 @@ test.describe('Reminders Management', () => {
       clientName: 'Eko Metal d.o.o.',
       responsibleId: 'u-1',
       responsible: 'Petar Petrović',
-      status: 'Overdue',
+      status: REMINDER_STATUSES.OVERDUE,
       notes: 'Hitno kontaktirati laboratoriju',
       dueDate: '2026-09-01',
       permitId: null,
@@ -60,7 +61,7 @@ test.describe('Reminders Management', () => {
         clientName: 'Eko Metal d.o.o.',
         responsibleId: 'u-1',
         responsible: 'Petar Petrović',
-        status: 'Pending',
+        status: REMINDER_STATUSES.PENDING,
         notes: 'Podneti izveštaj do kraja meseca',
         dueDate: '2026-11-15',
         permitId: null,
@@ -75,7 +76,7 @@ test.describe('Reminders Management', () => {
         clientName: 'BioReciklaža d.o.o.',
         responsibleId: 'u-2',
         responsible: 'Marko Marković',
-        status: 'Completed',
+        status: REMINDER_STATUSES.COMPLETED,
         notes: 'Dozvola uspešno obnovljena',
         dueDate: '2026-10-01',
         permitId: null,
@@ -90,7 +91,7 @@ test.describe('Reminders Management', () => {
         clientName: 'Eko Metal d.o.o.',
         responsibleId: 'u-1',
         responsible: 'Petar Petrović',
-        status: 'Overdue',
+        status: REMINDER_STATUSES.OVERDUE,
         notes: 'Hitno kontaktirati laboratoriju',
         dueDate: '2026-09-01',
         permitId: null,
@@ -171,7 +172,7 @@ test.describe('Reminders Management', () => {
         const created = {
           ...newRem,
           id: `rem-${Date.now()}`,
-          status: newRem.status || 'Pending',
+          status: newRem.status || REMINDER_STATUSES.PENDING,
         };
         remindersData.push(created);
         await route.fulfill({
@@ -410,7 +411,7 @@ test.describe('Reminders Management', () => {
     const completeBtn = targetRow.locator('button:has([data-testid="CheckIcon"])');
     await completeBtn.click();
 
-    expect(patchedStatus).toBe('Completed');
+    expect(patchedStatus).toBe(REMINDER_STATUSES.COMPLETED);
 
     // Verify row now shows Completed status chip
     await expect(targetRow.locator('.MuiChip-root', { hasText: /Završeno|Completed/i })).toBeVisible();

@@ -28,6 +28,7 @@ import {
 
 
 import type { Reminder, Project } from '../../types';
+import { REMINDER_STATUSES, isReminderCompleted } from '../../constants';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { NotificationsActiveIcon, AddIcon, CloseIcon, CalendarTodayIcon, CheckIcon, EditIcon, DeleteIcon } from '../icons';
@@ -47,6 +48,16 @@ interface ProjectReminderSectionProps {
   reminderState: any; // return of useProjectForm().reminderState
   disabled?: boolean;
 }
+
+const normalizeReminderStatus = (st?: string | null): string => {
+  if (!st) return REMINDER_STATUSES.PENDING;
+  const s = st.toLowerCase().trim();
+  if (s === REMINDER_STATUSES.COMPLETED) return REMINDER_STATUSES.COMPLETED;
+  if (s === REMINDER_STATUSES.IN_PROGRESS || s === 'in progress') return REMINDER_STATUSES.IN_PROGRESS;
+  if (s === REMINDER_STATUSES.OVERDUE) return REMINDER_STATUSES.OVERDUE;
+  if (s === REMINDER_STATUSES.DRAFT) return REMINDER_STATUSES.DRAFT;
+  return REMINDER_STATUSES.PENDING;
+};
 
 export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
   projectToEdit,
@@ -93,28 +104,20 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
 
   const getStatusChip = (st?: string) => {
     if (!st) return null;
-    switch (st.toLowerCase()) {
-      case 'completed':
-      case 'završeno':
-      case 'завршено':
-        return <Chip label={t('statusCompleted')} color="success" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, px: 0.25 }} />;
-      case 'in progress':
-      case 'u toku':
-      case 'у току':
-        return <Chip label={t('statusInProgress')} color="info" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, px: 0.25 }} />;
-      case 'overdue':
-      case 'prekoračeno':
-      case 'прекорачено':
-      case 'kasni':
-        return <Chip label={t('statusOverdue')} color="error" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, px: 0.25 }} />;
-      case 'pending':
-      case 'na čekanju':
-      case 'на чекању':
-        return <Chip label={t('statusPending')} color="default" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, px: 0.25 }} />;
-      case 'draft':
-      default:
-        return <Chip label={t('statusDraft')} color="warning" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, px: 0.25 }} />;
+    const lower = st.toLowerCase();
+    if (lower === REMINDER_STATUSES.COMPLETED) {
+      return <Chip label={t('statusCompleted')} color="success" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, px: 0.25 }} />;
     }
+    if (lower === REMINDER_STATUSES.IN_PROGRESS || lower === 'in progress') {
+      return <Chip label={t('statusInProgress')} color="info" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, px: 0.25 }} />;
+    }
+    if (lower === REMINDER_STATUSES.OVERDUE) {
+      return <Chip label={t('statusOverdue')} color="error" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, px: 0.25 }} />;
+    }
+    if (lower === REMINDER_STATUSES.PENDING) {
+      return <Chip label={t('statusPending')} color="default" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, px: 0.25 }} />;
+    }
+    return <Chip label={t('statusDraft')} color="warning" size="small" sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600, px: 0.25 }} />;
   };
 
   const handleCreateProjectReminder = () => {
@@ -133,7 +136,7 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
           responsible: newReminderResponsible || responsible || null,
           dueDate: newReminderDate || null,
           notes: newReminderNotes || null,
-          status: 'Pending',
+          status: REMINDER_STATUSES.PENDING,
         });
       }
     } else {
@@ -147,7 +150,7 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
           responsible: newReminderResponsible || responsible || null,
           dueDate: newReminderDate || null,
           notes: newReminderNotes || null,
-          status: 'Pending',
+          status: REMINDER_STATUSES.PENDING,
           isNewStaged: true,
         });
       }
@@ -188,7 +191,7 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
     setEditingProjectReminder(rem);
     setEditReminderTitle(rem.title || rem.projectName || '');
     setEditReminderDate(rem.dueDate || '');
-    setEditReminderStatus(rem.status || 'Pending');
+    setEditReminderStatus(normalizeReminderStatus(rem.status));
     setEditReminderResponsible(rem.responsible || '');
     setEditReminderNotes(rem.notes || '');
   };
@@ -210,7 +213,7 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
             clientName: clientName.trim() || projectToEdit.clientName,
             responsible: editReminderResponsible || null,
             dueDate: editReminderDate || null,
-            status: editReminderStatus || 'Pending',
+            status: editReminderStatus || REMINDER_STATUSES.PENDING,
             notes: editReminderNotes || null,
           });
         }
@@ -220,7 +223,7 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
             title: editReminderTitle.trim(),
             responsible: editReminderResponsible || null,
             dueDate: editReminderDate || null,
-            status: editReminderStatus || 'Pending',
+            status: editReminderStatus || REMINDER_STATUSES.PENDING,
             notes: editReminderNotes || null,
           });
         }
@@ -378,8 +381,7 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
         ) : (
           <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75 }}>
             {projectReminders.map((rem: Reminder) => {
-              const isCompleted =
-                rem.status?.toLowerCase() === "completed" || rem.status === "Završeno" || rem.status === "Завршено";
+              const isCompleted = isReminderCompleted(rem.status);
               return (
                 <Box
                   key={rem.id}
@@ -460,7 +462,7 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
                                 size="small"
                                 color={isCompleted ? "default" : "success"}
                                 onClick={() => {
-                                  const newStatus = isCompleted ? "Pending" : "Completed";
+                                  const newStatus = isCompleted ? REMINDER_STATUSES.PENDING : REMINDER_STATUSES.COMPLETED;
                                   if (projectToEdit) {
                                     if (onStatusChangeReminder) {
                                       onStatusChangeReminder(rem.id, newStatus);
@@ -556,10 +558,10 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
                     label={t('lblStatus')}
                     onChange={(e) => setEditReminderStatus(e.target.value)}
                   >
-                    <MenuItem value="Pending">{t('statusPending')}</MenuItem>
-                    <MenuItem value="In Progress">{t('statusInProgress')}</MenuItem>
-                    <MenuItem value="Completed">{t('statusCompleted')}</MenuItem>
-                    <MenuItem value="Overdue">{t('statusOverdue')}</MenuItem>
+                    <MenuItem value={REMINDER_STATUSES.PENDING}>{t('statusPending')}</MenuItem>
+                    <MenuItem value={REMINDER_STATUSES.IN_PROGRESS}>{t('statusInProgress')}</MenuItem>
+                    <MenuItem value={REMINDER_STATUSES.COMPLETED}>{t('statusCompleted')}</MenuItem>
+                    <MenuItem value={REMINDER_STATUSES.OVERDUE}>{t('statusOverdue')}</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>

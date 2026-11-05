@@ -8,7 +8,27 @@ import { ActivityTableRow } from './ActivityTableRow';
 import type { UserActivityGroup, Session, AccumulatedActivity } from './types';
 
 describe('Activity Logs Cards and Tables', () => {
-  const mockT = (key: string) => key;
+  const mockDict: Record<string, string> = {
+    countSession: '{count} session',
+    countSessions: '{count} sessions',
+    countVisit: '{count} visit',
+    countVisits: '{count} visits',
+    countAction: '{count} action',
+    countActions: '{count} actions',
+    countEvent: '{count} event',
+    countEvents: '{count} events',
+    tooltipDeleteSession: 'Delete session',
+  };
+
+  const mockT = (key: string, params?: Record<string, string | number>) => {
+    let text = mockDict[key] || key;
+    if (params) {
+      Object.entries(params).forEach(([pKey, pVal]) => {
+        text = text.replace(new RegExp(`\\{${pKey}\\}`, 'g'), String(pVal));
+      });
+    }
+    return text;
+  };
 
   const mockActivity: AccumulatedActivity = {
     key: 'path:/projects',

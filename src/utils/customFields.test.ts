@@ -1,51 +1,35 @@
 import { describe, it, expect } from 'vitest';
 import {
-  normalizeKey,
-  isKeyMatch,
+  buildCustomFieldsMap,
   formatCustomFieldValue,
   resolveCustomFieldBadges,
-  isWasteWeightField,
-  parseWasteWeightValue
+  formatFieldBadgeLabel,
+  parseNumericValue,
+  extractNumericField,
+  extractWeight,
 } from './customFields';
-import type { CustomFieldDefinition, ProvidedService, Client, Service } from '../types';
+import type { ProvidedService, Client, Service } from '../types';
 
 describe('customFields utils', () => {
-  describe('normalizeKey', () => {
-    it('normalizes string by removing diacritics and lowercasing', () => {
-      expect(normalizeKey('Količina')).toBe('kolicina');
-      expect(normalizeKey('ČŠĆĐŽ čšćđž')).toBe('csc_z_csc_z');
-    });
-
-    it('replaces non-alphanumeric chars with underscore', () => {
-      expect(normalizeKey('Field Name 123')).toBe('field_name_123');
-      expect(normalizeKey('a-b/c\\d')).toBe('a_b_c_d');
-    });
-
-    it('handles undefined or null gracefully', () => {
-      expect(normalizeKey(undefined as any)).toBe('');
-      expect(normalizeKey(null as any)).toBe('');
-    });
-  });
-
-  describe('isKeyMatch', () => {
-    const mockField: CustomFieldDefinition = { id: 'field_1', name: 'Količina otpada', type: 'number' };
-
-    it('matches exact id', () => {
-      expect(isKeyMatch('field_1', mockField)).toBe(true);
-    });
-
-    it('matches normalized id or name', () => {
-      expect(isKeyMatch('kolicina_otpada', mockField)).toBe(true);
-      expect(isKeyMatch('KOLIČINA OTPADA', mockField)).toBe(true);
-    });
-
-    it('matches common serbian substrings', () => {
-      expect(isKeyMatch('kolicina', mockField)).toBe(true);
-    });
-
-    it('returns false for non-matching keys', () => {
-      expect(isKeyMatch('datum', mockField)).toBe(false);
-      expect(isKeyMatch('vrsta', mockField)).toBe(false);
+  describe('buildCustomFieldsMap', () => {
+    it('creates map of field ID to field definition', () => {
+      const services: Service[] = [
+        {
+          id: 's1',
+          code: 'waste',
+          name: 'Waste Disposal',
+          group: 'waste',
+          frequency: 1,
+          customDataModel: [
+            { id: 'kolicina_kg', name: 'Količina', type: 'number', unit: 'kg' },
+            { id: 'vrsta_otpada', name: 'Vrsta otpada', type: 'text' },
+          ],
+        },
+      ];
+      const map = buildCustomFieldsMap(services);
+      expect(map.size).toBe(2);
+      expect(map.get('kolicina_kg')?.name).toBe('Količina');
+      expect(map.get('vrsta_otpada')?.type).toBe('text');
     });
   });
 
@@ -104,7 +88,7 @@ describe('customFields utils', () => {
       { id: 'client-456', name: 'Adient Seating d.o.o.', city: 'Loznica' },
     ];
 
-    it('resolves Transport field when stored as client object to client name string', () => {
+    it('resolves badges strictly by field.id and displays verbatim database names', () => {
       const item: ProvidedService = {
         id: 'ps-1',
         serviceId: 'srv-waste',
@@ -119,12 +103,12 @@ describe('customFields utils', () => {
 
       const badges = resolveCustomFieldBadges(item, mockServices, mockClients);
       expect(badges).toHaveLength(3);
-      expect(badges[0]).toEqual(expect.objectContaining({ label: 'Količina', value: '1234453', unit: 'kg' }));
-      expect(badges[1]).toEqual(expect.objectContaining({ label: 'Vrsta otpada', value: '01 01 01, 01 03 06' }));
-      expect(badges[2]).toEqual(expect.objectContaining({ label: 'Transport', value: 'AgroPlod d.o.o.' }));
+      expect(badges[0]).toEqual(expect.objectContaining({ id: 'kolicina_kg', label: 'Količina', value: '1234453', unit: 'kg' }));
+      expect(badges[1]).toEqual(expect.objectContaining({ id: 'vrsta_otpada', label: 'Vrsta otpada', value: '01 01 01, 01 03 06' }));
+      expect(badges[2]).toEqual(expect.objectContaining({ id: 'transport', label: 'Transport', value: 'AgroPlod d.o.o.' }));
     });
 
-    it('resolves Transport field when stored as client ID string using clients list', () => {
+    it('resolves client ID string to client name', () => {
       const item: ProvidedService = {
         id: 'ps-2',
         serviceId: 'srv-waste',
@@ -137,76 +121,169 @@ describe('customFields utils', () => {
 
       const badges = resolveCustomFieldBadges(item, mockServices, mockClients);
       expect(badges).toHaveLength(1);
-      expect(badges[0]).toEqual(expect.objectContaining({ label: 'Transport', value: 'Adient Seating d.o.o.' }));
+      expect(badges[0]).toEqual(expect.objectContaining({ id: 'transport', label: 'Transport', value: 'Adient Seating d.o.o.' }));
     });
 
-    it('resolves legacy or extra transport field even if not in service customDataModel', () => {
+    it('displays unmodeled customData keys verbatim without formatting or guessing', () => {
       const item: ProvidedService = {
         id: 'ps-3',
         serviceId: 'srv-other',
         clientId: 'client-123',
         status: 'Planned',
         customData: {
-          transport: { id: 'client-123', name: 'AgroPlod d.o.o.' },
+          broj_ugovora_2026: 'UG-9988',
         },
       };
 
       const badges = resolveCustomFieldBadges(item, [], mockClients);
       expect(badges).toHaveLength(1);
-      expect(badges[0]).toEqual(expect.objectContaining({ label: 'Transport', value: 'AgroPlod d.o.o.' }));
+      expect(badges[0]).toEqual(expect.objectContaining({ id: 'broj_ugovora_2026', label: 'broj_ugovora_2026', value: 'UG-9988' }));
     });
   });
 
-  describe('isWasteWeightField', () => {
-    it('returns false for explicit disqualifiers', () => {
-      expect(isWasteWeightField('indeks_otpada', 'Indeks otpada')).toBe(false);
-      expect(isWasteWeightField('datum', 'Datum preuzimanja')).toBe(false);
-    });
-
-    it('returns true for exact weight units', () => {
-      expect(isWasteWeightField('some_field', 'Some Label', 'kg')).toBe(true);
-      expect(isWasteWeightField('some_field', 'Some Label', 't')).toBe(true);
-      expect(isWasteWeightField('some_field', 'Some Label', 'tona')).toBe(true);
-    });
-
-    it('returns true for positive qualifiers in id or label', () => {
-      expect(isWasteWeightField('kolicina_kg', 'Količina')).toBe(true);
-      expect(isWasteWeightField('weight', 'Weight')).toBe(true);
-      expect(isWasteWeightField('qty', 'Qty')).toBe(true);
+  describe('formatFieldBadgeLabel', () => {
+    it('formats label and value with unit without duplicates', () => {
+      expect(formatFieldBadgeLabel({ label: 'Količina', value: '1500', unit: 'kg' })).toBe('Količina: 1500 kg');
+      expect(formatFieldBadgeLabel({ label: 'Količina (kg)', value: '1500', unit: 'kg' })).toBe('Količina (kg): 1500');
     });
   });
 
-  describe('parseWasteWeightValue', () => {
-    it('returns 0 for null/undefined/empty', () => {
-      expect(parseWasteWeightValue(null)).toBe(0);
-      expect(parseWasteWeightValue(undefined)).toBe(0);
-      expect(parseWasteWeightValue('')).toBe(0);
-    });
-
+  describe('parseNumericValue', () => {
     it('parses numbers directly', () => {
-      expect(parseWasteWeightValue(123)).toBe(123);
-      expect(parseWasteWeightValue(123.45)).toBe(123.45);
+      expect(parseNumericValue(123)).toBe(123);
+      expect(parseNumericValue(123.45)).toBe(123.45);
     });
 
-    it('disqualifies index codes', () => {
-      expect(parseWasteWeightValue('15 01 01')).toBe(0);
-      expect(parseWasteWeightValue('15 01 01*')).toBe(0);
+    it('returns null for null/undefined/empty string', () => {
+      expect(parseNumericValue(null)).toBeNull();
+      expect(parseNumericValue(undefined)).toBeNull();
+      expect(parseNumericValue('')).toBeNull();
     });
 
-    it('parses formatted strings correctly', () => {
-      expect(parseWasteWeightValue('1.500,50')).toBe(1500.50); // Serbian format
-      expect(parseWasteWeightValue('1 500,50')).toBe(1500.50); // Serbian spaced format
-      expect(parseWasteWeightValue('1234,56')).toBe(1234.56); // Comma decimal
+    it('parses European and standard decimal formats', () => {
+      expect(parseNumericValue('1.500,50')).toBe(1500.50);
+      expect(parseNumericValue('1 500,50')).toBe(1500.50);
+      expect(parseNumericValue('1500,50')).toBe(1500.50);
+      expect(parseNumericValue('1500.50')).toBe(1500.50);
+    });
+  });
+
+  describe('extractNumericField', () => {
+    const mockServices: Service[] = [
+      {
+        id: 'srv-1',
+        code: 'fuel',
+        name: 'Fuel Tracking',
+        group: 'operations',
+        frequency: 1,
+        customDataModel: [
+          { id: 'fuel_liters', name: 'Gorivo', type: 'number', unit: 'l' },
+          { id: 'hours_spent', name: 'Sati rada', type: 'number', unit: 'h' },
+        ],
+      },
+    ];
+
+    it('extracts numeric field by unit', () => {
+      const item: ProvidedService = {
+        id: 'ps-1',
+        serviceId: 'srv-1',
+        clientId: 'c1',
+        status: 'Completed',
+        customData: {
+          fuel_liters: '250,5',
+          hours_spent: 8,
+        },
+      };
+
+      const extracted = extractNumericField(item, { unit: 'l' }, mockServices);
+      expect(extracted).not.toBeNull();
+      expect(extracted?.id).toBe('fuel_liters');
+      expect(extracted?.name).toBe('Gorivo');
+      expect(extracted?.value).toBe(250.5);
+      expect(extracted?.unit).toBe('l');
     });
 
-    it('converts tons to kg', () => {
-      expect(parseWasteWeightValue(1.5, 't')).toBe(1500);
-      expect(parseWasteWeightValue(2, 'tona')).toBe(2000);
-      expect(parseWasteWeightValue(3, '', 'kolicina_u_tonama')).toBe(3000);
+    it('extracts numeric field by fieldId', () => {
+      const item: ProvidedService = {
+        id: 'ps-2',
+        serviceId: 'srv-1',
+        clientId: 'c1',
+        status: 'Completed',
+        customData: {
+          fuel_liters: 100,
+          hours_spent: 12,
+        },
+      };
+
+      const extracted = extractNumericField(item, { fieldId: 'hours_spent' }, mockServices);
+      expect(extracted?.value).toBe(12);
     });
-    
-    it('does not convert to kg if kg is present', () => {
-      expect(parseWasteWeightValue(1500, 'kg')).toBe(1500);
+  });
+
+  describe('extractWeight', () => {
+    const mockServices: Service[] = [
+      {
+        id: 'srv-kg',
+        code: 'waste-kg',
+        name: 'Waste (kg)',
+        group: 'waste',
+        frequency: 1,
+        customDataModel: [
+          { id: 'any_weight_id', name: 'Masa materijala', type: 'number', unit: 'kg' },
+        ],
+      },
+      {
+        id: 'srv-ton',
+        code: 'waste-ton',
+        name: 'Waste (ton)',
+        group: 'waste',
+        frequency: 1,
+        customDataModel: [
+          { id: 'freight_weight', name: 'Težina tereta', type: 'number', unit: 'tona' },
+        ],
+      },
+    ];
+
+    it('extracts weight in kg regardless of field name or field ID', () => {
+      const itemKg: ProvidedService = {
+        id: 'ps-1',
+        serviceId: 'srv-kg',
+        clientId: 'c1',
+        status: 'Completed',
+        customData: {
+          any_weight_id: '1.250,50',
+        },
+      };
+
+      expect(extractWeight(itemKg, mockServices, 'kg')).toBe(1250.50);
+    });
+
+    it('auto-converts tons to kg when targetUnit is kg', () => {
+      const itemTon: ProvidedService = {
+        id: 'ps-2',
+        serviceId: 'srv-ton',
+        clientId: 'c1',
+        status: 'Completed',
+        customData: {
+          freight_weight: 2.5,
+        },
+      };
+
+      expect(extractWeight(itemTon, mockServices, 'kg')).toBe(2500);
+    });
+
+    it('returns 0 when service has no weight fields', () => {
+      const otherItem: ProvidedService = {
+        id: 'ps-3',
+        serviceId: 'srv-other',
+        clientId: 'c1',
+        status: 'Completed',
+        customData: {
+          some_text: 'hello',
+        },
+      };
+
+      expect(extractWeight(otherItem, [], 'kg')).toBe(0);
     });
   });
 });

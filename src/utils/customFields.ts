@@ -1,42 +1,6 @@
 import type { CustomFieldDefinition, ProvidedService, Service, CustomFieldType, Client } from '../types';
 
 /**
- * Normalizes a string for loose key matching (removes diacritics, lowercase, replaces symbols with underscores)
- */
-export const normalizeKey = (str: string): string =>
-  (str || '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/^_|_$/g, '');
-
-/**
- * Checks if a given custom data key matches a field definition (by ID, name, or common Serbian/English terms)
- */
-export const isKeyMatch = (key: string, field: CustomFieldDefinition): boolean => {
-  if (!key || !field) return false;
-  if (key === field.id) return true;
-
-  const nKey = normalizeKey(key);
-  const nFieldId = normalizeKey(field.id);
-  const nFieldName = normalizeKey(field.name);
-
-  if (nKey === nFieldId || nKey === nFieldName) return true;
-  if (nKey.includes('kolicin') && (nFieldName.includes('kolicin') || nFieldId.includes('kolicin'))) return true;
-  if (nKey.includes('vrst') && (nFieldName.includes('vrst') || nFieldId.includes('vrst'))) return true;
-  if (nKey.includes('indeks') && (nFieldName.includes('indeks') || nFieldId.includes('indeks'))) return true;
-  if (nKey.includes('datum') && (nFieldName.includes('datum') || nFieldId.includes('datum'))) return true;
-  if (nKey.includes('kretanj') && (nFieldName.includes('kretanj') || nFieldId.includes('kretanj'))) return true;
-  if (nKey.includes('operat') && (nFieldName.includes('operat') || nFieldId.includes('operat'))) return true;
-  if (nKey.includes('prevoz') && (nFieldName.includes('prevoz') || nFieldId.includes('prevoz'))) return true;
-  if (nKey.includes('transport') && (nFieldName.includes('transport') || nFieldId.includes('transport'))) return true;
-
-  return false;
-};
-
-/**
  * Builds a fast lookup map of field ID -> CustomFieldDefinition from all services
  */
 export const buildCustomFieldsMap = (services: Service[] = []): Map<string, CustomFieldDefinition> => {
@@ -46,7 +10,6 @@ export const buildCustomFieldsMap = (services: Service[] = []): Map<string, Cust
       for (const f of s.customDataModel) {
         if (f && f.id) {
           map.set(f.id, f);
-          map.set(f.id.toLowerCase(), f);
         }
       }
     }
@@ -95,8 +58,8 @@ export interface CustomFieldBadge {
 
 /**
  * Resolves badges for custom data fields of a ProvidedService, looking up field names
- * and units from the item's service model or all known services.
- * Guarantees raw technical IDs like 'field_1788029154873_lroa' are never shown as labels.
+ * and units directly from the item's service model or all known services.
+ * Shows labels exactly as defined in the database without fallbacks or string transformations.
  */
 export const resolveCustomFieldBadges = (
   item: ProvidedService,
@@ -112,7 +75,6 @@ export const resolveCustomFieldBadges = (
 
   if (entries.length === 0) return [];
 
-  // 1. Determine service model fields for this item
   const itemService = item.service || services.find((s) => String(s.id) === String(item.serviceId));
   const serviceFields: CustomFieldDefinition[] =
     itemService?.customDataModel && Array.isArray(itemService.customDataModel)
@@ -123,26 +85,12 @@ export const resolveCustomFieldBadges = (
   const badges: CustomFieldBadge[] = [];
   const handledKeys = new Set<string>();
 
-  // 2. First priority: Iterate service custom fields in definition order
+  // 1. Process service model fields in definition order using exact field.id
   if (serviceFields.length > 0) {
     for (const fieldDef of serviceFields) {
-      let val = rawData[fieldDef.id];
-      let matchedKey = fieldDef.id;
-
-      const isValEmpty = val === undefined || val === null || (Array.isArray(val) ? val.length === 0 : String(val).trim() === '');
-      if (isValEmpty) {
-        for (const [k, v] of entries) {
-          if (!handledKeys.has(k) && isKeyMatch(k, fieldDef)) {
-            val = v;
-            matchedKey = k;
-            break;
-          }
-        }
-      }
-
+      const val = rawData[fieldDef.id];
       if (val !== undefined && val !== null && (Array.isArray(val) ? val.length > 0 : String(val).trim() !== '')) {
         handledKeys.add(fieldDef.id);
-        handledKeys.add(matchedKey);
         let displayVal = formatCustomFieldValue(val, fieldDef.type);
         if ((fieldDef.type === 'client' || fieldDef.linkedList === 'clients') && clients && clients.length > 0) {
           if (typeof val === 'string' && val.length > 0) {
@@ -161,12 +109,11 @@ export const resolveCustomFieldBadges = (
     }
   }
 
-  // 3. Second priority: Process remaining entries in customData
+  // 2. Process any remaining entries in customData
   for (const [key, val] of entries) {
     if (handledKeys.has(key)) continue;
 
-    // Check if key is in allFieldsMap (e.g. from another service or global definition)
-    const fieldDef = allFieldsMap.get(key) || allFieldsMap.get(key.toLowerCase());
+    const fieldDef = allFieldsMap.get(key);
     if (fieldDef) {
       handledKeys.add(key);
       let displayVal = formatCustomFieldValue(val, fieldDef.type);
@@ -186,38 +133,11 @@ export const resolveCustomFieldBadges = (
       continue;
     }
 
-    // Check if key matches common legacy names
-    let cleanKey = key.replace(/_/g, ' ').trim();
-    const lowerKey = cleanKey.toLowerCase();
-
-    if (lowerKey.includes('kolicin')) cleanKey = 'Količina';
-    else if (lowerKey.includes('vrst')) cleanKey = 'Vrsta';
-    else if (lowerKey.includes('indeks')) cleanKey = 'Indeks';
-    else if (lowerKey.includes('kretanj')) cleanKey = 'Dokument';
-    else if (lowerKey.includes('operat')) cleanKey = 'Operater';
-    else if (lowerKey.includes('prevoz')) cleanKey = 'Prevoznik';
-    else if (lowerKey.includes('transport')) cleanKey = 'Transport';
-    else if (key.startsWith('field_') || lowerKey.startsWith('field ')) {
-      // Unresolvable field ID hash - NEVER display raw "field 123456..." to the user
-      continue;
-    }
-
-    let displayVal = formatCustomFieldValue(val);
-    if (
-      (lowerKey.includes('transport') || lowerKey.includes('prevoz') || lowerKey.includes('operat')) &&
-      clients &&
-      clients.length > 0 &&
-      typeof val === 'string' &&
-      val.length > 0
-    ) {
-      const matchClient = clients.find((c) => String(c.id) === String(val));
-      if (matchClient) displayVal = matchClient.name;
-    }
-
+    // Unmodeled key: display verbatim key as stored in database without guessing or formatting
     badges.push({
       id: key,
-      label: cleanKey,
-      value: displayVal,
+      label: key,
+      value: formatCustomFieldValue(val),
       rawValue: val,
     });
   }
@@ -247,103 +167,16 @@ export const formatFieldBadgeLabel = (
 };
 
 /**
- * Checks whether a given identifier/label/unit indicates a waste weight/quantity field.
- * Explicitly rejects non-weight fields like index numbers, documents, dates, etc.
+ * Parses numeric value from a number or string, supporting European/standard decimal separators
  */
-export const isWasteWeightField = (
-  fieldId: string,
-  label?: string,
-  unit?: string
-): boolean => {
-  const fullText = `${fieldId} ${label || ''} ${unit || ''}`;
-  const norm = normalizeKey(fullText);
-
-  // 1. Explicit disqualifiers: index numbers, documents, codes, types, entities, dates
-  if (
-    norm.includes('indeks') ||
-    norm.includes('index') ||
-    norm.includes('sifra') ||
-    norm.includes('katalog') ||
-    norm.includes('kretanj') ||
-    norm.includes('dokument') ||
-    norm.includes('ugovor') ||
-    norm.includes('broj') ||
-    norm.includes('kod') ||
-    norm.includes('code') ||
-    norm.includes('vrst') ||
-    norm.includes('datum') ||
-    norm.includes('date') ||
-    norm.includes('operat') ||
-    norm.includes('prevoz') ||
-    norm.includes('transport') ||
-    norm.includes('vozil') ||
-    norm.includes('klijent') ||
-    norm.includes('client') ||
-    norm.includes('lokacij') ||
-    norm.includes('mesto') ||
-    norm.includes('opis') ||
-    norm.includes('napomen') ||
-    norm.includes('status')
-  ) {
-    return false;
-  }
-
-  // 2. Unit is explicitly kg or tons
-  const normUnit = normalizeKey(unit || '');
-  if (
-    normUnit === 'kg' ||
-    normUnit === 'kilogram' ||
-    normUnit === 't' ||
-    normUnit === 'tona' ||
-    normUnit === 'tone' ||
-    normUnit === 'ton'
-  ) {
-    return true;
-  }
-
-  // 3. Positive qualifiers for quantity / weight
-  if (
-    norm.includes('kolicin') ||
-    norm.includes('quantity') ||
-    norm.includes('qty') ||
-    norm.includes('tezin') ||
-    norm.includes('weight') ||
-    norm.includes('masa') ||
-    norm.includes('mass') ||
-    norm.split('_').includes('kg') ||
-    norm.split('_').includes('tona') ||
-    norm.split('_').includes('tone') ||
-    norm.split('_').includes('t')
-  ) {
-    return true;
-  }
-
-  return false;
-};
-
-/**
- * Safely parses a waste weight value and converts tons to kg if needed.
- * Disqualifies index numbers (e.g. "15 01 01"), code arrays, and non-numeric content.
- */
-export const parseWasteWeightValue = (
-  val: any,
-  unit?: string,
-  label?: string
-): number => {
-  if (val === null || val === undefined || val === '') return 0;
-  if (Array.isArray(val)) return 0;
-
-  let num: number | null = null;
+export const parseNumericValue = (val: any): number | null => {
+  if (val === null || val === undefined || val === '') return null;
   if (typeof val === 'number') {
-    num = val;
-  } else if (typeof val === 'string') {
+    return isNaN(val) ? null : val;
+  }
+  if (typeof val === 'string') {
     const trimmed = val.trim();
-    if (!trimmed) return 0;
-
-    // Disqualify waste index codes (e.g. "15 01 01", "15 01 01*", "150101")
-    if (/^\d{2}\s+\d{2}\s+\d{2}/.test(trimmed)) {
-      return 0;
-    }
+    if (!trimmed) return null;
 
     let clean = trimmed;
     // Format handling: "1.500,50" -> "1500.50", "1 500,50" -> "1500.50"
@@ -356,65 +189,103 @@ export const parseWasteWeightValue = (
     }
 
     const match = clean.match(/-?\d+(?:\.\d+)?/);
-    if (!match) return 0;
-    num = parseFloat(match[0]);
+    if (!match) return null;
+    const num = parseFloat(match[0]);
+    return isNaN(num) ? null : num;
   }
-
-  if (num === null || isNaN(num) || num <= 0) return 0;
-
-  // Convert tons to kg (x1000)
-  const normUnit = normalizeKey(unit || '');
-  const normLabel = normalizeKey(label || '');
-  const labelTokens = normLabel.split('_');
-
-  const isKg = normUnit === 'kg' || labelTokens.includes('kg');
-  const isTons =
-    !isKg &&
-    (normUnit === 't' ||
-      normUnit === 'tona' ||
-      normUnit === 'tone' ||
-      normUnit === 'ton' ||
-      normUnit === 'tons' ||
-      labelTokens.includes('tona') ||
-      labelTokens.includes('tone') ||
-      labelTokens.includes('tonama') ||
-      labelTokens.includes('t'));
-
-  if (isTons) {
-    return num * 1000;
-  }
-
-  return num;
+  return null;
 };
 
-/**
- * Extracts waste weight in kilograms from a ProvidedService.
- * Returns 0 if no weight was specified. Never parses index numbers or other non-weight fields.
- */
-export const extractWasteKg = (
-  item: ProvidedService,
-  services: Service[] = []
-): number => {
-  if (!item.customData || typeof item.customData !== 'object') return 0;
+export interface ExtractNumericFieldOptions {
+  fieldId?: string;
+  unit?: string | string[];
+}
 
-  // 1. Check resolved custom field definitions (highest accuracy)
-  const badges = resolveCustomFieldBadges(item, services);
-  for (const b of badges) {
-    if (isWasteWeightField(b.id, b.label, b.unit)) {
-      const kg = parseWasteWeightValue(b.rawValue ?? b.value, b.unit, b.label);
-      if (kg > 0) return kg;
+export interface ExtractedNumericField {
+  id: string;
+  name: string;
+  value: number;
+  unit?: string;
+  raw: any;
+}
+
+/**
+ * Extracts a numeric custom field from a ProvidedService based on schema definition
+ */
+export const extractNumericField = (
+  item: ProvidedService,
+  options: ExtractNumericFieldOptions = {},
+  services: Service[] = []
+): ExtractedNumericField | null => {
+  if (!item.customData || typeof item.customData !== 'object') return null;
+
+  const itemService = item.service || services.find((s) => String(s.id) === String(item.serviceId));
+  const modelFields = itemService?.customDataModel || [];
+
+  const targetUnits = options.unit
+    ? (Array.isArray(options.unit) ? options.unit : [options.unit]).map((u) => u.toLowerCase().trim())
+    : null;
+
+  for (const field of modelFields) {
+    if (field.type !== 'number') continue;
+    if (options.fieldId && field.id !== options.fieldId) continue;
+
+    if (targetUnits && targetUnits.length > 0) {
+      const fieldUnit = (field.unit || '').toLowerCase().trim();
+      if (!targetUnits.includes(fieldUnit)) continue;
+    }
+
+    const rawVal = item.customData[field.id];
+    const num = parseNumericValue(rawVal);
+    if (num !== null) {
+      return {
+        id: field.id,
+        name: field.name,
+        value: num,
+        unit: field.unit,
+        raw: rawVal,
+      };
     }
   }
 
-  // 2. Direct check on customData keys
-  for (const [k, v] of Object.entries(item.customData)) {
-    if (v === null || v === undefined || v === '') continue;
-    if (isWasteWeightField(k)) {
-      const kg = parseWasteWeightValue(v);
-      if (kg > 0) return kg;
+  return null;
+};
+
+const WEIGHT_UNITS_KG = ['kg', 'kilogram'];
+const WEIGHT_UNITS_TON = ['t', 'tona', 'tone', 'ton'];
+const ALL_WEIGHT_UNITS = [...WEIGHT_UNITS_KG, ...WEIGHT_UNITS_TON];
+
+/**
+ * Extracts weight in kg (or tons) from a ProvidedService based purely on the service's schema unit
+ * (field.type === 'number' and field.unit in ['kg', 't']).
+ * Agnostic of field name or field ID.
+ */
+export const extractWeight = (
+  item: ProvidedService,
+  services: Service[] = [],
+  targetUnit: 'kg' | 't' = 'kg'
+): number => {
+  if (!item.customData || typeof item.customData !== 'object') return 0;
+
+  const itemService = item.service || services.find((s) => String(s.id) === String(item.serviceId));
+  const modelFields = itemService?.customDataModel || [];
+
+  for (const field of modelFields) {
+    if (field.type !== 'number') continue;
+    const unit = (field.unit || '').toLowerCase().trim();
+    if (!ALL_WEIGHT_UNITS.includes(unit)) continue;
+
+    const rawVal = item.customData[field.id];
+    const num = parseNumericValue(rawVal);
+    if (num === null || num <= 0) continue;
+
+    const isTon = WEIGHT_UNITS_TON.includes(unit);
+    if (targetUnit === 'kg') {
+      return isTon ? num * 1000 : num;
+    } else {
+      return isTon ? num : num / 1000;
     }
   }
 
   return 0;
 };
-

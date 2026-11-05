@@ -204,9 +204,20 @@ export const RoleModal: React.FC<RoleModalProps> = ({
       case 'categories': return t('tabCategories');
       case 'reminders': return t('tabReminders');
       case 'invoices': return t('tabInvoices');
-      case 'roles': return 'Roles';
-      case 'companyInfo': return t('companyInfoTitle') || 'Company Information';
+      case 'roles': return t('tabRoles');
+      case 'companyInfo': return t('companyInfoTitle');
+      case 'history': return t('historyModalTitle');
       default: return res.label;
+    }
+  };
+
+  const getActionLabel = (action: string) => {
+    switch (action) {
+      case 'view': return t('permView');
+      case 'create': return t('permCreate');
+      case 'edit': return t('permEdit');
+      case 'delete': return t('permDelete');
+      default: return action;
     }
   };
 
@@ -323,10 +334,10 @@ export const RoleModal: React.FC<RoleModalProps> = ({
   };
 
   const modalTitle = currentMode === 'create'
-    ? 'Create Role'
+    ? (t('btnCreateRole') !== 'btnCreateRole' ? t('btnCreateRole') : 'Create Role')
     : currentMode === 'edit'
-    ? 'Edit Role'
-    : (role?.name || 'Role Details');
+    ? (t('modalEditRole') !== 'modalEditRole' ? t('modalEditRole') : 'Edit Role')
+    : (role?.name || (t('modalRoleDetails') !== 'modalRoleDetails' ? t('modalRoleDetails') : 'Role Details'));
 
   return (
     <ViewEditModalBase
@@ -355,7 +366,7 @@ export const RoleModal: React.FC<RoleModalProps> = ({
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <ViewEditField
           mode={currentMode}
-          label="Role Name"
+          label={t('colRoleName') !== 'colRoleName' ? t('colRoleName') : 'Role Name'}
           value={name}
           viewRender={() => (
             <Typography variant="body1" sx={{ fontWeight: 600 }}>
@@ -364,7 +375,7 @@ export const RoleModal: React.FC<RoleModalProps> = ({
           )}
         >
           <TextField
-            label="Role Name"
+            label={t('colRoleName') !== 'colRoleName' ? t('colRoleName') : 'Role Name'}
             value={name}
             onChange={(e) => setName(e.target.value)}
             disabled={Boolean(role)}
@@ -376,7 +387,7 @@ export const RoleModal: React.FC<RoleModalProps> = ({
 
         <ViewEditField
           mode={currentMode}
-          label="Description"
+          label={t('lblDescription') !== 'lblDescription' ? t('lblDescription') : 'Description'}
           value={description}
           viewRender={() => (
             <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
@@ -385,7 +396,7 @@ export const RoleModal: React.FC<RoleModalProps> = ({
           )}
         >
           <TextField
-            label="Description"
+            label={t('lblDescription') !== 'lblDescription' ? t('lblDescription') : 'Description'}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             fullWidth
@@ -406,10 +417,10 @@ export const RoleModal: React.FC<RoleModalProps> = ({
                   color="error"
                 />
               }
-              label={<Typography sx={{ fontWeight: 'bold' }} color="error">System Administrator</Typography>}
+              label={<Typography sx={{ fontWeight: 'bold' }} color="error">{t('lblSystemAdministrator')}</Typography>}
             />
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              System administrators bypass all permission checks and have full access to everything. Grant with caution.
+              {t('systemAdminWarningDesc')}
             </Typography>
           </Box>
         )}
@@ -417,13 +428,13 @@ export const RoleModal: React.FC<RoleModalProps> = ({
         {!isSystemAdmin && (
           <Box>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 1 }}>
-              <Typography variant="h6">Permissions</Typography>
+              <Typography variant="h6">{t('lblPermissions') !== 'lblPermissions' ? t('lblPermissions') : 'Permissions'}</Typography>
               <FormControl size="small" sx={{ minWidth: 240 }}>
-                <InputLabel id="select-app-label">Application</InputLabel>
+                <InputLabel id="select-app-label">{t('lblApplication') !== 'lblApplication' ? t('lblApplication') : 'Application'}</InputLabel>
                 <Select
                   labelId="select-app-label"
                   value={selectedApp}
-                  label="Application"
+                  label={t('lblApplication') !== 'lblApplication' ? t('lblApplication') : 'Application'}
                   onChange={(e) => setSelectedApp(e.target.value)}
                 >
                   {APPS.map((app) => {
@@ -438,7 +449,7 @@ export const RoleModal: React.FC<RoleModalProps> = ({
                             </Typography>
                           </Box>
                           {!hasAccess && (
-                            <Chip label="No Access" size="small" color="default" sx={{ height: 20, fontSize: '0.65rem' }} />
+                            <Chip label={t('badgeNoAccess')} size="small" color="default" sx={{ height: 20, fontSize: '0.65rem' }} />
                           )}
                         </Box>
                       </MenuItem>
@@ -466,12 +477,12 @@ export const RoleModal: React.FC<RoleModalProps> = ({
                           }
                           label={
                             <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                              Allow access to {currentAppDef.name}
+                              {t('lblAllowAccessToApp', { app: currentAppDef.name })}
                             </Typography>
                           }
                         />
                         <Chip
-                          label={isCurrentAppAllowed ? 'App Access Enabled' : 'App Access Disabled'}
+                          label={isCurrentAppAllowed ? t('badgeAppAccessEnabled') : t('badgeAppAccessDisabled')}
                           color={isCurrentAppAllowed ? 'success' : 'default'}
                           size="small"
                           variant={isCurrentAppAllowed ? 'filled' : 'outlined'}
@@ -482,10 +493,10 @@ export const RoleModal: React.FC<RoleModalProps> = ({
 
                   {/* ACTIONS HEADER */}
                   <TableRow>
-                    <TableCell sx={{ minWidth: 180 }}><strong>Resource / Page</strong></TableCell>
+                    <TableCell sx={{ minWidth: 180 }}><strong>{t('colResourceOrPage')}</strong></TableCell>
                     {ACTIONS.map((action) => (
                       <TableCell key={action} align="center" sx={{ width: 90 }}>
-                        <strong>{action.charAt(0).toUpperCase() + action.slice(1)}</strong>
+                        <strong>{getActionLabel(action)}</strong>
                         <br />
                         <Checkbox 
                           size="small"
@@ -497,7 +508,7 @@ export const RoleModal: React.FC<RoleModalProps> = ({
                       </TableCell>
                     ))}
                     <TableCell align="center" sx={{ width: 90 }}>
-                      <strong style={{ color: '#ed6c02' }}>Only Own</strong>
+                      <strong style={{ color: '#ed6c02' }}>{t('permOnlyOwn')}</strong>
                     </TableCell>
                   </TableRow>
                 </TableHead>
@@ -546,7 +557,7 @@ export const RoleModal: React.FC<RoleModalProps> = ({
 
         {isSystemAdmin && (
           <Alert severity="warning">
-            This role is a System Administrator and will have full access implicitly. The permissions table is hidden.
+            {t('systemAdminImplicitAlert')}
           </Alert>
         )}
       </Box>

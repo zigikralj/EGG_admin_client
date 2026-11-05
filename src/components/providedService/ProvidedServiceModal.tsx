@@ -25,6 +25,7 @@ import {
   ServiceAutocomplete,
 } from '../common/autocomplete';
 import { ViewEditModalBase, type ModalMode } from '../common/modal/ViewEditModalBase';
+import { PROVIDED_SERVICE_STATUSES, isProvidedServiceCompleted } from '../../constants';
 import type {
   ProvidedService,
   Service,
@@ -57,6 +58,15 @@ export interface ProvidedServiceModalProps {
   getCustomModelForService: (serviceId: string) => CustomFieldDefinition[];
   onError?: (message: string) => void;
 }
+
+const normalizeProvidedServiceStatus = (status?: string): string => {
+  if (!status) return PROVIDED_SERVICE_STATUSES.PLANNED;
+  const lower = status.toLowerCase().trim();
+  if (lower === PROVIDED_SERVICE_STATUSES.IN_PROGRESS || lower === 'in progress') return PROVIDED_SERVICE_STATUSES.IN_PROGRESS;
+  if (lower === PROVIDED_SERVICE_STATUSES.COMPLETED) return PROVIDED_SERVICE_STATUSES.COMPLETED;
+  if (lower === PROVIDED_SERVICE_STATUSES.CANCELLED || lower === 'canceled') return PROVIDED_SERVICE_STATUSES.CANCELLED;
+  return lower;
+};
 
 export const ProvidedServiceModal: React.FC<ProvidedServiceModalProps> = ({
   open,
@@ -119,7 +129,7 @@ export const ProvidedServiceModal: React.FC<ProvidedServiceModalProps> = ({
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [selectedProjectName, setSelectedProjectName] = useState<string>('');
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string>('');
-  const [status, setStatus] = useState<string>('Planned');
+  const [status, setStatus] = useState<string>(PROVIDED_SERVICE_STATUSES.PLANNED);
   const [location, setLocation] = useState<string>('');
   const [scheduledDate, setScheduledDate] = useState<string>('');
   const [completionDate, setCompletionDate] = useState<string>('');
@@ -128,10 +138,10 @@ export const ProvidedServiceModal: React.FC<ProvidedServiceModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
 
   const statusOptions = useMemo(() => [
-    { value: 'Planned', label: t('statusPlanned') },
-    { value: 'In Progress', label: t('statusInProgress') },
-    { value: 'Completed', label: t('statusCompleted') },
-    { value: 'Cancelled', label: t('statusCancelled') },
+    { value: PROVIDED_SERVICE_STATUSES.PLANNED, label: t('statusPlanned') },
+    { value: PROVIDED_SERVICE_STATUSES.IN_PROGRESS, label: t('statusInProgress') },
+    { value: PROVIDED_SERVICE_STATUSES.COMPLETED, label: t('statusCompleted') },
+    { value: PROVIDED_SERVICE_STATUSES.CANCELLED, label: t('statusCancelled') },
   ], [t]);
 
   const currentCustomFields = useMemo(() => {
@@ -161,7 +171,7 @@ export const ProvidedServiceModal: React.FC<ProvidedServiceModalProps> = ({
       setSelectedProjectId(item.projectId || '');
       setSelectedProjectName(item.project?.name || '');
       setSelectedInvoiceId(item.invoiceId || '');
-      setStatus(item.status);
+      setStatus(normalizeProvidedServiceStatus(item.status));
       setLocation(item.location || '');
       setScheduledDate(item.scheduledDate ? item.scheduledDate.substring(0, 10) : '');
       setCompletionDate(item.completionDate ? item.completionDate.substring(0, 10) : '');
@@ -172,16 +182,9 @@ export const ProvidedServiceModal: React.FC<ProvidedServiceModalProps> = ({
       const savedCustomData = item.customData || {};
 
       fields.forEach((f) => {
-        let val: any;
-        if (savedCustomData[f.id] !== undefined) {
-          val = savedCustomData[f.id];
-        } else {
-          const legacyKey = f.name.toLowerCase().replace(/\s+/g, '_');
-          if (savedCustomData[legacyKey] !== undefined) {
-            val = savedCustomData[legacyKey];
-          } else {
-            val = f.type === 'number' ? '' : f.type === 'list' && (f.linkedList === 'index_number' || f.id === 'indeksni_broj') ? [] : '';
-          }
+        let val = savedCustomData[f.id];
+        if (val === undefined || val === null) {
+          val = f.type === 'number' ? '' : f.type === 'list' && f.linkedList === 'index_number' ? [] : '';
         }
         if (typeof val === 'object' && val !== null && !Array.isArray(val) && val.name) {
           val = val.name;
@@ -206,7 +209,7 @@ export const ProvidedServiceModal: React.FC<ProvidedServiceModalProps> = ({
       setSelectedProjectId('');
       setSelectedProjectName('');
       setSelectedInvoiceId('');
-      setStatus('Planned');
+      setStatus(PROVIDED_SERVICE_STATUSES.PLANNED);
       setLocation('');
       setScheduledDate('');
       setCompletionDate('');
@@ -281,7 +284,7 @@ export const ProvidedServiceModal: React.FC<ProvidedServiceModalProps> = ({
         clientId: selectedClientId || undefined,
         projectId: selectedProjectId.trim() ? selectedProjectId : null,
         invoiceId: selectedInvoiceId.trim() ? selectedInvoiceId : null,
-        status: status || 'PENDING',
+        status: status || PROVIDED_SERVICE_STATUSES.PLANNED,
         scheduledDate: scheduledDate ? scheduledDate : null,
         completionDate: completionDate ? completionDate : null,
         location: location.trim() ? location.trim() : null,
@@ -294,10 +297,10 @@ export const ProvidedServiceModal: React.FC<ProvidedServiceModalProps> = ({
       if (res.success) {
         onClose();
       } else if (res.error) {
-        onError?.(res.error || (t('errorSaving' as any)));
+        onError?.(res.error || t('errorSavingProvidedService'));
       }
     } catch (err: any) {
-      onError?.(err?.message || (t('errorSaving' as any)));
+      onError?.(err?.message || t('errorSavingProvidedService'));
     } finally {
       setIsSaving(false);
     }
@@ -311,10 +314,10 @@ export const ProvidedServiceModal: React.FC<ProvidedServiceModalProps> = ({
     return t('modalNewProvidedService');
   };
 
-  const isCompleted = (status || '').toLowerCase() === 'completed' || (status || '').toLowerCase() === 'završeno';
+  const isCompleted = isProvidedServiceCompleted(status);
 
   const handleToggleComplete = async () => {
-    const nextStatus = isCompleted ? 'Planned' : 'Completed';
+    const nextStatus = isCompleted ? PROVIDED_SERVICE_STATUSES.PLANNED : PROVIDED_SERVICE_STATUSES.COMPLETED;
     const nextCompletionDate = !isCompleted ? (completionDate || new Date().toISOString().slice(0, 10)) : '';
     setStatus(nextStatus);
     setCompletionDate(nextCompletionDate);
@@ -593,7 +596,7 @@ export const ProvidedServiceModal: React.FC<ProvidedServiceModalProps> = ({
                       />
                     )}
                     {(field.type === 'list' || field.type === 'client') && (
-                      (field.type === 'list' && field.linkedList === 'index_number') || field.id === 'indeksni_broj' ? (
+                      field.type === 'list' && field.linkedList === 'index_number' ? (
                         <WasteCatalogAutocomplete
                           multiple={true}
                           size="small"

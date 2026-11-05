@@ -10,7 +10,8 @@ import {
 } from '@mui/material';
 
 import { useLanguage } from '../../context/LanguageContext';
-import { stripHtmlToText } from '../common/RichTextEditor';
+import { stripHtmlToText } from '../../utils/stripHtmlToText';
+import { sanitizeHtml } from '../../utils/cleanWordHtml';
 import { useProjectNoteQuery } from '../../queries';
 import {
   NotesIcon,
@@ -365,7 +366,7 @@ export const ProjectNotesPreview: React.FC<ProjectNotesPreviewProps> = ({
               overflowY: isExpanded && targetExpandedHeight >= 280 ? 'auto' : 'hidden',
               pr: 0.75,
               fontSize: '0.8125rem',
-              lineHeight: 1.5,
+              lineHeight: 1.25,
               color: 'text.primary',
               scrollbarWidth: 'thin',
               scrollbarColor: (theme) =>
@@ -388,10 +389,15 @@ export const ProjectNotesPreview: React.FC<ProjectNotesPreviewProps> = ({
                     theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.45)' : 'rgba(0, 0, 0, 0.45)',
                 },
               },
-              '& p': { m: 0, mb: 0.75 },
+              '& p': { m: 0, mb: '2px' },
               '& p:last-child': { mb: 0 },
-              '& ul, & ol': { m: 0, pl: 2.2, mb: 0.75 },
-              '& li': { mb: 0.25 },
+              '& h1, & h2, & h3': {
+                m: 0,
+                lineHeight: 1.25,
+              },
+              '& ul, & ol': { m: 0, pl: 2.2 },
+              '& li': { m: 0 },
+              '& li > p': { m: 0 },
               '& blockquote': {
                 m: 0,
                 pl: 1.25,
@@ -399,7 +405,6 @@ export const ProjectNotesPreview: React.FC<ProjectNotesPreviewProps> = ({
                 borderColor: 'primary.main',
                 color: 'text.secondary',
                 fontStyle: 'italic',
-                mb: 0.75,
               },
               '& a': { color: 'primary.main', textDecoration: 'underline' },
               '& .mention-tag': {
@@ -411,10 +416,14 @@ export const ProjectNotesPreview: React.FC<ProjectNotesPreviewProps> = ({
                   theme.palette.mode === 'dark' ? 'rgba(144, 202, 249, 0.35)' : 'rgba(25, 118, 210, 0.25)',
                 borderRadius: '4px',
                 px: 0.6,
-                py: 0.1,
+                py: 0,
+                height: '16.25px', // Exact match for 0.8125rem (13px) * 1.25 line-height
+                lineHeight: 1,
+                boxSizing: 'border-box',
                 fontWeight: 600,
                 display: 'inline-flex',
                 alignItems: 'center',
+                verticalAlign: 'top',
                 margin: '0 2px',
                 fontSize: '0.75rem',
               },
@@ -492,7 +501,7 @@ export const ProjectNotesPreview: React.FC<ProjectNotesPreviewProps> = ({
             ) : (
               <Box
                 ref={innerHtmlRef}
-                dangerouslySetInnerHTML={{ __html: fullNotes || '' }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(fullNotes || '') }}
               />
             )}
           </Box>

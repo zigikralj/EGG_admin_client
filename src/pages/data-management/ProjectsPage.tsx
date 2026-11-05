@@ -30,7 +30,9 @@ import {
 import type { Project, TableViewProps } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import { stripHtmlToText } from '../../components/common/RichTextEditor';
+import { stripHtmlToText } from '../../utils/stripHtmlToText';
+import { sanitizeHtml } from '../../utils/cleanWordHtml';
+import { fmtDate, isLate, isStale } from '../../utils/dateUtils';
 import { TableOptionsSelector, type ColumnDef } from '../../components/common/ColumnSelector';
 import { TableFilterSelector } from '../../components/common/TableFilterSelector';
 import { DateRangeFilter } from '../../components/common/DateRangeFilter';
@@ -64,27 +66,6 @@ interface Props extends Partial<TableViewProps> {
 }
 
 const DEFAULT_COLUMNS = ['name', 'client', 'category', 'responsible', 'start', 'deadline', 'progress', 'status'];
-
-function isStale(startStr: string | null, done: boolean): boolean {
-  if (done || !startStr) return false;
-  const start = new Date(startStr);
-  const cutoff = new Date();
-  cutoff.setMonth(cutoff.getMonth() - 2);
-  return start < cutoff;
-}
-
-function isLate(deadlineStr: string | null, done: boolean): boolean {
-  if (done || !deadlineStr) return false;
-  return new Date(deadlineStr) < new Date(new Date().toDateString());
-}
-
-function fmtDate(d: string | null): string {
-  if (!d) return '—';
-  const parts = d.split('-');
-  if (parts.length !== 3) return d;
-  const [y, m, day] = parts;
-  return `${day}.${m}.${y}.`;
-}
 
 import {
   usePaginatedProjectsQuery,
@@ -154,7 +135,7 @@ const ProjectNotesTableCell: React.FC<ProjectNotesTableCellProps> = ({ project: 
               <CircularProgress size={16} color="inherit" />
             </Box>
           ) : (
-            <Box dangerouslySetInnerHTML={{ __html: fullHtml || p.notesPreview || '' }} />
+            <Box dangerouslySetInnerHTML={{ __html: sanitizeHtml(fullHtml || p.notesPreview || '') }} />
           )}
         </Box>
       }

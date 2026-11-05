@@ -25,7 +25,7 @@ import {
 import type { Project, ProjectUpdateSummary } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import { useProjectUpdatesQuery, useUsersSummaryQuery, useAuthHeaders } from '../../queries';
+import { useProjectUpdatesQuery, useUsersSummaryQuery } from '../../queries';
 import { apiFetch } from '../../api';
 import { API_ROUTES } from '../../constants';
 import { ProjectNotesPreview } from '../project/ProjectCard';
@@ -190,7 +190,6 @@ export const ProjectUpdatesPanel: React.FC<ProjectUpdatesPanelProps> = ({
   const updates = useMemo(() => updatesResponse?.updates || [], [updatesResponse]);
 
   const queryClient = useQueryClient();
-  const getAuthHeaders = useAuthHeaders();
 
   const handlePrefetch = useCallback((projectId: string) => {
     if (!projectId || !range.dateFrom) return;
@@ -204,9 +203,7 @@ export const ProjectUpdatesPanel: React.FC<ProjectUpdatesPanelProps> = ({
     queryClient.prefetchQuery({
       queryKey: ['projects', 'updates-diff', projectId, range.dateFrom, range.dateTo],
       queryFn: async () => {
-        const res = await apiFetch(`${API_ROUTES.PROJECTS.UPDATES_DIFF(projectId)}${queryStr}`, {
-          headers: getAuthHeaders(),
-        });
+        const res = await apiFetch(`${API_ROUTES.PROJECTS.UPDATES_DIFF(projectId)}${queryStr}`);
         if (!res.ok) throw new Error('Failed to prefetch project updates diff');
         return res.json();
       },
@@ -218,16 +215,14 @@ export const ProjectUpdatesPanel: React.FC<ProjectUpdatesPanelProps> = ({
     queryClient.prefetchQuery({
       queryKey: ['projects', 'details', projectId],
       queryFn: async () => {
-        const res = await apiFetch(`${API_ROUTES.PROJECTS.BASE}/${projectId}`, {
-          headers: getAuthHeaders(),
-        });
+        const res = await apiFetch(API_ROUTES.PROJECTS.BY_ID(projectId));
         if (!res.ok) throw new Error('Failed to prefetch project details');
         return res.json();
       },
       meta: { silent: true },
       staleTime: 5 * 60_000,
     });
-  }, [queryClient, getAuthHeaders, range.dateFrom, range.dateTo]);
+  }, [queryClient, range.dateFrom, range.dateTo]);
 
   const handlePresetClick = (preset: DatePreset) => {
     setActivePreset(preset);

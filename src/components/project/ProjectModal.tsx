@@ -19,7 +19,7 @@ import { useAuth } from '../../context/AuthContext';
 import { ErrorDialog } from '../common/dialogs/ErrorDialog';
 import { ConfirmDialog } from '../common/dialogs/ConfirmDialog';
 import { TipTapEditor } from '../common/tiptap/TipTapEditor';
-import { stripHtmlToText } from '../common/RichTextEditor';
+import { stripHtmlToText } from '../../utils/stripHtmlToText';
 import { ProjectProgressSlider } from './ProjectProgressSlider';
 import { ProjectReminderSection } from './ProjectReminderSection';
 import { ProjectInvoiceSection } from './ProjectInvoiceSection';
@@ -159,11 +159,22 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   }>({ open: false, message: '', onConfirm: () => {} });
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
-  const wrapDelete = (delFn: (id: string, confirm: (msg: string, cb: () => void) => void) => void) => (id: string) => {
-    delFn(id, (msg, cb) => setDeleteConfirmState({ open: true, message: msg, onConfirm: cb }));
+  const wrapDelete = (delFn: (id: string, confirm: (msg: string, cb: () => void) => void) => void, closeAfterConfirm = false) => (id: string) => {
+    delFn(id, (msg, cb) =>
+      setDeleteConfirmState({
+        open: true,
+        message: msg,
+        onConfirm: () => {
+          cb();
+          if (closeAfterConfirm) {
+            onClose();
+          }
+        },
+      })
+    );
   };
 
-  const wrappedOnDelete = wrapDelete(onDelete);
+  const wrappedOnDelete = wrapDelete(onDelete, true);
   const wrappedOnDeleteReminder = wrapDelete(onDeleteReminder);
   const wrappedOnDeleteInvoice = wrapDelete(onDeleteInvoice);
 
@@ -515,7 +526,6 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
           effectiveProject
             ? () => {
                 wrappedOnDelete(effectiveProject.id);
-                onClose();
               }
             : undefined
         }
@@ -1010,7 +1020,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                     <Chip
                       key={r.id}
                       size="small"
-                      label={`${r.title} (${r.isNew ? 'Novo' : 'Izmenjeno'})`}
+                      label={`${r.title} (${r.isNew ? t('badgeNewItem') : t('badgeModifiedItem')})`}
                       color={r.isNew ? 'success' : 'info'}
                       variant="outlined"
                       sx={{ height: 22, fontSize: '0.72rem', fontWeight: 600 }}

@@ -51,8 +51,8 @@ describe('InvoiceModal (Unified View/Edit/Create)', () => {
   const mockInvoice: any = {
     id: 'inv-1',
     invoiceNumber: 'INV-2026-001',
-    invoiceType: 'Standard',
-    status: 'Sent',
+    invoiceType: 'standard',
+    status: 'sent',
     currency: 'RSD',
     dateCreated: '2026-01-10',
     dueDate: '2026-02-10',

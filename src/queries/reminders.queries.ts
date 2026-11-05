@@ -2,7 +2,7 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { apiFetch } from '../api';
 import { API_ROUTES } from '../constants';
 import { useAuth } from '../context/AuthContext';
-import { useAuthHeaders, buildPaginationQueryParams, useGenericMutations, useGenericActionMutation } from './queryUtils';
+import { buildPaginationQueryParams, useGenericMutations, useGenericActionMutation } from './queryUtils';
 import type { Reminder, PaginatedResponse } from '../types';
 
 export interface PaginatedRemindersParams {
@@ -23,7 +23,6 @@ export interface PaginatedRemindersParams {
 
 export function usePaginatedRemindersQuery(params: PaginatedRemindersParams, enabled: boolean = true) {
   const { currentUser } = useAuth();
-  const getAuthHeaders = useAuthHeaders();
   const queryKey = [
     'reminders',
     'paginated',
@@ -66,9 +65,7 @@ export function usePaginatedRemindersQuery(params: PaginatedRemindersParams, ena
         }
       );
 
-      const res = await apiFetch(`${API_ROUTES.REMINDERS.BASE}?${q.toString()}`, {
-        headers: getAuthHeaders(),
-      });
+      const res = await apiFetch(`${API_ROUTES.REMINDERS.BASE}?${q.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch paginated reminders');
       const data = await res.json();
       if (Array.isArray(data)) {
@@ -94,8 +91,8 @@ export function useRemindersMutations() {
     basePath: API_ROUTES.REMINDERS.BASE,
     queryKeyToInvalidate: ['reminders'],
     additionalInvalidates: [['projects', 'details'], ['autocomplete', 'reminders']],
-    errorSaveMessageKey: 'errorSavingService',
-    deleteConfirmMessageKey: 'confirmDeleteReminder' as any,
+    errorSaveMessageKey: 'errorSavingReminder',
+    deleteConfirmMessageKey: 'confirmDeleteReminder',
   });
 
   const actionMutation = useGenericActionMutation();

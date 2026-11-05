@@ -96,21 +96,33 @@ export const WasteCatalogAutocomplete: React.FC<WasteCatalogAutocompleteProps> =
   }, []);
 
   const isLocalMode = cachedCatalog.length >= 50;
-  const catalogHasMore = isLocalMode ? false : remoteHasMore;
+  const [localDisplayLimit, setLocalDisplayLimit] = useState(50);
+
+  // Reset local display limit when search term changes
+  useEffect(() => {
+    setLocalDisplayLimit(50);
+  }, [catalogSearchTerm]);
+
+  // Filter cached catalog according to search term
+  const filteredLocalCatalog = useMemo(() => {
+    if (!isLocalMode) return EMPTY_ARRAY;
+    const term = catalogSearchTerm.trim().toLowerCase();
+    if (!term) return cachedCatalog;
+    return cachedCatalog.filter(
+      (item) =>
+        item.code.toLowerCase().includes(term) ||
+        item.description.toLowerCase().includes(term) ||
+        (item.hazardListMark && item.hazardListMark.toLowerCase().includes(term))
+    );
+  }, [isLocalMode, cachedCatalog, catalogSearchTerm]);
+
+  const hasMoreLocal = isLocalMode && localDisplayLimit < filteredLocalCatalog.length;
+  const catalogHasMore = isLocalMode ? hasMoreLocal : remoteHasMore;
 
   const catalogOptions = useMemo(() => {
     if (!isLocalMode) return remoteOptions;
-    const term = catalogSearchTerm.trim().toLowerCase();
-    if (!term) return cachedCatalog.slice(0, 100);
-    return cachedCatalog
-      .filter(
-        (item) =>
-          item.code.toLowerCase().includes(term) ||
-          item.description.toLowerCase().includes(term) ||
-          (item.hazardListMark && item.hazardListMark.toLowerCase().includes(term))
-      )
-      .slice(0, 100);
-  }, [isLocalMode, cachedCatalog, catalogSearchTerm, remoteOptions]);
+    return filteredLocalCatalog.slice(0, localDisplayLimit);
+  }, [isLocalMode, remoteOptions, filteredLocalCatalog, localDisplayLimit]);
 
   const fetchCatalogPage = useCallback(
     async (pageToFetch: number, search: string, isAppend = false) => {
@@ -229,22 +241,29 @@ export const WasteCatalogAutocomplete: React.FC<WasteCatalogAutocompleteProps> =
     ).length;
   }, [catalogOptions, normalizedValue, multiple]);
 
-  // Auto-fetch next page when dropdown is open and all loaded options have been selected (remote mode only)
+  // Auto-load next page when dropdown is open and all loaded options have been selected
   useEffect(() => {
-    if (isLocalMode || !isOpen) return;
-    if (!catalogHasMore || catalogLoading || catalogLoadingMore) return;
+    if (!isOpen || !catalogHasMore) return;
 
     if (unselectedOptionsCount === 0 && catalogOptions.length > 0) {
-      fetchCatalogPage(catalogPage + 1, catalogSearchTerm, true);
+      if (isLocalMode) {
+        if (hasMoreLocal) {
+          setLocalDisplayLimit((prev) => Math.min(prev + 50, filteredLocalCatalog.length));
+        }
+      } else if (!catalogLoading && !catalogLoadingMore) {
+        fetchCatalogPage(catalogPage + 1, catalogSearchTerm, true);
+      }
     }
   }, [
     isLocalMode,
     isOpen,
     catalogHasMore,
+    hasMoreLocal,
     catalogLoading,
     catalogLoadingMore,
     unselectedOptionsCount,
     catalogOptions.length,
+    filteredLocalCatalog.length,
     catalogPage,
     catalogSearchTerm,
     fetchCatalogPage,
@@ -323,7 +342,21 @@ export const WasteCatalogAutocomplete: React.FC<WasteCatalogAutocompleteProps> =
   return (
     <Autocomplete
       open={isOpen}
-      onOpen={() => setIsOpen(true)}
+      onOpen={() => {
+        setIsOpen(true);
+        loadCatalogFromDB().then(({ items }) => {
+          if (items && items.length > 0) {
+            setCachedCatalog(items);
+          }
+        });
+        syncWasteCatalog()
+          .then((items) => {
+            if (items && items.length > 0) {
+              setCachedCatalog(items);
+            }
+          })
+          .catch(() => {});
+      }}
       multiple={multiple as any}
       disabled={disabled}
       fullWidth={fullWidth}
@@ -385,13 +418,18 @@ export const WasteCatalogAutocomplete: React.FC<WasteCatalogAutocompleteProps> =
       slotProps={{
         listbox: {
           onScroll: (event: React.SyntheticEvent) => {
-            const listboxNode = event.currentTarget;
+            const listboxNode = event.currentTarget as HTMLElement;
             if (
-              listboxNode.scrollTop + listboxNode.clientHeight >=
-              listboxNode.scrollHeight - 40
+              listboxNode.scrollHeight - listboxNode.scrollTop - listboxNode.clientHeight <= 60
             ) {
-              if (!isLocalMode && !catalogLoading && !catalogLoadingMore && catalogHasMore) {
-                fetchCatalogPage(catalogPage + 1, catalogSearchTerm, true);
+              if (isLocalMode) {
+                if (hasMoreLocal) {
+                  setLocalDisplayLimit((prev) => Math.min(prev + 50, filteredLocalCatalog.length));
+                }
+              } else {
+                if (!catalogLoading && !catalogLoadingMore && catalogHasMore) {
+                  fetchCatalogPage(catalogPage + 1, catalogSearchTerm, true);
+                }
               }
             }
           },
@@ -428,7 +466,13 @@ export const WasteCatalogAutocomplete: React.FC<WasteCatalogAutocompleteProps> =
               onClick={(e: React.MouseEvent) => {
                 e.preventDefault();
                 e.stopPropagation();
-                fetchCatalogPage(catalogPage + 1, catalogSearchTerm, true);
+                if (isLocalMode) {
+                  if (hasMoreLocal) {
+                    setLocalDisplayLimit((prev) => Math.min(prev + 50, filteredLocalCatalog.length));
+                  }
+                } else if (!catalogLoading && !catalogLoadingMore && catalogHasMore) {
+                  fetchCatalogPage(catalogPage + 1, catalogSearchTerm, true);
+                }
               }}
               sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.8rem', borderRadius: 1.5 }}
             >
@@ -458,8 +502,14 @@ export const WasteCatalogAutocomplete: React.FC<WasteCatalogAutocompleteProps> =
               onClick={(e: React.MouseEvent) => {
                 e.preventDefault();
                 e.stopPropagation();
-                if (!catalogLoading && !catalogLoadingMore && catalogHasMore) {
-                  fetchCatalogPage(catalogPage + 1, catalogSearchTerm, true);
+                if (isLocalMode) {
+                  if (hasMoreLocal) {
+                    setLocalDisplayLimit((prev) => Math.min(prev + 50, filteredLocalCatalog.length));
+                  }
+                } else {
+                  if (!catalogLoading && !catalogLoadingMore && catalogHasMore) {
+                    fetchCatalogPage(catalogPage + 1, catalogSearchTerm, true);
+                  }
                 }
               }}
               sx={{

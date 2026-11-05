@@ -13,7 +13,7 @@ import { createMentionExtension } from './mentionExtension';
 import { useLanguage } from '../../../context/LanguageContext';
 import type { User } from '../../../types';
 
-import { cleanWordHtml } from '../RichTextEditor';
+import { cleanWordHtml } from '../../../utils/cleanWordHtml';
 
 import { fetchMentionUsers } from '../../../queries';
 
@@ -130,6 +130,15 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = ({
     }
   }, [value, editor]);
 
+  // Clear pending debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
+
   // Flush pending save on blur
   const handleBlur = async () => {
     if (!editor || !onAutoSave || !autoSaveEnabled) return;
@@ -163,7 +172,30 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = ({
           minHeight,
           fontFamily: 'inherit',
           fontSize: '0.875rem',
-          lineHeight: 1.6,
+          lineHeight: 1.25,
+          '& p': {
+            margin: '2px 0',
+          },
+          '& p:first-of-type': {
+            marginTop: 0,
+          },
+          '& p:last-of-type': {
+            marginBottom: 0,
+          },
+          '& h1, & h2, & h3': {
+            margin: 0,
+            lineHeight: 1.25,
+          },
+          '& ul, & ol': {
+            margin: 0,
+            pl: 2.5,
+          },
+          '& li': {
+            margin: 0,
+          },
+          '& li > p': {
+            margin: 0,
+          },
           '& p.is-editor-empty:first-of-type::before': {
             color: 'text.disabled',
             content: 'attr(data-placeholder)',
@@ -174,13 +206,16 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = ({
           '& .mention-tag': {
             bgcolor: 'primary.light',
             color: 'primary.contrastText',
-            px: 0.75,
-            py: 0.2,
+            px: 0.6,
+            py: 0,
+            height: '1.1rem',
+            display: 'inline-flex',
+            alignItems: 'center',
+            verticalAlign: 'top',
+            boxSizing: 'border-box',
             borderRadius: 1,
             fontWeight: 600,
             fontSize: '0.85em',
-            display: 'inline-block',
-            lineHeight: 1.3,
             userSelect: 'none',
           },
           '& table': {
@@ -204,9 +239,9 @@ export const TipTapEditor: React.FC<TipTapEditorProps> = ({
             },
           },
           '& blockquote': {
+            margin: 0,
             borderLeft: '3px solid',
             borderColor: 'primary.main',
-            ml: 0,
             pl: 2,
             fontStyle: 'italic',
             color: 'text.secondary',

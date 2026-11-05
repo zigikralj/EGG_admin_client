@@ -1,8 +1,15 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { apiFetch } from '../api';
 import { API_ROUTES } from '../constants';
-import { useAuthHeaders, buildPaginationQueryParams, useGenericMutations } from './queryUtils';
-import type { ProvidedService, PaginatedResponse } from '../types';
+import { buildPaginationQueryParams, useGenericMutations } from './queryUtils';
+import type {
+  ProvidedService,
+  PaginatedResponse,
+  WasteStatisticsQueryOptions,
+  WasteStatisticsResult,
+  WasteDisposalClientsQueryParams,
+  PaginatedWasteDisposalClientsResponse,
+} from '../types';
 
 export interface PaginatedProvidedServicesParams {
   page: number;
@@ -24,7 +31,6 @@ export interface PaginatedProvidedServicesParams {
 }
 
 export function usePaginatedProvidedServicesQuery(params: PaginatedProvidedServicesParams, enabled: boolean = true) {
-  const getAuthHeaders = useAuthHeaders();
   const queryKey = [
     'provided-services',
     'paginated',
@@ -71,9 +77,7 @@ export function usePaginatedProvidedServicesQuery(params: PaginatedProvidedServi
           missingInvoice: params.missingInvoice ? true : undefined,
         }
       );
-      const res = await apiFetch(`${API_ROUTES.PROVIDED_SERVICES.BASE}?${q.toString()}`, {
-        headers: getAuthHeaders(),
-      });
+      const res = await apiFetch(`${API_ROUTES.PROVIDED_SERVICES.BASE}?${q.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch paginated provided services');
       const data = await res.json();
       if (Array.isArray(data)) {
@@ -92,11 +96,83 @@ export function usePaginatedProvidedServicesQuery(params: PaginatedProvidedServi
   });
 }
 
+export function useWasteStatisticsQuery(params: WasteStatisticsQueryOptions = {}, enabled: boolean = true) {
+  const queryKey = [
+    'provided-services',
+    'statistics',
+    'waste',
+    params.year,
+    params.monthIndex,
+    params.status,
+  ] as const;
+
+  return useQuery<WasteStatisticsResult>({
+    queryKey,
+    enabled,
+    queryFn: async () => {
+      const q = new URLSearchParams();
+      if (params.year) q.set('year', String(params.year));
+      if (params.monthIndex !== undefined && params.monthIndex !== null) q.set('monthIndex', String(params.monthIndex));
+      if (params.status) q.set('status', params.status);
+
+      const url = `${API_ROUTES.PROVIDED_SERVICES.STATISTICS_WASTE}${q.toString() ? `?${q.toString()}` : ''}`;
+      const res = await apiFetch(url);
+      if (!res.ok) throw new Error('Failed to fetch waste statistics');
+      return res.json();
+    },
+    meta: { silent: true },
+    placeholderData: keepPreviousData,
+    staleTime: 60000,
+  });
+}
+
+export function useWasteDisposalClientsQuery(
+  params: WasteDisposalClientsQueryParams = {},
+  enabled: boolean = true
+) {
+  const queryKey = [
+    'provided-services',
+    'statistics',
+    'waste',
+    'clients',
+    params.page ?? 1,
+    params.limit ?? 10,
+    params.search ?? '',
+    params.year ?? null,
+    params.status ?? 'all',
+    params.sortBy ?? 'totalValue',
+    params.sortOrder ?? 'desc',
+  ] as const;
+
+  return useQuery<PaginatedWasteDisposalClientsResponse>({
+    queryKey,
+    enabled,
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      const q = new URLSearchParams();
+      if (params.page) q.set('page', String(params.page));
+      if (params.limit) q.set('limit', String(params.limit));
+      if (params.search) q.set('search', params.search);
+      if (params.year) q.set('year', String(params.year));
+      if (params.status && params.status !== 'all') q.set('status', params.status);
+      if (params.sortBy) q.set('sortBy', params.sortBy);
+      if (params.sortOrder) q.set('sortOrder', params.sortOrder);
+
+      const url = `${API_ROUTES.PROVIDED_SERVICES.STATISTICS_WASTE_CLIENTS}${q.toString() ? `?${q.toString()}` : ''}`;
+      const res = await apiFetch(url);
+      if (!res.ok) throw new Error('Failed to fetch waste disposal clients');
+      return res.json();
+    },
+    meta: { silent: true },
+    staleTime: 60000,
+  });
+}
+
 export function useProvidedServicesMutations() {
   return useGenericMutations<ProvidedService>({
     basePath: API_ROUTES.PROVIDED_SERVICES.BASE,
     queryKeyToInvalidate: ['provided-services'],
-    errorSaveMessageKey: 'errorSavingService',
-    deleteConfirmMessageKey: 'confirmDeleteProvidedService' as any,
+    errorSaveMessageKey: 'errorSavingProvidedService',
+    deleteConfirmMessageKey: 'confirmDeleteProvidedService',
   });
 }

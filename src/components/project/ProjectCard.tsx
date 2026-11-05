@@ -14,9 +14,17 @@ import {
 } from '@mui/material';
 
 import type { Project, Invoice } from '../../types';
+import {
+  REMINDER_STATUSES,
+  INVOICE_STATUSES,
+  isReminderCompleted,
+  isInvoicePaid,
+  isInvoiceCancelled,
+} from '../../constants';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import { stripHtmlToText } from '../common/RichTextEditor';
+import { stripHtmlToText } from '../../utils/stripHtmlToText';
+import { fmtDate, isLate, isNearDeadline, isStale } from '../../utils/dateUtils';
 import {
   EditIcon,
   VisibilityIcon,
@@ -34,46 +42,6 @@ interface Props {
   onDelete?: (id: string) => void;
 }
 
-function fmtDate(d: string | null): string {
-  if (!d) return '—';
-  const [y, m, day] = d.split('-');
-  return `${day}.${m}.${y}.`;
-}
-
-function isLate(p: Project): boolean {
-  if (p.done || !p.deadline) return false;
-  const clean = p.deadline.split('T')[0];
-  const parts = clean.split('-').map(Number);
-  if (parts.length !== 3) return false;
-  const [y, m, d] = parts;
-  const deadlineDate = new Date(y, m - 1, d);
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  return deadlineDate < today;
-}
-
-function isNearDeadline(p: Project, days = 14): boolean {
-  if (p.done || !p.deadline) return false;
-  const clean = p.deadline.split('T')[0];
-  const parts = clean.split('-').map(Number);
-  if (parts.length !== 3) return false;
-  const [y, m, d] = parts;
-  const deadlineDate = new Date(y, m - 1, d);
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const diffTime = deadlineDate.getTime() - today.getTime();
-  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-  return diffDays >= 0 && diffDays <= days;
-}
-
-function isStale(p: Project): boolean {
-  if (p.done || !p.start) return false;
-  const start = new Date(p.start);
-  const cutoff = new Date();
-  cutoff.setMonth(cutoff.getMonth() - 2);
-  return start < cutoff;
-}
-
 export { ProjectNotesPreview } from './ProjectNotesPreview';
 
 
@@ -88,9 +56,9 @@ export const ProjectCard: React.FC<Props> = ({
 
   const [notesExpanded, setNotesExpanded] = useState(false);
   const canEdit = canEditProject(p);
-  const late = isLate(p);
-  const nearDeadline = !late && isNearDeadline(p);
-  const stale = isStale(p);
+  const late = isLate(p.deadline, p.done);
+  const nearDeadline = !late && isNearDeadline(p.deadline, p.done);
+  const stale = isStale(p.start, p.done);
   const hasNotes = Boolean((p.notesPreview && p.notesPreview.trim().length > 0) || (p.notes && stripHtmlToText(p.notes).length > 0));
 
   // Match reminders for this project (already scoped on project payload)
@@ -109,23 +77,17 @@ export const ProjectCard: React.FC<Props> = ({
 
     const today = new Date(new Date().toDateString());
 
-    const isCompleted = (status?: string | null) => {
-      if (!status) return false;
-      const s = status.toLowerCase();
-      return s === 'completed' || s === 'završeno' || s === 'завршено';
-    };
-
     const isOverdue = (r: typeof projectReminders[0]) => {
-      if (isCompleted(r.status)) return false;
+      if (isReminderCompleted(r.status)) return false;
       const s = (r.status || '').toLowerCase();
-      if (s === 'overdue' || s === 'prekoračeno' || s === 'прекорачено' || s === 'kasni' || s === 'касни') return true;
+      if (s === REMINDER_STATUSES.OVERDUE || s === 'overdue' || s === 'prekoračeno' || s === 'kasni') return true;
       if (!r.dueDate) return false;
       const due = new Date(r.dueDate.split('T')[0]);
       return due < today;
     };
 
     const isApproaching = (r: typeof projectReminders[0]) => {
-      if (isCompleted(r.status) || isOverdue(r)) return false;
+      if (isReminderCompleted(r.status) || isOverdue(r)) return false;
       if (!r.dueDate) return false;
       const due = new Date(r.dueDate.split('T')[0]);
       const diffDays = (due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
@@ -136,9 +98,9 @@ export const ProjectCard: React.FC<Props> = ({
     const hasApproaching = projectReminders.some(isApproaching);
     const hasInProgress = projectReminders.some((r) => {
       const s = (r.status || '').toLowerCase();
-      return !isCompleted(r.status) && (s === 'in progress' || s === 'u toku' || s === 'у току');
+      return !isReminderCompleted(r.status) && (s === REMINDER_STATUSES.IN_PROGRESS || s === 'in progress');
     });
-    const allCompleted = projectReminders.length > 0 && projectReminders.every((r) => isCompleted(r.status));
+    const allCompleted = projectReminders.length > 0 && projectReminders.every((r) => isReminderCompleted(r.status));
 
     let color: 'error' | 'warning' | 'info' | 'success' | 'default' = 'default';
     if (hasOverdue) {
@@ -167,10 +129,14 @@ export const ProjectCard: React.FC<Props> = ({
 
     const today = new Date(new Date().toDateString());
 
+    const isPaid = (inv: Invoice) => isInvoicePaid(inv.status);
+
+    const isCancelled = (inv: Invoice) => isInvoiceCancelled(inv.status);
+
     const isOverdue = (inv: Invoice) => {
       const s = (inv.status || '').toLowerCase();
-      if (s === 'overdue' || s === 'prekoračeno' || s === 'kasni') return true;
-      if (s === 'paid' || s === 'plaćeno' || s === 'плаћено' || s === 'cancelled' || s === 'otkazano' || s === 'отказано') return false;
+      if (s === INVOICE_STATUSES.OVERDUE || s === 'overdue' || s === 'kasni') return true;
+      if (isPaid(inv) || isCancelled(inv)) return false;
       if (!inv.dueDate) return false;
       const due = new Date(inv.dueDate.split('T')[0]);
       return due < today;
@@ -178,22 +144,12 @@ export const ProjectCard: React.FC<Props> = ({
 
     const isDraft = (inv: Invoice) => {
       const s = (inv.status || '').toLowerCase();
-      return s === 'draft' || s === 'kreirano' || s === 'креирано' || !inv.status;
+      return s === INVOICE_STATUSES.DRAFT || s === 'draft' || s === 'kreirano' || !inv.status;
     };
 
     const isSent = (inv: Invoice) => {
       const s = (inv.status || '').toLowerCase();
-      return s === 'sent' || s === 'poslato' || s === 'послато';
-    };
-
-    const isPaid = (inv: Invoice) => {
-      const s = (inv.status || '').toLowerCase();
-      return s === 'paid' || s === 'plaćeno' || s === 'плаћено';
-    };
-
-    const isCancelled = (inv: Invoice) => {
-      const s = (inv.status || '').toLowerCase();
-      return s === 'cancelled' || s === 'otkazano' || s === 'отказано';
+      return s === INVOICE_STATUSES.SENT || s === 'sent' || s === 'poslato';
     };
 
     const hasOverdue = projectInvoices.some(isOverdue);

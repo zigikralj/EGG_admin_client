@@ -62,7 +62,7 @@ All notable changes to this project will be documented in this file.
 
 ## [v1.10.0] - 2026-10-19
 
-- feat: enhance RichTextEditor with autosave, multi-mode view, and form… (#82) by @zigikralj
+- feat: enhance TipTapEditor with autosave, multi-mode view, and form… (#82) by @zigikralj
 
 ## [v1.9.0] - 2026-10-18
 

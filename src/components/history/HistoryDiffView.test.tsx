@@ -3,13 +3,26 @@ import { describe, it, expect } from 'vitest';
 import { HistoryDiffView } from './HistoryDiffView';
 
 describe('HistoryDiffView component', () => {
+  const enDict: Record<string, string> = {
+    diffNoDifferenceDetected: 'No difference detected.',
+    diffNoFieldsModified: 'No fields modified between these versions.',
+    diffEmptyOrUnchanged: '(empty / unchanged)',
+  };
+  const srDict: Record<string, string> = {
+    diffNoDifferenceDetected: 'Nema detektovanih razlika.',
+    diffNoFieldsModified: 'Nema izmenjenih polja između ovih verzija.',
+    diffEmptyOrUnchanged: '(prazno / bez promena)',
+  };
+  const enT = (key: string) => enDict[key] || key;
+  const srT = (key: string) => srDict[key] || key;
+
   it('renders empty message when diff is missing or null', () => {
-    render(<HistoryDiffView diff={null} isDark={false} language="en" />);
+    render(<HistoryDiffView diff={null} isDark={false} language="en" t={enT} />);
     expect(screen.getByText('No difference detected.')).toBeInTheDocument();
   });
 
   it('renders Serbian fallback when diff is null', () => {
-    render(<HistoryDiffView diff={null} isDark={false} language="sr-Latn" />);
+    render(<HistoryDiffView diff={null} isDark={false} language="sr-Latn" t={srT} />);
     expect(screen.getByText('Nema detektovanih razlika.')).toBeInTheDocument();
   });
 
@@ -17,7 +30,7 @@ describe('HistoryDiffView component', () => {
     const diff = {
       progress: { old: 50, new: 50 },
     };
-    render(<HistoryDiffView diff={diff} isDark={false} language="en" />);
+    render(<HistoryDiffView diff={diff} isDark={false} language="en" t={enT} />);
     expect(screen.getByText('No fields modified between these versions.')).toBeInTheDocument();
   });
 
@@ -27,7 +40,7 @@ describe('HistoryDiffView component', () => {
       done: { old: false, new: true },
     };
 
-    render(<HistoryDiffView diff={diff} isDark={false} language="en" />);
+    render(<HistoryDiffView diff={diff} isDark={false} language="en" t={enT} />);
 
     expect(screen.getByText('progress:')).toBeInTheDocument();
     expect(screen.getByText('25')).toBeInTheDocument();
@@ -46,7 +59,7 @@ describe('HistoryDiffView component', () => {
       },
     };
 
-    render(<HistoryDiffView diff={diff} isDark={false} language="en" />);
+    render(<HistoryDiffView diff={diff} isDark={false} language="en" t={enT} />);
 
     expect(screen.getByText('notes:')).toBeInTheDocument();
     expect(screen.getByText('updated')).toBeInTheDocument();

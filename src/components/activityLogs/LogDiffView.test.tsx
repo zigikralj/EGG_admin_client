@@ -3,16 +3,27 @@ import { describe, it, expect } from 'vitest';
 import { LogDiffView } from './LogDiffView';
 
 describe('LogDiffView component', () => {
+  const enDict: Record<string, string> = {
+    noFieldsModified: '(No fields modified)',
+    labelModified: 'modified'
+  };
+  const srDict: Record<string, string> = {
+    noFieldsModified: '(Nema izmenjenih polja)',
+    labelModified: 'izmenjeno'
+  };
+  const enT = (key: string) => enDict[key] || key;
+  const srT = (key: string) => srDict[key] || key;
+
   it('renders nothing when detailsStr is missing', () => {
     const { container } = render(
-      <LogDiffView detailsStr={null} isDark={false} language="en" />
+      <LogDiffView detailsStr={null} isDark={false} language="en" t={enT} />
     );
     expect(container.firstChild).toBeNull();
   });
 
   it('renders raw string when detailsStr is not valid JSON', () => {
     render(
-      <LogDiffView detailsStr="raw string details" isDark={false} language="en" />
+      <LogDiffView detailsStr="raw string details" isDark={false} language="en" t={enT} />
     );
     expect(screen.getByText('raw string details')).toBeInTheDocument();
   });
@@ -25,7 +36,7 @@ describe('LogDiffView component', () => {
     });
 
     render(
-      <LogDiffView detailsStr={details} isDark={false} language="en" />
+      <LogDiffView detailsStr={details} isDark={false} language="en" t={enT} />
     );
     expect(screen.getByText('(No fields modified)')).toBeInTheDocument();
   });
@@ -38,7 +49,7 @@ describe('LogDiffView component', () => {
     });
 
     render(
-      <LogDiffView detailsStr={details} isDark={false} language="sr" />
+      <LogDiffView detailsStr={details} isDark={false} language="sr" t={srT} />
     );
     expect(screen.getByText('(Nema izmenjenih polja)')).toBeInTheDocument();
   });
@@ -52,7 +63,7 @@ describe('LogDiffView component', () => {
     });
 
     render(
-      <LogDiffView detailsStr={details} isDark={false} language="en" />
+      <LogDiffView detailsStr={details} isDark={false} language="en" t={enT} />
     );
 
     expect(screen.getByText('status:')).toBeInTheDocument();
@@ -74,7 +85,7 @@ describe('LogDiffView component', () => {
     });
 
     render(
-      <LogDiffView detailsStr={details} isDark={false} language="en" />
+      <LogDiffView detailsStr={details} isDark={false} language="en" t={enT} />
     );
 
     expect(screen.getByText('notes:')).toBeInTheDocument();
@@ -93,7 +104,7 @@ describe('LogDiffView component', () => {
     });
 
     render(
-      <LogDiffView detailsStr={details} isDark={false} language="sr" />
+      <LogDiffView detailsStr={details} isDark={false} language="sr" t={srT} />
     );
 
     expect(screen.getByText('(izmenjeno)')).toBeInTheDocument();

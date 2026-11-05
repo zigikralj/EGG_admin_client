@@ -212,4 +212,63 @@ describe('wasteCatalogStorage', () => {
       expect.anything()
     );
   });
+
+  it('syncWasteCatalog self-heals with full fetch when server totalCount indicates local cache is missing entries', async () => {
+    await saveCatalogToDB(sampleItems, '2026-10-22T20:00:00.000Z');
+
+    const freshFullList: WasteCatalog[] = Array.from({ length: 15 }, (_, i) => ({
+      id: `new-${i}`,
+      code: `20 01 ${i < 10 ? '0' + i : i}`,
+      description: `Item ${i}`,
+      isHazardous: false,
+    }));
+
+    vi.spyOn(api, 'apiFetch')
+      // First call (delta query) returns 0 items but totalCount = 15
+      .mockResolvedValueOnce({
+        ok: true,
+        headers: { get: () => null },
+        json: async () => ({
+          delta: true,
+          items: [],
+          deletedIds: [],
+          syncedAt: '2026-10-22T20:50:00.000Z',
+          totalCount: 15,
+        }),
+      } as any)
+      // Second call (fresh=true full fetch)
+      .mockResolvedValueOnce({
+        ok: true,
+        headers: { get: () => '2026-10-22T20:50:00.000Z' },
+        json: async () => freshFullList,
+      } as any);
+
+    const result = await syncWasteCatalog();
+    expect(result.length).toBe(15);
+    expect(api.apiFetch).toHaveBeenCalledWith(
+      expect.stringContaining('fresh=true'),
+      expect.anything()
+    );
+  });
+
+  it('applyDeltaToDB safely handles same code with updated id', async () => {
+    await saveCatalogToDB(
+      [{ id: 'old-1', code: '15 01 01', description: 'Old Paper', isHazardous: false }],
+      '2026-10-22T20:00:00.000Z'
+    );
+
+    const delta = {
+      delta: true,
+      items: [
+        { id: 'new-1', code: '15 01 01', description: 'Re-seeded Paper', isHazardous: false },
+      ],
+      deletedIds: [],
+      syncedAt: '2026-10-22T20:30:00.000Z',
+    };
+
+    const updated = await applyDeltaToDB(delta);
+    expect(updated.length).toBe(1);
+    expect(updated[0].id).toBe('new-1');
+    expect(updated[0].description).toBe('Re-seeded Paper');
+  });
 });

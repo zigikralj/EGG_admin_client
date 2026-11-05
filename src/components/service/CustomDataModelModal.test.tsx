@@ -94,11 +94,48 @@ describe('CustomDataModelModal', () => {
     ];
     renderComponent(fields);
     
-    const dialog = screen.getByRole('dialog');
-    const form = dialog.tagName === 'FORM' ? dialog : dialog.querySelector('form');
-    fireEvent.submit(form!);
+    fireEvent.click(screen.getByText('btnSave'));
     
     expect(mockOnSave).not.toHaveBeenCalled();
     expect(await screen.findByText('alertServiceRequired')).toBeInTheDocument();
+  });
+
+  it('shows error if field id is empty for new field', async () => {
+    renderComponent([]);
+    fireEvent.click(screen.getByText('btnAddField'));
+
+    const nameInput = screen.getByPlaceholderText('phFieldName');
+    fireEvent.change(nameInput, { target: { value: 'Valid Name' } });
+
+    fireEvent.click(screen.getByText('btnSave'));
+
+    expect(mockOnSave).not.toHaveBeenCalled();
+    expect(await screen.findByText('errFieldIdRequired')).toBeInTheDocument();
+  });
+
+  it('shows error if field id has invalid format', async () => {
+    renderComponent([]);
+    fireEvent.click(screen.getByText('btnAddField'));
+
+    const idInput = screen.getByPlaceholderText('phFieldId');
+    fireEvent.change(idInput, { target: { value: 'INVALID ID WITH SPACES!' } });
+
+    const nameInput = screen.getByPlaceholderText('phFieldName');
+    fireEvent.change(nameInput, { target: { value: 'Valid Name' } });
+
+    fireEvent.click(screen.getByText('btnSave'));
+
+    expect(mockOnSave).not.toHaveBeenCalled();
+    expect(await screen.findByText('errFieldIdFormat')).toBeInTheDocument();
+  });
+
+  it('locks existing field id from being edited', () => {
+    const fields = [
+      { id: 'existing_field', name: 'Existing Field', type: 'text' },
+    ];
+    renderComponent(fields);
+
+    const idInput = screen.getByDisplayValue('existing_field');
+    expect(idInput).toBeDisabled();
   });
 });

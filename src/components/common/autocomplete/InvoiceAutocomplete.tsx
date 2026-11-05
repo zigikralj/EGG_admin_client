@@ -60,7 +60,7 @@ export function InvoiceAutocomplete<
   const defaultGetOptionLabel = (inv: Invoice | string) => {
     if (typeof inv === 'string') return inv;
     if ((inv as any)?.__isLoadMoreSentinel || inv?.id === '__LOAD_MORE__') return '';
-    return `${inv.invoiceNumber}${inv.invoiceType && inv.invoiceType !== 'Standard' ? ` [${inv.invoiceType}]` : ''}${inv.totalAmount ? ` (${formatInvoiceAmount(inv.totalAmount, inv.currency)})` : ''}${inv.clientName ? ` - ${inv.clientName}` : ''}`;
+    return `${inv.invoiceNumber}${inv.invoiceType && inv.invoiceType.toLowerCase() !== 'standard' ? ` [${inv.invoiceType}]` : ''}${inv.totalAmount ? ` (${formatInvoiceAmount(inv.totalAmount, inv.currency)})` : ''}${inv.clientName ? ` - ${inv.clientName}` : ''}`;
   };
 
   const defaultRenderOption = (

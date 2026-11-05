@@ -267,8 +267,8 @@ describe('CustomAutocomplete', () => {
           {
             id: 'inv1',
             invoiceNumber: 'INV-2026-001',
-            invoiceType: 'Standard',
-            status: 'Paid',
+            invoiceType: 'standard',
+            status: 'paid',
             totalAmount: 150000,
             currency: 'RSD',
             clientName: 'Client Alpha',

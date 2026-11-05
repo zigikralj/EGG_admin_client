@@ -20,6 +20,12 @@ import type {
   SaveResult,
   CustomFieldDefinition,
 } from '../../types';
+import {
+  PROVIDED_SERVICE_STATUSES,
+  isProvidedServiceCompleted,
+  isProvidedServiceCancelled,
+  isInvoicePaid,
+} from '../../constants';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { TableFilterSelector } from '../common/TableFilterSelector';
@@ -330,16 +336,16 @@ export const WasteDisposalPanel: React.FC<Props> = ({
     let color: 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' = 'default';
     let label = status || '—';
 
-    if (s === 'completed' || s === 'završeno' || s === 'завршено') {
+    if (s === PROVIDED_SERVICE_STATUSES.COMPLETED) {
       color = 'success';
       label = t('statusCompleted');
-    } else if (s === 'in progress' || s === 'in_progress' || s === 'u toku' || s === 'у току') {
+    } else if (s === PROVIDED_SERVICE_STATUSES.IN_PROGRESS || s === 'in progress') {
       color = 'info';
       label = t('statusInProgress');
-    } else if (s === 'planned' || s === 'planirano' || s === 'планирано') {
+    } else if (s === PROVIDED_SERVICE_STATUSES.PLANNED) {
       color = 'warning';
       label = t('statusPlanned');
-    } else if (s === 'cancelled' || s === 'otkazano' || s === 'отказано') {
+    } else if (s === PROVIDED_SERVICE_STATUSES.CANCELLED || s === 'canceled') {
       color = 'default';
       label = t('statusCancelled');
     }
@@ -408,11 +414,11 @@ export const WasteDisposalPanel: React.FC<Props> = ({
       if (filterStatus !== 'all') {
         const itemStatus = (item.status || '').toLowerCase();
         const fStatus = filterStatus.toLowerCase();
-        if (fStatus === 'planned' && itemStatus !== 'planned' && itemStatus !== 'planirano') return false;
-        if (fStatus === 'in progress' && itemStatus !== 'in progress' && itemStatus !== 'in_progress' && itemStatus !== 'u toku') return false;
-        if (fStatus === 'completed' && itemStatus !== 'completed' && itemStatus !== 'završeno') return false;
-        if (fStatus === 'cancelled' && itemStatus !== 'cancelled' && itemStatus !== 'otkazano') return false;
-        if (!['planned', 'in progress', 'completed', 'cancelled'].includes(fStatus) && itemStatus !== fStatus) return false;
+        if (fStatus === PROVIDED_SERVICE_STATUSES.PLANNED && itemStatus !== PROVIDED_SERVICE_STATUSES.PLANNED) return false;
+        if (fStatus === PROVIDED_SERVICE_STATUSES.IN_PROGRESS && itemStatus !== PROVIDED_SERVICE_STATUSES.IN_PROGRESS && itemStatus !== 'in progress') return false;
+        if (fStatus === PROVIDED_SERVICE_STATUSES.COMPLETED && !isProvidedServiceCompleted(itemStatus)) return false;
+        if (fStatus === PROVIDED_SERVICE_STATUSES.CANCELLED && !isProvidedServiceCancelled(itemStatus)) return false;
+        if (![PROVIDED_SERVICE_STATUSES.PLANNED, PROVIDED_SERVICE_STATUSES.IN_PROGRESS, PROVIDED_SERVICE_STATUSES.COMPLETED, PROVIDED_SERVICE_STATUSES.CANCELLED].includes(fStatus as any) && itemStatus !== fStatus) return false;
       }
 
       if (filterService !== 'all' && item.serviceId !== filterService) return false;
@@ -551,9 +557,9 @@ export const WasteDisposalPanel: React.FC<Props> = ({
   }, [displayItems, allProjects]);
 
   const quickFilterOptions: QuickFilterItem[] = useMemo(() => [
-    { key: 'Planned', label: t('statusPlanned'), color: 'warning' },
-    { key: 'In Progress', label: t('statusInProgress'), color: 'info' },
-    { key: 'Completed', label: t('statusCompleted'), color: 'success' },
+    { key: PROVIDED_SERVICE_STATUSES.PLANNED, label: t('statusPlanned'), color: 'warning' },
+    { key: PROVIDED_SERVICE_STATUSES.IN_PROGRESS, label: t('statusInProgress'), color: 'info' },
+    { key: PROVIDED_SERVICE_STATUSES.COMPLETED, label: t('statusCompleted'), color: 'success' },
     { key: 'missing_invoice', label: t('quickFilterMissingInvoice'), color: 'warning' },
   ], [t]);
 
@@ -599,7 +605,7 @@ export const WasteDisposalPanel: React.FC<Props> = ({
     try {
       await onSaveProvidedService({
         id: item.id,
-        status: 'Completed',
+        status: PROVIDED_SERVICE_STATUSES.COMPLETED,
         completionDate: item.completionDate || new Date().toISOString().slice(0, 10),
       });
     } catch (err: any) {
@@ -681,10 +687,10 @@ export const WasteDisposalPanel: React.FC<Props> = ({
 
   const statusFilterOptions = [
     { value: 'all', label: t('filterAllStatus') },
-    { value: 'Planned', label: t('statusPlanned') },
-    { value: 'In Progress', label: t('statusInProgress') },
-    { value: 'Completed', label: t('statusCompleted') },
-    { value: 'Cancelled', label: t('statusCancelled') },
+    { value: PROVIDED_SERVICE_STATUSES.PLANNED, label: t('statusPlanned') },
+    { value: PROVIDED_SERVICE_STATUSES.IN_PROGRESS, label: t('statusInProgress') },
+    { value: PROVIDED_SERVICE_STATUSES.COMPLETED, label: t('statusCompleted') },
+    { value: PROVIDED_SERVICE_STATUSES.CANCELLED, label: t('statusCancelled') },
   ];
 
   return (
@@ -847,7 +853,7 @@ export const WasteDisposalPanel: React.FC<Props> = ({
           const inv = item.invoice || invoices.find((i) => i.id === item.invoiceId);
 
           const serviceName = srv ? getServiceLabel(srv.code, services) || srv.name : '—';
-          const isCompleted = (item.status || '').toLowerCase() === 'completed' || (item.status || '').toLowerCase() === 'završeno';
+          const isCompleted = isProvidedServiceCompleted(item.status);
 
           return (
             <Box
@@ -966,7 +972,7 @@ export const WasteDisposalPanel: React.FC<Props> = ({
                       icon={<ReceiptLongIcon sx={{ fontSize: '13px !important' }} />}
                       size="small"
                       variant="outlined"
-                      color={inv.status === 'Paid' ? 'success' : 'warning'}
+                      color={isInvoicePaid(inv.status) ? 'success' : 'warning'}
                       label={`${t('tabInvoices')}: ${inv.invoiceNumber}`}
                       sx={{ height: 20, fontSize: '0.68rem', fontWeight: 600 }}
                     />

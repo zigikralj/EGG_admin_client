@@ -26,6 +26,7 @@ export const API_ROUTES = {
   },
   PROJECTS: {
     BASE: '/api/projects',
+    STATISTICS: '/api/projects/statistics',
     UPDATES: '/api/projects/updates',
     UPDATES_DIFF: (id: string) => `/api/projects/${encodeURIComponent(id)}/updates-diff`,
     BY_ID: (id: string) => `/api/projects/${encodeURIComponent(id)}`,
@@ -52,6 +53,8 @@ export const API_ROUTES = {
   PROVIDED_SERVICES: {
     BASE: '/api/provided-services',
     BY_ID: (id: string) => `/api/provided-services/${encodeURIComponent(id)}`,
+    STATISTICS_WASTE: '/api/provided-services/statistics/waste',
+    STATISTICS_WASTE_CLIENTS: '/api/provided-services/statistics/waste/clients',
   },
   REMINDERS: {
     BASE: '/api/reminders',

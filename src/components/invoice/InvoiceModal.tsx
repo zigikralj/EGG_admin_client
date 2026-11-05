@@ -25,7 +25,9 @@ import type {
 } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import { parseInvoiceNotes, serializeInvoiceNotes } from '../../utils/invoiceUtils';
+import { formatInvoiceAmount, parseInvoiceNotes, serializeInvoiceNotes } from '../../utils/invoiceUtils';
+import { fmtDate } from '../../utils/dateUtils';
+import { InvoiceStatusChip, InvoiceTypeChip } from './InvoiceChips';
 import { AddIcon, DeleteIcon, LinkIcon, ReceiptLongIcon } from '../icons';
 import {
   ClientAutocomplete,
@@ -100,7 +102,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
 
   const [formData, setFormData] = useState({
     invoiceNumber: '',
-    invoiceType: 'Standard' as InvoiceType,
+    invoiceType: 'standard' as InvoiceType,
     parentInvoiceId: '',
     dateCreated: '',
     dueDate: '',
@@ -110,7 +112,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
     projectId: '',
     projectName: '',
     providedServiceId: '',
-    status: 'Draft' as InvoiceStatus,
+    status: 'draft' as InvoiceStatus,
     currency: 'RSD' as InvoiceCurrency,
     notes: '',
     items: [
@@ -140,7 +142,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
 
       setFormData({
         invoiceNumber: editingInvoice.invoiceNumber || '',
-        invoiceType: (editingInvoice.invoiceType || parsedType || 'Standard') as InvoiceType,
+        invoiceType: ((editingInvoice.invoiceType?.toLowerCase() as InvoiceType) || parsedType || 'standard') as InvoiceType,
         parentInvoiceId: editingInvoice.parentInvoiceId || parsedParentId || '',
         dateCreated: editingInvoice.dateCreated || '',
         dueDate: editingInvoice.dueDate || '',
@@ -150,7 +152,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         projectId: editingInvoice.projectId || editingInvoice.project?.id || '',
         projectName: editingInvoice.projectName || editingInvoice.project?.name || '',
         providedServiceId: initialPs,
-        status: (editingInvoice.status as InvoiceStatus) || 'Draft',
+        status: ((editingInvoice.status?.toLowerCase() as InvoiceStatus) || 'draft'),
         currency: (editingInvoice.currency as InvoiceCurrency) || 'RSD',
         notes: cleanNotes || '',
         items:
@@ -177,7 +179,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
       setInitialPsId('');
       setFormData({
         invoiceNumber: '',
-        invoiceType: 'Standard',
+        invoiceType: 'standard',
         parentInvoiceId: '',
         dateCreated: new Date().toISOString().slice(0, 10),
         dueDate: '',
@@ -187,13 +189,14 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         projectId: '',
         projectName: '',
         providedServiceId: '',
-        status: 'Draft',
+        status: 'draft',
         currency: 'RSD',
         notes: '',
         items: [{ description: '', quantity: 1, unitPrice: 0, currency: 'RSD' }],
       });
     }
-  }, [open, editingInvoice]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editingInvoice?.id]);
 
   // Available parent invoices for linking
   const availableParentInvoices = useMemo(() => {
@@ -236,117 +239,19 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
     );
   }, [formData.items]);
 
-  const formatAmount = (amount?: number | null, currency?: string | null) => {
-    const val = amount || 0;
-    const curr = currency || 'RSD';
-    const formatted = val.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-    return `${formatted} ${curr}`;
-  };
+  const formatAmount = (amount?: number | null, currency?: string | null) =>
+    formatInvoiceAmount(amount || 0, currency || 'RSD');
 
-  const formatDate = (iso: string | null | undefined) => {
-    if (!iso) return '—';
-    try {
-      const clean = iso.split('T')[0];
-      const parts = clean.split('-');
-      if (parts.length === 3) {
-        return `${parts[2]}.${parts[1]}.${parts[0]}.`;
-      }
-      return iso;
-    } catch {
-      return iso;
-    }
-  };
-
-  const getStatusChipColor = (
-    status?: string
-  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
-    switch (status) {
-      case 'Paid':
-        return 'success';
-      case 'Sent':
-        return 'info';
-      case 'Overdue':
-        return 'error';
-      case 'Cancelled':
-        return 'default';
-      case 'Draft':
-      default:
-        return 'warning';
-    }
-  };
-
-  const getStatusLabel = (status?: string) => {
-    switch (status) {
-      case 'Draft':
-        return t('statusDraft');
-      case 'Sent':
-        return t('statusSent');
-      case 'Paid':
-        return t('statusPaid');
-      case 'Overdue':
-        return t('statusOverdue');
-      case 'Cancelled':
-        return t('statusCancelled');
-      default:
-        return status || t('statusDraft');
-    }
-  };
-
-  const getInvoiceTypeChip = (type?: string | null) => {
-    if (!type || type === 'Standard') {
-      return (
-        <Chip
-          label={t('typeStandard')}
-          size="small"
-          variant="outlined"
-          sx={{ height: 20, fontSize: '0.7rem', fontWeight: 500, color: 'text.secondary', borderColor: 'divider' }}
-        />
-      );
-    }
-    switch (type) {
-      case 'Advance':
-        return (
-          <Chip
-            label={t('badgeAdvance')}
-            size="small"
-            color="secondary"
-            sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700, px: 0.25 }}
-          />
-        );
-      case 'Final':
-        return (
-          <Chip
-            label={t('badgeFinal')}
-            size="small"
-            color="primary"
-            sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700, px: 0.25 }}
-          />
-        );
-      case 'Partial':
-        return (
-          <Chip
-            label={t('badgePartial')}
-            size="small"
-            color="info"
-            sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700, px: 0.25 }}
-          />
-        );
-      default:
-        return <Chip label={type} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 600 }} />;
-    }
-  };
+  const formatDate = (iso: string | null | undefined) => fmtDate(iso);
 
   const getLinkedInvoiceLabel = (linkedInv?: Invoice | null) => {
-    const type = linkedInv?.invoiceType || 'Standard';
+    const type = linkedInv?.invoiceType?.toLowerCase() || 'standard';
     switch (type) {
-      case 'Advance':
+      case 'advance':
         return t('badgeAdvance');
-      case 'Final':
+      case 'final':
         return t('badgeFinal');
-      case 'Partial':
+      case 'partial':
         return t('badgePartial');
       default:
         return t('typeStandard');
@@ -484,7 +389,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
           <ViewEditField
             mode={mode}
             label={t('lblInvoiceType')}
-            value={getInvoiceTypeChip(formData.invoiceType)}
+            value={<InvoiceTypeChip type={formData.invoiceType} showStandard />}
             editRender={() => (
               <FormControl fullWidth size="small">
                 <InputLabel>{t('lblInvoiceType')}</InputLabel>
@@ -495,10 +400,10 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                     setFormData({ ...formData, invoiceType: e.target.value as InvoiceType })
                   }
                 >
-                  <MenuItem value="Standard">{t('typeStandard')}</MenuItem>
-                  <MenuItem value="Advance">{t('typeAdvance')}</MenuItem>
-                  <MenuItem value="Final">{t('typeFinal')}</MenuItem>
-                  <MenuItem value="Partial">{t('typePartial')}</MenuItem>
+                  <MenuItem value="standard">{t('typeStandard')}</MenuItem>
+                  <MenuItem value="advance">{t('typeAdvance')}</MenuItem>
+                  <MenuItem value="final">{t('typeFinal')}</MenuItem>
+                  <MenuItem value="partial">{t('typePartial')}</MenuItem>
                 </Select>
               </FormControl>
             )}
@@ -510,14 +415,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
           <ViewEditField
             mode={mode}
             label={t('lblInvoiceStatus')}
-            value={
-              <Chip
-                label={getStatusLabel(formData.status)}
-                size="small"
-                color={getStatusChipColor(formData.status)}
-                sx={{ height: 22, fontSize: '0.75rem', fontWeight: 700 }}
-              />
-            }
+            value={<InvoiceStatusChip status={formData.status} />}
             editRender={() => (
               <FormControl fullWidth size="small">
                 <InputLabel>{t('lblInvoiceStatus')}</InputLabel>
@@ -530,17 +428,17 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                       ...formData,
                       status: newStatus,
                       paymentDate:
-                        newStatus === 'Paid' && !formData.paymentDate
+                        newStatus === 'paid' && !formData.paymentDate
                           ? new Date().toISOString().slice(0, 10)
                           : formData.paymentDate,
                     });
                   }}
                 >
-                  <MenuItem value="Draft">{t('statusDraft')}</MenuItem>
-                  <MenuItem value="Sent">{t('statusSent')}</MenuItem>
-                  <MenuItem value="Paid">{t('statusPaid')}</MenuItem>
-                  <MenuItem value="Overdue">{t('statusOverdue')}</MenuItem>
-                  <MenuItem value="Cancelled">{t('statusCancelled')}</MenuItem>
+                  <MenuItem value="draft">{t('statusDraft')}</MenuItem>
+                  <MenuItem value="sent">{t('statusSent')}</MenuItem>
+                  <MenuItem value="paid">{t('statusPaid')}</MenuItem>
+                  <MenuItem value="overdue">{t('statusOverdue')}</MenuItem>
+                  <MenuItem value="cancelled">{t('statusCancelled')}</MenuItem>
                 </Select>
               </FormControl>
             )}

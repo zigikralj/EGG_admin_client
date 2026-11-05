@@ -108,3 +108,91 @@ export const typeGroup: Record<string, string> = {
   'savetnik-adr': 'grp-advisory',
   'savetnik-hemikalije': 'grp-advisory',
 };
+
+export interface WasteStatisticsQueryOptions {
+  year?: number;
+  monthIndex?: number; // 0-11
+  status?: 'all' | 'completed' | 'canceled';
+}
+
+export interface WasteStatisticsResult {
+  kpi: {
+    totalCount: number;
+    completedCount: number;
+    inProgressCount: number;
+    plannedCount: number;
+    completionRate: string;
+    paidRevenueRSD: number;
+    paidRevenueEUR: number;
+    paidInvoicesCount: number;
+  };
+  availableYears: number[];
+  currentWasteYear: number | null;
+  selectedYearMonths: Array<{
+    monthIndex: number;
+    monthKey: string;
+    label: string;
+  }>;
+  selectedMonthIndex: number | null;
+  selectedMonthKey: string;
+  wasteStatsForSelectedYear: {
+    totalKg: number;
+    totalTons: number;
+    totalEntries: number;
+    activeClientsCount: number;
+  };
+  wasteStatsForSelectedMonth: {
+    totalKg: number;
+    totalTons: number;
+    totalEntries: number;
+    activeClientsCount: number;
+    clients: Array<{
+      clientId: string;
+      clientName: string;
+      totalKg: number;
+      entriesCount: number;
+    }>;
+  };
+  wasteComparisonSeries: Array<{
+    year: number;
+    label: string;
+    data: Array<number | null>;
+  }>;
+  topClients: Array<{
+    clientId: string;
+    label: string;
+    count: number;
+    paidRevenueRSD: number;
+    totalWasteKg: number;
+  }>;
+}
+
+export interface WasteDisposalClientRow {
+  clientId: string;
+  clientName: string;
+  city: string | null;
+  count: number;
+  totalWasteKg: number;
+  totalWasteTons: number;
+  paidRevenueRSD: number;
+  totalInvoicedRSD: number;
+  lastDeliveryDate: string | null;
+}
+
+export interface PaginatedWasteDisposalClientsResponse {
+  items: WasteDisposalClientRow[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface WasteDisposalClientsQueryParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  year?: number;
+  status?: 'all' | 'completed' | 'canceled';
+  sortBy?: 'totalValue' | 'totalWaste' | 'count' | 'clientName';
+  sortOrder?: 'asc' | 'desc';
+}

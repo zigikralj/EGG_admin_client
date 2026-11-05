@@ -1,11 +1,12 @@
 import { test, expect } from '@playwright/test';
+import { INVOICE_STATUSES, INVOICE_TYPES } from '../../src/constants';
 
 test.describe('Invoices Management', () => {
   let invoicesData = [
     {
       id: '1',
       invoiceNumber: 'INV-2023-001',
-      invoiceType: 'Standard',
+      invoiceType: INVOICE_TYPES.STANDARD,
       clientId: '1',
       clientName: 'Eko Metal d.o.o.',
       projectId: '101',
@@ -13,7 +14,7 @@ test.describe('Invoices Management', () => {
       dateCreated: '2023-01-01',
       dueDate: '2023-01-15',
       totalAmount: 1500,
-      status: 'Draft',
+      status: INVOICE_STATUSES.DRAFT,
       currency: 'RSD',
       items: [
         {
@@ -32,7 +33,7 @@ test.describe('Invoices Management', () => {
       {
         id: '1',
         invoiceNumber: 'INV-2023-001',
-        invoiceType: 'Standard',
+        invoiceType: INVOICE_TYPES.STANDARD,
         clientId: '1',
         clientName: 'Eko Metal d.o.o.',
         projectId: '101',
@@ -40,7 +41,7 @@ test.describe('Invoices Management', () => {
         dateCreated: '2023-01-01',
         dueDate: '2023-01-15',
         totalAmount: 1500,
-        status: 'Draft',
+        status: INVOICE_STATUSES.DRAFT,
         currency: 'RSD',
         items: [
           {
@@ -314,6 +315,6 @@ test.describe('Invoices Management', () => {
     await markAsPaidBtn.click();
 
     expect(patchedStatus).not.toBeNull();
-    expect(patchedStatus.status).toBe('Paid');
+    expect(patchedStatus.status).toBe(INVOICE_STATUSES.PAID);
   });
 });

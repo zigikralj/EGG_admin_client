@@ -27,7 +27,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useLoading } from '../../context/LoadingContext';
 import { LanguageSelector } from '../../components/common/LanguageSelector';
-import { PersonIcon, LockIcon, EmailIcon, PhoneIcon, Visibility, VisibilityOff, CheckCircleIcon, HourglassEmptyIcon } from '../../components/icons';
+import { PersonIcon, LockIcon, EmailIcon, PhoneIcon, VisibilityIcon, VisibilityOff, CheckCircleIcon, HourglassEmptyIcon } from '../../components/icons';
 
 export const LoginPage: React.FC = () => {
   const { t } = useLanguage();
@@ -278,7 +278,7 @@ export const LoginPage: React.FC = () => {
                           onClick={() => setShowLoginPassword((prev) => !prev)}
                           edge="end"
                         >
-                          {showLoginPassword ? <VisibilityOff /> : <Visibility />}
+                          {showLoginPassword ? <VisibilityOff /> : <VisibilityIcon />}
                         </IconButton>
                       </InputAdornment>
                     ),
@@ -408,7 +408,7 @@ export const LoginPage: React.FC = () => {
                           onClick={() => setShowRegPassword((prev) => !prev)}
                           edge="end"
                         >
-                          {showRegPassword ? <VisibilityOff /> : <Visibility />}
+                          {showRegPassword ? <VisibilityOff /> : <VisibilityIcon />}
                         </IconButton>
                       </InputAdornment>
                     ),

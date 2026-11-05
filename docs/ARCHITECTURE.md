@@ -355,9 +355,9 @@ function MyPage(props: ViewProps & TableViewProps) {
   });
 
   // 2. CRUD operations
-  const { handleSave, handleDelete } = useCrudOperations({
+  const { handleSave, handleDelete } = useGenericMutations({
     basePath: '/api/my-entity',
-    items, authHeaders, onSuccess, onDeleteConfirm,
+    queryKeyToInvalidate: ['my-entity'],
     deleteConfirmMessageKey: 'confirmDelete',
     errorSaveMessageKey: 'errorSaving',
   });
@@ -379,7 +379,7 @@ All HTTP requests go through [`apiFetch()`](file:///Users/nemanja.stanojevic/Doc
 apiFetch(path, init?)
   ├── Resolves full URL via VITE_API_BASE_URL
   ├── Auto-attaches Authorization: Bearer <token>
-  ├── Auto-attaches X-User-Id header
+  ├── Auto-attaches X-Session-Id header
   ├── Calls native fetch()
   └── On 401 → dispatches 'auth:expired' event → auto logout
 ```
@@ -410,10 +410,10 @@ apiFetch(path, init?)
 | `/api/categories/:id` | PUT, DELETE | useCategories |
 | `/api/reminders` | GET, POST | useAppData, useReminders |
 | `/api/reminders/:id` | PUT, DELETE | useReminders |
-| `/api/reminders/:id/status` | PATCH | useReminders (via useStatusUpdate) |
+| `/api/reminders/:id/status` | PATCH | useRemindersMutations |
 | `/api/invoices` | GET, POST | useAppData, useInvoices |
 | `/api/invoices/:id` | PUT, DELETE | useInvoices |
-| `/api/invoices/:id/status` | PATCH | useInvoices (via useStatusUpdate) |
+| `/api/invoices/:id/status` | PATCH | useInvoicesMutations |
 | `/api/permits` | GET, POST | useAppData, usePermits |
 | `/api/permits/:id` | PUT, DELETE | usePermits |
 | `/api/waste-catalog` | GET | useAppData |
@@ -600,7 +600,6 @@ client/
 │   │   ├── useInvoiceFormState.ts # Invoice form state
 │   │   ├── useActivityTracker.ts  # Session tracking, idle detection, multi-tab sync
 │   │   ├── useLinkedListOptions.ts# Dynamic options & cascaded dependencies
-│   │   ├── useStatusUpdate.ts     # Generic status PATCH
 │   │   ├── useVersionCheck.ts     # Deployment update detection
 │   │   └── useRoleLabels.ts       # Role translation
 │   ├── pages/                     # 1 Route -> 1 Page view components
@@ -760,7 +759,6 @@ client/
 │   │   │   ├── DateRangeFilter.tsx
 │   │   │   ├── LanguageSelector.tsx
 │   │   │   ├── LoadingMask.tsx
-│   │   │   ├── RichTextEditor.tsx
 │   │   │   ├── TableFilterSelector.tsx
 │   │   │   ├── TableSearchInput.tsx
 │   │   │   ├── WasteCatalogAutocomplete.tsx

@@ -3,16 +3,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../api';
 import { API_ROUTES } from '../constants';
 import { useAuth } from '../context/AuthContext';
-import { useAuthHeaders } from './queryUtils';
 import type { SortState } from '../types';
 
 export function usePreferencesQuery() {
   const { currentUser } = useAuth();
-  const getAuthHeaders = useAuthHeaders();
   return useQuery<Record<string, any>>({
     queryKey: ['preferences', currentUser?.id],
     queryFn: async () => {
-      const res = await apiFetch(API_ROUTES.PREFERENCES.BASE, { headers: getAuthHeaders() });
+      const res = await apiFetch(API_ROUTES.PREFERENCES.BASE);
       if (!res.ok) throw new Error('Failed to fetch preferences');
       const data = await res.json();
       if (currentUser?.id && typeof localStorage !== 'undefined') {
@@ -32,23 +30,23 @@ export function usePreferencesQuery() {
       return undefined;
     },
     staleTime: 60 * 60 * 1000,
+    enabled: !!currentUser?.id,
   });
 }
 
 export function usePreferencesMutations() {
   const { currentUser } = useAuth();
   const queryClient = useQueryClient();
-  const getAuthHeaders = useAuthHeaders();
 
   const updatePreferenceMutation = useMutation({
     mutationKey: ['preferences', currentUser?.id],
     meta: { silent: true },
     mutationFn: async ({ key, value }: { key: string; value: any }) => {
+      if (!currentUser?.id) return;
       const res = await apiFetch(API_ROUTES.PREFERENCES.BY_KEY(key), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          ...getAuthHeaders(),
         },
         body: JSON.stringify({ value }),
       });
@@ -91,7 +89,6 @@ export function usePreferencesMutations() {
 }
 
 export function usePreferencesMutation() {
-  const getAuthHeaders = useAuthHeaders();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -100,7 +97,7 @@ export function usePreferencesMutation() {
     mutationFn: async ({ key, value }: { key: string; value: any }) => {
       const res = await apiFetch(API_ROUTES.PREFERENCES.BY_KEY(key), {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ value }),
       });
       if (!res.ok) throw new Error('Failed to update preference');

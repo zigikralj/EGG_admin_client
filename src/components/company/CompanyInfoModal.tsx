@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Button,
   IconButton,
@@ -15,8 +15,7 @@ import {
   alpha,
 } from '@mui/material';
 
-import { apiFetch } from '../../api';
-import { API_ROUTES } from '../../constants';
+import { useCompanyInfoQuery, useCompanyInfoMutations } from '../../queries';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { ViewEditModalBase } from '../common/modal/ViewEditModalBase';
@@ -50,63 +49,48 @@ export const CompanyInfoModal: React.FC<CompanyInfoModalProps> = ({ open, onClos
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
-  const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(EMPTY_COMPANY_INFO);
+  const { data: queriedCompanyInfo, isLoading } = useCompanyInfoQuery(open);
+  const { updateCompanyInfoMutation } = useCompanyInfoMutations();
+
+  const companyInfo = queriedCompanyInfo || EMPTY_COMPANY_INFO;
   const [formData, setFormData] = useState<CompanyInfo>(EMPTY_COMPANY_INFO);
   const [isEditing, setIsEditing] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const isSaving = updateCompanyInfoMutation.isPending;
 
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
 
-  // Fetch company info from backend DB when dialog opens
   useEffect(() => {
     if (open) {
       setIsEditing(false);
-      fetchCompanyInfo();
     }
   }, [open]);
 
-  const fetchCompanyInfo = async () => {
-    setIsLoading(true);
-    try {
-      const res = await apiFetch(API_ROUTES.COMPANY_INFO.BASE);
-      if (res.ok) {
-        const data = await res.json();
-        if (data) {
-          const info: CompanyInfo = {
-            id: data.id || 'default',
-            name: data.name || '',
-            legalName: data.legalName || '',
-            registrationNumber: data.registrationNumber || '',
-            municipality: data.municipality || '',
-            city: data.city || '',
-            streetAddress: data.streetAddress || '',
-            postalCode: data.postalCode || '',
-            postOffice: data.postOffice || '',
-            email: data.email || '',
-            taxId: data.taxId || '',
-            activityCode: data.activityCode || '',
-            bankAccounts: Array.isArray(data.bankAccounts) ? data.bankAccounts : [],
-          };
-          setCompanyInfo(info);
-          setFormData(info);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to load company info from server', err);
-    } finally {
-      setIsLoading(false);
+  useEffect(() => {
+    if (queriedCompanyInfo && !isEditing) {
+      setFormData(queriedCompanyInfo);
     }
-  };
+  }, [queriedCompanyInfo, isEditing]);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current) {
+        clearTimeout(copyTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleCopy = (text: string, key: string, customMsg?: string) => {
     navigator.clipboard.writeText(text);
     setCopiedKey(key);
     setSnackbarSeverity('success');
     setSnackbarMessage(customMsg || t('copiedToClipboard'));
-    setTimeout(() => {
+    if (copyTimerRef.current) {
+      clearTimeout(copyTimerRef.current);
+    }
+    copyTimerRef.current = setTimeout(() => {
       setCopiedKey((prev) => (prev === key ? null : prev));
     }, 2000);
   };
@@ -176,25 +160,13 @@ export const CompanyInfoModal: React.FC<CompanyInfoModalProps> = ({ open, onClos
 
   const handleSave = async () => {
     if (!canEdit) return;
-    setIsSaving(true);
     try {
       const payload = {
         ...formData,
         bankAccounts: formData.bankAccounts.map((a) => a.trim()).filter(Boolean),
       };
 
-      const res = await apiFetch(API_ROUTES.COMPANY_INFO.BASE, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        throw new Error('Failed to update company info');
-      }
-
-      const updated = await res.json();
-      setCompanyInfo(updated);
+      const updated = await updateCompanyInfoMutation.mutateAsync(payload);
       setFormData(updated);
       setIsEditing(false);
       setSnackbarSeverity('success');
@@ -203,8 +175,6 @@ export const CompanyInfoModal: React.FC<CompanyInfoModalProps> = ({ open, onClos
       console.error(err);
       setSnackbarSeverity('error');
       setSnackbarMessage(t('msgCompanyInfoSaveError'));
-    } finally {
-      setIsSaving(false);
     }
   };
 
