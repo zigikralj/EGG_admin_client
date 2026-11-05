@@ -20,22 +20,26 @@ import {
 import { PieChart } from '@mui/x-charts/PieChart';
 import { LineChart } from '@mui/x-charts/LineChart';
 import { BarChart } from '@mui/x-charts/BarChart';
-import type { Project, User, Category, Service, Client, Invoice } from '../../types';
+import type { Project, User, Category, Service, Client, Invoice, ProjectStatisticsResult } from '../../types';
 import { typeGroup } from '../../types';
 import { isInvoicePaid, INTL_LOCALE_MAP } from '../../constants';
 import { useLanguage } from '../../context/LanguageContext';
 import { PersonOutlinedIcon, CategoryOutlinedIcon, FilterListIcon, LandscapeOutlinedIcon, LeaderboardOutlinedIcon } from '../icons';
 
+export type FilterStatus = 'all' | 'active' | 'done';
+
 interface Props {
-  projects: Project[];
+  stats?: ProjectStatisticsResult;
+  filterStatus?: FilterStatus;
+  onFilterStatusChange?: (status: FilterStatus) => void;
+  projects?: Project[];
   clients?: Client[];
   invoices?: Invoice[];
-  users: User[];
-  categories: Category[];
-  services: Service[];
+  users?: User[];
+  categories?: Category[];
+  services?: Service[];
 }
 
-type FilterStatus = 'all' | 'active' | 'done';
 type TrendMode = 'cumulative' | 'monthly';
 
 const UNASSIGNED_KEY = '__unassigned__';
@@ -67,16 +71,25 @@ const CATEGORY_COLORS = [
 ];
 
 const ProjectsStatistics: React.FC<Props> = ({
-  projects,
+  stats,
+  filterStatus: filterStatusProp,
+  onFilterStatusChange,
+  projects = [],
   clients = [],
   invoices = [],
-  users,
-  categories,
-  services,
+  users = [],
+  categories = [],
+  services = [],
 }) => {
   const { language, t } = useLanguage();
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
+  const [internalFilterStatus, setInternalFilterStatus] = useState<FilterStatus>('all');
   const [trendMode, setTrendMode] = useState<TrendMode>('cumulative');
+
+  const filterStatus = filterStatusProp ?? internalFilterStatus;
+  const setFilterStatus = (val: FilterStatus) => {
+    if (onFilterStatusChange) onFilterStatusChange(val);
+    else setInternalFilterStatus(val);
+  };
 
   const adminNames = useMemo(() => {
     const set = new Set<string>();
@@ -128,7 +141,12 @@ const ProjectsStatistics: React.FC<Props> = ({
     return nonAdminProjects;
   }, [projects, filterStatus, isAdminUser, getProjectOwner]);
 
-  const totalFiltered = filteredProjects.length;
+  const totalFiltered = useMemo(() => {
+    if (stats) {
+      return stats.statusCounts[filterStatus] ?? 0;
+    }
+    return filteredProjects.length;
+  }, [stats, filterStatus, filteredProjects]);
 
   // Fallback category labels from translations
   const groupLabels: Record<string, string> = useMemo(
@@ -158,6 +176,19 @@ const ProjectsStatistics: React.FC<Props> = ({
 
   // 1. Projects per User data (Pie Chart)
   const userChartData = useMemo(() => {
+    if (stats) {
+      if (stats.userStats.length === 0) return [];
+      const totalUserProjects = stats.userStats.reduce((acc, item) => acc + item.count, 0);
+
+      return stats.userStats.map((item, idx) => ({
+        id: `user-${idx}`,
+        value: item.count,
+        label: item.userName === UNASSIGNED_KEY ? t('unassignedUser') : item.userName,
+        color: MOUNTAIN_COLORS[idx % MOUNTAIN_COLORS.length],
+        percentage: totalUserProjects > 0 ? ((item.count / totalUserProjects) * 100).toFixed(1) : '0',
+      }));
+    }
+
     if (totalFiltered === 0) return [];
 
     const userCountMap = new Map<string, { key: string; count: number }>();
@@ -190,10 +221,26 @@ const ProjectsStatistics: React.FC<Props> = ({
       color: MOUNTAIN_COLORS[idx % MOUNTAIN_COLORS.length],
       percentage: totalUserProjects > 0 ? ((item.count / totalUserProjects) * 100).toFixed(1) : '0',
     }));
-  }, [filteredProjects, users, totalFiltered, isAdminUser, t]);
+  }, [stats, filteredProjects, users, totalFiltered, isAdminUser, t]);
 
   // 2. Projects per Category data (Pie Chart)
   const categoryChartData = useMemo(() => {
+    if (stats) {
+      if (stats.categoryStats.length === 0) return [];
+      const totalCategoryProjects = stats.categoryStats.reduce((acc, item) => acc + item.count, 0);
+
+      return stats.categoryStats.map((item, idx) => {
+        const label = item.grpCode === OTHER_KEY ? t('otherCategory') : (groupLabels[item.grpCode] || item.categoryName);
+        return {
+          id: `cat-${idx}`,
+          value: item.count,
+          label,
+          color: CATEGORY_COLORS[idx % CATEGORY_COLORS.length],
+          percentage: totalCategoryProjects > 0 ? ((item.count / totalCategoryProjects) * 100).toFixed(1) : '0',
+        };
+      });
+    }
+
     if (totalFiltered === 0) return [];
 
     const categoryCountMap = new Map<string, { grpCode: string; count: number }>();
@@ -219,7 +266,7 @@ const ProjectsStatistics: React.FC<Props> = ({
         percentage: totalFiltered > 0 ? ((item.count / totalFiltered) * 100).toFixed(1) : '0',
       };
     });
-  }, [filteredProjects, services, totalFiltered, getCategoryLabel, t]);
+  }, [stats, filteredProjects, services, totalFiltered, getCategoryLabel, groupLabels, t]);
 
   // 3. Stacked Mountain Area Chart: Last 12 Months Completed Projects by Owner
   const last12Months = useMemo(() => {
@@ -259,6 +306,36 @@ const ProjectsStatistics: React.FC<Props> = ({
 
   // Build series for Mountain Area Chart
   const { stackedSeries, totalCompletedIn12Months } = useMemo(() => {
+    if (stats) {
+      const { months, owners, totalCompletedIn12Months } = stats.mountainStats;
+      const series = owners.map((o, idx) => {
+        const monthlyData = months.map((m) => o.countsByMonth[m.key] || 0);
+        let cumSum = 0;
+        const cumulativeData = monthlyData.map((val) => {
+          cumSum += val;
+          return cumSum;
+        });
+        const activeData = trendMode === 'cumulative' ? cumulativeData : monthlyData;
+
+        return {
+          id: o.owner,
+          data: activeData,
+          label: o.owner === UNASSIGNED_KEY ? t('unassignedUser') : o.owner,
+          area: true,
+          stack: 'total',
+          curve: 'monotoneX' as const,
+          showMark: false,
+          color: MOUNTAIN_COLORS[idx % MOUNTAIN_COLORS.length],
+          valueFormatter: (v: number | null) => (v !== null ? `${v} ${t('statDone').toLowerCase()}` : '0'),
+        };
+      });
+
+      return {
+        stackedSeries: series,
+        totalCompletedIn12Months,
+      };
+    }
+
     const completedProjects = projects.filter((p) => {
       if (!p.done) return false;
       const owner = getProjectOwner(p);
@@ -352,9 +429,14 @@ const ProjectsStatistics: React.FC<Props> = ({
       stackedSeries: series,
       totalCompletedIn12Months: totalCompleted,
     };
-  }, [projects, users, last12Months, getProjectOwner, isAdminUser, trendMode, t]);
+  }, [stats, projects, users, last12Months, getProjectOwner, isAdminUser, trendMode, t]);
 
-  const xLabels = useMemo(() => last12Months.map((m) => m.label), [last12Months]);
+  const xLabels = useMemo(() => {
+    if (stats) {
+      return stats.mountainStats.months.map((m) => m.label);
+    }
+    return last12Months.map((m) => m.label);
+  }, [stats, last12Months]);
 
   // Helper to check if an invoice is paid
   const isPaidInvoice = useCallback((inv: Invoice) => {
@@ -363,6 +445,17 @@ const ProjectsStatistics: React.FC<Props> = ({
 
   // Top 10 Clients by Sum of Paid Invoices
   const top10ClientsData = useMemo(() => {
+    if (stats) {
+      return {
+        topClients: stats.topClients.map((c) => ({
+          clientKey: c.clientKey,
+          clientName: c.clientName === UNASSIGNED_KEY ? t('unassignedUser') : c.clientName,
+          totalPaid: c.totalPaid,
+          count: c.count,
+        })),
+      };
+    }
+
     const map = new Map<string, { clientKey: string; clientName: string; totalPaid: number; count: number }>();
 
     invoices.forEach((inv) => {
@@ -403,7 +496,7 @@ const ProjectsStatistics: React.FC<Props> = ({
     return {
       topClients: sorted,
     };
-  }, [invoices, clients, isPaidInvoice, t]);
+  }, [stats, invoices, clients, isPaidInvoice, t]);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 1 }}>

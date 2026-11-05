@@ -10,6 +10,8 @@ import type {
   ProjectUpdatesDiffResult,
   PaginatedResponse,
   SaveResult,
+  ProjectStatisticsResult,
+  ProjectStatisticsQueryOptions,
 } from '../types';
 
 export function useProjectsSummaryQuery(options?: { enabled?: boolean }) {
@@ -19,6 +21,32 @@ export function useProjectsSummaryQuery(options?: { enabled?: boolean }) {
     queryFn: async () => {
       const res = await apiFetch(`${API_ROUTES.PROJECTS.BASE}?fields=summary`);
       if (!res.ok) throw new Error('Failed to fetch projects summary');
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
+}
+
+export function useProjectStatisticsQuery(
+  options: ProjectStatisticsQueryOptions = {},
+  enabled: boolean = true
+) {
+  const { language } = useLanguage();
+  const status = options.status || 'all';
+  const lang = options.language || language;
+
+  return useQuery<ProjectStatisticsResult>({
+    queryKey: ['projects', 'statistics', { status, language: lang }],
+    enabled,
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (status && status !== 'all') params.set('status', status);
+      if (lang) params.set('language', lang);
+
+      const queryString = params.toString() ? `?${params.toString()}` : '';
+      const res = await apiFetch(`${API_ROUTES.PROJECTS.STATISTICS}${queryString}`);
+      if (!res.ok) throw new Error('Failed to fetch project statistics');
       return res.json();
     },
     staleTime: 60_000,

@@ -81,3 +81,55 @@ export interface ProjectUpdatesDiffResult {
     isNew: boolean;
   }>;
 }
+
+export interface ProjectUserStatDto {
+  userName: string;
+  count: number;
+}
+
+export interface ProjectCategoryStatDto {
+  grpCode: string;
+  categoryName: string;
+  count: number;
+}
+
+export interface MountainOwnerDto {
+  owner: string;
+  countsByMonth: Record<string, number>;
+  total: number;
+}
+
+export interface MountainMonthDto {
+  key: string;
+  label: string;
+}
+
+export interface TopClientPaidDto {
+  clientKey: string;
+  clientName: string;
+  totalPaid: number;
+  count: number;
+}
+
+export interface ProjectStatisticsResult {
+  statusCounts: {
+    all: number;
+    active: number;
+    done: number;
+  };
+  filterStatus: 'all' | 'active' | 'done';
+  userStats: ProjectUserStatDto[];
+  categoryStats: ProjectCategoryStatDto[];
+  mountainStats: {
+    totalCompletedIn12Months: number;
+    months: MountainMonthDto[];
+    owners: MountainOwnerDto[];
+  };
+  topClients: TopClientPaidDto[];
+}
+
+export interface ProjectStatisticsQueryOptions {
+  status?: 'all' | 'active' | 'done';
+  language?: string;
+}
+
