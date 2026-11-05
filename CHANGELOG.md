@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.11.9] - 2026-11-05
+
+- Anti patterns fix (#108) by @zigikralj
+
 ## [v1.11.8] - 2026-11-01
 
 - Waste disposal logic refactoring (#106) by @zigikralj
