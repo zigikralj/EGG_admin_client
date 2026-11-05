@@ -59,8 +59,8 @@ export const TrackerRemindersPage: React.FC<TrackerRemindersPageProps> = () => {
         onStatusChangeReminder={onStatusChangeReminder}
         openNewReminderTrigger={newReminderTrigger}
         onNewReminderTriggerHandled={() => setNewReminderTrigger(0)}
-        myRemindersOnly={Boolean(quickFilters)}
-        onMyRemindersOnlyChange={(val) => onQuickFiltersChange(val)}
+        quickFilters={quickFilters}
+        onQuickFiltersChange={onQuickFiltersChange}
         rowsPerPageOptions={rowsPerPageOptions}
         onRowsPerPageOptionsChange={onRowsPerPageOptionsChange}
         rowsPerPage={rowsPerPage}

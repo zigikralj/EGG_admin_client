@@ -561,6 +561,7 @@ const srCyrlTranslations: TranslationKeys = {
   "filterAll": "Све",
   "quickFilterMyProjects": "Моји пројекти",
   "quickFilterMyReminders": "Моји подсетници",
+  "quickFilterNotCompleted": "Незавршено",
   "quickFilterActive": "Активни",
   "quickFilterMissingInvoice": "Недостаје фактура",
   "quickFilterOverdue": "Хитно",

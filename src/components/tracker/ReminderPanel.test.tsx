@@ -72,4 +72,49 @@ describe('ReminderPanel', () => {
       expect(handleHandled).toHaveBeenCalled();
     });
   });
+
+  it('filters out completed reminders by default via quickFilterNotCompleted and shows them when unchecked', async () => {
+    const mixedReminders = [
+      {
+        id: 'rem-1',
+        title: 'Pending Task',
+        projectName: 'Main Facility',
+        clientName: 'Eco Client',
+        dueDate: '2026-06-01',
+        status: 'pending',
+        responsible: 'Alice',
+      },
+      {
+        id: 'rem-2',
+        title: 'Finished Task',
+        projectName: 'Main Facility',
+        clientName: 'Eco Client',
+        dueDate: '2026-06-02',
+        status: 'completed',
+        responsible: 'Alice',
+      },
+    ];
+
+    renderWithProviders(
+      <ReminderPanel
+        reminders={mixedReminders as any}
+        clients={[]}
+        projects={[]}
+        users={[]}
+      />
+    );
+
+    const notCompletedCheckbox = screen.getByLabelText('quickFilterNotCompleted') as HTMLInputElement;
+    expect(notCompletedCheckbox).toBeChecked();
+    expect(screen.getByText('Pending Task')).toBeInTheDocument();
+    expect(screen.queryByText('Finished Task')).not.toBeInTheDocument();
+
+    fireEvent.click(notCompletedCheckbox);
+
+    await waitFor(() => {
+      expect(notCompletedCheckbox).not.toBeChecked();
+      expect(screen.getByText('Pending Task')).toBeInTheDocument();
+      expect(screen.getByText('Finished Task')).toBeInTheDocument();
+    });
+  });
 });

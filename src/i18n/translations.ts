@@ -608,6 +608,7 @@ export interface TranslationKeys {
   filterAll: string;
   quickFilterMyProjects: string;
   quickFilterMyReminders: string;
+  quickFilterNotCompleted: string;
   quickFilterActive: string;
   quickFilterMissingInvoice: string;
   quickFilterOverdue: string;
