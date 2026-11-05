@@ -120,6 +120,7 @@ export function useWasteStatisticsQuery(params: WasteStatisticsQueryOptions = {}
       if (!res.ok) throw new Error('Failed to fetch waste statistics');
       return res.json();
     },
+    meta: { silent: true },
     placeholderData: keepPreviousData,
     staleTime: 60000,
   });
@@ -162,6 +163,7 @@ export function useWasteDisposalClientsQuery(
       if (!res.ok) throw new Error('Failed to fetch waste disposal clients');
       return res.json();
     },
+    meta: { silent: true },
     staleTime: 60000,
   });
 }

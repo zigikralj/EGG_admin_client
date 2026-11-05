@@ -99,7 +99,7 @@ export const WasteDisposalStatistics: React.FC<Props> = ({ title }) => {
     status: wasteChartStatusFilter,
   });
 
-  const { data: clientsData, isLoading: isClientsLoading } = useWasteDisposalClientsQuery({
+  const { data: clientsData, isLoading: isClientsLoading, isFetching: isClientsFetching } = useWasteDisposalClientsQuery({
     page: clientsPage + 1,
     limit: clientsRowsPerPage,
     search: clientsSearch,
@@ -204,33 +204,28 @@ export const WasteDisposalStatistics: React.FC<Props> = ({ title }) => {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, width: '100%', pb: 3 }}>
       {/* HEADER */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Box
-            sx={{
-              p: 1,
-              borderRadius: 2,
-              bgcolor: 'primary.50',
-              color: 'primary.main',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <BarChartIcon fontSize="medium" />
-          </Box>
-          <Box>
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>
-              {title || t('providedServicesStatistics')}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {t('totalProvidedServices')}: {kpi.totalCount}
-            </Typography>
-          </Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <Box
+          sx={{
+            p: 1,
+            borderRadius: 2,
+            bgcolor: 'primary.50',
+            color: 'primary.main',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <BarChartIcon fontSize="medium" />
         </Box>
-        {isFetching && !isLoading && (
-          <CircularProgress size={20} sx={{ color: 'primary.main', mr: 1 }} />
-        )}
+        <Box>
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+            {title || t('providedServicesStatistics')}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {t('totalProvidedServices')}: {kpi.totalCount}
+          </Typography>
+        </Box>
       </Box>
 
       {/* KPI METRIC CARDS */}
@@ -407,13 +402,19 @@ export const WasteDisposalStatistics: React.FC<Props> = ({ title }) => {
                 mb: 1.5,
               }}
             >
-              <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.8125rem' }}>
-                {t('annualWasteAnalysis')}
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.8125rem' }}>
+                  {t('annualWasteAnalysis')}
+                </Typography>
+                {isFetching && !isLoading && (
+                  <CircularProgress size={13} thickness={5} sx={{ color: 'primary.main' }} />
+                )}
+              </Box>
 
               {/* Year Autocomplete */}
               <Autocomplete
                 size="small"
+                loading={isFetching && !isLoading}
                 disableClearable={availableYears.length > 0 && activeWasteYear !== null}
                 options={availableYears}
                 getOptionLabel={(yr) => (yr !== null && yr !== undefined ? String(yr) : '')}
@@ -454,9 +455,14 @@ export const WasteDisposalStatistics: React.FC<Props> = ({ title }) => {
                     height: '100%',
                   }}
                 >
-                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, fontSize: '0.7rem' }}>
-                    {t('totalWasteYear')}
-                  </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, fontSize: '0.7rem' }}>
+                      {t('totalWasteYear')}
+                    </Typography>
+                    {isFetching && !isLoading && (
+                      <CircularProgress size={11} thickness={5} sx={{ color: '#0284c7' }} />
+                    )}
+                  </Box>
                   <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, mt: 0.25 }}>
                     <Typography sx={{ fontWeight: 800, fontSize: '1.25rem', color: '#0284c7', lineHeight: 1.2 }}>
                       {wasteStatsForSelectedYear.totalKg.toLocaleString(undefined, { maximumFractionDigits: 1 })}
@@ -493,9 +499,14 @@ export const WasteDisposalStatistics: React.FC<Props> = ({ title }) => {
                     height: '100%',
                   }}
                 >
-                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, fontSize: '0.7rem' }}>
-                    {t('wasteClientsCount')}
-                  </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, fontSize: '0.7rem' }}>
+                      {t('wasteClientsCount')}
+                    </Typography>
+                    {isFetching && !isLoading && (
+                      <CircularProgress size={11} thickness={5} sx={{ color: 'primary.main' }} />
+                    )}
+                  </Box>
                   <Typography sx={{ fontWeight: 800, fontSize: '1.25rem', color: 'primary.main', mt: 0.25, lineHeight: 1.2 }}>
                     {wasteStatsForSelectedYear.activeClientsCount}
                   </Typography>
@@ -521,9 +532,14 @@ export const WasteDisposalStatistics: React.FC<Props> = ({ title }) => {
                     height: '100%',
                   }}
                 >
-                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, fontSize: '0.7rem' }}>
-                    {t('wasteEntriesCount')}
-                  </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, fontSize: '0.7rem' }}>
+                      {t('wasteEntriesCount')}
+                    </Typography>
+                    {isFetching && !isLoading && (
+                      <CircularProgress size={11} thickness={5} sx={{ color: '#f59e0b' }} />
+                    )}
+                  </Box>
                   <Typography sx={{ fontWeight: 800, fontSize: '1.25rem', color: '#f59e0b', mt: 0.25, lineHeight: 1.2 }}>
                     {wasteStatsForSelectedYear.totalEntries}
                   </Typography>
@@ -549,13 +565,19 @@ export const WasteDisposalStatistics: React.FC<Props> = ({ title }) => {
                 mb: 1.5,
               }}
             >
-              <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.8125rem' }}>
-                {t('monthlyWasteAnalysis')}
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.8125rem' }}>
+                  {t('monthlyWasteAnalysis')}
+                </Typography>
+                {isFetching && !isLoading && (
+                  <CircularProgress size={13} thickness={5} sx={{ color: 'primary.main' }} />
+                )}
+              </Box>
 
               {/* Month Autocomplete */}
               <Autocomplete
                 size="small"
+                loading={isFetching && !isLoading}
                 disableClearable={selectedYearMonths.length > 0 && selectedMonthObj !== null}
                 options={selectedYearMonths}
                 getOptionLabel={(opt) => opt?.label || ''}
@@ -596,9 +618,14 @@ export const WasteDisposalStatistics: React.FC<Props> = ({ title }) => {
                     height: '100%',
                   }}
                 >
-                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, fontSize: '0.7rem' }}>
-                    {t('totalWasteMonth')}
-                  </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, fontSize: '0.7rem' }}>
+                      {t('totalWasteMonth')}
+                    </Typography>
+                    {isFetching && !isLoading && (
+                      <CircularProgress size={11} thickness={5} sx={{ color: 'success.main' }} />
+                    )}
+                  </Box>
                   <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, mt: 0.25 }}>
                     <Typography sx={{ fontWeight: 800, fontSize: '1.25rem', color: 'success.main', lineHeight: 1.2 }}>
                       {wasteStatsForSelectedMonth.totalKg.toLocaleString(undefined, { maximumFractionDigits: 1 })}
@@ -635,9 +662,14 @@ export const WasteDisposalStatistics: React.FC<Props> = ({ title }) => {
                     height: '100%',
                   }}
                 >
-                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, fontSize: '0.7rem' }}>
-                    {t('wasteClientsCount')}
-                  </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, fontSize: '0.7rem' }}>
+                      {t('wasteClientsCount')}
+                    </Typography>
+                    {isFetching && !isLoading && (
+                      <CircularProgress size={11} thickness={5} sx={{ color: 'primary.main' }} />
+                    )}
+                  </Box>
                   <Typography sx={{ fontWeight: 800, fontSize: '1.25rem', color: 'primary.main', mt: 0.25, lineHeight: 1.2 }}>
                     {wasteStatsForSelectedMonth.activeClientsCount}
                   </Typography>
@@ -663,9 +695,14 @@ export const WasteDisposalStatistics: React.FC<Props> = ({ title }) => {
                     height: '100%',
                   }}
                 >
-                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, fontSize: '0.7rem' }}>
-                    {t('wasteEntriesCount')}
-                  </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, fontSize: '0.7rem' }}>
+                      {t('wasteEntriesCount')}
+                    </Typography>
+                    {isFetching && !isLoading && (
+                      <CircularProgress size={11} thickness={5} sx={{ color: '#f59e0b' }} />
+                    )}
+                  </Box>
                   <Typography sx={{ fontWeight: 800, fontSize: '1.25rem', color: '#f59e0b', mt: 0.25, lineHeight: 1.2 }}>
                     {wasteStatsForSelectedMonth.totalEntries}
                   </Typography>
@@ -679,9 +716,14 @@ export const WasteDisposalStatistics: React.FC<Props> = ({ title }) => {
 
           {/* Breakdown Per Client */}
           <Box sx={{ mt: 1 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
-              {t('wasteQuantityByClient')}
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                {t('wasteQuantityByClient')}
+              </Typography>
+              {isFetching && !isLoading && (
+                <CircularProgress size={13} thickness={5} sx={{ color: 'primary.main' }} />
+              )}
+            </Box>
 
             {wasteStatsForSelectedMonth.clients.length === 0 ? (
               <Box sx={{ py: 3.5, textAlign: 'center', bgcolor: 'action.hover', borderRadius: 2 }}>
@@ -774,6 +816,9 @@ export const WasteDisposalStatistics: React.FC<Props> = ({ title }) => {
                   <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
                     {t('wasteComparisonByYear')}
                   </Typography>
+                  {isFetching && !isLoading && (
+                    <CircularProgress size={13} thickness={5} sx={{ color: 'primary.main' }} />
+                  )}
                 </Box>
                 <ToggleButtonGroup
                   size="small"
@@ -847,6 +892,9 @@ export const WasteDisposalStatistics: React.FC<Props> = ({ title }) => {
                     variant="outlined"
                     sx={{ fontWeight: 700, fontSize: '0.75rem' }}
                   />
+                  {isClientsFetching && !isClientsLoading && (
+                    <CircularProgress size={13} thickness={5} sx={{ color: 'primary.main' }} />
+                  )}
                 </Box>
 
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>

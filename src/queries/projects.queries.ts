@@ -49,6 +49,7 @@ export function useProjectStatisticsQuery(
       if (!res.ok) throw new Error('Failed to fetch project statistics');
       return res.json();
     },
+    meta: { silent: true },
     staleTime: 60_000,
   });
 }
