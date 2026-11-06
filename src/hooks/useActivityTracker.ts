@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../api';
-import { API_ROUTES, PAGE_ROUTES, STORAGE_KEYS } from '../constants';
+import { API_ROUTES, PAGE_ROUTES, STORAGE_KEYS, TIME_MS } from '../constants';
 
 /**
  * Lightweight, batched page-activity tracker.
@@ -24,16 +24,16 @@ interface TrackerEvent {
   timestamp: string;
 }
 
-const FLUSH_INTERVAL_MS = 60_000; // 60 seconds (optimized for network bandwidth; still flushes immediately on navigation/unload)
+const FLUSH_INTERVAL_MS = TIME_MS.ONE_MINUTE; // 60 seconds (optimized for network bandwidth; still flushes immediately on navigation/unload)
 const MIN_PAGE_VIEW_SECONDS = 1;
 const MAX_QUEUE_SIZE = 100;
 export const MAX_IDLE_SECONDS = 120; // 2 minutes without user interaction considered idle
-const HEARTBEAT_INTERVAL_MS = 5_000; // 5-second tick for idle & sleep detection
+const HEARTBEAT_INTERVAL_MS = TIME_MS.FIVE_SECONDS; // 5-second tick for idle & sleep detection
 
 export const SESSION_STORAGE_KEY = STORAGE_KEYS.ACTIVITY_SESSION_ID;
 export const SESSION_ACTIVITY_KEY = STORAGE_KEYS.ACTIVITY_SESSION_LAST_ACTIVE;
 export const SESSION_LOGIN_KEY = STORAGE_KEYS.ACTIVITY_LOGIN_LOGGED;
-export const SESSION_INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+export const SESSION_INACTIVITY_TIMEOUT_MS = TIME_MS.THIRTY_MINUTES; // 30 minutes
 
 export function getSessionId(): string {
   const now = Date.now();
@@ -357,7 +357,7 @@ export function useActivityTracker() {
 
       // 1. Sleep / Freeze detection:
       // Heartbeat is scheduled every 5s. If elapsed > 15s, system was suspended/asleep!
-      if (elapsedSinceLastTick > 15_000) {
+      if (elapsedSinceLastTick > TIME_MS.FIFTEEN_SECONDS) {
         if (!isIdleRef.current) {
           closeSegment(true);
         }

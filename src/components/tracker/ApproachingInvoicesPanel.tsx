@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 
 import type { Invoice, Client, Project, ProvidedService, SaveResult } from '../../types';
+import { TIME_MS } from '../../constants';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { enhanceInvoicesWithLinks } from '../../utils/invoiceUtils';
@@ -259,7 +260,7 @@ export const ApproachingInvoicesPanel: React.FC<Props> = ({
     if (!inv.dueDate) return true;
     const due = new Date(inv.dueDate.split('T')[0]);
     const today = new Date(new Date().toDateString());
-    const diffDays = (due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
+    const diffDays = (due.getTime() - today.getTime()) / TIME_MS.ONE_DAY;
     return diffDays >= 0 && diffDays <= 15;
   };
 

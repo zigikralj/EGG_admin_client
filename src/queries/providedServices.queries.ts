@@ -1,6 +1,6 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { apiFetch } from '../api';
-import { API_ROUTES } from '../constants';
+import { API_ROUTES, TIME_MS } from '../constants';
 import { buildPaginationQueryParams, useGenericMutations } from './queryUtils';
 import type {
   ProvidedService,
@@ -92,7 +92,7 @@ export function usePaginatedProvidedServicesQuery(params: PaginatedProvidedServi
       }
       return data;
     },
-    staleTime: 30000,
+    staleTime: TIME_MS.THIRTY_SECONDS,
   });
 }
 
@@ -122,7 +122,7 @@ export function useWasteStatisticsQuery(params: WasteStatisticsQueryOptions = {}
     },
     meta: { silent: true },
     placeholderData: keepPreviousData,
-    staleTime: 60000,
+    staleTime: TIME_MS.ONE_MINUTE,
   });
 }
 
@@ -164,7 +164,7 @@ export function useWasteDisposalClientsQuery(
       return res.json();
     },
     meta: { silent: true },
-    staleTime: 60000,
+    staleTime: TIME_MS.ONE_MINUTE,
   });
 }
 

@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../api';
-import { API_ROUTES } from '../constants';
+import { API_ROUTES, TIME_MS } from '../constants';
 import { useAuth } from '../context/AuthContext';
 import type { SortState } from '../types';
 
@@ -29,7 +29,7 @@ export function usePreferencesQuery() {
       }
       return undefined;
     },
-    staleTime: 60 * 60 * 1000,
+    staleTime: TIME_MS.ONE_HOUR,
     enabled: !!currentUser?.id,
   });
 }

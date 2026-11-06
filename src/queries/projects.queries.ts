@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
 import { apiFetch } from '../api';
-import { API_ROUTES } from '../constants';
+import { API_ROUTES, TIME_MS } from '../constants';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { buildPaginationQueryParams, useGenericMutations } from './queryUtils';
@@ -23,7 +23,7 @@ export function useProjectsSummaryQuery(options?: { enabled?: boolean }) {
       if (!res.ok) throw new Error('Failed to fetch projects summary');
       return res.json();
     },
-    staleTime: 60_000,
+    staleTime: TIME_MS.ONE_MINUTE,
   });
 }
 
@@ -50,7 +50,7 @@ export function useProjectStatisticsQuery(
       return res.json();
     },
     meta: { silent: true },
-    staleTime: 60_000,
+    staleTime: TIME_MS.ONE_MINUTE,
   });
 }
 
@@ -134,7 +134,7 @@ export function usePaginatedProjectsQuery(params: PaginatedProjectsParams, enabl
     },
     placeholderData: keepPreviousData,
     enabled,
-    staleTime: 30_000,
+    staleTime: TIME_MS.THIRTY_SECONDS,
   });
 }
 
@@ -214,7 +214,7 @@ export function useInfiniteProjectsQuery(params: InfiniteProjectsParams = {}, en
     },
     getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.page + 1 : undefined),
     enabled,
-    staleTime: 30_000,
+    staleTime: TIME_MS.THIRTY_SECONDS,
   });
 }
 
@@ -232,8 +232,8 @@ export function useProjectDetailsQuery(id: string | undefined, enabled: boolean 
     },
     enabled: Boolean(id) && enabled,
     meta: { silent: true },
-    staleTime: 5 * 60_000,
-    gcTime: 15 * 60_000,
+    staleTime: TIME_MS.FIVE_MINUTES,
+    gcTime: TIME_MS.FIFTEEN_MINUTES,
   });
 }
 
@@ -270,8 +270,8 @@ export function useProjectNoteQuery(projectId: string | undefined, enabled: bool
     },
     enabled: Boolean(projectId) && enabled,
     meta: { silent: true },
-    staleTime: 5 * 60_000,
-    gcTime: 15 * 60_000,
+    staleTime: TIME_MS.FIVE_MINUTES,
+    gcTime: TIME_MS.FIFTEEN_MINUTES,
   });
 }
 
@@ -313,8 +313,8 @@ export function useProjectUpdatesQuery(
     },
     enabled,
     meta: { silent: true },
-    staleTime: 2 * 60_000,
-    gcTime: 10 * 60_000,
+    staleTime: TIME_MS.TWO_MINUTES,
+    gcTime: TIME_MS.TEN_MINUTES,
   });
 }
 
@@ -338,8 +338,8 @@ export function useProjectUpdatesDiffQuery(
     },
     enabled: Boolean(projectId && dateFrom) && enabled,
     meta: { silent: true },
-    staleTime: 5 * 60_000,
-    gcTime: 15 * 60_000,
+    staleTime: TIME_MS.FIVE_MINUTES,
+    gcTime: TIME_MS.FIFTEEN_MINUTES,
   });
 }
 

@@ -27,7 +27,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useProjectUpdatesQuery, useUsersSummaryQuery } from '../../queries';
 import { apiFetch } from '../../api';
-import { API_ROUTES } from '../../constants';
+import { API_ROUTES, TIME_MS } from '../../constants';
 import { ProjectNotesPreview } from '../project/ProjectCard';
 import {
   UpdateIcon,
@@ -101,7 +101,7 @@ function isNearDeadline(deadline: string | null | undefined, done: boolean, days
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const diffTime = deadlineDate.getTime() - today.getTime();
-  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+  const diffDays = Math.round(diffTime / TIME_MS.ONE_DAY);
   return diffDays >= 0 && diffDays <= days;
 }
 
@@ -208,7 +208,7 @@ export const ProjectUpdatesPanel: React.FC<ProjectUpdatesPanelProps> = ({
         return res.json();
       },
       meta: { silent: true },
-      staleTime: 5 * 60_000,
+      staleTime: TIME_MS.FIVE_MINUTES,
     });
 
     // Prefetch project details
@@ -220,7 +220,7 @@ export const ProjectUpdatesPanel: React.FC<ProjectUpdatesPanelProps> = ({
         return res.json();
       },
       meta: { silent: true },
-      staleTime: 5 * 60_000,
+      staleTime: TIME_MS.FIVE_MINUTES,
     });
   }, [queryClient, range.dateFrom, range.dateTo]);
 

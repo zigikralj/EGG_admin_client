@@ -23,6 +23,8 @@ import { stripHtmlToText } from '../../utils/stripHtmlToText';
 import { ProjectProgressSlider } from './ProjectProgressSlider';
 import { ProjectReminderSection } from './ProjectReminderSection';
 import { ProjectInvoiceSection } from './ProjectInvoiceSection';
+import { ProjectChatPane } from '../chat/ProjectChatPane';
+import ChatBubbleOutlinedIcon from '@mui/icons-material/ChatBubbleOutlined';
 import { useProjectForm } from '../../hooks/useProjectForm';
 import { HistoryTimelineModal } from '../history';
 import {
@@ -201,7 +203,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   } = formState;
 
   // Active Tab navigation
-  const [activeTab, setActiveTab] = useState<'notes' | 'invoices' | 'reminders'>('notes');
+  const [activeTab, setActiveTab] = useState<'notes' | 'invoices' | 'reminders' | 'chat'>('notes');
 
   useEffect(() => {
     if (isOpen) {
@@ -843,6 +845,14 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                     </Box>
                   }
                 />
+                {effectiveProject && (
+                  <Tab
+                    value="chat"
+                    icon={<ChatBubbleOutlinedIcon sx={{ fontSize: 18 }} />}
+                    iconPosition="start"
+                    label={<span>Chat</span>}
+                  />
+                )}
               </Tabs>
             </Box>
           </Grid>
@@ -1044,6 +1054,13 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
               reminderState={reminderState}
             />
           </Grid>
+
+          {/* TAB 4: CHAT */}
+          {effectiveProject && activeTab === 'chat' && (
+            <Grid size={{ xs: 12 }}>
+              <ProjectChatPane projectId={effectiveProject.id} />
+            </Grid>
+          )}
         </Grid>
       </ViewEditModalBase>
 

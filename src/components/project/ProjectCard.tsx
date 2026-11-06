@@ -20,6 +20,7 @@ import {
   isReminderCompleted,
   isInvoicePaid,
   isInvoiceCancelled,
+  TIME_MS,
 } from '../../constants';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -90,7 +91,7 @@ export const ProjectCard: React.FC<Props> = ({
       if (isReminderCompleted(r.status) || isOverdue(r)) return false;
       if (!r.dueDate) return false;
       const due = new Date(r.dueDate.split('T')[0]);
-      const diffDays = (due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
+      const diffDays = (due.getTime() - today.getTime()) / TIME_MS.ONE_DAY;
       return diffDays >= 0 && diffDays <= 10;
     };
 

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { apiFetch } from '../api';
-import { API_ROUTES } from '../constants';
+import { API_ROUTES, TIME_MS } from '../constants';
 import { buildPaginationQueryParams, useGenericMutations, useGenericActionMutation } from './queryUtils';
 import type { User, Role, PaginatedResponse } from '../types';
 
@@ -13,7 +13,7 @@ export function useUsersSummaryQuery(options?: { enabled?: boolean }) {
       if (!res.ok) throw new Error('Failed to fetch users summary');
       return res.json();
     },
-    staleTime: 60_000,
+    staleTime: TIME_MS.ONE_MINUTE,
   });
 }
 
@@ -25,7 +25,7 @@ export interface MentionUserSummary {
 }
 
 const mentionCache = new Map<string, { data: MentionUserSummary[]; expires: number }>();
-const MENTION_CACHE_TTL = 30_000;
+const MENTION_CACHE_TTL = TIME_MS.THIRTY_SECONDS;
 
 export async function fetchMentionUsers(
   query: string = '',
@@ -126,7 +126,7 @@ export function usePaginatedUsersQuery(params: PaginatedUsersParams, enabled: bo
     },
     placeholderData: keepPreviousData,
     enabled,
-    staleTime: 30_000,
+    staleTime: TIME_MS.THIRTY_SECONDS,
   });
 }
 

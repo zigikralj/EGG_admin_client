@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { TIME_MS } from '../constants';
 
 interface VersionInfo {
   version: string;
   buildTime?: string;
 }
 
-export function useVersionCheck(intervalMs = 3 * 60 * 1000) {
+export function useVersionCheck(intervalMs: number = TIME_MS.THREE_MINUTES) {
   const [hasUpdate, setHasUpdate] = useState(false);
   const [latestVersion, setLatestVersion] = useState<string>(typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.0');
   const [latestBuildTime, setLatestBuildTime] = useState<string>(typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : '');

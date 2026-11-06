@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { ActivityLog, User } from '../../types';
+import { TIME_MS } from '../../constants';
 import type {
   AccumulatedActivity,
   Session,
@@ -46,9 +47,9 @@ export function clusterUserLogsIntoSessions(
 
   for (const log of sortedAsc) {
     const logTime = new Date(log.timestamp).getTime();
-    const isGap = lastTimestamp > 0 && (logTime - lastTimestamp > 30 * 60 * 1000);
+    const isGap = lastTimestamp > 0 && (logTime - lastTimestamp > TIME_MS.THIRTY_MINUTES);
     const wasLogout = lastType === 'LOGOUT';
-    const hasSubstantialGap = lastTimestamp > 0 && (logTime - lastTimestamp > 5 * 60 * 1000);
+    const hasSubstantialGap = lastTimestamp > 0 && (logTime - lastTimestamp > TIME_MS.FIVE_MINUTES);
     const isDifferentSessionId = Boolean(log.sessionId && currentSessionId && log.sessionId !== currentSessionId);
     const isLogin = log.type === 'LOGIN';
 
@@ -103,7 +104,7 @@ export function clusterUserLogsIntoSessions(
 
     const latestLog = sortedDesc[0];
     const isActive =
-      now - endTime.getTime() < 10 * 60 * 1000 &&
+      now - endTime.getTime() < TIME_MS.TEN_MINUTES &&
       latestLog.type !== 'OFFLINE' &&
       latestLog.type !== 'LOGOUT';
 
@@ -313,7 +314,7 @@ export function useActivityLogsData({
     const totalTrackedSeconds = processedData.reduce((acc, u) => acc + u.totalDurationSeconds, 0);
 
     // Active users in last 24h
-    const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+    const oneDayAgo = Date.now() - TIME_MS.ONE_DAY;
     const activeToday = processedData.filter(u => u.lastActive.getTime() >= oneDayAgo).length;
 
     // Find top module across all users

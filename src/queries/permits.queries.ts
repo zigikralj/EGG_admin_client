@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { apiFetch } from '../api';
 import { syncWasteCatalog, sortWasteCatalog, upsertCatalogItemInDB, getMemoryCachedCatalog } from '../utils/wasteCatalogStorage';
-import { API_ROUTES } from '../constants';
+import { API_ROUTES, TIME_MS } from '../constants';
 import { buildPaginationQueryParams, useGenericMutations } from './queryUtils';
 import type { Permit, WasteCatalog, PaginatedResponse } from '../types';
 
@@ -15,7 +15,7 @@ export function usePermitsSummaryQuery(options?: { enabled?: boolean }) {
       if (!res.ok) throw new Error('Failed to fetch permits summary');
       return res.json();
     },
-    staleTime: 60_000,
+    staleTime: TIME_MS.ONE_MINUTE,
   });
 }
 
@@ -88,7 +88,7 @@ export function usePaginatedPermitsQuery(params: PaginatedPermitsParams, enabled
     },
     placeholderData: keepPreviousData,
     enabled,
-    staleTime: 30_000,
+    staleTime: TIME_MS.THIRTY_SECONDS,
   });
 }
 
@@ -100,8 +100,8 @@ export function useWasteCatalogQuery(options?: { enabled?: boolean }) {
       return syncWasteCatalog();
     },
     initialData: () => getMemoryCachedCatalog() ?? undefined,
-    staleTime: 1000 * 60 * 60, // 1 hour stale time since catalog updates rarely
-    gcTime: 1000 * 60 * 60 * 24, // 24 hours in memory
+    staleTime: TIME_MS.ONE_HOUR,
+    gcTime: TIME_MS.ONE_DAY,
   });
 }
 

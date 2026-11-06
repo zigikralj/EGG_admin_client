@@ -3,15 +3,15 @@ import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { getRouterBasename } from './utils/router';
+import { QUERY_CONFIG } from './constants';
 import './index.css';
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000,
-      retry: 1,
+      staleTime: QUERY_CONFIG.DEFAULT_STALE_TIME,
+      retry: QUERY_CONFIG.DEFAULT_RETRY,
       refetchOnWindowFocus: false,
     },
   },
@@ -29,7 +29,6 @@ createRoot(document.getElementById('root')!).render(
       <BrowserRouter basename={getRouterBasename()}>
         <App />
       </BrowserRouter>
-      <ReactQueryDevtools initialIsOpen={false} position="bottom" buttonPosition="bottom-right" />
     </QueryClientProvider>
   </StrictMode>,
 );

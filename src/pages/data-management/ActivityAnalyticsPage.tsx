@@ -13,7 +13,7 @@ import {
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useUsersSummaryQuery, useActivityAnalyticsQuery } from '../../queries';
-import { PAGE_ROUTES } from '../../constants';
+import { PAGE_ROUTES, TIME_MS } from '../../constants';
 import {
   AnalyticsHeader,
   AnalyticsKpiStrip,
@@ -58,22 +58,22 @@ export const ActivityAnalyticsPage: React.FC = () => {
   // 2. Compute date range
   const { fromIso, toIso, granularity } = useMemo(() => {
     const now = new Date();
-    let from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    let from = new Date(now.getTime() - TIME_MS.THIRTY_DAYS);
     let to = now;
 
     if (preset === '7d') {
-      from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      from = new Date(now.getTime() - TIME_MS.SEVEN_DAYS);
     } else if (preset === '30d') {
-      from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      from = new Date(now.getTime() - TIME_MS.THIRTY_DAYS);
     } else if (preset === '90d') {
-      from = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+      from = new Date(now.getTime() - TIME_MS.NINETY_DAYS);
     } else if (preset === 'custom' && customStartDate && customEndDate) {
       from = new Date(customStartDate);
       to = new Date(customEndDate);
       to.setHours(23, 59, 59, 999);
     }
 
-    const diffDays = (to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24);
+    const diffDays = (to.getTime() - from.getTime()) / TIME_MS.ONE_DAY;
     const gran: 'day' | 'week' | 'month' = diffDays <= 45 ? 'day' : diffDays <= 180 ? 'week' : 'month';
 
     return {

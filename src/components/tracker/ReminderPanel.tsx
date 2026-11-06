@@ -10,7 +10,7 @@ import {
   Autocomplete,
 } from '@mui/material';
 import type { Project, Reminder, Client, User, SaveResult } from '../../types';
-import { REMINDER_STATUSES, isReminderCompleted } from '../../constants';
+import { REMINDER_STATUSES, isReminderCompleted, TIME_MS } from '../../constants';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { TableFilterSelector } from '../common/TableFilterSelector';
@@ -98,7 +98,7 @@ const isApproachingItem = (item: ReminderItem): boolean => {
   const due = new Date(item.dueDate.split('T')[0]);
   const today = new Date(new Date().toDateString());
   const diffTime = due.getTime() - today.getTime();
-  const diffDays = diffTime / (1000 * 60 * 60 * 24);
+  const diffDays = diffTime / TIME_MS.ONE_DAY;
   return diffDays >= 0 && diffDays <= 10;
 };
 

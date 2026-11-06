@@ -1,6 +1,6 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { apiFetch } from '../api';
-import { API_ROUTES } from '../constants';
+import { API_ROUTES, TIME_MS } from '../constants';
 import { buildPaginationQueryParams, useGenericMutations, useGenericActionMutation } from './queryUtils';
 import type { Invoice, PaginatedResponse } from '../types';
 
@@ -13,7 +13,7 @@ export function useInvoicesSummaryQuery(options?: { enabled?: boolean }) {
       if (!res.ok) throw new Error('Failed to fetch invoices summary');
       return res.json();
     },
-    staleTime: 60_000,
+    staleTime: TIME_MS.ONE_MINUTE,
   });
 }
 
@@ -27,7 +27,7 @@ export function useInvoiceDetailsQuery(id: string | null | undefined, enabled: b
       if (!res.ok) throw new Error('Failed to fetch invoice details');
       return res.json();
     },
-    staleTime: 60_000,
+    staleTime: TIME_MS.ONE_MINUTE,
   });
 }
 
@@ -109,7 +109,7 @@ export function usePaginatedInvoicesQuery(params: PaginatedInvoicesParams, enabl
     },
     placeholderData: keepPreviousData,
     enabled,
-    staleTime: 30_000,
+    staleTime: TIME_MS.THIRTY_SECONDS,
   });
 }
 
