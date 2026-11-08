@@ -132,4 +132,39 @@ describe('TrackerWasteDisposalPage', () => {
       expect(input.value).toBe('Zbrinjavanje Otpada Single');
     });
   });
+
+  it('uses joined waste_disposal_service from system settings without requesting /api/services', async () => {
+    const fetchSpy = vi.spyOn(api, 'apiFetch').mockImplementation(async (url: any) => {
+      const urlStr = String(url);
+      if (urlStr.includes('/api/system-settings')) {
+        return {
+          ok: true,
+          json: async () => ({
+            waste_disposal_service_id: 'srv-joined-789',
+            waste_disposal_service: { id: 'srv-joined-789', name: 'Joined Waste Service', code: 'waste-disposal' },
+          }),
+        } as any;
+      }
+      return {
+        ok: true,
+        json: async () => ([]),
+      } as any;
+    });
+
+    renderWithProviders(<TrackerWasteDisposalPage />, {
+      authValue: {
+        currentUser: { id: 'admin1', name: 'Admin', role: 'Administrator' } as any,
+        isRealAdmin: true,
+        hasPermission: vi.fn().mockReturnValue(true),
+      } as any,
+    });
+
+    await waitFor(() => {
+      const input = screen.getByLabelText(/lblSelectedWasteService|service/i) as HTMLInputElement;
+      expect(input.value).toBe('Joined Waste Service');
+    });
+
+    const serviceCalls = fetchSpy.mock.calls.filter(([url]) => String(url).includes('/api/services'));
+    expect(serviceCalls.length).toBe(0);
+  });
 });

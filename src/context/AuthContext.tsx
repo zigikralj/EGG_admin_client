@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { User, UserRole, Project } from '../types';
 import { apiFetch } from '../api';
 import { API_ROUTES, STORAGE_KEYS, APP_EVENTS, USER_STATUSES, TIME_MS } from '../constants';
+import { clearPersistedQueries } from '../utils/queryPersistence';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -85,6 +86,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       queryClient.clear();
     } catch (e) {}
+    clearPersistedQueries();
     inFlightAuthPromiseRef.current = null;
     lastAuthRefreshAtRef.current = 0;
     localStorage.removeItem(STORAGE_KEYS.AUTH_USER);

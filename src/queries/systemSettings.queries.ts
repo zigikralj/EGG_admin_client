@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../api';
 import { API_ROUTES, TIME_MS } from '../constants';
-import type { AppNotification } from '../types';
+import type { AppNotification, Service } from '../types';
 
 export function useSystemSettingsQuery() {
   return useQuery<Record<string, any>>({
@@ -18,7 +18,8 @@ export function useSystemSettingsQuery() {
 export function useWasteDisposalServiceId() {
   const { data: systemSettings = {}, isLoading } = useSystemSettingsQuery();
   const serviceId = (systemSettings['waste_disposal_service_id'] as string | undefined)?.trim() || '';
-  return { wasteDisposalServiceId: serviceId, isLoading };
+  const service = (systemSettings['waste_disposal_service'] as Service | undefined) || null;
+  return { wasteDisposalServiceId: serviceId, wasteDisposalService: service, isLoading };
 }
 
 export function useSystemSettingsMutations() {

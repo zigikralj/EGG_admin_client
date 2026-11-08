@@ -13,6 +13,7 @@ export const STORAGE_KEYS = {
   ACTIVITY_LOGIN_LOGGED: 'activity_login_logged',
   USER_PREFERENCES: (userId: string) => `ekos_user_preferences_${userId}`,
   DRAFT_NOTES: (projectId: string) => `ekos_draft_notes_${projectId}`,
+  QUERY_CACHE: 'ekos_persisted_query_cache_v1',
 } as const;
 
 export const APP_EVENTS = {

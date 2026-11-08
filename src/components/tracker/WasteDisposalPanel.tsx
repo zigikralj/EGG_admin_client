@@ -165,12 +165,29 @@ export const WasteDisposalPanel: React.FC<Props> = ({
   });
   const clients: Client[] = clientsProp.length > 0 ? clientsProp : (fetchedClients as Client[]);
 
-  const { data: fetchedTargetService } = useServiceDetailsQuery(
-    configuredWasteServiceId,
-    Boolean(configuredWasteServiceId && !targetWasteServiceProp)
+  const systemWasteService = (systemSettings['waste_disposal_service'] as Service | undefined) || null;
+  const isTargetWasteServiceJoined = Boolean(
+    configuredWasteServiceId &&
+    systemWasteService &&
+    (systemWasteService.id === configuredWasteServiceId || systemWasteService.code === configuredWasteServiceId)
   );
 
-  const targetWasteService = targetWasteServiceProp || fetchedTargetService || null;
+  const shouldFetchTargetService = Boolean(
+    configuredWasteServiceId &&
+    !targetWasteServiceProp &&
+    !isTargetWasteServiceJoined
+  );
+
+  const { data: fetchedTargetService } = useServiceDetailsQuery(
+    configuredWasteServiceId,
+    shouldFetchTargetService
+  );
+
+  const targetWasteService =
+    targetWasteServiceProp ||
+    (isTargetWasteServiceJoined ? systemWasteService : null) ||
+    fetchedTargetService ||
+    null;
   const services: Service[] = servicesProp.length > 0
     ? servicesProp
     : targetWasteService

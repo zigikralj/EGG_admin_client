@@ -28,14 +28,27 @@ export const TrackerWasteDisposalPage: React.FC<TrackerWasteDisposalPageProps> =
     onRowsPerPageChange,
   } = useTablePreferences('tracker_waste');
 
-  const { wasteDisposalServiceId } = useWasteDisposalServiceId();
+  const { wasteDisposalServiceId, wasteDisposalService } = useWasteDisposalServiceId();
   const { updateSettingMutation } = useSystemSettingsMutations();
 
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [selectedOption, setSelectedOption] = useState<Service | null>(null);
   const currentServiceId = selectedServiceId !== null ? selectedServiceId : wasteDisposalServiceId;
 
-  const { data: fetchedService } = useServiceDetailsQuery(currentServiceId, Boolean(currentServiceId));
+  const isConfiguredServiceJoined = Boolean(
+    wasteDisposalService &&
+    (currentServiceId === wasteDisposalServiceId ||
+      currentServiceId === wasteDisposalService.id ||
+      currentServiceId === wasteDisposalService.code)
+  );
+
+  const shouldFetchService = Boolean(
+    currentServiceId &&
+    !isConfiguredServiceJoined &&
+    !selectedOption
+  );
+
+  const { data: fetchedService } = useServiceDetailsQuery(currentServiceId, shouldFetchService);
 
   const resolvedFetchedService = useMemo(() => {
     if (!fetchedService) return null;
@@ -49,8 +62,11 @@ export const TrackerWasteDisposalPage: React.FC<TrackerWasteDisposalPageProps> =
     ) {
       return selectedOption;
     }
+    if (isConfiguredServiceJoined && wasteDisposalService) {
+      return wasteDisposalService;
+    }
     return resolvedFetchedService || selectedOption || null;
-  }, [selectedOption, currentServiceId, resolvedFetchedService]);
+  }, [selectedOption, currentServiceId, isConfiguredServiceJoined, wasteDisposalService, resolvedFetchedService]);
 
   const [newWasteServiceTrigger, setNewWasteServiceTrigger] = useState(0);
   const [wasteTotalCount, setWasteTotalCount] = useState<number>(0);

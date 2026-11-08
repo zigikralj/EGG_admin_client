@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { getRouterBasename } from './utils/router';
 import { QUERY_CONFIG } from './constants';
+import { restorePersistedQueries, setupQueryPersistence } from './utils/queryPersistence';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -16,6 +17,10 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// Restore persisted queries (user directory, summaries) before initial render
+restorePersistedQueries(queryClient);
+setupQueryPersistence(queryClient);
 
 // Automatically reload the page when a new deployment renders old chunk hashes invalid
 window.addEventListener('vite:preloadError', (event) => {
