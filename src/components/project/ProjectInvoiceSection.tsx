@@ -41,6 +41,7 @@ interface ProjectInvoiceSectionProps {
   onSaveInvoice?: (invoice: Partial<Invoice>) => void;
   onDeleteInvoice?: (id: string) => void;
   onStatusChangeInvoice?: (id: string, status: string, paymentDate?: string) => void;
+  onViewInvoice?: (invoice: Invoice) => void;
   setErrorDialogState: (state: { open: boolean; message: string }) => void;
   invoiceState: any; // return of useProjectForm().invoiceState
   disabled?: boolean;
@@ -55,6 +56,7 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
   onSaveInvoice,
   onDeleteInvoice,
   onStatusChangeInvoice,
+  onViewInvoice,
   setErrorDialogState,
   invoiceState,
   disabled = false,
@@ -455,18 +457,39 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
                   }}
                 >
                   <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, minWidth: 0, flex: 1, flexWrap: "wrap" }}>
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          fontWeight: 700,
-                          fontSize: "0.8125rem",
-                          color: "primary.main",
-                          flexShrink: 0,
-                        }}
-                      >
-                        {inv.invoiceNumber}
-                      </Typography>
+                    <Box
+                      onClick={() => onViewInvoice?.(inv)}
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 0.75,
+                        minWidth: 0,
+                        flex: 1,
+                        flexWrap: "wrap",
+                        cursor: onViewInvoice ? "pointer" : "default",
+                        "&:hover .invoice-number": onViewInvoice
+                          ? {
+                              textDecoration: "underline",
+                              color: "primary.dark",
+                            }
+                          : {},
+                      }}
+                    >
+                      <Tooltip title={onViewInvoice ? `${t("btnDetails")}: ${inv.invoiceNumber}` : ""}>
+                        <Typography
+                          className="invoice-number"
+                          variant="body2"
+                          sx={{
+                            fontWeight: 700,
+                            fontSize: "0.8125rem",
+                            color: "primary.main",
+                            flexShrink: 0,
+                            transition: "color 0.15s ease",
+                          }}
+                        >
+                          {inv.invoiceNumber}
+                        </Typography>
+                      </Tooltip>
                       <InvoiceTypeChip type={inv.invoiceType} />
                       <Box sx={{ flexShrink: 0 }}><InvoiceStatusChip status={inv.status} /></Box>
                       <Typography variant="body2" sx={{ fontWeight: 700, fontSize: "0.8125rem", flexShrink: 0 }}>
@@ -565,7 +588,23 @@ export const ProjectInvoiceSection: React.FC<ProjectInvoiceSectionProps> = ({
                       <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexWrap: "wrap", pt: 0.25, pl: 0.5 }}>
                         <LinkIcon sx={{ fontSize: 13, color: "text.secondary" }} />
                         {uniqueLinks.map((linked) => {
-                          return <LinkedInvoiceChip key={linked.id} linked={linked} />;
+                          return (
+                            <Box
+                              key={linked.id}
+                              onClick={(e) => {
+                                if (onViewInvoice) {
+                                  e.stopPropagation();
+                                  onViewInvoice(linked);
+                                }
+                              }}
+                              sx={{
+                                cursor: onViewInvoice ? "pointer" : "default",
+                                display: "inline-flex",
+                              }}
+                            >
+                              <LinkedInvoiceChip linked={linked} />
+                            </Box>
+                          );
                         })}
                       </Box>
                     );

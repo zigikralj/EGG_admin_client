@@ -18,6 +18,7 @@ vi.mock('../../queries', () => ({
   useRemindersMutations: vi.fn(),
   useInvoicesMutations: vi.fn(),
   useProjectDetailsQuery: vi.fn(),
+  useInvoiceDetailsQuery: vi.fn(),
   useProjectUpdatesDiffQuery: vi.fn(),
 }));
 
@@ -59,11 +60,43 @@ vi.mock('../common/autocomplete', () => ({
 }));
 
 vi.mock('./ProjectInvoiceSection', () => ({
-  ProjectInvoiceSection: () => <div data-testid="project-invoice-section">Invoice Section</div>,
+  ProjectInvoiceSection: ({ onViewInvoice, invoices }: any) => (
+    <div data-testid="project-invoice-section">
+      Invoice Section
+      {invoices?.map((inv: any) => (
+        <button key={inv.id} data-testid={`view-invoice-${inv.id}`} onClick={() => onViewInvoice?.(inv)}>
+          {inv.invoiceNumber}
+        </button>
+      ))}
+    </div>
+  ),
 }));
 
 vi.mock('./ProjectReminderSection', () => ({
-  ProjectReminderSection: () => <div data-testid="project-reminder-section">Reminder Section</div>,
+  ProjectReminderSection: ({ onViewReminder, reminders }: any) => (
+    <div data-testid="project-reminder-section">
+      Reminder Section
+      {reminders?.map((rem: any) => (
+        <button key={rem.id} data-testid={`view-reminder-${rem.id}`} onClick={() => onViewReminder?.(rem)}>
+          {rem.title}
+        </button>
+      ))}
+    </div>
+  ),
+}));
+
+vi.mock('../invoice/InvoiceModal', () => ({
+  InvoiceModal: ({ open, editingInvoice }: any) =>
+    open ? <div data-testid="invoice-details-modal">Invoice Details: {editingInvoice?.invoiceNumber}</div> : null,
+  default: ({ open, editingInvoice }: any) =>
+    open ? <div data-testid="invoice-details-modal">Invoice Details: {editingInvoice?.invoiceNumber}</div> : null,
+}));
+
+vi.mock('../reminder/ReminderModal', () => ({
+  ReminderModal: ({ open, editingReminder }: any) =>
+    open ? <div data-testid="reminder-details-modal">Reminder Details: {editingReminder?.title}</div> : null,
+  default: ({ open, editingReminder }: any) =>
+    open ? <div data-testid="reminder-details-modal">Reminder Details: {editingReminder?.title}</div> : null,
 }));
 
 vi.mock('../history', () => ({
@@ -108,6 +141,7 @@ describe('ProjectModal (Unified View/Edit/Create)', () => {
       canEditProject: () => true,
       canDeleteProject: () => true,
       canManageInvoices: true,
+      hasPermission: vi.fn().mockReturnValue(true),
     });
 
     (Queries.useProjectsMutations as any).mockReturnValue({
@@ -131,6 +165,10 @@ describe('ProjectModal (Unified View/Edit/Create)', () => {
 
     (Queries.useProjectDetailsQuery as any).mockReturnValue({
       data: mockProject,
+    });
+
+    (Queries.useInvoiceDetailsQuery as any).mockReturnValue({
+      data: null,
     });
 
     (Queries.useProjectUpdatesDiffQuery as any).mockReturnValue({
@@ -258,5 +296,65 @@ describe('ProjectModal (Unified View/Edit/Create)', () => {
     const remindersTab = screen.getByText('tabReminders');
     fireEvent.click(remindersTab);
     expect(screen.getByTestId('project-reminder-section')).toBeInTheDocument();
+  });
+
+  it('opens InvoiceModal in details mode when clicking an invoice in the invoices tab', async () => {
+    const projectWithInvoice = {
+      ...mockProject,
+      invoices: [{ id: 'inv-1', invoiceNumber: '2026/094', totalAmount: 1000 }],
+    };
+
+    (Queries.useProjectDetailsQuery as any).mockReturnValue({
+      data: projectWithInvoice,
+    });
+
+    render(
+      <ProjectModal
+        isOpen={true}
+        project={projectWithInvoice}
+        onClose={mockOnClose}
+      />
+    );
+
+    const invoicesTab = screen.getByText('tabInvoices');
+    fireEvent.click(invoicesTab);
+
+    const invBtn = screen.getByTestId('view-invoice-inv-1');
+    fireEvent.click(invBtn);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('invoice-details-modal')).toBeInTheDocument();
+      expect(screen.getByText('Invoice Details: 2026/094')).toBeInTheDocument();
+    });
+  });
+
+  it('opens ReminderModal in details mode when clicking a reminder in the reminders tab', async () => {
+    const projectWithReminder = {
+      ...mockProject,
+      reminders: [{ id: 'rem-1', title: 'Prepare documentation' }],
+    };
+
+    (Queries.useProjectDetailsQuery as any).mockReturnValue({
+      data: projectWithReminder,
+    });
+
+    render(
+      <ProjectModal
+        isOpen={true}
+        project={projectWithReminder}
+        onClose={mockOnClose}
+      />
+    );
+
+    const remindersTab = screen.getByText('tabReminders');
+    fireEvent.click(remindersTab);
+
+    const remBtn = screen.getByTestId('view-reminder-rem-1');
+    fireEvent.click(remBtn);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('reminder-details-modal')).toBeInTheDocument();
+      expect(screen.getByText('Reminder Details: Prepare documentation')).toBeInTheDocument();
+    });
   });
 });
