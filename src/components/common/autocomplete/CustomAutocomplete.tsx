@@ -56,6 +56,7 @@ export interface CustomAutocompleteProps<
   renderInput?: (params: any) => React.ReactNode;
   /** Mode for handling scalar values (e.g. value is an ID or Code string instead of full object) */
   valueMode?: 'object' | 'id' | 'code' | 'name';
+  sx?: any;
 }
 
 function CustomAutocompleteInner<
@@ -90,6 +91,8 @@ function CustomAutocompleteInner<
   renderOption,
   renderInput,
   valueMode = 'object',
+  sx,
+  ...restProps
 }: CustomAutocompleteProps<T, Multiple, FreeSolo>) {
   const { t } = useLanguage();
 
@@ -533,6 +536,8 @@ function CustomAutocompleteInner<
       disablePortal={disablePortal}
       disableClearable={disableClearable}
       size={size}
+      sx={sx}
+      {...restProps}
       slotProps={{
         listbox: {
           onScroll: (event: React.SyntheticEvent) => {

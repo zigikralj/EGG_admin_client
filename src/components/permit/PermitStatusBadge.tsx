@@ -1,5 +1,6 @@
 import React from 'react';
 import { Chip } from '@mui/material';
+import { TIME_MS } from '../../constants';
 import { useLanguage } from '../../context/LanguageContext';
 import { CheckCircleIcon, WarningAmberIcon, ErrorIcon } from '../icons';
 
@@ -17,7 +18,7 @@ export const getPermitStatus = (
   const end = new Date(endDateStr.split('T')[0]);
   end.setHours(0, 0, 0, 0);
   const diffTime = end.getTime() - today.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  const diffDays = Math.ceil(diffTime / TIME_MS.ONE_DAY);
 
   if (diffDays < 0) {
     return { status: 'expired', daysLeft: Math.abs(diffDays) };

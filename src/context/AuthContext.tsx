@@ -2,7 +2,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { User, UserRole, Project } from '../types';
 import { apiFetch } from '../api';
-import { API_ROUTES, STORAGE_KEYS, APP_EVENTS, USER_STATUSES } from '../constants';
+import { API_ROUTES, STORAGE_KEYS, APP_EVENTS, USER_STATUSES, TIME_MS } from '../constants';
+import { clearPersistedQueries } from '../utils/queryPersistence';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -53,7 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const parsed = JSON.parse(stored);
         if (parsed && parsed.id) {
           if (!expiresAt) {
-            localStorage.setItem(STORAGE_KEYS.AUTH_SESSION_EXPIRES_AT, (Date.now() + 9 * 3600 * 1000).toString());
+            localStorage.setItem(STORAGE_KEYS.AUTH_SESSION_EXPIRES_AT, (Date.now() + TIME_MS.NINE_HOURS).toString());
           }
           return parsed;
         }
@@ -85,6 +86,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       queryClient.clear();
     } catch (e) {}
+    clearPersistedQueries();
     inFlightAuthPromiseRef.current = null;
     lastAuthRefreshAtRef.current = 0;
     localStorage.removeItem(STORAGE_KEYS.AUTH_USER);
@@ -248,7 +250,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const startPolling = () => {
       if (intervalId !== null) return;
-      intervalId = setInterval(checkAuth, 60000); // 60s — ~60 req/hr (optimized for egress bandwidth)
+      intervalId = setInterval(checkAuth, TIME_MS.ONE_MINUTE); // 60s — ~60 req/hr (optimized for egress bandwidth)
     };
 
     const stopPolling = () => {
@@ -304,7 +306,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     window.addEventListener(APP_EVENTS.AUTH_EXPIRED, onAuthExpired);
     window.addEventListener('focus', checkSession);
     document.addEventListener('visibilitychange', handleVisibility);
-    const interval = setInterval(checkSession, 15000); // Check every 15 seconds
+    const interval = setInterval(checkSession, TIME_MS.FIFTEEN_SECONDS); // Check every 15 seconds
 
     return () => {
       window.removeEventListener(APP_EVENTS.AUTH_EXPIRED, onAuthExpired);
@@ -341,7 +343,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (data.token) {
           localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, data.token);
         }
-        const expiresInMs = (data.expiresIn || 9 * 3600) * 1000;
+        const expiresInMs = (data.expiresIn || 9 * 3600) * TIME_MS.ONE_SECOND;
         localStorage.setItem(STORAGE_KEYS.AUTH_SESSION_EXPIRES_AT, (Date.now() + expiresInMs).toString());
         return { success: true };
       }

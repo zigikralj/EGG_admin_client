@@ -561,6 +561,7 @@ const srLatnTranslations: TranslationKeys = {
   "filterAll": "Sve",
   "quickFilterMyProjects": "Moji projekti",
   "quickFilterMyReminders": "Moji podsetnici",
+  "quickFilterNotCompleted": "Nezavršeno",
   "quickFilterActive": "Aktivni",
   "quickFilterMissingInvoice": "Nedostaje faktura",
   "quickFilterOverdue": "Hitno",

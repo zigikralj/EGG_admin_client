@@ -231,6 +231,7 @@ export const NotificationsMenu: React.FC<NotificationsMenuProps> = ({
                   </ListItemAvatar>
 
                   <ListItemText
+                    disableTypography
                     primary={
                       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
                         <Typography
@@ -328,6 +329,7 @@ export const NotificationsMenu: React.FC<NotificationsMenuProps> = ({
                     </ListItemAvatar>
 
                     <ListItemText
+                      disableTypography
                       primary={
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
                           <Typography
@@ -349,6 +351,7 @@ export const NotificationsMenu: React.FC<NotificationsMenuProps> = ({
                       secondary={
                         <Box sx={{ mt: 0.5 }}>
                           <Typography
+                            component="div"
                             variant="body2"
                             sx={{
                               fontSize: '0.78rem',

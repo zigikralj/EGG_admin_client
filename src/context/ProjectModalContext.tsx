@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useCallback, Suspense } fro
 import { useQueryClient } from '@tanstack/react-query';
 import type { Project } from '../types';
 import { apiFetch } from '../api';
-import { API_ROUTES } from '../constants';
+import { API_ROUTES, TIME_MS } from '../constants';
 
 const ProjectModal = React.lazy(() => import('../components/project/ProjectModal'));
 
@@ -62,7 +62,7 @@ export const ProjectModalProvider: React.FC<{ children: React.ReactNode }> = ({ 
           if (!res.ok) throw new Error('Failed to fetch project details');
           return res.json();
         },
-        staleTime: 60_000,
+        staleTime: TIME_MS.ONE_MINUTE,
       });
       if (target) {
         setModalState({

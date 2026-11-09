@@ -11,6 +11,7 @@ import {
   Checkbox,
   IconButton,
   Tooltip,
+  Badge,
 } from '@mui/material';
 
 import type { Project, Invoice } from '../../types';
@@ -20,9 +21,12 @@ import {
   isReminderCompleted,
   isInvoicePaid,
   isInvoiceCancelled,
+  TIME_MS,
 } from '../../constants';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import { useChat } from '../../context/ChatContext';
+import ChatBubbleOutlinedIcon from '@mui/icons-material/ChatBubbleOutlined';
 import { stripHtmlToText } from '../../utils/stripHtmlToText';
 import { fmtDate, isLate, isNearDeadline, isStale } from '../../utils/dateUtils';
 import {
@@ -53,6 +57,9 @@ export const ProjectCard: React.FC<Props> = ({
 }) => {
   const { t, getServiceLabel, getResponsibleLabel } = useLanguage();
   const { canEditProject, users } = useAuth();
+  const { getProjectUnreadCount } = useChat();
+
+  const chatUnreadCount = getProjectUnreadCount(p.id);
 
   const [notesExpanded, setNotesExpanded] = useState(false);
   const canEdit = canEditProject(p);
@@ -90,7 +97,7 @@ export const ProjectCard: React.FC<Props> = ({
       if (isReminderCompleted(r.status) || isOverdue(r)) return false;
       if (!r.dueDate) return false;
       const due = new Date(r.dueDate.split('T')[0]);
-      const diffDays = (due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
+      const diffDays = (due.getTime() - today.getTime()) / TIME_MS.ONE_DAY;
       return diffDays >= 0 && diffDays <= 10;
     };
 
@@ -251,6 +258,20 @@ export const ProjectCard: React.FC<Props> = ({
             )}
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            {chatUnreadCount > 0 && (
+              <Tooltip title={`Chat (${chatUnreadCount} unread)`}>
+                <IconButton
+                  size="small"
+                  onClick={() => (onView ? onView(p) : onEdit(p))}
+                  color="primary"
+                  sx={{ p: 0.5 }}
+                >
+                  <Badge badgeContent={chatUnreadCount} color="error">
+                    <ChatBubbleOutlinedIcon fontSize="small" />
+                  </Badge>
+                </IconButton>
+              </Tooltip>
+            )}
             <Tooltip title={t('btnView')}>
               <IconButton
                 size="small"

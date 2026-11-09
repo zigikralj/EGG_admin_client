@@ -2,6 +2,8 @@ import { LanguageProvider } from './context/LanguageContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { LoadingProvider } from './context/LoadingContext';
+import { ChatProvider } from './context/ChatContext';
+import { ChatDock } from './components/chat/ChatDock';
 import { ProjectModalProvider } from './context/ProjectModalContext';
 import { CustomThemeProvider } from './context/ThemeContext';
 import { AdminLayout } from './components/layout/AdminLayout';
@@ -30,6 +32,7 @@ function AuthenticatedApp() {
         >
           <AppRoutes />
           <VersionUpdatePrompt />
+          <ChatDock />
         </AdminLayout>
       </ProjectModalProvider>
       <LoadingMask />
@@ -60,7 +63,9 @@ export function App() {
       <AuthProvider>
         <NotificationProvider>
           <LoadingProvider>
-            <MainApp />
+            <ChatProvider>
+              <MainApp />
+            </ChatProvider>
           </LoadingProvider>
         </NotificationProvider>
       </AuthProvider>

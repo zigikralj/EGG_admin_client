@@ -34,6 +34,7 @@ export const LoadingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const fetchingCount = useIsFetching({
     predicate: (query) => {
       if (query.meta?.silent === true) return false;
+      if (query.queryKey?.[0] === 'chat') return false;
       // Do not count unobserved background queries (e.g. prefetching or background cache warming)
       if (query.getObserversCount() === 0) return false;
       // Only count queries that are actively fetching and do not yet have cached data
@@ -46,6 +47,7 @@ export const LoadingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     predicate: (mutation) => {
       if (mutation.options.meta?.silent === true) return false;
       if (mutation.options.mutationKey?.[0] === 'preferences') return false;
+      if (mutation.options.mutationKey?.[0] === 'chat') return false;
       return true;
     },
   });

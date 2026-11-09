@@ -561,6 +561,7 @@ const enTranslations: TranslationKeys = {
   "filterAll": "All",
   "quickFilterMyProjects": "My Projects",
   "quickFilterMyReminders": "My Reminders",
+  "quickFilterNotCompleted": "Not Completed",
   "quickFilterActive": "Active",
   "quickFilterMissingInvoice": "Missing Invoice",
   "quickFilterOverdue": "Urgent",

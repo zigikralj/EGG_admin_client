@@ -44,6 +44,7 @@ interface ProjectReminderSectionProps {
   onSaveReminder?: (reminder: Partial<Reminder>) => void;
   onDeleteReminder?: (id: string) => void;
   onStatusChangeReminder?: (id: string, status: string) => void;
+  onViewReminder?: (reminder: Reminder) => void;
   setErrorDialogState: (state: { open: boolean; message: string }) => void;
   reminderState: any; // return of useProjectForm().reminderState
   disabled?: boolean;
@@ -69,6 +70,7 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
   onSaveReminder,
   onDeleteReminder,
   onStatusChangeReminder,
+  onViewReminder,
   setErrorDialogState,
   reminderState,
   disabled = false,
@@ -400,22 +402,43 @@ export const ProjectReminderSection: React.FC<ProjectReminderSectionProps> = ({
                     transition: "all 0.15s ease",
                   }}
                 >
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0, flex: 1, overflow: "hidden" }}>
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        fontWeight: 600,
-                        fontSize: "0.8125rem",
-                        textDecoration: isCompleted ? "line-through" : "none",
-                        color: isCompleted ? "text.secondary" : "text.primary",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        flexShrink: 1,
-                      }}
-                    >
-                      {rem.title || rem.projectName || "—"}
-                    </Typography>
+                  <Box
+                    onClick={() => onViewReminder?.(rem)}
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      minWidth: 0,
+                      flex: 1,
+                      overflow: "hidden",
+                      cursor: onViewReminder ? "pointer" : "default",
+                      "&:hover .reminder-title": onViewReminder
+                        ? {
+                            color: "primary.main",
+                            textDecoration: isCompleted ? "line-through" : "underline",
+                          }
+                        : {},
+                    }}
+                  >
+                    <Tooltip title={onViewReminder ? `${t("btnDetails")}: ${rem.title || rem.projectName || ""}` : ""}>
+                      <Typography
+                        className="reminder-title"
+                        variant="body2"
+                        sx={{
+                          fontWeight: 600,
+                          fontSize: "0.8125rem",
+                          textDecoration: isCompleted ? "line-through" : "none",
+                          color: isCompleted ? "text.secondary" : "text.primary",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          flexShrink: 1,
+                          transition: "color 0.15s ease",
+                        }}
+                      >
+                        {rem.title || rem.projectName || "—"}
+                      </Typography>
+                    </Tooltip>
                     <Box sx={{ flexShrink: 0 }}>{getStatusChip(rem.status)}</Box>
                     {rem.dueDate && (
                       <Typography

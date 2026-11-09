@@ -13,7 +13,7 @@ import {
   alpha,
 } from '@mui/material';
 
-import type { Project } from '../../types';
+import type { Project, Invoice, Reminder } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { ErrorDialog } from '../common/dialogs/ErrorDialog';
@@ -23,6 +23,9 @@ import { stripHtmlToText } from '../../utils/stripHtmlToText';
 import { ProjectProgressSlider } from './ProjectProgressSlider';
 import { ProjectReminderSection } from './ProjectReminderSection';
 import { ProjectInvoiceSection } from './ProjectInvoiceSection';
+import { ProjectChatPane } from '../chat/ProjectChatPane';
+import ChatBubbleOutlinedIcon from '@mui/icons-material/ChatBubbleOutlined';
+import { useChat } from '../../context/ChatContext';
 import { useProjectForm } from '../../hooks/useProjectForm';
 import { HistoryTimelineModal } from '../history';
 import {
@@ -37,8 +40,12 @@ import {
   useRemindersMutations,
   useInvoicesMutations,
   useProjectDetailsQuery,
+  useInvoiceDetailsQuery,
   useProjectUpdatesDiffQuery,
 } from '../../queries';
+
+const InvoiceModal = React.lazy(() => import('../invoice/InvoiceModal'));
+const ReminderModal = React.lazy(() => import('../reminder/ReminderModal'));
 import { ClientAutocomplete, UserAutocomplete, ServiceAutocomplete } from '../common/autocomplete';
 import { ViewEditModalBase, type ModalMode } from '../common/modal/ViewEditModalBase';
 import { ViewEditField } from '../common/modal/ViewEditField';
@@ -63,7 +70,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   onEdit,
 }) => {
   const { t, getServiceLabel, getResponsibleLabel } = useLanguage();
-  const { currentUser, canEditProject, canDeleteProject, canManageInvoices } = useAuth();
+  const { currentUser, canEditProject, canDeleteProject, canManageInvoices, hasPermission } = useAuth();
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
 
@@ -201,11 +208,37 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   } = formState;
 
   // Active Tab navigation
-  const [activeTab, setActiveTab] = useState<'notes' | 'invoices' | 'reminders'>('notes');
+  const [activeTab, setActiveTab] = useState<'notes' | 'invoices' | 'reminders' | 'chat'>('notes');
+  const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null);
+  const [viewingReminder, setViewingReminder] = useState<Reminder | null>(null);
+
+  const { data: fetchedInvoiceDetails } = useInvoiceDetailsQuery(
+    viewingInvoice?.id,
+    Boolean(viewingInvoice?.id)
+  );
+  const effectiveViewingInvoice = fetchedInvoiceDetails || viewingInvoice;
+
+  const isReminderOwner = Boolean(
+    currentUser &&
+      viewingReminder?.responsible &&
+      viewingReminder.responsible.trim().toLowerCase() === (currentUser.name || '').trim().toLowerCase()
+  );
+  const canEditReminder = Boolean(
+    hasPermission?.('reminders', 'edit') ||
+    hasPermission?.('tracker_reminders', 'edit') ||
+    isReminderOwner
+  );
+  const canDeleteReminder = Boolean(
+    hasPermission?.('reminders', 'delete') ||
+    hasPermission?.('tracker_reminders', 'delete')
+  );
 
   useEffect(() => {
     if (isOpen) {
       setActiveTab('notes');
+    } else {
+      setViewingInvoice(null);
+      setViewingReminder(null);
     }
   }, [isOpen, targetProjectId]);
 
@@ -215,6 +248,10 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   const reminderCount = isCreate
     ? reminderState.stagedReminders?.length || 0
     : reminderState.projectReminders?.length || effectiveProject?.reminders?.length || 0;
+
+  // Chat unread count
+  const chatContext = useChat();
+  const chatUnreadCount = effectiveProject?.id ? chatContext.getProjectUnreadCount(effectiveProject.id) : 0;
 
   // Auto-saving notes in view mode
   const prevProjectIdRef = useRef<string | undefined>(undefined);
@@ -843,6 +880,30 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                     </Box>
                   }
                 />
+                {effectiveProject && (
+                  <Tab
+                    value="chat"
+                    icon={<ChatBubbleOutlinedIcon sx={{ fontSize: 18 }} />}
+                    iconPosition="start"
+                    label={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                        <span>Chat</span>
+                        {chatUnreadCount > 0 && (
+                          <Chip
+                            label={chatUnreadCount}
+                            size="small"
+                            color="error"
+                            sx={{
+                              height: 18,
+                              fontSize: '0.7rem',
+                              fontWeight: 700,
+                            }}
+                          />
+                        )}
+                      </Box>
+                    }
+                  />
+                )}
               </Tabs>
             </Box>
           </Grid>
@@ -993,6 +1054,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
               onSaveInvoice={onSaveInvoice}
               onDeleteInvoice={wrappedOnDeleteInvoice}
               onStatusChangeInvoice={onStatusChangeInvoice}
+              onViewInvoice={setViewingInvoice}
               setErrorDialogState={setErrorDialogState}
               disabled={isView && (!canEditProjectInvoices || showDiffView)}
               invoiceState={invoiceState}
@@ -1023,7 +1085,8 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                       label={`${r.title} (${r.isNew ? t('badgeNewItem') : t('badgeModifiedItem')})`}
                       color={r.isNew ? 'success' : 'info'}
                       variant="outlined"
-                      sx={{ height: 22, fontSize: '0.72rem', fontWeight: 600 }}
+                      onClick={() => setViewingReminder(r as any)}
+                      sx={{ height: 22, fontSize: '0.72rem', fontWeight: 600, cursor: 'pointer' }}
                     />
                   ))}
                 </Box>
@@ -1039,11 +1102,19 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
               onSaveReminder={onSaveReminder}
               onDeleteReminder={wrappedOnDeleteReminder}
               onStatusChangeReminder={onStatusChangeReminder}
+              onViewReminder={setViewingReminder}
               setErrorDialogState={setErrorDialogState}
               disabled={isView && (!isEditable || showDiffView)}
               reminderState={reminderState}
             />
           </Grid>
+
+          {/* TAB 4: CHAT */}
+          {effectiveProject && activeTab === 'chat' && (
+            <Grid size={{ xs: 12 }}>
+              <ProjectChatPane projectId={effectiveProject.id} />
+            </Grid>
+          )}
         </Grid>
       </ViewEditModalBase>
 
@@ -1074,6 +1145,64 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
           entityId={effectiveProject.id}
           entityTitle={effectiveProject.name}
         />
+      )}
+
+      {Boolean(viewingInvoice) && effectiveViewingInvoice && (
+        <React.Suspense fallback={null}>
+          <InvoiceModal
+            open={Boolean(viewingInvoice)}
+            onClose={() => setViewingInvoice(null)}
+            editingInvoice={effectiveViewingInvoice}
+            initialMode="view"
+            isViewMode={true}
+            onSave={async (payload) => {
+              if (effectiveProject && onSaveInvoice) {
+                await onSaveInvoice(payload);
+              } else if (payload.id && invoiceState.updateStagedInvoice) {
+                invoiceState.updateStagedInvoice(payload.id, payload);
+              }
+              setViewingInvoice(null);
+            }}
+          />
+        </React.Suspense>
+      )}
+
+      {Boolean(viewingReminder) && (
+        <React.Suspense fallback={null}>
+          <ReminderModal
+            open={Boolean(viewingReminder)}
+            onClose={() => setViewingReminder(null)}
+            editingReminder={viewingReminder}
+            initialMode="view"
+            isViewMode={true}
+            canEdit={canEditReminder}
+            canDelete={canDeleteReminder}
+            currentUser={currentUser}
+            onSave={async (payload) => {
+              if (effectiveProject && onSaveReminder) {
+                await onSaveReminder(payload);
+              } else if (payload.id && reminderState.updateStagedReminder) {
+                reminderState.updateStagedReminder(payload.id, payload);
+              }
+              setViewingReminder(null);
+            }}
+            onDelete={async (id) => {
+              if (effectiveProject && wrappedOnDeleteReminder) {
+                wrappedOnDeleteReminder(id);
+              } else if (reminderState.removeStagedReminder) {
+                reminderState.removeStagedReminder(id);
+              }
+              setViewingReminder(null);
+            }}
+            onStatusChange={async (id, status) => {
+              if (effectiveProject && onStatusChangeReminder) {
+                await onStatusChangeReminder(id, status);
+              } else if (reminderState.toggleStagedReminderStatus) {
+                reminderState.toggleStagedReminderStatus(id, status);
+              }
+            }}
+          />
+        </React.Suspense>
       )}
     </>
   );

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../api';
-import { API_ROUTES } from '../constants';
+import { API_ROUTES, TIME_MS } from '../constants';
 import type { CompanyInfo } from '../types';
 
 export function useCompanyInfoQuery(enabled = true) {
@@ -27,7 +27,7 @@ export function useCompanyInfoQuery(enabled = true) {
         bankAccounts: Array.isArray(data?.bankAccounts) ? data.bankAccounts : [],
       };
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: TIME_MS.FIVE_MINUTES,
   });
 }
 

@@ -1,6 +1,6 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { apiFetch } from '../api';
-import { API_ROUTES } from '../constants';
+import { API_ROUTES, TIME_MS } from '../constants';
 import { useAuth } from '../context/AuthContext';
 import { buildPaginationQueryParams, useGenericMutations, useGenericActionMutation } from './queryUtils';
 import type { Reminder, PaginatedResponse } from '../types';
@@ -82,7 +82,7 @@ export function usePaginatedRemindersQuery(params: PaginatedRemindersParams, ena
     },
     placeholderData: keepPreviousData,
     enabled,
-    staleTime: 30_000,
+    staleTime: TIME_MS.THIRTY_SECONDS,
   });
 }
 

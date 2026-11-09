@@ -1,19 +1,54 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { apiFetch } from '../api';
-import { API_ROUTES } from '../constants';
+import { API_ROUTES, TIME_MS } from '../constants';
 import { buildPaginationQueryParams, useGenericMutations, useGenericActionMutation } from './queryUtils';
 import type { User, Role, PaginatedResponse } from '../types';
 
+export const USERS_SUMMARY_QUERY_KEY = ['users', 'summary'] as const;
+export const USERS_DIRECTORY_QUERY_KEY = ['users', 'directory'] as const;
+
+export interface DirectoryUser {
+  id: string;
+  name: string;
+  role?: string;
+  avatarUrl?: string | null;
+}
+
 export function useUsersSummaryQuery(options?: { enabled?: boolean }) {
   return useQuery<User[]>({
-    queryKey: ['users', 'summary'],
+    queryKey: USERS_SUMMARY_QUERY_KEY,
     enabled: options?.enabled ?? true,
     queryFn: async () => {
       const res = await apiFetch(`${API_ROUTES.USERS.BASE}?fields=summary`);
       if (!res.ok) throw new Error('Failed to fetch users summary');
       return res.json();
     },
-    staleTime: 60_000,
+    staleTime: TIME_MS.TEN_MINUTES,
+    gcTime: TIME_MS.ONE_DAY,
+  });
+}
+
+/**
+ * Preloads and caches the global user directory (id, name, role, avatarUrl).
+ * Shared across Chat, @mention highlights, directory pickers, and autocompletes.
+ * Automatically persisted to browser storage with 10-minute staleTime and 24-hour cacheTime.
+ */
+export function useUsersDirectoryQuery(options?: { enabled?: boolean }) {
+  return useQuery<DirectoryUser[]>({
+    queryKey: USERS_DIRECTORY_QUERY_KEY,
+    enabled: options?.enabled ?? true,
+    queryFn: async () => {
+      const items = await fetchMentionUsers('', 100);
+      return items.map((u) => ({
+        id: u.id,
+        name: u.name,
+        role: u.role,
+        avatarUrl: u.avatarUrl,
+      }));
+    },
+    staleTime: TIME_MS.TEN_MINUTES,
+    gcTime: TIME_MS.ONE_DAY,
+    meta: { silent: true },
   });
 }
 
@@ -25,7 +60,7 @@ export interface MentionUserSummary {
 }
 
 const mentionCache = new Map<string, { data: MentionUserSummary[]; expires: number }>();
-const MENTION_CACHE_TTL = 30_000;
+const MENTION_CACHE_TTL = TIME_MS.THIRTY_SECONDS;
 
 export async function fetchMentionUsers(
   query: string = '',
@@ -126,7 +161,7 @@ export function usePaginatedUsersQuery(params: PaginatedUsersParams, enabled: bo
     },
     placeholderData: keepPreviousData,
     enabled,
-    staleTime: 30_000,
+    staleTime: TIME_MS.THIRTY_SECONDS,
   });
 }
 

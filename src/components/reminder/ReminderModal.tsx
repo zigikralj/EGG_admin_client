@@ -571,3 +571,5 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({
     </ViewEditModalBase>
   );
 };
+
+export default ReminderModal;

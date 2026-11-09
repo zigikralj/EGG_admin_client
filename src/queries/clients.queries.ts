@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '../api';
-import { API_ROUTES } from '../constants';
+import { API_ROUTES, TIME_MS } from '../constants';
 import { buildPaginationQueryParams, useGenericMutations } from './queryUtils';
 import type { Client, PaginatedResponse } from '../types';
 
@@ -13,7 +13,7 @@ export function useClientsSummaryQuery(options?: { enabled?: boolean }) {
       if (!res.ok) throw new Error('Failed to fetch clients summary');
       return res.json();
     },
-    staleTime: 60_000,
+    staleTime: TIME_MS.ONE_MINUTE,
   });
 }
 
@@ -73,7 +73,7 @@ export function usePaginatedClientsQuery(params: PaginatedClientsParams, enabled
       return data;
     },
     enabled,
-    staleTime: 30_000,
+    staleTime: TIME_MS.THIRTY_SECONDS,
   });
 }
 

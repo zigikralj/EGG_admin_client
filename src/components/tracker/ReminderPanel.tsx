@@ -10,7 +10,7 @@ import {
   Autocomplete,
 } from '@mui/material';
 import type { Project, Reminder, Client, User, SaveResult } from '../../types';
-import { REMINDER_STATUSES, isReminderCompleted } from '../../constants';
+import { REMINDER_STATUSES, isReminderCompleted, TIME_MS } from '../../constants';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { TableFilterSelector } from '../common/TableFilterSelector';
@@ -43,6 +43,8 @@ interface Props {
   onNewReminderTriggerHandled?: () => void;
   myRemindersOnly?: boolean;
   onMyRemindersOnlyChange?: (val: boolean) => void;
+  quickFilters?: string[] | boolean;
+  onQuickFiltersChange?: (keys: string[]) => void;
   rowsPerPageOptions?: number[];
   onRowsPerPageOptionsChange?: (options: number[]) => void;
   rowsPerPage?: number;
@@ -96,7 +98,7 @@ const isApproachingItem = (item: ReminderItem): boolean => {
   const due = new Date(item.dueDate.split('T')[0]);
   const today = new Date(new Date().toDateString());
   const diffTime = due.getTime() - today.getTime();
-  const diffDays = diffTime / (1000 * 60 * 60 * 24);
+  const diffDays = diffTime / TIME_MS.ONE_DAY;
   return diffDays >= 0 && diffDays <= 10;
 };
 
@@ -115,6 +117,8 @@ export const ReminderPanel: React.FC<Props> = ({
   onNewReminderTriggerHandled,
   myRemindersOnly: myRemindersOnlyProp = false,
   onMyRemindersOnlyChange,
+  quickFilters: quickFiltersProp,
+  onQuickFiltersChange,
   rowsPerPageOptions: rowsPerPageOptionsProp,
   onRowsPerPageOptionsChange,
   rowsPerPage: rowsPerPageProp,
@@ -130,9 +134,43 @@ export const ReminderPanel: React.FC<Props> = ({
 
   // Filters and sorting state
   const [searchQuery, setSearchQuery] = useState('');
-  const [myRemindersOnly, setMyRemindersOnly] = useState(() => (isRemindersRestricted ? false : myRemindersOnlyProp));
+  const [myRemindersOnly, setMyRemindersOnly] = useState(() => {
+    if (isRemindersRestricted) return false;
+    if (Array.isArray(quickFiltersProp)) return quickFiltersProp.includes('my');
+    if (typeof quickFiltersProp === 'boolean') return quickFiltersProp;
+    return Boolean(myRemindersOnlyProp);
+  });
+  const [notCompletedOnly, setNotCompletedOnly] = useState(() => {
+    if (Array.isArray(quickFiltersProp)) {
+      return quickFiltersProp.includes('not_completed') || quickFiltersProp.includes('active');
+    }
+    return true;
+  });
 
   useEffect(() => {
+    if (Array.isArray(quickFiltersProp)) {
+      const nextMy = !isRemindersRestricted && quickFiltersProp.includes('my');
+      const nextNotCompleted = quickFiltersProp.includes('not_completed') || quickFiltersProp.includes('active');
+      setMyRemindersOnly(nextMy);
+      setNotCompletedOnly(nextNotCompleted);
+      if (nextMy && currentUser?.name) {
+        setFilterResponsible(currentUser.name);
+      } else if (!nextMy && currentUser?.name) {
+        setFilterResponsible((prev) => (prev === currentUser.name ? 'all' : prev));
+      }
+      return;
+    }
+    if (typeof quickFiltersProp === 'boolean') {
+      const nextMy = !isRemindersRestricted && quickFiltersProp;
+      setMyRemindersOnly(nextMy);
+      setNotCompletedOnly(true);
+      if (nextMy && currentUser?.name) {
+        setFilterResponsible(currentUser.name);
+      } else if (!nextMy && currentUser?.name) {
+        setFilterResponsible((prev) => (prev === currentUser.name ? 'all' : prev));
+      }
+      return;
+    }
     if (isRemindersRestricted) {
       setMyRemindersOnly(false);
       return;
@@ -145,7 +183,7 @@ export const ReminderPanel: React.FC<Props> = ({
         setFilterResponsible((prev) => (prev === currentUser.name ? 'all' : prev));
       }
     }
-  }, [myRemindersOnlyProp, currentUser?.name, isRemindersRestricted]);
+  }, [quickFiltersProp, myRemindersOnlyProp, currentUser?.name, isRemindersRestricted]);
 
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterClient, setFilterClient] = useState<string>('all');
@@ -186,7 +224,7 @@ export const ReminderPanel: React.FC<Props> = ({
   // Reset pagination when filters change
   useEffect(() => {
     setPage(0);
-  }, [searchQuery, myRemindersOnly, filterStatus, filterClient, filterResponsible, filterDateFrom, filterDateTo, sortOption, sortDirection]);
+  }, [searchQuery, myRemindersOnly, notCompletedOnly, filterStatus, filterClient, filterResponsible, filterDateFrom, filterDateTo, sortOption, sortDirection]);
 
   useEffect(() => {
     if (openNewReminderTrigger && openNewReminderTrigger > 0) {
@@ -195,13 +233,37 @@ export const ReminderPanel: React.FC<Props> = ({
     }
   }, [openNewReminderTrigger]);
 
-  const handleToggleMyReminders = (val: boolean) => {
-    setMyRemindersOnly(val);
-    onMyRemindersOnlyChange?.(val);
-    if (val && currentUser?.name) {
+  const notifyQuickFilters = (nextMy: boolean, nextNotCompleted: boolean) => {
+    const keys: string[] = [];
+    if (!isRemindersRestricted && nextMy) keys.push('my');
+    if (nextNotCompleted) keys.push('not_completed');
+    onQuickFiltersChange?.(keys);
+    onMyRemindersOnlyChange?.(nextMy);
+  };
+
+  const handleQuickFiltersChange = (keys: string[]) => {
+    const nextMy = !isRemindersRestricted && keys.includes('my');
+    const nextNotCompleted = keys.includes('not_completed');
+    setMyRemindersOnly(nextMy);
+    setNotCompletedOnly(nextNotCompleted);
+    notifyQuickFilters(nextMy, nextNotCompleted);
+
+    if (nextMy && currentUser?.name) {
       setFilterResponsible(currentUser.name);
-    } else if (!val && currentUser?.name && filterResponsible === currentUser.name) {
+    } else if (!nextMy && currentUser?.name && filterResponsible === currentUser.name) {
       setFilterResponsible('all');
+    }
+
+    if (nextNotCompleted && filterStatus === REMINDER_STATUSES.COMPLETED) {
+      setFilterStatus('all');
+    }
+  };
+
+  const handleFilterStatusChange = (val: string) => {
+    setFilterStatus(val);
+    if (val === REMINDER_STATUSES.COMPLETED && notCompletedOnly) {
+      setNotCompletedOnly(false);
+      notifyQuickFilters(myRemindersOnly, false);
     }
   };
 
@@ -209,16 +271,17 @@ export const ReminderPanel: React.FC<Props> = ({
     setFilterResponsible(val);
     if (currentUser?.name && val === currentUser.name) {
       setMyRemindersOnly(true);
-      onMyRemindersOnlyChange?.(true);
+      notifyQuickFilters(true, notCompletedOnly);
     } else if (myRemindersOnly) {
       setMyRemindersOnly(false);
-      onMyRemindersOnlyChange?.(false);
+      notifyQuickFilters(false, notCompletedOnly);
     }
   };
 
   const handleClearAllFilters = () => {
     setMyRemindersOnly(false);
-    onMyRemindersOnlyChange?.(false);
+    setNotCompletedOnly(false);
+    notifyQuickFilters(false, false);
     setFilterStatus('all');
     setFilterClient('all');
     setFilterResponsible('all');
@@ -231,6 +294,13 @@ export const ReminderPanel: React.FC<Props> = ({
   const debouncedSearchQuery = useDebounce(searchQuery, 400);
   const isServerPaginated = reminders.length === 0;
 
+  const effectiveStatusFilter =
+    filterStatus !== 'all'
+      ? filterStatus
+      : notCompletedOnly
+      ? 'not_completed'
+      : undefined;
+
   const {
     data: paginatedData,
   } = usePaginatedRemindersQuery(
@@ -240,7 +310,7 @@ export const ReminderPanel: React.FC<Props> = ({
       sortBy: sortOption,
       sortOrder: sortDirection,
       search: debouncedSearchQuery,
-      status: filterStatus === 'all' ? undefined : filterStatus,
+      status: effectiveStatusFilter,
       clientId: filterClient === 'all' ? undefined : filterClient,
       responsible: isRemindersRestricted
         ? (currentUser?.name || undefined)
@@ -297,8 +367,7 @@ export const ReminderPanel: React.FC<Props> = ({
     }
     return rawItems
       .filter((item) => {
-        // Exclude completed reminders completely
-        if (isCompletedStatus(item.status)) return false;
+        if (notCompletedOnly && isCompletedStatus(item.status)) return false;
 
         // Restriction to own reminders
         if (isRemindersRestricted && currentUser) {
@@ -422,10 +491,11 @@ export const ReminderPanel: React.FC<Props> = ({
         }
         return sortDirection === 'asc' ? res : -res;
       });
-  }, [rawItems, isServerPaginated, myRemindersOnly, filterStatus, filterClient, filterResponsible, filterDateFrom, filterDateTo, searchQuery, sortOption, sortDirection, currentUser]);
+  }, [rawItems, isServerPaginated, myRemindersOnly, notCompletedOnly, filterStatus, filterClient, filterResponsible, filterDateFrom, filterDateTo, searchQuery, sortOption, sortDirection, currentUser]);
 
   const activeFilterCount =
     (myRemindersOnly ? 1 : 0) +
+    (notCompletedOnly ? 1 : 0) +
     (filterStatus !== 'all' ? 1 : 0) +
     (filterClient !== 'all' ? 1 : 0) +
     (filterResponsible !== 'all' ? 1 : 0) +
@@ -595,9 +665,17 @@ export const ReminderPanel: React.FC<Props> = ({
               hidden: !currentUser || isRemindersRestricted,
               color: 'primary',
             },
+            {
+              key: 'not_completed',
+              label: t('quickFilterNotCompleted'),
+              color: 'primary',
+            },
           ],
-          selectedKeys: !isRemindersRestricted && myRemindersOnly ? ['my'] : [],
-          onChange: (keys: string[]) => handleToggleMyReminders(keys.includes('my')),
+          selectedKeys: [
+            ...(!isRemindersRestricted && myRemindersOnly ? ['my'] : []),
+            ...(notCompletedOnly ? ['not_completed'] : []),
+          ],
+          onChange: handleQuickFiltersChange,
         }}
         refreshProps={onRefresh ? { onRefresh, isRefreshing } : undefined}
         filterSelector={
@@ -650,7 +728,7 @@ export const ReminderPanel: React.FC<Props> = ({
                   getOptionLabel={(option) => option.label}
                   isOptionEqualToValue={(option, val) => option.value === val.value}
                   value={statusOptions.find((o) => o.value === filterStatus) || null}
-                  onChange={(_, newValue) => setFilterStatus(newValue ? newValue.value : 'all')}
+                  onChange={(_, newValue) => handleFilterStatusChange(newValue ? newValue.value : 'all')}
                   renderInput={(params) => <TextField {...params} label={t('colStatus')} size="small" />}
                 />
 

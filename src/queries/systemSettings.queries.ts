@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../api';
-import { API_ROUTES } from '../constants';
-import type { AppNotification } from '../types';
+import { API_ROUTES, TIME_MS } from '../constants';
+import type { AppNotification, Service } from '../types';
 
 export function useSystemSettingsQuery() {
   return useQuery<Record<string, any>>({
@@ -11,14 +11,15 @@ export function useSystemSettingsQuery() {
       if (!res.ok) throw new Error('Failed to fetch system settings');
       return res.json();
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: TIME_MS.FIVE_MINUTES,
   });
 }
 
 export function useWasteDisposalServiceId() {
   const { data: systemSettings = {}, isLoading } = useSystemSettingsQuery();
   const serviceId = (systemSettings['waste_disposal_service_id'] as string | undefined)?.trim() || '';
-  return { wasteDisposalServiceId: serviceId, isLoading };
+  const service = (systemSettings['waste_disposal_service'] as Service | undefined) || null;
+  return { wasteDisposalServiceId: serviceId, wasteDisposalService: service, isLoading };
 }
 
 export function useSystemSettingsMutations() {
@@ -66,9 +67,9 @@ export function useNotificationsQuery(enabled = true) {
         pendingUsersCount: typeof data?.pendingUsersCount === 'number' ? data.pendingUsersCount : undefined,
       };
     },
-    refetchInterval: () => (typeof document !== 'undefined' && document.hidden ? false : 60_000),
+    refetchInterval: () => (typeof document !== 'undefined' && document.hidden ? false : TIME_MS.ONE_MINUTE),
     refetchOnWindowFocus: true,
-    staleTime: 15_000,
+    staleTime: TIME_MS.FIFTEEN_SECONDS,
   });
 }
 

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useInfiniteQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { apiFetch } from '../api';
-import { API_ROUTES } from '../constants/apiRoutes';
+import { API_ROUTES, TIME_MS } from '../constants';
 import type { ActivityLog, ActivityLogMonthlyStats, ActivityAnalytics } from '../types';
 import type { ActivityLogsSummaryResponse } from '../components/activityLogs/types';
 
@@ -18,7 +18,7 @@ export function useActivityLogsQuery(from?: string) {
       if (!res.ok) throw new Error('Failed to fetch activity logs');
       return res.json();
     },
-    staleTime: 600_000,
+    staleTime: TIME_MS.TEN_MINUTES,
     refetchOnWindowFocus: false,
     placeholderData: (prev) => prev,
   });
@@ -39,7 +39,7 @@ export function useActivityLogsSummaryQuery(from?: string) {
       if (!res.ok) throw new Error('Failed to fetch activity logs summary');
       return res.json();
     },
-    staleTime: 600_000,
+    staleTime: TIME_MS.TEN_MINUTES,
     refetchOnWindowFocus: false,
     placeholderData: (prev) => prev,
   });
@@ -73,7 +73,7 @@ export function useUserActivityLogsQuery(userId: string | undefined, from?: stri
       return { before: last.timestamp, beforeId: last.id };
     },
     enabled: Boolean(userId) && enabled,
-    staleTime: 600_000,
+    staleTime: TIME_MS.TEN_MINUTES,
     refetchOnWindowFocus: false,
     maxPages: 10,
   });
@@ -99,7 +99,7 @@ export function useActivityMonthlyStatsQuery(
       if (!res.ok) throw new Error('Failed to fetch activity monthly stats');
       return res.json();
     },
-    staleTime: 600_000,
+    staleTime: TIME_MS.TEN_MINUTES,
     refetchOnWindowFocus: false,
   });
 }
@@ -115,7 +115,7 @@ export function useActivityLogDetailsQuery(id: string | undefined, enabled: bool
     },
     enabled: enabled && !!id,
     staleTime: Infinity, // logs are immutable
-    gcTime: 10 * 60_000,
+    gcTime: TIME_MS.TEN_MINUTES,
   });
 }
 
@@ -154,7 +154,7 @@ export function useActivityAnalyticsQuery(params: ActivityAnalyticsParams) {
       if (!res.ok) throw new Error('Failed to fetch activity analytics');
       return res.json();
     },
-    staleTime: 60_000,
+    staleTime: TIME_MS.ONE_MINUTE,
     placeholderData: keepPreviousData,
   });
 }
@@ -231,7 +231,7 @@ export function useActivityLogStatusQuery() {
       if (!res.ok) throw new Error('Failed to fetch activity log status');
       return res.json();
     },
-    staleTime: 60_000,
+    staleTime: TIME_MS.ONE_MINUTE,
     refetchOnWindowFocus: false,
   });
 }
