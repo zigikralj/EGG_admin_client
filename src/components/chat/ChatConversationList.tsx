@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -31,7 +31,6 @@ import { useQuery } from '@tanstack/react-query';
 import { chatApi, type ChatConversationItem } from './chatApi';
 import { useChat } from '../../context/ChatContext';
 import { useAuth } from '../../context/AuthContext';
-import { useUsersDirectoryQuery } from '../../queries/users.queries';
 import { UserAutocomplete } from '../common/autocomplete';
 import { TIME_MS } from '../../constants';
 
@@ -48,14 +47,11 @@ export interface UnifiedConversationItem {
   title: string;
   avatarUrl?: string | null;
   type: 'DIRECT' | 'GROUP' | 'CONTEXTUAL';
-  contextType?: string | null;
-  contextId?: string | null;
   updatedAt: string;
   unreadCount: number;
   lastMessageSnippet?: string;
   isOnline?: boolean;
   userSubtext?: string;
-  otherUserId?: string;
 }
 
 export interface UnifiedUserItem {
@@ -75,7 +71,7 @@ interface ChatConversationListProps {
 
 export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onClose }) => {
   const { currentUser } = useAuth();
-  const { onlineUserIds, openChat, openDirectChatWithUser, markAsRead, markAsUnread } = useChat();
+  const { onlineUserIds, openChat, openDirectChatWithUser, markAsRead, markAsUnread, allUsers } = useChat();
   const [search, setSearch] = useState('');
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [groupTitle, setGroupTitle] = useState('');
@@ -90,111 +86,101 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
     meta: { silent: true },
   });
 
-  // Fetch all users for directory
-  const { data: allUsers = [] } = useUsersDirectoryQuery();
+  // Combine, sort, and filter conversations + colleagues list
+  const filteredItems = useMemo(() => {
+    const directPartnerUserIds = new Set<string>();
 
-  // 1. Process conversations into unified list items
-  // Merely opening a 1-1 chat with someone without sending anything should NOT mark it as recent
-  // or remove them from the colleagues list.
-  const directPartnerUserIds = new Set<string>();
+    // Merely opening a 1-1 chat with someone without sending anything should NOT mark it as recent
+    // or remove them from the colleagues list.
+    const activeConversations = conversations.filter(
+      (c) => c.type !== 'DIRECT' || Boolean(c.lastMessage)
+    );
 
-  const activeConversations = conversations.filter(
-    (c) => c.type !== 'DIRECT' || Boolean(c.lastMessage)
-  );
+    const conversationItems: UnifiedConversationItem[] = activeConversations.map((c) => {
+      let title = c.title || 'Conversation';
+      let avatarUrl: string | null | undefined = null;
+      let isOnline = false;
+      let userSubtext = '';
 
-  const conversationItems: UnifiedConversationItem[] = activeConversations.map((c) => {
-    let title = c.title || 'Conversation';
-    let avatarUrl: string | null | undefined = null;
-    let isOnline = false;
-    let userSubtext = '';
-    let otherUserId: string | undefined;
+      const pIds: string[] =
+        c.participantIds ||
+        (c.participants || []).map((p: any) =>
+          typeof p === 'string' ? p : p.id || p.userId || p.user?.id
+        );
 
-    const pIds: string[] =
-      c.participantIds ||
-      (c.participants || []).map((p: any) =>
-        typeof p === 'string' ? p : p.id || p.userId || p.user?.id
-      );
-
-    if (c.type === 'DIRECT') {
-      otherUserId = pIds.find((id) => id !== currentUser?.id);
-      const otherUser = allUsers.find((u) => u.id === otherUserId);
-      if (otherUser) {
-        title = otherUser.name;
-        avatarUrl = otherUser.avatarUrl;
-        directPartnerUserIds.add(otherUser.id);
-        isOnline = onlineUserIds.has(otherUser.id);
-        userSubtext = `${isOnline ? 'Online' : 'Offline'} • ${otherUser.role || 'User'}`;
-      } else if (otherUserId) {
-        title = 'User';
-        directPartnerUserIds.add(otherUserId);
-        isOnline = onlineUserIds.has(otherUserId);
-        userSubtext = `${isOnline ? 'Online' : 'Offline'}`;
+      if (c.type === 'DIRECT') {
+        const otherUserId = pIds.find((id) => id !== currentUser?.id);
+        const otherUser = allUsers.find((u) => u.id === otherUserId);
+        if (otherUser) {
+          title = otherUser.name;
+          avatarUrl = otherUser.avatarUrl;
+          directPartnerUserIds.add(otherUser.id);
+          isOnline = onlineUserIds.has(otherUser.id);
+          userSubtext = `${isOnline ? 'Online' : 'Offline'} • ${otherUser.role || 'User'}`;
+        } else if (otherUserId) {
+          title = 'User';
+          directPartnerUserIds.add(otherUserId);
+          isOnline = onlineUserIds.has(otherUserId);
+          userSubtext = `${isOnline ? 'Online' : 'Offline'}`;
+        }
+      } else if (c.type === 'CONTEXTUAL') {
+        title = c.title ? `${c.title}` : 'Project Chat';
+        userSubtext = 'Project Discussion';
+      } else {
+        title = c.title || 'Group Chat';
+        userSubtext = `${pIds.length} members`;
       }
-    } else if (c.type === 'CONTEXTUAL') {
-      title = c.title ? `${c.title}` : 'Project Chat';
-      userSubtext = 'Project Discussion';
-    } else {
-      title = c.title || 'Group Chat';
-      userSubtext = `${pIds.length} members`;
-    }
 
-    const lastSenderName =
-      c.lastMessage?.sender?.name ||
-      (c.lastMessage?.sender?.id
-        ? allUsers.find((u) => u.id === c.lastMessage?.sender?.id)?.name
-        : undefined);
+      const lastSenderName =
+        c.lastMessage?.sender?.name ||
+        (c.lastMessage?.sender?.id
+          ? allUsers.find((u) => u.id === c.lastMessage?.sender?.id)?.name
+          : undefined);
 
-    const lastMessageSnippet = c.lastMessage
-      ? `${lastSenderName || 'User'}: ${c.lastMessage.content}`
-      : undefined;
+      const lastMessageSnippet = c.lastMessage
+        ? `${lastSenderName || 'User'}: ${c.lastMessage.content}`
+        : undefined;
 
-    return {
-      kind: 'conversation',
-      id: c.id,
-      title,
-      avatarUrl,
-      type: c.type,
-      contextType: c.contextType,
-      contextId: c.contextId,
-      updatedAt: c.updatedAt,
-      unreadCount: c.unreadCount,
-      lastMessageSnippet,
-      isOnline,
-      userSubtext,
-      otherUserId,
-    };
-  });
+      return {
+        kind: 'conversation',
+        id: c.id,
+        title,
+        avatarUrl,
+        type: c.type,
+        updatedAt: c.updatedAt,
+        unreadCount: c.unreadCount,
+        lastMessageSnippet,
+        isOnline,
+        userSubtext,
+      };
+    });
 
-  // 2. Add users who don't have an existing direct conversation
-  const userItems: UnifiedUserItem[] = allUsers
-    .filter((u) => u.id !== currentUser?.id && !directPartnerUserIds.has(u.id))
-    .map((u) => ({
-      kind: 'user',
-      id: u.id,
-      title: u.name,
-      avatarUrl: u.avatarUrl,
-      role: u.role,
-      isOnline: onlineUserIds.has(u.id),
-    }));
+    const userItems: UnifiedUserItem[] = allUsers
+      .filter((u) => u.id !== currentUser?.id && !directPartnerUserIds.has(u.id))
+      .map((u) => ({
+        kind: 'user',
+        id: u.id,
+        title: u.name,
+        avatarUrl: u.avatarUrl,
+        role: u.role,
+        isOnline: onlineUserIds.has(u.id),
+      }));
 
-  // 3. Combine & Sort:
-  // Active conversations sorted by most recent first (updatedAt desc)
-  // Followed by available users (Online first, then alphabetical)
-  const sortedConversations = [...conversationItems].sort(
-    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-  );
+    const sortedConversations = [...conversationItems].sort(
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    );
 
-  const sortedUsers = [...userItems].sort((a, b) => {
-    if (a.isOnline && !b.isOnline) return -1;
-    if (!a.isOnline && b.isOnline) return 1;
-    return a.title.localeCompare(b.title);
-  });
+    const sortedUsers = [...userItems].sort((a, b) => {
+      if (a.isOnline && !b.isOnline) return -1;
+      if (!a.isOnline && b.isOnline) return 1;
+      return a.title.localeCompare(b.title);
+    });
 
-  const allCombinedItems = [...sortedConversations, ...sortedUsers];
-
-  const filteredItems = allCombinedItems.filter((item) =>
-    item.title.toLowerCase().includes(search.toLowerCase())
-  );
+    const allCombinedItems = [...sortedConversations, ...sortedUsers];
+    const q = search.trim().toLowerCase();
+    if (!q) return allCombinedItems;
+    return allCombinedItems.filter((item) => item.title.toLowerCase().includes(q));
+  }, [conversations, allUsers, currentUser?.id, onlineUserIds, search]);
 
   const handleAddMember = (user: any) => {
     if (!user || !user.id) return;
@@ -545,208 +531,202 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
       ) : (
         /* Unified List content */
         <Box sx={{ flex: 1, overflowY: 'auto' }}>
-        {filteredItems.length === 0 ? (
-          <Typography variant="caption" sx={{ display: 'block', p: 3, textAlign: 'center', color: 'text.secondary' }}>
-            No chats or colleagues found
-          </Typography>
-        ) : (
-          <List dense disablePadding>
-            {filteredItems.map((item) => {
-              if (item.kind === 'conversation') {
-                const isProject = item.type === 'CONTEXTUAL';
-                const isDirect = item.type === 'DIRECT';
+          {filteredItems.length === 0 ? (
+            <Typography variant="caption" sx={{ display: 'block', p: 3, textAlign: 'center', color: 'text.secondary' }}>
+              No chats or colleagues found
+            </Typography>
+          ) : (
+            <List dense disablePadding>
+              {filteredItems.map((item) => {
+                if (item.kind === 'conversation') {
+                  const isProject = item.type === 'CONTEXTUAL';
+                  const isDirect = item.type === 'DIRECT';
 
-                return (
-                  <ListItemButton
-                    key={`conv-${item.id}`}
-                    onClick={() =>
-                      openChat(item.id, {
-                        title: item.title,
-                        contextType: item.contextType,
-                        contextId: item.contextId,
-                      })
-                    }
-                    sx={{ py: 1, px: 1.5 }}
-                  >
-                    <ListItemAvatar sx={{ minWidth: 42 }}>
-                      {isDirect ? (
-                        <Badge
-                          variant="dot"
-                          overlap="circular"
-                          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                          sx={{
-                            '& .MuiBadge-badge': {
-                              bgcolor: item.isOnline ? 'success.main' : 'text.disabled',
-                              boxShadow: item.isOnline ? '0 0 0 2px white' : 'none',
-                            },
-                          }}
-                        >
-                          <Avatar src={item.avatarUrl || undefined} sx={{ width: 32, height: 32, fontSize: '0.8rem' }}>
-                            {item.title.charAt(0)}
+                  return (
+                    <ListItemButton
+                      key={`conv-${item.id}`}
+                      onClick={() => openChat(item.id, { title: item.title })}
+                      sx={{ py: 1, px: 1.5 }}
+                    >
+                      <ListItemAvatar sx={{ minWidth: 42 }}>
+                        {isDirect ? (
+                          <Badge
+                            variant="dot"
+                            overlap="circular"
+                            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                            sx={{
+                              '& .MuiBadge-badge': {
+                                bgcolor: item.isOnline ? 'success.main' : 'text.disabled',
+                                boxShadow: item.isOnline ? '0 0 0 2px white' : 'none',
+                              },
+                            }}
+                          >
+                            <Avatar src={item.avatarUrl || undefined} sx={{ width: 32, height: 32, fontSize: '0.8rem' }}>
+                              {item.title.charAt(0)}
+                            </Avatar>
+                          </Badge>
+                        ) : (
+                          <Avatar
+                            sx={{
+                              width: 32,
+                              height: 32,
+                              fontSize: '0.8rem',
+                              bgcolor: isProject ? 'secondary.main' : 'info.main',
+                            }}
+                          >
+                            {isProject ? <FolderSpecialIcon fontSize="small" /> : <GroupsIcon fontSize="small" />}
                           </Avatar>
-                        </Badge>
-                      ) : (
-                        <Avatar
-                          sx={{
-                            width: 32,
-                            height: 32,
-                            fontSize: '0.8rem',
-                            bgcolor: isProject ? 'secondary.main' : 'info.main',
-                          }}
-                        >
-                          {isProject ? <FolderSpecialIcon fontSize="small" /> : <GroupsIcon fontSize="small" />}
-                        </Avatar>
-                      )}
-                    </ListItemAvatar>
-                    <ListItemText
-                      disableTypography
-                      sx={{ my: 0, minWidth: 0 }}
-                      primary={
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
-                          <Typography
-                            variant="body2"
-                            sx={{
-                              fontWeight: item.unreadCount > 0 ? 700 : 500,
-                              minWidth: 0,
-                              color: 'text.primary',
-                            }}
-                            noWrap
-                          >
-                            {item.title}
-                          </Typography>
-                          {item.unreadCount > 0 && (
-                            <Badge
-                              badgeContent={item.unreadCount}
-                              color="error"
+                        )}
+                      </ListItemAvatar>
+                      <ListItemText
+                        disableTypography
+                        sx={{ my: 0, minWidth: 0 }}
+                        primary={
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
+                            <Typography
+                              variant="body2"
                               sx={{
-                                flexShrink: 0,
-                                '& .MuiBadge-badge': {
-                                  position: 'static',
-                                  transform: 'none',
-                                  fontWeight: 700,
-                                  fontSize: '0.7rem',
-                                  height: 18,
-                                  minWidth: 18,
-                                  px: 0.5,
-                                },
+                                fontWeight: item.unreadCount > 0 ? 700 : 500,
+                                minWidth: 0,
+                                color: 'text.primary',
                               }}
-                            />
-                          )}
-                        </Box>
-                      }
-                      secondary={
-                        <Box
-                          sx={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            gap: 1,
-                            mt: 0.25,
-                            minHeight: 20,
-                          }}
-                        >
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            noWrap
-                            sx={{
-                              display: 'block',
-                              flex: 1,
-                              minWidth: 0,
-                            }}
-                          >
-                            {item.lastMessageSnippet || item.userSubtext}
-                          </Typography>
+                              noWrap
+                            >
+                              {item.title}
+                            </Typography>
+                            {item.unreadCount > 0 && (
+                              <Badge
+                                badgeContent={item.unreadCount}
+                                color="error"
+                                sx={{
+                                  flexShrink: 0,
+                                  '& .MuiBadge-badge': {
+                                    position: 'static',
+                                    transform: 'none',
+                                    fontWeight: 700,
+                                    fontSize: '0.7rem',
+                                    height: 18,
+                                    minWidth: 18,
+                                    px: 0.5,
+                                  },
+                                }}
+                              />
+                            )}
+                          </Box>
+                        }
+                        secondary={
                           <Box
                             sx={{
                               display: 'flex',
+                              justifyContent: 'space-between',
                               alignItems: 'center',
-                              flexShrink: 0,
-                              opacity: item.unreadCount > 0 ? 1 : 0,
-                              transition: 'opacity 0.15s ease',
-                              '.MuiListItemButton-root:hover &': {
-                                opacity: 1,
-                              },
+                              gap: 1,
+                              mt: 0.25,
+                              minHeight: 20,
                             }}
-                            onClick={(e) => e.stopPropagation()}
                           >
-                            {item.unreadCount > 0 ? (
-                              <Tooltip title="Mark as read" arrow>
-                                <IconButton
-                                  size="small"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    markAsRead(item.id);
-                                  }}
-                                  sx={{ p: 0.25, color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
-                                >
-                                  <MarkChatReadOutlinedIcon sx={{ fontSize: '1rem' }} />
-                                </IconButton>
-                              </Tooltip>
-                            ) : (
-                              <Tooltip title="Mark as unread" arrow>
-                                <IconButton
-                                  size="small"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    markAsUnread(item.id);
-                                  }}
-                                  sx={{ p: 0.25, color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
-                                >
-                                  <MarkChatUnreadOutlinedIcon sx={{ fontSize: '1rem' }} />
-                                </IconButton>
-                              </Tooltip>
-                            )}
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              noWrap
+                              sx={{
+                                display: 'block',
+                                flex: 1,
+                                minWidth: 0,
+                              }}
+                            >
+                              {item.lastMessageSnippet || item.userSubtext}
+                            </Typography>
+                            <Box
+                              sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                flexShrink: 0,
+                                opacity: item.unreadCount > 0 ? 1 : 0,
+                                transition: 'opacity 0.15s ease',
+                                '.MuiListItemButton-root:hover &': {
+                                  opacity: 1,
+                                },
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {item.unreadCount > 0 ? (
+                                <Tooltip title="Mark as read" arrow>
+                                  <IconButton
+                                    size="small"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      markAsRead(item.id);
+                                    }}
+                                    sx={{ p: 0.25, color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
+                                  >
+                                    <MarkChatReadOutlinedIcon sx={{ fontSize: '1rem' }} />
+                                  </IconButton>
+                                </Tooltip>
+                              ) : (
+                                <Tooltip title="Mark as unread" arrow>
+                                  <IconButton
+                                    size="small"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      markAsUnread(item.id);
+                                    }}
+                                    sx={{ p: 0.25, color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
+                                  >
+                                    <MarkChatUnreadOutlinedIcon sx={{ fontSize: '1rem' }} />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+                            </Box>
                           </Box>
-                        </Box>
+                        }
+                      />
+                    </ListItemButton>
+                  );
+                }
+
+                // Direct User (no prior conversation yet)
+                return (
+                  <ListItemButton
+                    key={`user-${item.id}`}
+                    onClick={() => openDirectChatWithUser(item.id, item.title)}
+                    sx={{ py: 1, px: 1.5 }}
+                  >
+                    <ListItemAvatar sx={{ minWidth: 42 }}>
+                      <Badge
+                        variant="dot"
+                        overlap="circular"
+                        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                        sx={{
+                          '& .MuiBadge-badge': {
+                            bgcolor: item.isOnline ? 'success.main' : 'text.disabled',
+                            boxShadow: item.isOnline ? '0 0 0 2px white' : 'none',
+                          },
+                        }}
+                      >
+                        <Avatar src={item.avatarUrl || undefined} sx={{ width: 32, height: 32, fontSize: '0.8rem' }}>
+                          {item.title.charAt(0)}
+                        </Avatar>
+                      </Badge>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {item.title}
+                        </Typography>
+                      }
+                      secondary={
+                        <Typography variant="caption" color="text.secondary">
+                          {item.isOnline ? 'Online' : 'Offline'} • {item.role || 'User'}
+                        </Typography>
                       }
                     />
                   </ListItemButton>
                 );
-              }
-
-              // Direct User (no prior conversation yet)
-              return (
-                <ListItemButton
-                  key={`user-${item.id}`}
-                  onClick={() => openDirectChatWithUser(item.id, item.title)}
-                  sx={{ py: 1, px: 1.5 }}
-                >
-                  <ListItemAvatar sx={{ minWidth: 42 }}>
-                    <Badge
-                      variant="dot"
-                      overlap="circular"
-                      anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                      sx={{
-                        '& .MuiBadge-badge': {
-                          bgcolor: item.isOnline ? 'success.main' : 'text.disabled',
-                          boxShadow: item.isOnline ? '0 0 0 2px white' : 'none',
-                        },
-                      }}
-                    >
-                      <Avatar src={item.avatarUrl || undefined} sx={{ width: 32, height: 32, fontSize: '0.8rem' }}>
-                        {item.title.charAt(0)}
-                      </Avatar>
-                    </Badge>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {item.title}
-                      </Typography>
-                    }
-                    secondary={
-                      <Typography variant="caption" color="text.secondary">
-                        {item.isOnline ? 'Online' : 'Offline'} • {item.role || 'User'}
-                      </Typography>
-                    }
-                  />
-                </ListItemButton>
-              );
-            })}
-          </List>
-        )}
-      </Box>
+              })}
+            </List>
+          )}
+        </Box>
       )}
     </Box>
   );

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -27,7 +27,9 @@ interface ChatMessageBubbleProps {
   onDelete: (messageId: string) => Promise<void>;
 }
 
-export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
+const escapeRegex = (s: string) => s.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+
+export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = React.memo(({
   message,
   isCurrentUser,
   canModerate,
@@ -56,6 +58,39 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
     await onEdit(message.id, editContent.trim());
     setIsEditing(false);
   };
+
+  // Memoize @mention regex pattern so we only compute it when candidate names change
+  const mentionPattern = useMemo(() => {
+    if (!message.content?.includes('@')) return null;
+
+    const namesSet = new Set<string>();
+    allUsers.forEach((u) => {
+      if (u.name?.trim()) {
+        const raw = u.name.trim();
+        namesSet.add(raw);
+        const stripped = raw
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/đ/g, 'dj')
+          .replace(/Đ/g, 'Dj');
+        if (stripped) namesSet.add(stripped);
+      }
+    });
+
+    if (message.sender?.name?.trim()) {
+      namesSet.add(message.sender.name.trim());
+    }
+    if (message.replyTo?.sender?.name?.trim()) {
+      namesSet.add(message.replyTo.sender.name.trim());
+    }
+
+    const candidateNames = Array.from(namesSet).sort((a, b) => b.length - a.length);
+    if (candidateNames.length > 0) {
+      const namesPattern = candidateNames.map(escapeRegex).join('|');
+      return new RegExp(`(@(?:${namesPattern}|[\\p{L}\\p{N}_-]+))`, 'gu');
+    }
+    return /(@[\p{L}\p{N}_-]+)/gu;
+  }, [allUsers, message.content, message.sender?.name, message.replyTo?.sender?.name]);
 
   const isSystemAnnouncement =
     message.content.startsWith('renamed the group to') ||
@@ -89,49 +124,9 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
     );
   }
 
-  // Render message content with precisely highlighted @mentions
   const renderFormattedContent = (text: string) => {
-    if (!text.includes('@')) return text;
-
-    // Collect candidate user names sorted by length descending so longer full names match first
-    const namesSet = new Set<string>();
-    allUsers.forEach((u) => {
-      if (u.name?.trim()) {
-        const raw = u.name.trim();
-        namesSet.add(raw);
-        // Also support normalized ASCII versions without diacritics (e.g. Aleksandar Stankovic for Aleksandar Stanković)
-        const stripped = raw
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .replace(/đ/g, 'dj')
-          .replace(/Đ/g, 'Dj');
-        if (stripped) namesSet.add(stripped);
-      }
-    });
-
-    // Also include message sender and reply sender if available
-    if (message.sender?.name?.trim()) {
-      namesSet.add(message.sender.name.trim());
-    }
-    if (message.replyTo?.sender?.name?.trim()) {
-      namesSet.add(message.replyTo.sender.name.trim());
-    }
-
-    const candidateNames = Array.from(namesSet).sort((a, b) => b.length - a.length);
-
-    // Escape regex special chars
-    const escapeRegex = (s: string) => s.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
-
-    let pattern: RegExp;
-    if (candidateNames.length > 0) {
-      const namesPattern = candidateNames.map(escapeRegex).join('|');
-      // Matches full multi-word name (e.g. @Aleksandar Stanković) OR standard @word
-      pattern = new RegExp(`(@(?:${namesPattern}|[\\p{L}\\p{N}_-]+))`, 'gu');
-    } else {
-      pattern = /(@[\p{L}\p{N}_-]+)/gu;
-    }
-
-    const parts = text.split(pattern);
+    if (!mentionPattern) return text;
+    const parts = text.split(mentionPattern);
     return parts.map((part, i) => {
       if (part.startsWith('@')) {
         return (
@@ -345,4 +340,4 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
       </Menu>
     </Box>
   );
-};
+});

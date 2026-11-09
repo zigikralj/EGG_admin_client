@@ -31,7 +31,6 @@ describe('queryPersistence', () => {
     it('identifies user directory and summary queries as persistable', () => {
       expect(isPersistableQuery(['users', 'directory'])).toBe(true);
       expect(isPersistableQuery(['users', 'summary'])).toBe(true);
-      expect(isPersistableQuery(['chat', 'allUsers'])).toBe(true);
     });
 
     it('rejects volatile, paginated, or sensitive queries', () => {

@@ -100,7 +100,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       const directoryUser = allUsers.find((user) => user.id === uid);
       return {
         id: uid,
-        participantId: (typeof p === 'object' && p?.id) ? (p.id as string) : uid,
         name: directoryUser?.name || (typeof p === 'object' ? p?.name || u?.name : '') || 'User',
         role: directoryUser?.role || (typeof p === 'object' ? p?.role || u?.role : '') || 'User',
         avatarUrl: directoryUser?.avatarUrl ?? (typeof p === 'object' ? p?.avatarUrl ?? u?.avatarUrl : null),
@@ -186,6 +185,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
   const handleEditMessage = async (messageId: string, newContent: string) => {
     const updated = await chatApi.editMessage(messageId, newContent);
+    chatStorage.upsertMessage(updated).catch(() => {});
     queryClient.setQueryData<ChatMessageItem[]>(
       ['chat', 'messages', conversationId],
       (old = []) => old.map((m) => (m.id === messageId ? updated : m))
@@ -194,15 +194,21 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
   const handleDeleteMessage = async (messageId: string) => {
     const res = await chatApi.deleteMessage(messageId);
+    if (res.hardDeleted) {
+      chatStorage.removeMessage(messageId).catch(() => {});
+    }
     queryClient.setQueryData<ChatMessageItem[]>(
       ['chat', 'messages', conversationId],
       (old = []) => {
         if (res.hardDeleted) {
           return old.filter((m) => m.id !== messageId);
         }
-        return old.map((m) =>
-          m.id === messageId ? { ...m, isDeleted: true, content: '' } : m
-        );
+        return old.map((m) => {
+          if (m.id !== messageId) return m;
+          const softDeleted = { ...m, isDeleted: true, content: '' };
+          chatStorage.upsertMessage(softDeleted).catch(() => {});
+          return softDeleted;
+        });
       }
     );
   };

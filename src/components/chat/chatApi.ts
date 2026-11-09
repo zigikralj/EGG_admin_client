@@ -43,7 +43,6 @@ export interface ChatMessageItem {
   updatedAt?: string;
   sender: ChatMessageSender;
   replyTo?: ChatMessageReplyTo | null;
-  readReceipts?: { userId: string; readAt: string }[];
 }
 
 export interface ChatConversationItem {
@@ -88,9 +87,8 @@ export const chatApi = {
     return res.json();
   },
 
-  getConversations: async (options?: { since?: string }): Promise<ChatConversationItem[]> => {
-    const qs = options?.since ? `?since=${encodeURIComponent(options.since)}` : '';
-    const res = await apiFetch(`/api/chat/conversations${qs}`);
+  getConversations: async (): Promise<ChatConversationItem[]> => {
+    const res = await apiFetch('/api/chat/conversations');
     if (!res.ok) throw new Error('Failed to fetch conversations');
     return res.json();
   },
@@ -120,13 +118,10 @@ export const chatApi = {
 
   getMessages: async (
     conversationId: string,
-    options?: { before?: string; beforeSeq?: number; afterSeq?: number; sinceUpdatedAt?: string; limit?: number }
+    options?: { beforeSeq?: number; limit?: number }
   ): Promise<ChatMessageItem[]> => {
     const params = new URLSearchParams();
-    if (options?.before) params.set('before', options.before);
     if (options?.beforeSeq !== undefined) params.set('beforeSeq', String(options.beforeSeq));
-    if (options?.afterSeq !== undefined) params.set('afterSeq', String(options.afterSeq));
-    if (options?.sinceUpdatedAt) params.set('sinceUpdatedAt', options.sinceUpdatedAt);
     if (options?.limit) params.set('limit', String(options.limit));
     const qs = params.toString() ? `?${params.toString()}` : '';
 

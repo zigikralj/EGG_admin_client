@@ -24,11 +24,6 @@ export function isPersistableQuery(queryKey: readonly unknown[]): boolean {
     return true;
   }
 
-  // Backwards compatibility for legacy chat allUsers key
-  if (domain === 'chat' && subType === 'allUsers') {
-    return true;
-  }
-
   return false;
 }
 

@@ -10,6 +10,7 @@ import { chatApi, type ChatMessageItem, type ChatConversationItem } from './chat
 import { ChatMessageBubble } from './ChatMessageBubble';
 import { ChatMessageInput } from './ChatMessageInput';
 import { useAuth } from '../../context/AuthContext';
+import { useChat } from '../../context/ChatContext';
 
 interface ProjectChatPaneProps {
   projectId: string;
@@ -17,6 +18,7 @@ interface ProjectChatPaneProps {
 
 export const ProjectChatPane: React.FC<ProjectChatPaneProps> = ({ projectId }) => {
   const { currentUser } = useAuth();
+  const { getProjectUnreadCount, markAsRead } = useChat();
   const queryClient = useQueryClient();
   const [replyingTo, setReplyingTo] = useState<ChatMessageItem | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -29,6 +31,7 @@ export const ProjectChatPane: React.FC<ProjectChatPaneProps> = ({ projectId }) =
   });
 
   const conversationId = conversation?.id;
+  const projectUnread = getProjectUnreadCount(projectId);
 
   // 2. Fetch messages
   const { data: messages = [], isLoading: isLoadingMessages } = useQuery<ChatMessageItem[]>({
@@ -39,12 +42,12 @@ export const ProjectChatPane: React.FC<ProjectChatPaneProps> = ({ projectId }) =
     meta: { silent: true },
   });
 
-  // Mark as read when opened
+  // Mark as read when opened or when new unread messages arrive while viewing
   useEffect(() => {
-    if (conversationId) {
-      chatApi.markAsRead(conversationId).catch(() => {});
+    if (conversationId && projectUnread > 0) {
+      markAsRead(conversationId);
     }
-  }, [conversationId]);
+  }, [conversationId, projectUnread, markAsRead]);
 
   // Scroll to bottom on load/messages
   useEffect(() => {

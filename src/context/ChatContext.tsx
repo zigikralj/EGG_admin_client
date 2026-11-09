@@ -1,16 +1,15 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from './AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { STORAGE_KEYS, TIME_MS } from '../constants';
 import { getApiUrl } from '../api';
 import { useUsersDirectoryQuery, type DirectoryUser } from '../queries';
 import { chatApi, type ChatConversationItem, type ChatMessageItem, type ChatUnreadSummary } from '../components/chat/chatApi';
+import { chatStorage } from '../components/chat/chatStorage';
 
 export interface ActiveChatWindow {
   conversationId: string;
   minimized: boolean;
-  contextType?: string | null;
-  contextId?: string | null;
   title?: string;
 }
 
@@ -19,7 +18,7 @@ export type ChatDirectoryUser = DirectoryUser;
 interface ChatContextType {
   onlineUserIds: Set<string>;
   activeWindows: ActiveChatWindow[];
-  openChat: (conversationId: string, options?: { contextType?: string | null; contextId?: string | null; title?: string }) => void;
+  openChat: (conversationId: string, options?: { title?: string }) => void;
   openDirectChatWithUser: (userId: string, userName?: string) => Promise<void>;
   closeChat: (conversationId: string) => void;
   toggleMinimize: (conversationId: string) => void;
@@ -37,10 +36,21 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const queryClient = useQueryClient();
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
   const [activeWindows, setActiveWindows] = useState<ActiveChatWindow[]>([]);
+  const activeWindowsRef = useRef<ActiveChatWindow[]>([]);
+  activeWindowsRef.current = activeWindows;
   const eventSourceRef = useRef<EventSource | null>(null);
 
-  // Preload and cache all users for @mention highlights and directory lookups
-  const { data: allUsers = [] } = useUsersDirectoryQuery();
+  // Preload and cache all users for @mention highlights and directory lookups (only when authenticated)
+  const { data: allUsers = [] } = useUsersDirectoryQuery({ enabled: Boolean(currentUser) });
+
+  // Fetch lightweight unread summary (counts only) for badges; real-time updates pushed via SSE
+  const { data: unreadSummary } = useQuery<ChatUnreadSummary>({
+    queryKey: ['chat', 'unread-summary'],
+    queryFn: () => chatApi.getUnreadSummary(),
+    enabled: Boolean(currentUser),
+    staleTime: TIME_MS.ONE_MINUTE,
+    meta: { silent: true },
+  });
 
   // Setup SSE stream when user is logged in with 5-minute inactivity idle sleep
   useEffect(() => {
@@ -51,6 +61,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         eventSourceRef.current.close();
         eventSourceRef.current = null;
       }
+      chatStorage.clearAll().catch(() => {});
       return;
     }
 
@@ -82,6 +93,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           const { userId, status } = JSON.parse(e.data);
           setOnlineUserIds((prev) => {
+            const hasUser = prev.has(userId);
+            if ((status === 'ONLINE' && hasUser) || (status !== 'ONLINE' && !hasUser)) {
+              return prev;
+            }
             const next = new Set(prev);
             if (status === 'ONLINE') next.add(userId);
             else next.delete(userId);
@@ -93,7 +108,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       es.addEventListener('MESSAGE_CREATED', (e: MessageEvent) => {
         try {
           const { conversationId, message, conversation } = JSON.parse(e.data);
-          
+          const isWindowOpenAndVisible = activeWindowsRef.current.some(
+            (w) => w.conversationId === conversationId && !w.minimized
+          );
+          const isOwnMessage = message.senderId === currentUser.id;
+          const shouldBeRead = isOwnMessage || isWindowOpenAndVisible;
+
+          chatStorage.upsertMessage(message).catch(() => {});
+
           queryClient.setQueryData<ChatMessageItem[]>(
             ['chat', 'messages', conversationId],
             (old = []) => {
@@ -120,9 +142,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   contextId: conversation.contextId,
                   updatedAt: message.createdAt,
                   lastReadAt: new Date(0).toISOString(),
-                  unreadCount: message.senderId === currentUser.id ? 0 : 1,
+                  unreadCount: shouldBeRead ? 0 : 1,
                   participantIds: pIds,
-                  participants: pIds,
                   lastMessage: message,
                 };
                 return [newConv, ...old];
@@ -134,14 +155,18 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   ...c,
                   lastMessage: message,
                   updatedAt: message.createdAt,
-                  unreadCount: message.senderId === currentUser.id ? c.unreadCount : c.unreadCount + 1,
+                  unreadCount: shouldBeRead ? 0 : c.unreadCount + 1,
                 };
               });
             }
           );
 
-          if (message.senderId !== currentUser.id) {
-            queryClient.invalidateQueries({ queryKey: ['chat', 'unread-summary'] });
+          if (!isOwnMessage) {
+            if (isWindowOpenAndVisible) {
+              chatApi.markAsRead(conversationId).catch(() => {});
+            } else {
+              queryClient.invalidateQueries({ queryKey: ['chat', 'unread-summary'] });
+            }
           }
         } catch {}
       });
@@ -173,9 +198,30 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       es.addEventListener('MESSAGE_UPDATED', (e: MessageEvent) => {
         try {
           const { conversationId, message } = JSON.parse(e.data);
+          chatStorage.upsertMessage(message).catch(() => {});
           queryClient.setQueryData<ChatMessageItem[]>(
             ['chat', 'messages', conversationId],
             (old = []) => old.map((m) => (m.id === message.id ? message : m))
+          );
+          queryClient.setQueryData<ChatConversationItem[]>(
+            ['chat', 'conversations'],
+            (old = []) =>
+              old.map((c) => {
+                if (c.id !== conversationId || !c.lastMessage) return c;
+                if (
+                  c.lastMessage.id === message.id ||
+                  (message.seq && c.messageSeq === message.seq)
+                ) {
+                  return {
+                    ...c,
+                    lastMessage: {
+                      ...c.lastMessage,
+                      content: message.content,
+                    },
+                  };
+                }
+                return c;
+              })
           );
         } catch {}
       });
@@ -183,6 +229,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       es.addEventListener('MESSAGE_DELETED', (e: MessageEvent) => {
         try {
           const { conversationId, messageId, hardDeleted, updatedMessage } = JSON.parse(e.data);
+          if (hardDeleted) {
+            chatStorage.removeMessage(messageId).catch(() => {});
+          } else if (updatedMessage) {
+            chatStorage.upsertMessage(updatedMessage).catch(() => {});
+          }
           queryClient.setQueryData<ChatMessageItem[]>(
             ['chat', 'messages', conversationId],
             (old = []) => {
@@ -283,9 +334,23 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [currentUser, queryClient]);
 
+  const markAsRead = useCallback(async (conversationId: string) => {
+    try {
+      queryClient.setQueryData<ChatConversationItem[]>(
+        ['chat', 'conversations'],
+        (old = []) =>
+          old.map((c) => (c.id === conversationId ? { ...c, unreadCount: 0 } : c))
+      );
+      await chatApi.markAsRead(conversationId);
+      queryClient.invalidateQueries({ queryKey: ['chat', 'unread-summary'] });
+    } catch (err) {
+      console.error('Failed to mark as read', err);
+    }
+  }, [queryClient]);
+
   const openChat = useCallback((
     conversationId: string,
-    options?: { contextType?: string | null; contextId?: string | null; title?: string }
+    options?: { title?: string }
   ) => {
     setActiveWindows((prev) => {
       const existing = prev.find((w) => w.conversationId === conversationId);
@@ -301,17 +366,19 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         {
           conversationId,
           minimized: false,
-          contextType: options?.contextType,
-          contextId: options?.contextId,
           title: options?.title,
         },
       ];
     });
 
-    // Mark as read
-    chatApi.markAsRead(conversationId).catch(() => {});
-    queryClient.invalidateQueries({ queryKey: ['chat', 'unread-summary'] });
-  }, [queryClient]);
+    // Only call markAsRead if the conversation actually has unread messages
+    const summaryUnread = unreadSummary?.byConversation?.[conversationId] ?? 0;
+    const convList = queryClient.getQueryData<ChatConversationItem[]>(['chat', 'conversations']);
+    const listUnread = convList?.find((c) => c.id === conversationId)?.unreadCount ?? 0;
+    if (summaryUnread > 0 || listUnread > 0) {
+      markAsRead(conversationId);
+    }
+  }, [queryClient, unreadSummary, markAsRead]);
 
   const openDirectChatWithUser = useCallback(async (targetUserId: string, targetUserName?: string) => {
     if (!currentUser || targetUserId === currentUser.id) return;
@@ -338,21 +405,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
   }, []);
 
-  const markAsRead = useCallback(async (conversationId: string) => {
-    try {
-      await chatApi.markAsRead(conversationId);
-      queryClient.setQueryData<ChatConversationItem[]>(
-        ['chat', 'conversations'],
-        (old = []) =>
-          old.map((c) => (c.id === conversationId ? { ...c, unreadCount: 0 } : c))
-      );
-      queryClient.invalidateQueries({ queryKey: ['chat', 'unread-summary'] });
-      queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] });
-    } catch (err) {
-      console.error('Failed to mark as read', err);
-    }
-  }, [queryClient]);
-
   const markAsUnread = useCallback(async (conversationId: string) => {
     try {
       await chatApi.markAsUnread(conversationId);
@@ -365,15 +417,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [queryClient]);
 
-  // Fetch lightweight unread summary (counts only) for badges; real-time updates pushed via SSE
-  const { data: unreadSummary } = useQuery<ChatUnreadSummary>({
-    queryKey: ['chat', 'unread-summary'],
-    queryFn: () => chatApi.getUnreadSummary(),
-    enabled: Boolean(currentUser),
-    staleTime: TIME_MS.ONE_MINUTE,
-    meta: { silent: true },
-  });
-
   const totalUnreadCount = unreadSummary?.totalUnread ?? 0;
 
   const getProjectUnreadCount = useCallback(
@@ -383,22 +426,37 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [unreadSummary]
   );
 
+  const contextValue = useMemo<ChatContextType>(
+    () => ({
+      onlineUserIds,
+      activeWindows,
+      openChat,
+      openDirectChatWithUser,
+      closeChat,
+      toggleMinimize,
+      markAsRead,
+      markAsUnread,
+      totalUnreadCount,
+      getProjectUnreadCount,
+      allUsers,
+    }),
+    [
+      onlineUserIds,
+      activeWindows,
+      openChat,
+      openDirectChatWithUser,
+      closeChat,
+      toggleMinimize,
+      markAsRead,
+      markAsUnread,
+      totalUnreadCount,
+      getProjectUnreadCount,
+      allUsers,
+    ]
+  );
+
   return (
-    <ChatContext.Provider
-      value={{
-        onlineUserIds,
-        activeWindows,
-        openChat,
-        openDirectChatWithUser,
-        closeChat,
-        toggleMinimize,
-        markAsRead,
-        markAsUnread,
-        totalUnreadCount,
-        getProjectUnreadCount,
-        allUsers,
-      }}
-    >
+    <ChatContext.Provider value={contextValue}>
       {children}
     </ChatContext.Provider>
   );

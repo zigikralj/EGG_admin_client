@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   Box,
   TextField,
@@ -14,7 +14,7 @@ import {
 import SendIcon from '@mui/icons-material/Send';
 import CloseIcon from '@mui/icons-material/Close';
 import ReplyIcon from '@mui/icons-material/Reply';
-import { fetchMentionUsers } from '../../queries/users.queries';
+import { useChat, type ChatDirectoryUser } from '../../context/ChatContext';
 import type { ChatMessageItem } from './chatApi';
 
 interface ChatMessageInputProps {
@@ -25,13 +25,6 @@ interface ChatMessageInputProps {
   placeholder?: string;
 }
 
-interface MentionUser {
-  id: string;
-  name: string;
-  role?: string;
-  avatarUrl?: string | null;
-}
-
 export const ChatMessageInput: React.FC<ChatMessageInputProps> = ({
   onSendMessage,
   replyingTo,
@@ -39,48 +32,20 @@ export const ChatMessageInput: React.FC<ChatMessageInputProps> = ({
   disabled = false,
   placeholder = 'Type a message...',
 }) => {
+  const { allUsers } = useChat();
   const [content, setContent] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
-  const [mentionUsers, setMentionUsers] = useState<MentionUser[]>([]);
-  const [filteredUsers, setFilteredUsers] = useState<MentionUser[]>([]);
   const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
   const [mentionedIds, setMentionedIds] = useState<Set<string>>(new Set());
 
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Preload users for @mention suggestions using standardized fetchMentionUsers
-  useEffect(() => {
-    let active = true;
-    fetchMentionUsers('', 50)
-      .then((items) => {
-        if (!active) return;
-        setMentionUsers(
-          items.map((u) => ({
-            id: u.id,
-            name: u.name,
-            role: u.role,
-            avatarUrl: u.avatarUrl,
-          }))
-        );
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  // Filter mention suggestions based on current query
-  useEffect(() => {
-    if (mentionQuery === null) {
-      setFilteredUsers([]);
-      return;
-    }
+  const filteredUsers = useMemo(() => {
+    if (mentionQuery === null) return [];
     const q = mentionQuery.toLowerCase();
-    const matches = mentionUsers.filter((u) => u.name.toLowerCase().includes(q));
-    setFilteredUsers(matches.slice(0, 5));
-    setSelectedMentionIndex(0);
-  }, [mentionQuery, mentionUsers]);
+    return allUsers.filter((u) => u.name.toLowerCase().includes(q)).slice(0, 5);
+  }, [mentionQuery, allUsers]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -96,6 +61,7 @@ export const ChatMessageInput: React.FC<ChatMessageInputProps> = ({
         const query = textBeforeCursor.slice(lastAtIndex + 1);
         if (!query.includes(' ')) {
           setMentionQuery(query);
+          setSelectedMentionIndex(0);
           return;
         }
       }
@@ -103,7 +69,7 @@ export const ChatMessageInput: React.FC<ChatMessageInputProps> = ({
     setMentionQuery(null);
   };
 
-  const handleSelectMention = (user: MentionUser) => {
+  const handleSelectMention = (user: ChatDirectoryUser) => {
     if (!inputRef.current) return;
     const cursorPos = inputRef.current.selectionStart || content.length;
     const textBeforeCursor = content.slice(0, cursorPos);
