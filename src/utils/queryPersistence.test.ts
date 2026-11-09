@@ -117,6 +117,29 @@ describe('queryPersistence', () => {
       savePersistedQueries(queryClient);
       expect(localStorage.getItem(STORAGE_KEYS.QUERY_CACHE)).toBeNull();
     });
+
+    it('does not persist empty array queries into storage', () => {
+      queryClient.setQueryData(['users', 'directory'], []);
+      queryClient.setQueryData(['users', 'summary'], []);
+      savePersistedQueries(queryClient);
+      expect(localStorage.getItem(STORAGE_KEYS.QUERY_CACHE)).toBeNull();
+    });
+
+    it('filters out empty queries when restoring and purges cache if all are empty', () => {
+      localStorage.setItem(
+        STORAGE_KEYS.QUERY_CACHE,
+        JSON.stringify({
+          version: PERSISTENCE_VERSION,
+          timestamp: Date.now(),
+          data: { queries: [{ queryKey: ['users', 'directory'], state: { data: [] } }] },
+        })
+      );
+
+      const restored = restorePersistedQueries(queryClient);
+      expect(restored).toBe(false);
+      expect(localStorage.getItem(STORAGE_KEYS.QUERY_CACHE)).toBeNull();
+      expect(queryClient.getQueryData(['users', 'directory'])).toBeUndefined();
+    });
   });
 
   describe('clearPersistedQueries', () => {
