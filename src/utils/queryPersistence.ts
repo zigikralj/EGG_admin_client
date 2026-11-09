@@ -1,7 +1,7 @@
 import { QueryClient, dehydrate, hydrate, type DehydratedState } from '@tanstack/react-query';
 import { STORAGE_KEYS, TIME_MS } from '../constants';
 
-export const PERSISTENCE_VERSION = 1;
+export const PERSISTENCE_VERSION = 2;
 
 export interface PersistedQueryCachePayload {
   version: number;
@@ -52,8 +52,22 @@ export function restorePersistedQueries(queryClient: QueryClient): boolean {
     }
 
     if (payload.data && Array.isArray(payload.data.queries) && payload.data.queries.length > 0) {
-      hydrate(queryClient, payload.data);
-      return true;
+      // Discard any queries with empty arrays or missing data to prevent hydrating stale/empty states
+      const validQueries = payload.data.queries.filter((q) => {
+        const data = q.state?.data;
+        if (data == null) return false;
+        if (Array.isArray(data) && data.length === 0) return false;
+        return true;
+      });
+
+      if (validQueries.length > 0) {
+        hydrate(queryClient, { ...payload.data, queries: validQueries });
+        return true;
+      }
+
+      // If all queries were empty or invalid, clean up corrupted/empty storage
+      localStorage.removeItem(STORAGE_KEYS.QUERY_CACHE);
+      return false;
     }
 
     return false;
@@ -74,7 +88,13 @@ export function savePersistedQueries(queryClient: QueryClient): void {
 
   try {
     const dehydrated = dehydrate(queryClient, {
-      shouldDehydrateQuery: (query) => isPersistableQuery(query.queryKey),
+      shouldDehydrateQuery: (query) => {
+        if (!isPersistableQuery(query.queryKey)) return false;
+        if (query.state.status !== 'success' || query.state.data == null) return false;
+        // Never persist empty collections (e.g. empty user directory or summaries)
+        if (Array.isArray(query.state.data) && query.state.data.length === 0) return false;
+        return true;
+      },
     });
 
     if (dehydrated.queries.length > 0) {
