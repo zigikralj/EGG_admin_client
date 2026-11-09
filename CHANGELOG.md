@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.11.11] - 2026-11-09
+
+- Bugfixing empty users cache persistance (#112) by @zigikralj
+
 ## [v1.11.10] - 2026-11-09
 
 - Chat feature (#110) by @zigikralj
