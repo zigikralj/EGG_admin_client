@@ -27,6 +27,7 @@ import logoUrl from '../../assets/logo.svg';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
+import { useChat } from '../../context/ChatContext';
 import { useRoleLabels } from '../../hooks/useRoleLabels';
 import { DRAWER_WIDTH } from './Sidebar';
 import { NotificationsMenu } from './NotificationsMenu';
@@ -83,6 +84,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
   const canSeePendingUsers = hasPermission('users', 'edit') && pendingUsersCount > 0;
   const totalNotificationsCount = unreadCount + (canSeePendingUsers ? pendingUsersCount : 0);
+  const { isDndActive } = useChat();
+  const displayNotifCount = isDndActive ? 0 : totalNotificationsCount;
 
   const [appsAnchorEl, setAppsAnchorEl] = React.useState<null | HTMLElement>(null);
   const isAppsMenuOpen = Boolean(appsAnchorEl);
@@ -280,15 +283,15 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
 
           {/* NOTIFICATIONS BELL BUTTON */}
-          <Tooltip title={t('notificationsTitle')} arrow>
+          <Tooltip title={isDndActive ? `${t('notificationsTitle')} (DND)` : t('notificationsTitle')} arrow>
             <IconButton
               onClick={handleNotifOpen}
               size="small"
               sx={{
-                color: isNotifMenuOpen ? 'primary.main' : 'rgba(255, 255, 255, 0.9)',
-                bgcolor: isNotifMenuOpen ? 'rgba(25, 118, 210, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                color: isNotifMenuOpen ? 'primary.main' : isDndActive ? 'warning.main' : 'rgba(255, 255, 255, 0.9)',
+                bgcolor: isNotifMenuOpen ? 'rgba(25, 118, 210, 0.2)' : isDndActive ? 'rgba(237, 108, 2, 0.15)' : 'rgba(255, 255, 255, 0.08)',
                 border: '1px solid',
-                borderColor: isNotifMenuOpen ? 'primary.main' : 'rgba(255, 255, 255, 0.18)',
+                borderColor: isNotifMenuOpen ? 'primary.main' : isDndActive ? 'warning.main' : 'rgba(255, 255, 255, 0.18)',
                 p: { xs: 0.75, sm: 0.85 },
                 borderRadius: 2.5,
                 transition: 'all 0.2s ease',
@@ -302,7 +305,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               aria-label={t('notificationsTitle')}
             >
               <Badge
-                badgeContent={totalNotificationsCount}
+                badgeContent={displayNotifCount}
                 color={unreadCount > 0 ? 'error' : 'warning'}
                 sx={{
                   '& .MuiBadge-badge': {

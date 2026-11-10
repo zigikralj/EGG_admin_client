@@ -164,6 +164,36 @@ export const chatStorage = {
     });
   },
 
+  async clearConversation(conversationId: string): Promise<void> {
+    const db = await openDB();
+    if (!db || !conversationId) return;
+
+    return new Promise((resolve) => {
+      try {
+        const tx = db.transaction([MSG_STORE, META_STORE], 'readwrite');
+        const msgStore = tx.objectStore(MSG_STORE);
+        const index = msgStore.index('by_conv');
+        const req = index.openKeyCursor(IDBKeyRange.only(conversationId));
+
+        req.onsuccess = () => {
+          const cursor = req.result;
+          if (cursor) {
+            msgStore.delete(cursor.primaryKey);
+            cursor.continue();
+          }
+        };
+
+        const metaStore = tx.objectStore(META_STORE);
+        metaStore.delete(`conv_meta_${conversationId}`);
+
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      } catch {
+        resolve();
+      }
+    });
+  },
+
   async clearAll(): Promise<void> {
     const db = await openDB();
     if (!db) return;

@@ -9,6 +9,7 @@ import {
 import ChatBubbleOutlinedIcon from '@mui/icons-material/ChatBubbleOutlined';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import DoNotDisturbOnOutlinedIcon from '@mui/icons-material/DoNotDisturbOnOutlined';
 import { useChat } from '../../context/ChatContext';
 import { ChatConversationList } from './ChatConversationList';
 import { ChatWindow } from './ChatWindow';
@@ -17,6 +18,7 @@ export const ChatDock: React.FC = () => {
   const {
     activeWindows,
     totalUnreadCount,
+    isDndActive,
     closeChat,
     toggleMinimize,
   } = useChat();
@@ -102,25 +104,36 @@ export const ChatDock: React.FC = () => {
             },
           }}
         >
-          {/* Left: Chat Bubble Icon + Unread Badge */}
+          {/* Left: Chat Bubble Icon + Unread Badge (suppressed during DND) */}
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', minWidth: 28, overflow: 'visible' }}>
-            <Badge badgeContent={totalUnreadCount} color="error" max={99}>
+            <Badge badgeContent={isDndActive ? 0 : totalUnreadCount} color="error" max={99}>
               <ChatBubbleOutlinedIcon fontSize="small" />
             </Badge>
           </Box>
 
           {/* Center: "Chat" stays in the middle */}
-          <Typography
+          <Box
             sx={{
               flex: 1,
-              textAlign: 'center',
-              fontWeight: 700,
-              fontSize: '0.95rem',
-              letterSpacing: '0.02em',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 0.75,
             }}
           >
-            Chat
-          </Typography>
+            {isDndActive && (
+              <DoNotDisturbOnOutlinedIcon sx={{ fontSize: '1.1rem' }} />
+            )}
+            <Typography
+              sx={{
+                fontWeight: 700,
+                fontSize: '0.95rem',
+                letterSpacing: '0.02em',
+              }}
+            >
+              {isDndActive ? 'Chat (DND)' : 'Chat'}
+            </Typography>
+          </Box>
 
           {/* Right: Arrow Up when closed, Arrow Down when open */}
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', minWidth: 28 }}>

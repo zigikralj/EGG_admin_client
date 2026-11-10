@@ -56,6 +56,8 @@ export interface ChatConversationItem {
   updatedAt: string;
   lastReadAt?: string;
   unreadCount: number;
+  muted?: boolean;
+  mutedUntil?: string | null;
   participantIds?: string[];
   participants?: (ChatParticipantUser | { id: string; userId?: string } | string)[];
   lastMessage?: {
@@ -78,6 +80,7 @@ export interface ChatUnreadSummary {
   totalUnread: number;
   byConversation: Record<string, number>;
   byProject: Record<string, number>;
+  dndUntil?: string | null;
 }
 
 export const chatApi = {
@@ -237,6 +240,67 @@ export const chatApi = {
       method: 'DELETE',
     });
     if (!res.ok) throw new Error('Failed to remove participant');
+    return res.json();
+  },
+
+  leaveConversation: async (
+    conversationId: string,
+    userId: string
+  ): Promise<{ success: boolean; isLeaving: boolean }> => {
+    const res = await apiFetch(`/api/chat/conversations/${conversationId}/participants/${userId}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw new Error('Failed to leave conversation');
+    return res.json();
+  },
+
+  muteConversation: async (
+    conversationId: string,
+    options?: { durationMinutes?: number; forever?: boolean }
+  ): Promise<{ success: boolean; conversationId: string; mutedUntil: string | null }> => {
+    const res = await apiFetch(`/api/chat/conversations/${conversationId}/mute`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(options || {}),
+    });
+    if (!res.ok) throw new Error('Failed to mute conversation');
+    return res.json();
+  },
+
+  unmuteConversation: async (
+    conversationId: string
+  ): Promise<{ success: boolean; conversationId: string; mutedUntil: null }> => {
+    const res = await apiFetch(`/api/chat/conversations/${conversationId}/mute`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ unmute: true }),
+    });
+    if (!res.ok) throw new Error('Failed to unmute conversation');
+    return res.json();
+  },
+
+  setDnd: async (
+    options: { durationMinutes?: number; forever?: boolean; off?: boolean }
+  ): Promise<{ success: boolean; dndUntil: string | null }> => {
+    const res = await apiFetch('/api/chat/dnd', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(options),
+    });
+    if (!res.ok) throw new Error('Failed to update DND setting');
+    return res.json();
+  },
+
+  deleteConversation: async (
+    conversationId: string
+  ): Promise<{ success: boolean; message?: string }> => {
+    const res = await apiFetch(`/api/chat/conversations/${conversationId}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to delete conversation');
+    }
     return res.json();
   },
 };
