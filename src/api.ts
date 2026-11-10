@@ -19,20 +19,6 @@ export async function apiFetch(input: string | URL | Request, init?: RequestInit
     }
   }
 
-  // Fallback X-Session-Id
-  if (!headers.has('X-Session-Id')) {
-    try {
-      const sid =
-        (typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.ACTIVITY_SESSION_ID) : null) ||
-        (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(STORAGE_KEYS.ACTIVITY_SESSION_ID) : null);
-      if (sid) {
-        headers.set('X-Session-Id', sid);
-      }
-    } catch (e) {
-      // Ignore storage errors
-    }
-  }
-
   customInit.headers = headers;
 
   let url: string | URL | Request;
