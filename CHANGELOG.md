@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.11.12] - 2026-11-10
+
+- Mute, dnd, delete, voice and other improvements (#114) by @zigikralj
+
 ## [v1.11.11] - 2026-11-09
 
 - Bugfixing empty users cache persistance (#112) by @zigikralj
