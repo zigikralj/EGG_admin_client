@@ -18,9 +18,14 @@ A professional project management and invoicing application for **EkosGreenGroup
   - Role-tailored views: Standard dashboard for managers/team members and specialized invoice-centric dashboard for accountants.
   - Organization-wide **Project Updates Panel**: real-time activity stream for project changes, note revisions, and task completions.
   - Administrative **Activity Analytics Dashboard**: interactive timeline, heatmap, usage charts, transition analysis, feature adoption, and rule-based insights.
+- **Real-Time Messaging & Contextual Project Chat**:
+  - Floating multi-window **Chat Dock** supporting **Direct (1-on-1)**, **Group**, and **Contextual Project** conversations.
+  - Live updates and online presence indicators powered by **Server-Sent Events (SSE)** with automatic 5-minute idle sleep/wake recovery.
+  - **IndexedDB Message Cache & Sequence Delta Sync** (`ekos_chat_cache_db`): Instant 0ms conversation history rendering with incremental sequence delta synchronization (`afterSeq` / `sinceUpdatedAt`).
+  - Rich collaboration features: `@mentions`, message reply threading, edit/delete actions, Web Speech API voice-to-text dictation, per-conversation mute timers, and global **Do Not Disturb (DND)**.
 - **Environmental Permits & Waste Catalog**: Environmental permits management with validity ranges, client associations, permit type filters, and official Serbian national waste index codes with hazard indicators.
-- **Multi-Tier Offline Waste Catalog Storage**: Instant 0ms reads via in-memory caching backed by **IndexedDB** browser storage and cross-tab **BroadcastChannel** synchronization.
-- **Incremental Delta Synchronization Engine**: Transparent query synchronization fetching only records modified `since` the last sync and purging deleted tombstones.
+- **Multi-Tier Offline Waste Catalog Storage**: Instant 0ms reads via in-memory caching backed by **IndexedDB** browser storage (`ekos_project_tracker_db`), incremental delta synchronization, and cross-tab **BroadcastChannel** synchronization.
+- **Server-Side Pagination & Selective Query Cache Persistence**: All entity tables and infinite lists use strict server-side pagination (`usePaginated*Query`, `useInfiniteProjectsQuery`) and SQL-aggregated statistics endpoints, paired with synchronous `localStorage` hydration (`queryPersistence.ts`) for slow-changing user directory and summary queries.
 - **TipTap Rich Text Suite & Note Revisions**: Modern TipTap editor with formatting toolbar, tables, @mentions, DOMPurify HTML sanitization, Word metadata cleaning, and visual side-by-side note revision history diffs with one-click rollback.
 - **Invoicing & Billing**: Full invoice lifecycle (Draft, Sent, Paid, Overdue, Cancelled), multi-currency support (`RSD` and `EUR €`), line item calculations, due date monitoring, and project linking.
 - **Sampling & Reminders**: Real-time tracking of approaching sampling dates and custom reminders with overdue alerts.
@@ -36,8 +41,8 @@ A professional project management and invoicing application for **EkosGreenGroup
 - **UI Components & Icons**: [Material UI (MUI v9)](https://mui.com/) + [@mui/icons-material](https://mui.com/material-ui/material-icons/) + [Emotion](https://emotion.sh/)
 - **Rich Text Editing**: [TipTap](https://tiptap.dev/) 3 + ProseMirror + Table & Mention Extensions
 - **Data Visualization & Charts**: [@mui/x-charts](https://mui.com/x/react-charts/)
-- **State & Data Fetching**: [TanStack React Query v5](https://tanstack.com/query) + Custom Delta Synchronization Engine
-- **Offline & Multi-Tab Sync**: IndexedDB + BroadcastChannel Web APIs
+- **State & Data Fetching**: [TanStack React Query v5](https://tanstack.com/query) + Server-Side Pagination + Selective Query Cache Persistence
+- **Real-Time & Offline Sync**: Server-Sent Events (SSE) + IndexedDB (`ekos_project_tracker_db`, `ekos_chat_cache_db`) + BroadcastChannel Web APIs
 - **HTML Sanitization**: [DOMPurify](https://github.com/cure53/DOMPurify)
 - **Routing**: [React Router v7](https://reactrouter.com/)
 - **Testing**: [Playwright](https://playwright.dev/) (End-to-End E2E) + [Vitest](https://vitest.dev/) (Unit / Integration) + [Testing Library](https://testing-library.com/)
@@ -172,9 +177,10 @@ client/
 ├── public/                  # Static assets & public files
 ├── src/
 │   ├── assets/              # Logos and SVGs
-│   ├── components/          # Domain-grouped components (project, invoice, permit, etc.)
-│   ├── context/             # React contexts (Auth, Language, Theme, Notifications, ProjectModal)
-│   ├── hooks/               # Custom hooks (useTableView, useProjectForm, etc.)
+│   ├── components/          # Domain-grouped components (project, chat, invoice, permit, etc.)
+│   ├── constants/           # API routes, page routes, query keys, storage & time constants
+│   ├── context/             # React contexts (Auth, Chat, Language, Theme, Notifications, ProjectModal)
+│   ├── hooks/               # Custom hooks (useTableView, useProjectForm, useActivityTracker, etc.)
 │   ├── i18n/                # Localization dictionaries (en, sr-Latn, sr-Cyrl)
 │   ├── pages/               # 1 Route -> 1 Page components
 │   │   ├── auth/            # LoginPage
@@ -184,7 +190,7 @@ client/
 │   ├── routes/              # Centralized route definitions (AppRoutes.tsx)
 │   ├── theme/               # Material UI theme definition
 │   ├── types/               # Modular domain TypeScript definitions
-│   ├── utils/               # Helper utilities (delta sync, IndexedDB, etc.)
+│   ├── utils/               # Helper utilities (queryPersistence, wasteCatalogStorage, customFields, etc.)
 │   ├── App.tsx              # Root component & top-level provider wiring
 │   └── main.tsx             # Application entry point
 ├── playwright.config.ts     # Playwright configuration

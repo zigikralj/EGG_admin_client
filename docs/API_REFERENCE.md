@@ -13,7 +13,7 @@ VITE_API_BASE_URL=http://localhost:5000/api
 
 In development, Vite proxies `/api/*` to `http://localhost:5000`.
 
-All requests are made through [`apiFetch()`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/api.ts), which automatically:
+All requests are made through [`apiFetch()`](../src/api.ts), which automatically:
 - Prepends the base URL
 - Attaches `Authorization: Bearer <token>` header from localStorage
 - Dispatches `auth:expired` custom event on 401 responses (auto-logout)
@@ -61,7 +61,7 @@ Login with credentials.
 }
 ```
 
-**Used by:** [`AuthContext.tsx`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/context/AuthContext.tsx)
+**Used by:** [`AuthContext.tsx`](../src/context/AuthContext.tsx)
 
 ---
 
@@ -86,7 +86,7 @@ Register a new user (requires admin approval).
 }
 ```
 
-**Used by:** [`AuthContext.tsx`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/context/AuthContext.tsx)
+**Used by:** [`AuthContext.tsx`](../src/context/AuthContext.tsx)
 
 ---
 
@@ -99,7 +99,7 @@ Check current auth status (periodic polling for blocked user detection).
 **Success Response (200):** User object  
 **Error Response (403):** `{ "error": "ACCOUNT_BLOCKED" }` — triggers logout
 
-**Used by:** [`AuthContext.tsx`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/context/AuthContext.tsx) (30s polling interval, paused on hidden tab)
+**Used by:** [`AuthContext.tsx`](../src/context/AuthContext.tsx) (30s polling interval, paused on hidden tab)
 
 ---
 
@@ -107,22 +107,31 @@ Check current auth status (periodic polling for blocked user detection).
 
 ### `GET /api/projects`
 
-List all projects. Supports search, status, and delta sync.
+List projects with server-side pagination, quick filters, sorting, and lightweight projections.
 Returns lightweight rows containing `notesPreview` (plain text up to 300 characters) for high list performance.
 
 **Query Parameters:**
 | Param | Type | Description |
 |---|---|---|
-| `search` | string | Filter by name, client, responsible (case-insensitive contains) |
-| `done` | boolean | Filter active vs completed projects |
-| `clientId` | string | Filter projects for a specific client |
-| `since` | string | ISO timestamp for incremental delta synchronization |
-| `page` / `limit` | number | Optional pagination parameters |
+| `page` / `limit` | number | Server-side pagination (`PaginatedResponse<Project>`) |
+| `search` | string | Filter by name, client, responsible, service (case-insensitive contains) |
+| `quickFilter` | string | `'all' \| 'my' \| 'active' \| 'done' \| 'missing_invoice' \| 'stale' \| 'overdue'` |
+| `fields` | string | `'summary'` returns lightweight `{ id, name, clientId, client }` projection |
+| `sortBy` / `sortOrder` | string | Sort column and direction (`asc` \| `desc`) |
 
-**Response (standard):** `Project[]`
-**Response (delta):** `DeltaEnvelope<Project>` `{ delta: true, items: Project[], deletedIds: string[], syncedAt: string }`
+**Response (paginated):** `{ items: Project[], total: number, page: number, limit: number, totalPages: number }`
 
-**Used by:** `useProjectsQuery` in [`src/queries/index.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/002_EkosGreenGroup/project_tracker/client/src/queries/index.ts) via `fetchWithDeltaSync`
+**Used by:** `usePaginatedProjectsQuery`, `useInfiniteProjectsQuery`, `useProjectsSummaryQuery` in [`src/queries/projects.queries.ts`](../src/queries/projects.queries.ts)
+
+---
+
+### `GET /api/projects/statistics`
+
+Compute comprehensive project KPIs, status breakdowns, monthly creation/completion trends, service distribution, and responsible user workload via server-side SQL aggregation (`projectStatistics.service.ts`).
+
+**Query Parameters:** `?from=YYYY-MM-DD&to=YYYY-MM-DD&responsibleId=uuid&serviceId=uuid`
+
+**Used by:** `useProjectStatisticsQuery` in [`src/queries/projects.queries.ts`](../src/queries/projects.queries.ts) (`TrackerProjectsStatsPage.tsx`)
 
 ---
 
@@ -139,7 +148,7 @@ Retrieve real-time project updates and audit activity stream across the organiza
 
 **Response (200):** Array of project update items with author, target entity, timestamp, and diff summary.
 
-**Used by:** `useProjectUpdatesQuery` / `ProjectUpdatesPanel.tsx`
+**Used by:** `useProjectUpdatesQuery` in [`src/queries/projects.queries.ts`](../src/queries/projects.queries.ts)
 
 ---
 
@@ -149,15 +158,17 @@ Get complete details of a single project, including full rich-text HTML `notes`.
 
 **Response (200):** `Project` object.
 
-**Used by:** `ProjectViewModal.tsx`, `useProjectsQuery`
+**Used by:** `useProjectDetailsQuery` in [`src/queries/projects.queries.ts`](../src/queries/projects.queries.ts)
 
 ---
 
-### `GET /api/projects/:id/note`
+### `GET /api/projects/:id/note` & `PATCH /api/projects/:id/note`
 
-Fetch current rich-text note content directly from `ProjectNote`.
+Fetch or save current rich-text note content directly from `ProjectNote` without sending full project payload.
 
 **Response (200):** `{ projectId: string, content: string, version: number, updatedAt: string }`
+
+**Used by:** `useProjectNoteQuery`, `useProjectsMutations` in [`src/queries/projects.queries.ts`](../src/queries/projects.queries.ts)
 
 ---
 
@@ -193,104 +204,21 @@ Restore a project note to historical version `:v`.
 
 ---
 
-### `POST /api/projects`
+### `POST /api/projects` / `PUT /api/projects/:id` / `DELETE /api/projects/:id` / `PATCH /api/projects/:id/toggle-done`
 
-Create a new project.
+Create, update, delete, or toggle completion status of a project. Automatically records delta revisions in `ProjectNote` and `EntityVersion`.
 
-**Request Body:** `Partial<Project>` (excluding `id`)
-
-**Response (201):** Created `Project` object with `id`
-
-**Used by:** `useProjectMutations` in `src/queries/index.ts`
-
----
-
-### `PUT /api/projects/:id`
-
-Update an existing project. Automatically records delta revisions in `ProjectNote` and `EntityVersion`.
-
-**Request Body:** Full or partial `Project` object
-
-**Response (200):** Updated `Project`
-
-**Used by:** `useProjectMutations` in `src/queries/index.ts`
-
----
-
-### `DELETE /api/projects/:id`
-
-Delete a project. Creates an `EntityVersion` tombstone (`op: 'D'`) to communicate deletion to delta sync clients.
-
-**Response (200):** `{ "message": "Project deleted successfully" }`
-
-**Used by:** `useProjectMutations` in `src/queries/index.ts`
-
----
-
-### `PATCH /api/projects/:id/toggle-done`
-
-Toggle project completion status.
-
-**Response (200):** Updated `Project`
-
-**Used by:** `useProjectMutations` in `src/queries/index.ts`
-
----
-
-### `GET /api/projects/stats`
-
-Dashboard aggregate statistics (cached in server memory).
-
-**Response:**
-```json
-{
-  "active": 10,
-  "done": 25,
-  "stale": 3,
-  "monitor": 5,
-  "clientsCount": 40,
-  "usersCount": 8,
-  "servicesCount": 15,
-  "categoriesCount": 6,
-  "invoicesCount": 100,
-  "providedServicesCount": 200,
-  "permitsCount": 30
-}
-```
-
-**Used by:** `useDashboardStatsQuery` in `src/queries/index.ts`
+**Used by:** `useProjectsMutations` in [`src/queries/projects.queries.ts`](../src/queries/projects.queries.ts)
 
 ---
 
 ## Clients
 
-### `GET /api/clients`
+### `GET /api/clients` / `POST /api/clients` / `PUT /api/clients/:id` / `DELETE /api/clients/:id`
 
-List all clients.
+Paginated client listing (`?page=&limit=&search=&sortBy=&sortOrder=`), summary projection (`?fields=summary`), and CRUD operations.
 
-**Response:** `Client[]` (with nested `permit`, `extraData`, `projects`, `invoices`)
-
----
-
-### `POST /api/clients`
-
-Create a new client.
-
-**Request Body:** `Partial<Client>`
-
----
-
-### `PUT /api/clients/:id`
-
-Update a client.
-
----
-
-### `DELETE /api/clients/:id`
-
-Delete a client.
-
-**Used by:** [`useClients.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/hooks/useClients.ts)
+**Used by:** [`src/queries/clients.queries.ts`](../src/queries/clients.queries.ts) (`usePaginatedClientsQuery`, `useClientsSummaryQuery`, `useClientsMutations`)
 
 ---
 
@@ -298,45 +226,13 @@ Delete a client.
 
 ### `GET /api/users`
 
-List all users.
+List users with server-side pagination (`?page=&limit=&search=&role=&status=`) or lightweight projections (`?fields=summary` for responsible dropdowns, `?fields=mention` for @mention / chat directory).
 
-**Response:** `User[]` (password field excluded)
+### `POST /api/users` / `PUT /api/users/:id` / `DELETE /api/users/:id` / `PATCH /api/users/:id/approve` / `PATCH /api/users/:id/reject` / `POST /api/users/:id/force-logout`
 
----
+User management CRUD, registration approval/rejection, and session invalidation.
 
-### `POST /api/users`
-
-Create a new user (admin).
-
----
-
-### `PUT /api/users/:id`
-
-Update a user.
-
----
-
-### `DELETE /api/users/:id`
-
-Delete a user.
-
----
-
-### `PATCH /api/users/:id/approve`
-
-Approve a pending user registration.
-
----
-
-### `PATCH /api/users/:id/reject`
-
-Reject a pending user registration.
-
----
-
-### `POST /api/users/:id/force-logout`
-
-Force-logout a user (invalidates their session server-side).
+**Used by:** [`src/queries/users.queries.ts`](../src/queries/users.queries.ts) (`usePaginatedUsersQuery`, `useUsersSummaryQuery`, `useUsersDirectoryQuery`, `useUsersMutations`, `fetchMentionUsers`)
 
 ---
 
@@ -350,145 +246,57 @@ List all configured roles with user counts.
 
 **Response:** `Role[]` (includes `name`, `description`, `isSystemAdmin`, `permissions`, and `_count.users`)
 
-**Used by:** [`AuthContext.tsx`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/context/AuthContext.tsx), `RolesPage.tsx`
+**Used by:** [`AuthContext.tsx`](../src/context/AuthContext.tsx), `RolesPage.tsx`
 
 ---
 
-### `POST /api/roles`
+### `POST /api/roles` / `PUT /api/roles/:name` / `DELETE /api/roles/:name`
 
-Create a new dynamic role. Requires role create permission or System Administrator.
-
-**Request Body:**
-```json
-{
-  "name": "string",
-  "description": "string (optional)",
-  "isSystemAdmin": false,
-  "permissions": {
-    "projects": ["view", "create", "edit", "delete"],
-    "projects_onlyOwn": true
-  }
-}
-```
-
----
-
-### `PUT /api/roles/:name`
-
-Update a role's description, system admin status, or permissions matrix.
-
----
-
-### `DELETE /api/roles/:name`
-
-Delete a role. Default `Administrator` cannot be deleted, and roles currently assigned to users cannot be deleted.
+Create, update, or delete a dynamic role. Default `Administrator` cannot be deleted, and roles currently assigned to users cannot be deleted.
 
 ---
 
 ## Services
 
-### `GET /api/services`
+### `GET /api/services` / `GET /api/services/:id` / `POST /api/services` / `PUT /api/services/:id` / `DELETE /api/services/:id`
 
-List all service type definitions.
+Paginated service definitions (`?page=&limit=&search=`), single service details with `customDataModel`, and CRUD operations.
 
-**Response:** `Service[]` (includes `customDataModel` for custom field definitions)
-
----
-
-### `POST /api/services`
-
-Create a service definition.
+**Used by:** [`src/queries/services.queries.ts`](../src/queries/services.queries.ts) (`usePaginatedServicesQuery`, `useServiceDetailsQuery`, `useServicesMutations`)
 
 ---
 
-### `PUT /api/services/:id`
+## Provided Services & Waste Disposal Statistics
 
-Update a service definition.
+### `GET /api/provided-services` / `POST /api/provided-services` / `PUT /api/provided-services/:id` / `DELETE /api/provided-services/:id`
 
----
+Paginated service delivery records (`?page=&limit=&search=&serviceId=&clientId=&dateFrom=&dateTo=`) with nested `service`, `client`, `project`, and `invoice`.
 
-### `DELETE /api/services/:id`
+### `GET /api/provided-services/statistics/waste` & `GET /api/provided-services/statistics/waste/clients`
 
-Delete a service definition.
+Compute server-side SQL waste disposal statistics (total weight in kg/t, delivery counts, monthly weight trends, waste code breakdowns, top clients) and filterable waste client summaries (`wasteStatistics.service.ts`).
 
-**Used by:** [`useServices.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/hooks/useServices.ts)
-
----
-
-## Provided Services
-
-### `GET /api/provided-services`
-
-List all provided service records.
-
-**Response:** `ProvidedService[]` (with nested `service`, `client`, `project`, `invoice`)
-
----
-
-### `POST /api/provided-services`
-
-Create a service delivery record.
-
----
-
-### `PUT /api/provided-services/:id`
-
-Update a service record.
-
----
-
-### `DELETE /api/provided-services/:id`
-
-Delete a service record.
-
-**Used by:** [`useProvidedServices.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/hooks/useProvidedServices.ts)
+**Used by:** [`src/queries/providedServices.queries.ts`](../src/queries/providedServices.queries.ts) (`usePaginatedProvidedServicesQuery`, `useWasteStatisticsQuery`, `useWasteDisposalClientsQuery`, `useProvidedServicesMutations`)
 
 ---
 
 ## Categories
 
-### `GET /api/categories`
+### `GET /api/categories` / `POST /api/categories` / `PUT /api/categories/:id` / `DELETE /api/categories/:id`
 
-List all categories.
+Service category listing and CRUD.
 
-**Response:** `Category[]`
-
----
-
-### `POST /api/categories` / `PUT /api/categories/:id` / `DELETE /api/categories/:id`
-
-Standard CRUD.
-
-**Used by:** [`useCategories.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/hooks/useCategories.ts)
+**Used by:** [`src/queries/services.queries.ts`](../src/queries/services.queries.ts) (`useCategoriesQuery`, `useCategoriesMutations`)
 
 ---
 
 ## Reminders
 
-### `GET /api/reminders`
+### `GET /api/reminders` / `POST /api/reminders` / `PUT /api/reminders/:id` / `DELETE /api/reminders/:id` / `PATCH /api/reminders/:id/status`
 
-List all reminders.
+Paginated reminders (`?page=&limit=&search=&status=&quickFilter=`) and status transitions (`Pending | In Progress | Completed`).
 
-**Response:** `Reminder[]` (with nested `permit` if linked)
-
----
-
-### `POST /api/reminders` / `PUT /api/reminders/:id` / `DELETE /api/reminders/:id`
-
-Standard CRUD.
-
----
-
-### `PATCH /api/reminders/:id/status`
-
-Update reminder status.
-
-**Request Body:**
-```json
-{ "status": "Pending | In Progress | Completed" }
-```
-
-**Used by:** [`useReminders.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/hooks/useReminders.ts)
+**Used by:** [`src/queries/reminders.queries.ts`](../src/queries/reminders.queries.ts) (`usePaginatedRemindersQuery`, `useRemindersMutations`)
 
 ---
 
@@ -556,7 +364,7 @@ Update invoice status only.
 }
 ```
 
-**Used by:** [`useInvoices.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/hooks/useInvoices.ts)
+**Used by:** [`src/queries/invoices.queries.ts`](../src/queries/invoices.queries.ts) (`usePaginatedInvoicesQuery`, `useInvoicesMutations`)
 
 ---
 
@@ -593,7 +401,7 @@ Create a permit with waste catalog associations and permit type classifications.
 
 Standard CRUD. PUT updates waste catalog associations and permit types.
 
-**Used by:** `usePermitsQuery`, `usePermitMutations` ([`src/queries/index.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/queries/index.ts))
+**Used by:** `usePermitsQuery`, `usePermitMutations` ([`src/queries/index.ts`](../src/queries/index.ts))
 
 ---
 
@@ -614,7 +422,7 @@ List Serbian waste catalog entries. Auto-seeds ~50 entries on first call if empt
 }
 ```
 
-**Used by:** [`useAppData.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/hooks/useAppData.ts)
+**Used by:** [`src/queries/permits.queries.ts`](../src/queries/permits.queries.ts) (`useWasteCatalogQuery`) and [`src/utils/wasteCatalogStorage.ts`](../src/utils/wasteCatalogStorage.ts)
 
 ---
 
@@ -672,7 +480,7 @@ Delete a single notification.
 
 Delete all notifications for the user.
 
-**Used by:** [`NotificationContext.tsx`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/context/NotificationContext.tsx) (25s polling)
+**Used by:** [`NotificationContext.tsx`](../src/context/NotificationContext.tsx) (25s polling) and [`src/queries/systemSettings.queries.ts`](../src/queries/systemSettings.queries.ts)
 
 ---
 
@@ -707,7 +515,17 @@ Get the singleton company record.
 
 Update company information.
 
-**Used by:** [`CompanyInfoModal.tsx`](file:///Users/nemanja.stanojevic/Documents/zigicode/EkosGreenGroup/project_tracker/client/src/components/CompanyInfoModal.tsx)
+**Used by:** [`CompanyInfoModal.tsx`](../src/components/company/CompanyInfoModal.tsx) and [`src/queries/company.queries.ts`](../src/queries/company.queries.ts)
+
+---
+
+## System Settings (`/api/system-settings`)
+
+### `GET /api/system-settings` & `PUT /api/system-settings/:key`
+
+Fetch global system settings (e.g. `waste_disposal_service_id`) or update a system setting key (Administrator only).
+
+**Used by:** [`src/queries/systemSettings.queries.ts`](../src/queries/systemSettings.queries.ts) (`useSystemSettingsQuery`, `useWasteDisposalServiceId`, `useSystemSettingsMutations`)
 
 ---
 
@@ -741,7 +559,7 @@ Update a single preference.
 { "value": "any" }
 ```
 
-**Used by:** [`usePreferencesMutations`](file:///Users/nemanja.stanojevic/Documents/zigicode/002_EkosGreenGroup/project_tracker/client/src/queries/index.ts) — with optimistic UI updates
+**Used by:** [`usePreferencesMutations`](../src/queries/index.ts) — with optimistic UI updates
 
 ---
 
@@ -784,7 +602,7 @@ Compute comprehensive activity metrics, usage trends, and KPI statistics across 
   - `excludeAdminPages` (optional): `'false'` to include administrative routes (default: `'true'`)
   - `compare` (optional): `'false'` to skip previous period delta calculations (default: `'true'`)
 - **Returns:** `{ kpis, timeline, topPages, actionsByEntity, userUsage, userPageBreakdown, heatmap, sessionDurationDistribution, transitions, featureAdoption, editedFields }`
-- **Used by:** [`ActivityAnalyticsPage.tsx`](file:///Users/nemanja.stanojevic/Documents/zigicode/002_EkosGreenGroup/project_tracker/client/src/pages/data-management/ActivityAnalyticsPage.tsx)
+- **Used by:** [`ActivityAnalyticsPage.tsx`](../src/pages/data-management/ActivityAnalyticsPage.tsx)
 
 ### `GET /api/activity-logs/:id`
 Fetch a single activity log with its full details payload (lazy loaded for diff viewing).
@@ -796,7 +614,7 @@ Ingest client activity events (page navigation, session duration, user actions).
 - **Roles:** Any authenticated user
 - **Body:** `ActivityLog | ActivityLog[]`
 - **Returns:** HTTP 202 Accepted.
-- **Used by:** [`useActivityTracker.ts`](file:///Users/nemanja.stanojevic/Documents/zigicode/002_EkosGreenGroup/project_tracker/client/src/hooks/useActivityTracker.ts)
+- **Used by:** [`useActivityTracker.ts`](../src/hooks/useActivityTracker.ts)
 
 ### `DELETE /api/activity-logs/clear-all`
 Clear all activity logs from the database. Invalidates analytics cache.
@@ -854,24 +672,44 @@ Restore entity state to version `:v`.
 
 ---
 
-## Delta Synchronization Engine (`src/utils/deltaSync.ts`)
+## Real-Time Chat & Contextual Messaging (`/api/chat`)
 
-The client features transparent incremental delta synchronization built on top of TanStack React Query:
+> **Client Layer:** [`src/components/chat/chatApi.ts`](../src/components/chat/chatApi.ts) and [`src/context/ChatContext.tsx`](../src/context/ChatContext.tsx)
 
-- **`fetchWithDeltaSync<T>({ url, queryKey, queryClient })`**:
-  - Checks if valid cached data and a `syncedAt` timestamp exist for `queryKey`.
-  - Appends `?since=<syncedAt>` to the outgoing request.
-  - Receives either a raw array (initial full load) or a `DeltaEnvelope<T>` `{ delta: true, items, deletedIds, syncedAt }`.
-  - Reconciles updates using `mergeDelta()`: updates modified items in-place, appends new records, and purges deleted tombstone IDs.
-  - Updates the `syncedAt` map for the query key.
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/api/chat/stream` | `GET` | Persistent Server-Sent Events (SSE) stream (`connected`, `presence:snapshot`, `presence:update`, `message:new`, `message:updated`, `message:deleted`, `conversation:updated`, `conversation:read`, `typing`). |
+| `/api/chat/presence` | `GET` | List currently online user IDs. |
+| `/api/chat/users` | `GET` | Search active chat users directory (`?search=`). |
+| `/api/chat/messages/search` | `GET` | Full-text message search across user's conversations (`?q=&limit=`). |
+| `/api/chat/conversations` | `GET` | List user's conversations with `unreadCount`, `lastMessage`, `serverSeq`, and participants. |
+| `/api/chat/conversations/direct` | `POST` | Get or create a 1-on-1 `DIRECT` conversation (`{ targetUserId }`). |
+| `/api/chat/conversations/group` | `POST` | Create a `GROUP` conversation (`{ title, participantIds }`). |
+| `/api/chat/conversations/project/:projectId` | `POST` | Get or create a contextual `PROJECT` conversation (`{ title? }`). |
+| `/api/chat/conversations/:id/participants` | `POST` | Add participants to a group/project conversation (`{ userIds }`). |
+| `/api/chat/conversations/:id/participants/:userId` | `DELETE` | Remove a participant from a conversation. |
+| `/api/chat/conversations/:id` | `PATCH` | Rename a group/project conversation (`{ title }`). |
+| `/api/chat/conversations/:id/mute` | `PATCH` | Mute or unmute notifications for a conversation (`{ muted }`). |
+| `/api/chat/conversations/:id/messages` | `GET` | Cursor/sequence message fetch (`?limit=&beforeSeq=&sinceSeq=`). |
+| `/api/chat/conversations/:id/messages` | `POST` | Send a message (`{ content, replyToId?, mentionedUserIds?, clientTempId? }`). |
+| `/api/chat/messages/:id` | `PATCH` | Edit a sent message (`{ content }`). |
+| `/api/chat/messages/:id` | `DELETE` | Soft-delete a message (`deletedAt` tombstone + `seq` bump). |
+| `/api/chat/conversations/:id/read` | `POST` | Mark conversation read up to `lastReadSeq` (`{ seq? }`). |
+| `/api/chat/conversations/:id/typing` | `POST` | Broadcast ephemeral typing status (`{ isTyping }`). |
 
 ---
 
-## Multi-Tier Waste Catalog Storage (`src/utils/wasteCatalogStorage.ts`)
+## Client-Side Persistence & Delta Storage Engines
 
-To avoid network latency and large payload transfers for the Serbian national waste index (~1,000+ entries):
+### 1. Chat IndexedDB Cache & Sequence Delta Sync (`src/components/chat/chatStorage.ts`)
+- Stores conversations, messages (up to 400 per conversation), and sequence cursors in IndexedDB (`ekos_chat_cache_db`).
+- Compares local `cursorSeq` against server `serverSeq` and fetches only incremental changes via `GET /api/chat/conversations/:id/messages?sinceSeq=<cursorSeq>`.
 
+### 2. Multi-Tier Waste Catalog Storage (`src/utils/wasteCatalogStorage.ts`)
 - **In-Memory Cache (Tier 1):** 0ms synchronous read access.
 - **IndexedDB (`ekos_project_tracker_db`, Tier 2):** Persistent browser storage surviving page refreshes and browser restarts.
 - **Cross-Tab `BroadcastChannel` (`ekos_waste_catalog_sync`):** Synchronizes additions, edits, or deletes across all open application tabs in real time.
 - **Delta Sync:** Checks `syncedAt` against `/api/waste-catalog?since=...` to fetch only catalog updates and purge deleted codes.
+
+### 3. Selective Query Cache Persistence (`src/utils/queryPersistence.ts`)
+- Persists slow-changing user reference queries (`['users', 'directory']` and `['users', 'summary']`) in `localStorage` (`STORAGE_KEYS.QUERY_CACHE_PERSIST`, 24h TTL) and hydrates them synchronously on boot.

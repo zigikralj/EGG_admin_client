@@ -23,8 +23,8 @@ The client communicates with a separate Express 5 REST API server (see `../serve
 | File | Purpose |
 |---|---|
 | `index.html` | HTML shell — mounts `#root` |
-| `src/main.tsx` | ReactDOM entry. Wraps `<App />` in StrictMode, QueryClientProvider, and `<BrowserRouter>` with dynamic basename (`getRouterBasename()`). |
-| `src/App.tsx` | **Lightweight root orchestrator** (~65 lines). Wraps providers (`LanguageProvider`, `AuthProvider`, `NotificationProvider`, `LoadingProvider`, `CustomThemeProvider`, `ProjectModalProvider`), renders `AdminLayout`, `AppRoutes`, `LoadingMask`, and `VersionUpdatePrompt`. |
+| `src/main.tsx` | ReactDOM entry. Initializes selective query cache persistence (`restorePersistedQueries` / `setupQueryPersistence`), wraps `<App />` in StrictMode, QueryClientProvider, and `<BrowserRouter>` with dynamic basename (`getRouterBasename()`). |
+| `src/App.tsx` | **Lightweight root orchestrator** (~65 lines). Wraps providers (`LanguageProvider`, `AuthProvider`, `NotificationProvider`, `LoadingProvider`, `CustomThemeProvider`, `ProjectModalProvider`, `ChatProvider`), renders `AdminLayout`, `AppRoutes`, `ChatDock`, `LoadingMask`, and `VersionUpdatePrompt`. |
 | `src/routes/AppRoutes.tsx` | **Centralized routing** with React 19 / Vite lazy-loaded chunks for each of the 19 dedicated pages. |
 | `vite.config.ts` | Vite + React plugin, dev proxy `/api` → `:5000`, manual chunk splitting, version.json generation, SPA 404 fallback, and dynamic base path resolution. |
 | `playwright.config.ts` | Playwright E2E configuration — base URL `http://localhost:3000`, webServer auto-start (`npm run dev`), auth state fixture (`playwright/.auth/user.json`). |
@@ -48,7 +48,7 @@ Modularized domain types defined in `src/types/` (re-exported via `src/types/ind
 ### API Layer
 | File | Purpose |
 |---|---|
-| `src/api.ts` | `getApiUrl(path)` — resolves base URL. `apiFetch(input, init)` — wrapper around `fetch()` that auto-attaches JWT `Authorization` header + `X-Session-Id` from storage, and dispatches `auth:expired` custom event on 401 (triggers auto-logout). |
+| `src/api.ts` | `getApiUrl(path)` — resolves base URL. `apiFetch(input, init)` — wrapper around `fetch()` that auto-attaches JWT `Authorization` header from localStorage, and dispatches `auth:expired` custom event on 401 (triggers auto-logout). |
 
 ### Context Providers (`src/context/`)
 | File | Provider | Hook | Key Responsibilities |
@@ -59,12 +59,19 @@ Modularized domain types defined in `src/types/` (re-exported via `src/types/ind
 | `ThemeContext.tsx` | `CustomThemeProvider` | `useThemeContext()` | Light/dark/system theme mode, system preference listener via `matchMedia`, syncs `data-theme` attribute on `<html>`. |
 | `NotificationContext.tsx` | `NotificationProvider` | `useNotifications()` | Fetches, polls (25s intervals with Page Visibility pausing), and manages @mention notifications. Optimistic UI for mark-read/delete/clear-all. |
 | `LoadingContext.tsx` | `LoadingProvider` | `useLoading()` | Global async loading spinner state. |
+| `ChatContext.tsx` | `ChatProvider` | `useChat()` | Real-time direct & contextual project messaging state, SSE stream management (`/api/chat/stream` with 5-minute idle sleep), multi-window floating `ChatDock` orchestration, IndexedDB message/conversation cache (`chatStorage.ts`) with sequence-number delta sync, typing/presence tracking, and unread counters. |
 
 ### Constants (`src/constants/`)
 | File | Purpose |
 |---|---|
 | `apiRoutes.ts` | Centralized API endpoint routes and parameterized URL generators (`API_ROUTES`). |
 | `pageRoutes.ts` | Centralized client navigation paths (`PAGE_ROUTES`). |
+| `domain.ts` | Domain constants, statuses, currencies, and default pagination options. |
+| `errorCodes.ts` | Standardized API error codes for localized error translation. |
+| `permissions.ts` | Permission resource and action constants (`PERMISSION_RESOURCES`, `PERMISSION_ACTIONS`). |
+| `queryKeys.ts` | Centralized TanStack React Query cache keys (`QUERY_KEYS`). |
+| `storage.ts` | LocalStorage, SessionStorage, and IndexedDB key constants (`STORAGE_KEYS`). |
+| `time.ts` | Polling, debounce, cache staleTime/gcTime, and timeout duration constants. |
 
 ### Custom Hooks (`src/hooks/`)
 | Hook | Purpose |
@@ -76,26 +83,27 @@ Modularized domain types defined in `src/types/` (re-exported via `src/types/ind
 | `useRoleLabels.ts` | Maps `UserRole` strings to translated labels. |
 | `useLinkedListOptions.ts` | Handles dynamic hierarchical options fetching and dependency resolution for custom fields. |
 | `useActivityTracker.ts` | Non-intrusive batched page activity tracker with idle detection, session timeouts, multi-tab sync, and short-session purge. |
+| `useDebounce.ts` | Debounces rapidly changing values (e.g. search inputs, filters) before triggering server queries. |
 
 ### React Query Hooks (`src/queries/`)
 Modularized domain query modules re-exported through barrel `src/queries/index.ts`:
 | File | Hooks |
 |---|---|
-| `projects.queries.ts` | `usePaginatedProjectsQuery`, `useInfiniteProjectsQuery`, `useProjectDetailsQuery`, `useProjectUpdatesQuery`, `useProjectsMutations` |
+| `projects.queries.ts` | `usePaginatedProjectsQuery`, `useInfiniteProjectsQuery`, `useProjectDetailsQuery`, `useProjectsSummaryQuery`, `useProjectNoteQuery`, `useProjectUpdatesQuery`, `useProjectStatisticsQuery`, `useProjectsMutations` |
 | `clients.queries.ts` | `useClientsSummaryQuery`, `usePaginatedClientsQuery`, `useClientsMutations` |
 | `permits.queries.ts` | `usePermitsSummaryQuery`, `usePaginatedPermitsQuery`, `useWasteCatalogQuery`, `usePermitsMutations` |
 | `invoices.queries.ts` | `usePaginatedInvoicesQuery`, `useInvoicesMutations` |
 | `reminders.queries.ts` | `usePaginatedRemindersQuery`, `useRemindersMutations` |
 | `services.queries.ts` | `usePaginatedServicesQuery`, `useServiceDetailsQuery`, `useCategoriesQuery`, `useServicesMutations`, `useCategoriesMutations` |
-| `providedServices.queries.ts` | `usePaginatedProvidedServicesQuery`, `useProvidedServicesMutations` |
-| `users.queries.ts` | `usePaginatedUsersQuery`, `useRolesQuery`, `useUsersMutations`, `fetchMentionUsers` |
+| `providedServices.queries.ts` | `usePaginatedProvidedServicesQuery`, `useWasteStatisticsQuery`, `useWasteDisposalClientsQuery`, `useProvidedServicesMutations` |
+| `users.queries.ts` | `usePaginatedUsersQuery`, `useUsersSummaryQuery`, `useUsersDirectoryQuery`, `useRolesQuery`, `useUsersMutations`, `fetchMentionUsers` |
 | `activity.queries.ts` | `useActivityLogsQuery`, `useActivityAnalyticsQuery`, `useActivityLogsMutations` |
 | `history.queries.ts` | `useEntityTimelineQuery`, `useVersionDiffQuery`, `useRestoreVersionMutation` |
 | `preferences.queries.ts` | `usePreferencesQuery`, `usePreferencesMutations`, `useTablePreferences(tableKey)` |
 | `company.queries.ts` | `useCompanyInfoQuery`, `useCompanyInfoMutations` |
 | `systemSettings.queries.ts` | `useSystemSettingsQuery`, `useWasteDisposalServiceId`, `useSystemSettingsMutations`, `useNotificationsQuery`, `useNotificationsMutations` |
 | `queryUtils.ts` | `buildPaginationQueryParams`, `useGenericMutations`, `useGenericActionMutation` |
-| `autocomplete.queries.ts` | Autocomplete caching queries |
+| `autocomplete.queries.ts` | `useAutocompleteQuery` — debounced server-side entity autocomplete caching |
 
 ---
 
@@ -130,10 +138,11 @@ Modularized domain query modules re-exported through barrel `src/queries/index.t
 
 ## Component Organization by Domain (`src/components/`)
 
-- `common/`: Domain-agnostic components (`ColumnSelector`, `DateRangeFilter`, `TableSearchInput`, `TableQuickFilters`, `DashboardPanelSkeleton`, `WasteCatalogAutocomplete`).
+- `common/`: Domain-agnostic components (`ColumnSelector`, `DateRangeFilter`, `TableSearchInput`, `TableQuickFilters`, `DashboardPanelSkeleton`, `WasteCatalogAutocomplete`, `modal/`, `autocomplete/`).
 - `common/dialogs/`: Generic dialogs (`ConfirmDialog`, `ConfirmDeleteDialog`, `ErrorDialog`, `VersionUpdatePrompt`).
 - `common/tiptap/`: Rich text TipTap editor, toolbar, and mentions.
 - `layout/`: App shell (`AdminLayout`, `AppHeader`, `Sidebar`, `SettingsDialog`, `UserProfileDialog`, `NotificationsMenu`).
+- `chat/`: Real-time messaging suite (`ChatDock`, `ChatConversationList`, `ChatWindow`, `ProjectChatPane`, `ChatMessageBubble`, `ChatMessageInput`, `chatApi.ts`, `chatStorage.ts`).
 - `project/`: Project cards, `ProjectModal`, `ProjectViewModal`, sections, sliders, notes.
 - `client/`: Client components including extracted `ClientModal`.
 - `permit/`: Permit components, `PermitModal`, status badges, table, reminder dialogs.
@@ -141,11 +150,13 @@ Modularized domain query modules re-exported through barrel `src/queries/index.t
 - `reminder/`: Reminder components including `ReminderModal`.
 - `service/`: Service components, `ServiceModal`, `CustomDataModelModal`.
 - `providedService/`: Provided service components including `ProvidedServiceModal`.
+- `waste/`: Waste disposal management modals and helpers (`WasteCatalogModal`).
 - `user/`: User management components including `UserModal`.
 - `role/`: `RoleModal` and permission matrix editor.
 - `company/`: `CompanyInfoModal`.
 - `statistics/`: Visual charts (`ProjectsStatistics`, `WasteDisposalStatistics`).
 - `history/`: Change timeline and diff review (`HistoryTimelineModal`, `NoteHistoryDiffModal`, `HistoryDiffView`).
+- `activityLogs/` & `activityAnalytics/`: Audit trail tables, diff inspectors, and 15+ user engagement analytics charts.
 
 ---
 
