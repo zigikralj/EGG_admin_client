@@ -17,6 +17,16 @@ import {
   ListItem,
   Divider,
   CircularProgress,
+  Tabs,
+  Tab,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import GroupAddIcon from '@mui/icons-material/GroupAdd';
@@ -27,6 +37,11 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PersonRemoveOutlinedIcon from '@mui/icons-material/PersonRemoveOutlined';
 import MarkChatUnreadOutlinedIcon from '@mui/icons-material/MarkChatUnreadOutlined';
 import MarkChatReadOutlinedIcon from '@mui/icons-material/MarkChatReadOutlined';
+import NotificationsOffOutlinedIcon from '@mui/icons-material/NotificationsOffOutlined';
+import NotificationsActiveOutlinedIcon from '@mui/icons-material/NotificationsActiveOutlined';
+import DoNotDisturbOnOutlinedIcon from '@mui/icons-material/DoNotDisturbOnOutlined';
+import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
+import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import { useQuery } from '@tanstack/react-query';
 import { chatApi, type ChatConversationItem } from './chatApi';
 import { useChat } from '../../context/ChatContext';
@@ -49,6 +64,8 @@ export interface UnifiedConversationItem {
   type: 'DIRECT' | 'GROUP' | 'CONTEXTUAL';
   updatedAt: string;
   unreadCount: number;
+  muted?: boolean;
+  mutedUntil?: string | null;
   lastMessageSnippet?: string;
   isOnline?: boolean;
   userSubtext?: string;
@@ -65,18 +82,54 @@ export interface UnifiedUserItem {
 
 export type UnifiedChatItem = UnifiedConversationItem | UnifiedUserItem;
 
+type ChatTabType = 'all' | 'projects' | 'people' | 'groups';
+
 interface ChatConversationListProps {
   onClose?: () => void;
 }
 
 export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onClose }) => {
-  const { currentUser } = useAuth();
-  const { onlineUserIds, openChat, openDirectChatWithUser, markAsRead, markAsUnread, allUsers } = useChat();
+  const { currentUser, role, actualRole, isRealAdmin, hasPermission } = useAuth();
+  const {
+    onlineUserIds,
+    openChat,
+    openDirectChatWithUser,
+    markAsRead,
+    markAsUnread,
+    leaveConversation,
+    deleteConversation,
+    muteConversation,
+    unmuteConversation,
+    setDnd,
+    isDndActive,
+    allUsers,
+  } = useChat();
+
+  const [activeTab, setActiveTab] = useState<ChatTabType>('all');
   const [search, setSearch] = useState('');
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [groupTitle, setGroupTitle] = useState('');
   const [selectedUsers, setSelectedUsers] = useState<UserDirectoryItem[]>([]);
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Mute Menu State
+  const [muteMenuAnchor, setMuteMenuAnchor] = useState<null | { el: HTMLElement; convId: string; isMuted: boolean }>(null);
+
+  // DND Menu State
+  const [dndMenuAnchor, setDndMenuAnchor] = useState<null | HTMLElement>(null);
+
+  // Delete & Leave Confirmation Dialogs
+  const [deleteDialogConv, setDeleteDialogConv] = useState<UnifiedConversationItem | null>(null);
+  const [leaveDialogConv, setLeaveDialogConv] = useState<UnifiedConversationItem | null>(null);
+
+  const isManagerPlus =
+    Boolean(currentUser?.isSystemAdmin) ||
+    isRealAdmin ||
+    role === 'Administrator' ||
+    role === 'Manager' ||
+    actualRole === 'Administrator' ||
+    actualRole === 'Manager' ||
+    hasPermission('projects', 'delete');
 
   // Fetch active conversations
   const { data: conversations = [], refetch: refetchConversations } = useQuery<ChatConversationItem[]>({
@@ -149,6 +202,8 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
         type: c.type,
         updatedAt: c.updatedAt,
         unreadCount: c.unreadCount,
+        muted: Boolean(c.muted),
+        mutedUntil: c.mutedUntil,
         lastMessageSnippet,
         isOnline,
         userSubtext,
@@ -176,11 +231,28 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
       return a.title.localeCompare(b.title);
     });
 
-    const allCombinedItems = [...sortedConversations, ...sortedUsers];
+    let items: UnifiedChatItem[] = [];
+
+    switch (activeTab) {
+      case 'projects':
+        items = sortedConversations.filter((c) => c.type === 'CONTEXTUAL');
+        break;
+      case 'people':
+        items = [...sortedConversations.filter((c) => c.type === 'DIRECT'), ...sortedUsers];
+        break;
+      case 'groups':
+        items = sortedConversations.filter((c) => c.type === 'GROUP');
+        break;
+      case 'all':
+      default:
+        items = [...sortedConversations, ...sortedUsers];
+        break;
+    }
+
     const q = search.trim().toLowerCase();
-    if (!q) return allCombinedItems;
-    return allCombinedItems.filter((item) => item.title.toLowerCase().includes(q));
-  }, [conversations, allUsers, currentUser?.id, onlineUserIds, search]);
+    if (!q) return items;
+    return items.filter((item) => item.title.toLowerCase().includes(q));
+  }, [conversations, allUsers, currentUser?.id, onlineUserIds, activeTab, search]);
 
   const handleAddMember = (user: any) => {
     if (!user || !user.id) return;
@@ -222,6 +294,63 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
     }
   };
 
+  const handleConfirmDelete = async () => {
+    if (!deleteDialogConv) return;
+    try {
+      setActionLoading(true);
+      await deleteConversation(deleteDialogConv.id);
+      setDeleteDialogConv(null);
+    } catch (err) {
+      console.error('Failed to delete conversation', err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleConfirmLeave = async () => {
+    if (!leaveDialogConv) return;
+    try {
+      setActionLoading(true);
+      await leaveConversation(leaveDialogConv.id);
+      setLeaveDialogConv(null);
+    } catch (err) {
+      console.error('Failed to leave conversation', err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleApplyMute = async (durationMinutes?: number, forever?: boolean) => {
+    if (!muteMenuAnchor) return;
+    const { convId } = muteMenuAnchor;
+    setMuteMenuAnchor(null);
+    try {
+      await muteConversation(convId, durationMinutes, forever);
+    } catch (err) {
+      console.error('Failed to mute conversation', err);
+    }
+  };
+
+  const handleApplyUnmute = async () => {
+    if (!muteMenuAnchor) return;
+    const { convId } = muteMenuAnchor;
+    setMuteMenuAnchor(null);
+    try {
+      await unmuteConversation(convId);
+    } catch (err) {
+      console.error('Failed to unmute conversation', err);
+    }
+  };
+
+  const handleApplyDnd = async (durationMinutes?: number, forever?: boolean, off?: boolean) => {
+    setDndMenuAnchor(null);
+    try {
+      await setDnd(durationMinutes, forever, off);
+    } catch (err) {
+      console.error('Failed to update DND', err);
+    }
+  };
+
   return (
     <Box sx={{ width: '100%', height: 600, maxHeight: '82vh', display: 'flex', flexDirection: 'column' }}>
       {/* Header with Title, Close, New Group & Search */}
@@ -255,7 +384,37 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
               <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '0.9rem' }}>
                 Messaging
               </Typography>
+
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Tooltip title={isDndActive ? 'Do Not Disturb (Active)' : 'Do Not Disturb'}>
+                  <Button
+                    size="small"
+                    variant={isDndActive ? 'contained' : 'outlined'}
+                    color="warning"
+                    onClick={(e) => setDndMenuAnchor(e.currentTarget)}
+                    sx={{
+                      fontSize: '0.675rem',
+                      py: 0.2,
+                      px: 0.75,
+                      minWidth: 'auto',
+                      lineHeight: 1.4,
+                      textTransform: 'none',
+                      borderRadius: 1.5,
+                      fontWeight: 700,
+                      ...(isDndActive && {
+                        color: 'warning.contrastText',
+                        bgcolor: 'warning.main',
+                        '&:hover': {
+                          bgcolor: 'warning.dark',
+                        },
+                      }),
+                    }}
+                    startIcon={<DoNotDisturbOnOutlinedIcon sx={{ fontSize: '13px !important' }} />}
+                  >
+                    DND
+                  </Button>
+                </Tooltip>
+
                 <Button
                   size="small"
                   variant="outlined"
@@ -273,6 +432,7 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
                 >
                   Group
                 </Button>
+
                 {onClose && (
                   <IconButton size="small" onClick={onClose} sx={{ p: 0.5 }}>
                     <CloseIcon fontSize="small" />
@@ -297,6 +457,7 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
                 },
               }}
               sx={{
+                mb: 1,
                 '& .MuiOutlinedInput-root': {
                   borderRadius: 2,
                   fontSize: '0.825rem',
@@ -304,6 +465,37 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
                 },
               }}
             />
+
+            {/* Scrollable Filter Tabs */}
+            <Tabs
+              variant="scrollable"
+              scrollButtons="auto"
+              value={activeTab}
+              onChange={(_, val) => setActiveTab(val)}
+              sx={{
+                minHeight: 30,
+                borderTop: 1,
+                borderColor: 'divider',
+                '& .MuiTabs-indicator': {
+                  height: 2.5,
+                  borderRadius: 1,
+                },
+                '& .MuiTab-root': {
+                  minHeight: 30,
+                  minWidth: 'auto',
+                  px: 1.5,
+                  py: 0.25,
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  textTransform: 'none',
+                },
+              }}
+            >
+              <Tab label="All" value="all" />
+              <Tab label="Projects" value="projects" />
+              <Tab label="People" value="people" />
+              <Tab label="Groups" value="groups" />
+            </Tabs>
           </>
         )}
       </Box>
@@ -541,6 +733,7 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
                 if (item.kind === 'conversation') {
                   const isProject = item.type === 'CONTEXTUAL';
                   const isDirect = item.type === 'DIRECT';
+                  const isGroup = item.type === 'GROUP';
 
                   return (
                     <ListItemButton
@@ -582,18 +775,28 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
                         disableTypography
                         sx={{ my: 0, minWidth: 0 }}
                         primary={
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
-                            <Typography
-                              variant="body2"
-                              sx={{
-                                fontWeight: item.unreadCount > 0 ? 700 : 500,
-                                minWidth: 0,
-                                color: 'text.primary',
-                              }}
-                              noWrap
-                            >
-                              {item.title}
-                            </Typography>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 0.5 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  fontWeight: item.unreadCount > 0 ? 700 : 500,
+                                  minWidth: 0,
+                                  color: 'text.primary',
+                                }}
+                                noWrap
+                              >
+                                {item.title}
+                              </Typography>
+                              {item.muted && (
+                                <Tooltip title="Muted" arrow>
+                                  <NotificationsOffOutlinedIcon
+                                    sx={{ fontSize: '0.9rem', color: 'text.disabled', flexShrink: 0 }}
+                                  />
+                                </Tooltip>
+                              )}
+                            </Box>
+
                             {item.unreadCount > 0 && (
                               <Badge
                                 badgeContent={item.unreadCount}
@@ -620,7 +823,7 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
                               display: 'flex',
                               justifyContent: 'space-between',
                               alignItems: 'center',
-                              gap: 1,
+                              gap: 0.5,
                               mt: 0.25,
                               minHeight: 20,
                             }}
@@ -637,6 +840,8 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
                             >
                               {item.lastMessageSnippet || item.userSubtext}
                             </Typography>
+
+                            {/* Hover Actions Menu */}
                             <Box
                               sx={{
                                 display: 'flex',
@@ -650,6 +855,7 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
                               }}
                               onClick={(e) => e.stopPropagation()}
                             >
+                              {/* Read / Unread toggle */}
                               {item.unreadCount > 0 ? (
                                 <Tooltip title="Mark as read" arrow>
                                   <IconButton
@@ -660,7 +866,7 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
                                     }}
                                     sx={{ p: 0.25, color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
                                   >
-                                    <MarkChatReadOutlinedIcon sx={{ fontSize: '1rem' }} />
+                                    <MarkChatReadOutlinedIcon sx={{ fontSize: '0.95rem' }} />
                                   </IconButton>
                                 </Tooltip>
                               ) : (
@@ -673,7 +879,65 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
                                     }}
                                     sx={{ p: 0.25, color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
                                   >
-                                    <MarkChatUnreadOutlinedIcon sx={{ fontSize: '1rem' }} />
+                                    <MarkChatUnreadOutlinedIcon sx={{ fontSize: '0.95rem' }} />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+
+                              {/* Mute toggle button */}
+                              <Tooltip title={item.muted ? 'Unmute chat' : 'Mute notifications'} arrow>
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setMuteMenuAnchor({
+                                      el: e.currentTarget,
+                                      convId: item.id,
+                                      isMuted: Boolean(item.muted),
+                                    });
+                                  }}
+                                  sx={{
+                                    p: 0.25,
+                                    color: item.muted ? 'warning.main' : 'text.secondary',
+                                    '&:hover': { color: 'warning.dark' },
+                                  }}
+                                >
+                                  {item.muted ? (
+                                    <NotificationsOffOutlinedIcon sx={{ fontSize: '0.95rem' }} />
+                                  ) : (
+                                    <NotificationsActiveOutlinedIcon sx={{ fontSize: '0.95rem' }} />
+                                  )}
+                                </IconButton>
+                              </Tooltip>
+
+                              {/* Leave chat for group and project chats */}
+                              {(isGroup || isProject) && (
+                                <Tooltip title="Leave chat" arrow>
+                                  <IconButton
+                                    size="small"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setLeaveDialogConv(item);
+                                    }}
+                                    sx={{ p: 0.25, color: 'text.secondary', '&:hover': { color: 'warning.main' } }}
+                                  >
+                                    <ExitToAppIcon sx={{ fontSize: '0.95rem' }} />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+
+                              {/* Delete / Clear chat for Manager+ */}
+                              {isManagerPlus && (
+                                <Tooltip title="Delete chat" arrow>
+                                  <IconButton
+                                    size="small"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDeleteDialogConv(item);
+                                    }}
+                                    sx={{ p: 0.25, color: 'text.secondary', '&:hover': { color: 'error.main' } }}
+                                  >
+                                    <DeleteOutlinedIcon sx={{ fontSize: '0.95rem' }} />
                                   </IconButton>
                                 </Tooltip>
                               )}
@@ -728,6 +992,138 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
           )}
         </Box>
       )}
+
+      {/* Mute Conversation Menu */}
+      <Menu
+        anchorEl={muteMenuAnchor?.el}
+        open={Boolean(muteMenuAnchor)}
+        onClose={() => setMuteMenuAnchor(null)}
+        slotProps={{
+          paper: {
+            sx: { borderRadius: 2, minWidth: 170 },
+          },
+        }}
+      >
+        <Typography variant="caption" sx={{ px: 2, py: 0.75, display: 'block', color: 'text.secondary', fontWeight: 700 }}>
+          MUTE NOTIFICATIONS
+        </Typography>
+        {muteMenuAnchor?.isMuted && (
+          <MenuItem onClick={handleApplyUnmute}>
+            <ListItemIcon>
+              <NotificationsActiveOutlinedIcon fontSize="small" color="primary" />
+            </ListItemIcon>
+            <ListItemText primary="Unmute" />
+          </MenuItem>
+        )}
+        <MenuItem onClick={() => handleApplyMute(60)}>For 1 hour</MenuItem>
+        <MenuItem onClick={() => handleApplyMute(480)}>For 8 hours</MenuItem>
+        <MenuItem onClick={() => handleApplyMute(1440)}>For 24 hours</MenuItem>
+        <MenuItem onClick={() => handleApplyMute(undefined, true)}>Until I turn it back on</MenuItem>
+      </Menu>
+
+      {/* Global DND Menu */}
+      <Menu
+        anchorEl={dndMenuAnchor}
+        open={Boolean(dndMenuAnchor)}
+        onClose={() => setDndMenuAnchor(null)}
+        slotProps={{
+          paper: {
+            sx: { borderRadius: 2, minWidth: 200 },
+          },
+        }}
+      >
+        <Typography variant="caption" sx={{ px: 2, py: 0.75, display: 'block', color: 'text.secondary', fontWeight: 700 }}>
+          DO NOT DISTURB
+        </Typography>
+        {isDndActive && (
+          <MenuItem onClick={() => handleApplyDnd(undefined, undefined, true)}>
+            <ListItemIcon>
+              <NotificationsActiveOutlinedIcon fontSize="small" color="primary" />
+            </ListItemIcon>
+            <ListItemText primary="Turn off DND" secondary="Resume notifications" />
+          </MenuItem>
+        )}
+        <MenuItem onClick={() => handleApplyDnd(30)}>For 30 minutes</MenuItem>
+        <MenuItem onClick={() => handleApplyDnd(60)}>For 1 hour</MenuItem>
+        <MenuItem onClick={() => handleApplyDnd(240)}>For 4 hours</MenuItem>
+        <MenuItem onClick={() => handleApplyDnd(1440)}>For 24 hours</MenuItem>
+        <MenuItem onClick={() => handleApplyDnd(undefined, true)}>Until I turn it back on</MenuItem>
+      </Menu>
+
+      {/* Delete / Clear Chat Confirmation Dialog */}
+      <Dialog
+        open={Boolean(deleteDialogConv)}
+        onClose={() => !actionLoading && setDeleteDialogConv(null)}
+      >
+        <DialogTitle sx={{ fontWeight: 700, color: 'error.main' }}>
+          Delete Chat
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ color: 'text.primary', fontWeight: 500 }}>
+            Are you sure you want to delete this entire chat? This action is not reversible.
+          </DialogContentText>
+          {deleteDialogConv && (
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+              Target: <strong>{deleteDialogConv.title}</strong>
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button
+            onClick={() => setDeleteDialogConv(null)}
+            disabled={actionLoading}
+            variant="outlined"
+            size="small"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmDelete}
+            disabled={actionLoading}
+            variant="contained"
+            color="error"
+            size="small"
+            startIcon={actionLoading ? <CircularProgress size={16} color="inherit" /> : <DeleteOutlinedIcon />}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Leave Chat Confirmation Dialog */}
+      <Dialog
+        open={Boolean(leaveDialogConv)}
+        onClose={() => !actionLoading && setLeaveDialogConv(null)}
+      >
+        <DialogTitle sx={{ fontWeight: 700 }}>
+          Leave Chat
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ color: 'text.primary' }}>
+            Are you sure you want to leave <strong>{leaveDialogConv?.title}</strong>? You will no longer receive updates or messages from this discussion unless tagged.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button
+            onClick={() => setLeaveDialogConv(null)}
+            disabled={actionLoading}
+            variant="outlined"
+            size="small"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmLeave}
+            disabled={actionLoading}
+            variant="contained"
+            color="warning"
+            size="small"
+            startIcon={actionLoading ? <CircularProgress size={16} color="inherit" /> : <ExitToAppIcon />}
+          >
+            Leave
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

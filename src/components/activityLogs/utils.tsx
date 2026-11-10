@@ -1,6 +1,9 @@
 /* eslint-disable react/only-export-components */
 import React from 'react';
 import { Chip, alpha } from '@mui/material';
+import ChatBubbleOutlinedIcon from '@mui/icons-material/ChatBubbleOutlined';
+import FolderSpecialIcon from '@mui/icons-material/FolderSpecial';
+import GroupsIcon from '@mui/icons-material/Groups';
 import {
   AccessTimeIcon,
   CheckCircleIcon,
@@ -213,6 +216,24 @@ export const getPathLabelAndIcon = (
     return {
       label: t('tagOnline'),
       icon: <CheckCircleIcon fontSize="small" sx={{ color: '#16a34a' }} />,
+    };
+  }
+  if (type === 'CHAT_MESSAGE_DIRECT') {
+    return {
+      label: 'Direct Chat Message',
+      icon: <ChatBubbleOutlinedIcon fontSize="small" sx={{ color: '#0284c7' }} />,
+    };
+  }
+  if (type === 'CHAT_MESSAGE_PROJECT') {
+    return {
+      label: 'Project Chat Message',
+      icon: <FolderSpecialIcon fontSize="small" sx={{ color: '#7c3aed' }} />,
+    };
+  }
+  if (type === 'CHAT_MESSAGE_GROUP') {
+    return {
+      label: 'Group Chat Message',
+      icon: <GroupsIcon fontSize="small" sx={{ color: '#059669' }} />,
     };
   }
 

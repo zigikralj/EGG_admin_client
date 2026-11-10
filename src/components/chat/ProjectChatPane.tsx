@@ -4,7 +4,22 @@ import {
   Typography,
   CircularProgress,
   Paper,
+  IconButton,
+  Tooltip,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
 } from '@mui/material';
+import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
+import NotificationsOffOutlinedIcon from '@mui/icons-material/NotificationsOffOutlined';
+import NotificationsActiveOutlinedIcon from '@mui/icons-material/NotificationsActiveOutlined';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { chatApi, type ChatMessageItem, type ChatConversationItem } from './chatApi';
 import { ChatMessageBubble } from './ChatMessageBubble';
@@ -17,11 +32,29 @@ interface ProjectChatPaneProps {
 }
 
 export const ProjectChatPane: React.FC<ProjectChatPaneProps> = ({ projectId }) => {
-  const { currentUser } = useAuth();
-  const { getProjectUnreadCount, markAsRead } = useChat();
+  const { currentUser, role, actualRole, isRealAdmin, hasPermission } = useAuth();
+  const {
+    getProjectUnreadCount,
+    markAsRead,
+    deleteConversation,
+    muteConversation,
+    unmuteConversation,
+  } = useChat();
   const queryClient = useQueryClient();
   const [replyingTo, setReplyingTo] = useState<ChatMessageItem | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [muteMenuAnchor, setMuteMenuAnchor] = useState<null | HTMLElement>(null);
+  const [actionLoading, setActionLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const isManagerPlus =
+    Boolean(currentUser?.isSystemAdmin) ||
+    isRealAdmin ||
+    role === 'Administrator' ||
+    role === 'Manager' ||
+    actualRole === 'Administrator' ||
+    actualRole === 'Manager' ||
+    hasPermission('projects', 'delete');
 
   // 1. Get or create contextual conversation for this project
   const { data: conversation, isLoading: isLoadingConv } = useQuery<ChatConversationItem>({
@@ -32,6 +65,7 @@ export const ProjectChatPane: React.FC<ProjectChatPaneProps> = ({ projectId }) =
 
   const conversationId = conversation?.id;
   const projectUnread = getProjectUnreadCount(projectId);
+  const isMuted = Boolean(conversation?.muted);
 
   // 2. Fetch messages
   const { data: messages = [], isLoading: isLoadingMessages } = useQuery<ChatMessageItem[]>({
@@ -94,6 +128,43 @@ export const ProjectChatPane: React.FC<ProjectChatPaneProps> = ({ projectId }) =
     );
   };
 
+  const handleConfirmClear = async () => {
+    if (!conversationId) return;
+    try {
+      setActionLoading(true);
+      await deleteConversation(conversationId);
+      setDeleteConfirmOpen(false);
+      queryClient.setQueryData<ChatMessageItem[]>(
+        ['chat', 'messages', conversationId],
+        []
+      );
+    } catch (err) {
+      console.error('Failed to clear project chat', err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleApplyMute = async (durationMinutes?: number, forever?: boolean) => {
+    if (!conversationId) return;
+    setMuteMenuAnchor(null);
+    try {
+      await muteConversation(conversationId, durationMinutes, forever);
+    } catch (err) {
+      console.error('Failed to mute project conversation', err);
+    }
+  };
+
+  const handleApplyUnmute = async () => {
+    if (!conversationId) return;
+    setMuteMenuAnchor(null);
+    try {
+      await unmuteConversation(conversationId);
+    } catch (err) {
+      console.error('Failed to unmute project conversation', err);
+    }
+  };
+
   if (isLoadingConv || !conversationId) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 350 }}>
@@ -115,6 +186,62 @@ export const ProjectChatPane: React.FC<ProjectChatPaneProps> = ({ projectId }) =
         overflow: 'hidden',
       }}
     >
+      {/* Top Header Bar */}
+      <Box
+        sx={{
+          px: 2,
+          py: 1,
+          borderBottom: 1,
+          borderColor: 'divider',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          bgcolor: 'background.paper',
+        }}
+      >
+        <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '0.875rem' }}>
+          Project Discussion
+        </Typography>
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          {/* Mute button */}
+          <Tooltip title={isMuted ? 'Unmute chat' : 'Mute notifications'} arrow>
+            <IconButton
+              size="small"
+              onClick={(e) => setMuteMenuAnchor(e.currentTarget)}
+              sx={{ color: isMuted ? 'warning.main' : 'text.secondary' }}
+            >
+              {isMuted ? (
+                <NotificationsOffOutlinedIcon fontSize="small" />
+              ) : (
+                <NotificationsActiveOutlinedIcon fontSize="small" />
+              )}
+            </IconButton>
+          </Tooltip>
+
+          {/* Clear chat button for Manager+ */}
+          {isManagerPlus && messages.length > 0 && (
+            <Tooltip title="Clear chat history" arrow>
+              <Button
+                size="small"
+                variant="text"
+                color="error"
+                startIcon={<DeleteOutlinedIcon fontSize="small" />}
+                onClick={() => setDeleteConfirmOpen(true)}
+                sx={{
+                  textTransform: 'none',
+                  fontSize: '0.75rem',
+                  py: 0.25,
+                  px: 0.75,
+                }}
+              >
+                Clear Chat
+              </Button>
+            </Tooltip>
+          )}
+        </Box>
+      </Box>
+
       {/* Messages Scroll Area */}
       <Box
         ref={scrollRef}
@@ -162,6 +289,69 @@ export const ProjectChatPane: React.FC<ProjectChatPaneProps> = ({ projectId }) =
         onCancelReply={() => setReplyingTo(null)}
         placeholder="Type a message or note about this project..."
       />
+
+      {/* Mute Menu */}
+      <Menu
+        anchorEl={muteMenuAnchor}
+        open={Boolean(muteMenuAnchor)}
+        onClose={() => setMuteMenuAnchor(null)}
+        slotProps={{
+          paper: {
+            sx: { borderRadius: 2, minWidth: 170 },
+          },
+        }}
+      >
+        <Typography variant="caption" sx={{ px: 2, py: 0.75, display: 'block', color: 'text.secondary', fontWeight: 700 }}>
+          MUTE NOTIFICATIONS
+        </Typography>
+        {isMuted && (
+          <MenuItem onClick={handleApplyUnmute}>
+            <ListItemIcon>
+              <NotificationsActiveOutlinedIcon fontSize="small" color="primary" />
+            </ListItemIcon>
+            <ListItemText primary="Unmute" />
+          </MenuItem>
+        )}
+        <MenuItem onClick={() => handleApplyMute(60)}>For 1 hour</MenuItem>
+        <MenuItem onClick={() => handleApplyMute(480)}>For 8 hours</MenuItem>
+        <MenuItem onClick={() => handleApplyMute(1440)}>For 24 hours</MenuItem>
+        <MenuItem onClick={() => handleApplyMute(undefined, true)}>Until I turn it back on</MenuItem>
+      </Menu>
+
+      {/* Delete / Clear Chat Confirmation Dialog */}
+      <Dialog
+        open={deleteConfirmOpen}
+        onClose={() => !actionLoading && setDeleteConfirmOpen(false)}
+      >
+        <DialogTitle sx={{ fontWeight: 700, color: 'error.main' }}>
+          Clear Project Chat
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ color: 'text.primary', fontWeight: 500 }}>
+            Are you sure you want to delete this entire chat? This action is not reversible.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button
+            onClick={() => setDeleteConfirmOpen(false)}
+            disabled={actionLoading}
+            variant="outlined"
+            size="small"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmClear}
+            disabled={actionLoading}
+            variant="contained"
+            color="error"
+            size="small"
+            startIcon={actionLoading ? <CircularProgress size={16} color="inherit" /> : <DeleteOutlinedIcon />}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Paper>
   );
 };

@@ -9,7 +9,9 @@ import {
   Card,
   Button,
   Grid,
+  Paper,
 } from '@mui/material';
+import ChatBubbleOutlinedIcon from '@mui/icons-material/ChatBubbleOutlined';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useUsersSummaryQuery, useActivityAnalyticsQuery } from '../../queries';
@@ -295,6 +297,57 @@ export const ActivityAnalyticsPage: React.FC = () => {
                       />
                     </Grid>
                   </Grid>
+
+                  {/* Chat Usage Metric Card */}
+                  {analytics.chatUsage && (
+                    <Card sx={{ p: 2.5, borderRadius: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <ChatBubbleOutlinedIcon color="primary" />
+                          <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1rem' }}>
+                            Chat Feature Usage
+                          </Typography>
+                        </Box>
+                        <Typography variant="caption" color="text.secondary">
+                          Content-free volume tracking
+                        </Typography>
+                      </Box>
+                      <Grid container spacing={2}>
+                        <Grid size={{ xs: 6, sm: 3 }}>
+                          <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center', borderRadius: 2 }}>
+                            <Typography variant="caption" color="text.secondary">Total Messages</Typography>
+                            <Typography variant="h5" sx={{ fontWeight: 700, mt: 0.5 }}>
+                              {analytics.chatUsage.totalMessages}
+                            </Typography>
+                          </Paper>
+                        </Grid>
+                        <Grid size={{ xs: 6, sm: 3 }}>
+                          <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center', borderRadius: 2 }}>
+                            <Typography variant="caption" color="text.secondary">Direct (1-on-1)</Typography>
+                            <Typography variant="h5" sx={{ fontWeight: 700, mt: 0.5, color: 'info.main' }}>
+                              {analytics.chatUsage.directMessages}
+                            </Typography>
+                          </Paper>
+                        </Grid>
+                        <Grid size={{ xs: 6, sm: 3 }}>
+                          <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center', borderRadius: 2 }}>
+                            <Typography variant="caption" color="text.secondary">Project Discussions</Typography>
+                            <Typography variant="h5" sx={{ fontWeight: 700, mt: 0.5, color: 'secondary.main' }}>
+                              {analytics.chatUsage.projectMessages}
+                            </Typography>
+                          </Paper>
+                        </Grid>
+                        <Grid size={{ xs: 6, sm: 3 }}>
+                          <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center', borderRadius: 2 }}>
+                            <Typography variant="caption" color="text.secondary">Group Messages</Typography>
+                            <Typography variant="h5" sx={{ fontWeight: 700, mt: 0.5, color: 'success.main' }}>
+                              {analytics.chatUsage.groupMessages}
+                            </Typography>
+                          </Paper>
+                        </Grid>
+                      </Grid>
+                    </Card>
+                  )}
                 </Box>
               )}
 

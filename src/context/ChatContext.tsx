@@ -24,6 +24,13 @@ interface ChatContextType {
   toggleMinimize: (conversationId: string) => void;
   markAsRead: (conversationId: string) => Promise<void>;
   markAsUnread: (conversationId: string) => Promise<void>;
+  leaveConversation: (conversationId: string) => Promise<void>;
+  deleteConversation: (conversationId: string) => Promise<void>;
+  muteConversation: (conversationId: string, durationMinutes?: number, forever?: boolean) => Promise<void>;
+  unmuteConversation: (conversationId: string) => Promise<void>;
+  setDnd: (durationMinutes?: number, forever?: boolean, off?: boolean) => Promise<void>;
+  dndUntil: string | null;
+  isDndActive: boolean;
   totalUnreadCount: number;
   getProjectUnreadCount: (projectId: string) => number;
   allUsers: ChatDirectoryUser[];
@@ -134,6 +141,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   (conversation.participants || []).map((cp: any) =>
                     typeof cp === 'string' ? cp : cp.userId || cp.user?.id || cp.id
                   );
+
+                // If this is a project chat, only add it if current user is participant or sender or window is open
+                const isProjectChat = conversation.type === 'CONTEXTUAL' || conversation.contextType === 'PROJECT';
+                const isParticipant = pIds.includes(currentUser.id);
+                if (isProjectChat && !isParticipant && !isOwnMessage && !isWindowOpenAndVisible) {
+                  return old;
+                }
+
                 const newConv: ChatConversationItem = {
                   id: conversation.id,
                   type: conversation.type,
@@ -273,7 +288,52 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (conversationId) {
             setActiveWindows((prev) => prev.filter((w) => w.conversationId !== conversationId));
             queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] });
+            queryClient.invalidateQueries({ queryKey: ['chat', 'unread-summary'] });
           }
+        } catch {}
+      });
+
+      es.addEventListener('CONVERSATION_CLEARED', (e: MessageEvent) => {
+        try {
+          const { conversationId } = JSON.parse(e.data);
+          if (conversationId) {
+            chatStorage.clearConversation(conversationId).catch(() => {});
+            queryClient.setQueryData<ChatMessageItem[]>(
+              ['chat', 'messages', conversationId],
+              []
+            );
+            setActiveWindows((prev) => prev.filter((w) => w.conversationId !== conversationId));
+            queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] });
+            queryClient.invalidateQueries({ queryKey: ['chat', 'unread-summary'] });
+          }
+        } catch {}
+      });
+
+      es.addEventListener('MUTE_UPDATED', (e: MessageEvent) => {
+        try {
+          const { conversationId, mutedUntil } = JSON.parse(e.data);
+          queryClient.setQueryData<ChatConversationItem[]>(
+            ['chat', 'conversations'],
+            (old = []) =>
+              old.map((c) =>
+                c.id === conversationId
+                  ? { ...c, muted: Boolean(mutedUntil), mutedUntil }
+                  : c
+              )
+          );
+          queryClient.invalidateQueries({ queryKey: ['chat', 'unread-summary'] });
+        } catch {}
+      });
+
+      es.addEventListener('DND_UPDATED', (e: MessageEvent) => {
+        try {
+          const { dndUntil } = JSON.parse(e.data);
+          queryClient.setQueryData<ChatUnreadSummary>(
+            ['chat', 'unread-summary'],
+            (old) => (old ? { ...old, dndUntil } : { totalUnread: 0, byConversation: {}, byProject: {}, dndUntil })
+          );
+          queryClient.invalidateQueries({ queryKey: ['chat', 'unread-summary'] });
+          queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] });
         } catch {}
       });
     };
@@ -419,11 +479,125 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const totalUnreadCount = unreadSummary?.totalUnread ?? 0;
 
+  const dndUntil = unreadSummary?.dndUntil ?? null;
+
+  const isDndActive = useMemo(() => {
+    if (!dndUntil) return false;
+    if (dndUntil === 'FOREVER') return true;
+    const time = new Date(dndUntil).getTime();
+    return !isNaN(time) && time > Date.now();
+  }, [dndUntil]);
+
   const getProjectUnreadCount = useCallback(
     (projectId: string) => {
       return unreadSummary?.byProject?.[projectId] ?? 0;
     },
     [unreadSummary]
+  );
+
+  const leaveConversation = useCallback(
+    async (conversationId: string) => {
+      if (!currentUser) return;
+      try {
+        await chatApi.leaveConversation(conversationId, currentUser.id);
+        closeChat(conversationId);
+        queryClient.setQueryData<ChatConversationItem[]>(
+          ['chat', 'conversations'],
+          (old = []) => old.filter((c) => c.id !== conversationId)
+        );
+        queryClient.invalidateQueries({ queryKey: ['chat', 'unread-summary'] });
+        queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] });
+      } catch (err) {
+        console.error('Failed to leave conversation', err);
+        throw err;
+      }
+    },
+    [currentUser, closeChat, queryClient]
+  );
+
+  const deleteConversation = useCallback(
+    async (conversationId: string) => {
+      try {
+        await chatApi.deleteConversation(conversationId);
+        await chatStorage.clearConversation(conversationId);
+        closeChat(conversationId);
+        queryClient.setQueryData<ChatMessageItem[]>(
+          ['chat', 'messages', conversationId],
+          []
+        );
+        queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] });
+        queryClient.invalidateQueries({ queryKey: ['chat', 'unread-summary'] });
+      } catch (err) {
+        console.error('Failed to delete/clear conversation', err);
+        throw err;
+      }
+    },
+    [closeChat, queryClient]
+  );
+
+  const muteConversation = useCallback(
+    async (conversationId: string, durationMinutes?: number, forever?: boolean) => {
+      try {
+        const res = await chatApi.muteConversation(conversationId, { durationMinutes, forever });
+        queryClient.setQueryData<ChatConversationItem[]>(
+          ['chat', 'conversations'],
+          (old = []) =>
+            old.map((c) =>
+              c.id === conversationId
+                ? { ...c, muted: true, mutedUntil: res.mutedUntil }
+                : c
+            )
+        );
+        queryClient.invalidateQueries({ queryKey: ['chat', 'unread-summary'] });
+      } catch (err) {
+        console.error('Failed to mute conversation', err);
+        throw err;
+      }
+    },
+    [queryClient]
+  );
+
+  const unmuteConversation = useCallback(
+    async (conversationId: string) => {
+      try {
+        await chatApi.unmuteConversation(conversationId);
+        queryClient.setQueryData<ChatConversationItem[]>(
+          ['chat', 'conversations'],
+          (old = []) =>
+            old.map((c) =>
+              c.id === conversationId
+                ? { ...c, muted: false, mutedUntil: null }
+                : c
+            )
+        );
+        queryClient.invalidateQueries({ queryKey: ['chat', 'unread-summary'] });
+      } catch (err) {
+        console.error('Failed to unmute conversation', err);
+        throw err;
+      }
+    },
+    [queryClient]
+  );
+
+  const setDnd = useCallback(
+    async (durationMinutes?: number, forever?: boolean, off?: boolean) => {
+      try {
+        const res = await chatApi.setDnd({ durationMinutes, forever, off });
+        queryClient.setQueryData<ChatUnreadSummary>(
+          ['chat', 'unread-summary'],
+          (old) =>
+            old
+              ? { ...old, dndUntil: res.dndUntil }
+              : { totalUnread: 0, byConversation: {}, byProject: {}, dndUntil: res.dndUntil }
+        );
+        queryClient.invalidateQueries({ queryKey: ['chat', 'unread-summary'] });
+        queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] });
+      } catch (err) {
+        console.error('Failed to update DND setting', err);
+        throw err;
+      }
+    },
+    [queryClient]
   );
 
   const contextValue = useMemo<ChatContextType>(
@@ -436,6 +610,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toggleMinimize,
       markAsRead,
       markAsUnread,
+      leaveConversation,
+      deleteConversation,
+      muteConversation,
+      unmuteConversation,
+      setDnd,
+      dndUntil,
+      isDndActive,
       totalUnreadCount,
       getProjectUnreadCount,
       allUsers,
@@ -449,6 +630,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toggleMinimize,
       markAsRead,
       markAsUnread,
+      leaveConversation,
+      deleteConversation,
+      muteConversation,
+      unmuteConversation,
+      setDnd,
+      dndUntil,
+      isDndActive,
       totalUnreadCount,
       getProjectUnreadCount,
       allUsers,
@@ -471,6 +659,13 @@ const defaultChatContext: ChatContextType = {
   toggleMinimize: () => {},
   markAsRead: async () => {},
   markAsUnread: async () => {},
+  leaveConversation: async () => {},
+  deleteConversation: async () => {},
+  muteConversation: async () => {},
+  unmuteConversation: async () => {},
+  setDnd: async () => {},
+  dndUntil: null,
+  isDndActive: false,
   totalUnreadCount: 0,
   getProjectUnreadCount: () => 0,
   allUsers: [],

@@ -16,6 +16,14 @@ import {
   ListItemText,
   Divider,
   InputAdornment,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import MinimizeIcon from '@mui/icons-material/Minimize';
@@ -25,6 +33,11 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
 import PersonRemoveOutlinedIcon from '@mui/icons-material/PersonRemoveOutlined';
 import LogoutIcon from '@mui/icons-material/Logout';
+import NotificationsOffOutlinedIcon from '@mui/icons-material/NotificationsOffOutlined';
+import NotificationsActiveOutlinedIcon from '@mui/icons-material/NotificationsActiveOutlined';
+import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { chatApi, type ChatMessageItem, type ChatConversationItem } from './chatApi';
 import { chatStorage } from './chatStorage';
@@ -50,8 +63,16 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   onClose,
   onToggleMinimize,
 }) => {
-  const { currentUser } = useAuth();
-  const { markAsUnread, allUsers, onlineUserIds } = useChat();
+  const { currentUser, role, actualRole, isRealAdmin, hasPermission } = useAuth();
+  const {
+    markAsUnread,
+    allUsers,
+    onlineUserIds,
+    muteConversation,
+    unmuteConversation,
+    deleteConversation,
+    leaveConversation,
+  } = useChat();
   const queryClient = useQueryClient();
   const [replyingTo, setReplyingTo] = useState<ChatMessageItem | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -59,6 +80,21 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   // Group Details View state
   const [showGroupDetails, setShowGroupDetails] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Menus and Dialogs
+  const [moreMenuAnchor, setMoreMenuAnchor] = useState<null | HTMLElement>(null);
+  const [muteMenuAnchor, setMuteMenuAnchor] = useState<null | HTMLElement>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+
+  const isManagerPlus =
+    Boolean(currentUser?.isSystemAdmin) ||
+    isRealAdmin ||
+    role === 'Administrator' ||
+    role === 'Manager' ||
+    actualRole === 'Administrator' ||
+    actualRole === 'Manager' ||
+    hasPermission('projects', 'delete');
 
   // Read existing conversation metadata from the conversations list cache if available
   const cachedConversation = useMemo(() => {
@@ -90,6 +126,52 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const isTitleChanged = Boolean(
     groupTitle.trim() && groupTitle.trim() !== displayTitle.trim()
   );
+
+  const isMuted = Boolean(conversation?.muted);
+
+  const handleConfirmDelete = async () => {
+    try {
+      setActionLoading(true);
+      await deleteConversation(conversationId);
+      setDeleteConfirmOpen(false);
+      onClose();
+    } catch (err) {
+      console.error('Failed to delete chat', err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleConfirmLeave = async () => {
+    try {
+      setActionLoading(true);
+      await leaveConversation(conversationId);
+      setLeaveConfirmOpen(false);
+      onClose();
+    } catch (err) {
+      console.error('Failed to leave chat', err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleApplyMute = async (durationMinutes?: number, forever?: boolean) => {
+    setMuteMenuAnchor(null);
+    try {
+      await muteConversation(conversationId, durationMinutes, forever);
+    } catch (err) {
+      console.error('Failed to mute conversation', err);
+    }
+  };
+
+  const handleApplyUnmute = async () => {
+    setMuteMenuAnchor(null);
+    try {
+      await unmuteConversation(conversationId);
+    } catch (err) {
+      console.error('Failed to unmute conversation', err);
+    }
+  };
 
   // Normalized participants list with guaranteed user details and IDs resolved from /users directory
   const normalizedParticipants = useMemo(() => {
@@ -350,32 +432,35 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           </Box>
         )}
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
-          {!minimized && !showGroupDetails && isGroup && (
-            <Tooltip title="Group info & members" arrow>
-              <IconButton
-                size="small"
-                onClick={() => setShowGroupDetails(true)}
-                sx={{ color: 'inherit', p: 0.5 }}
-              >
-                <GroupsIcon sx={{ fontSize: '1.2rem' }} />
-              </IconButton>
-            </Tooltip>
-          )}
-
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }} onClick={(e) => e.stopPropagation()}>
           {!minimized && !showGroupDetails && (
             <>
-              <Tooltip title="Mark as unread" arrow>
+              {/* Mute button */}
+              <Tooltip title={isMuted ? 'Unmute chat' : 'Mute notifications'} arrow>
                 <IconButton
                   size="small"
-                  onClick={async () => {
-                    await markAsUnread(conversationId);
-                  }}
+                  onClick={(e) => setMuteMenuAnchor(e.currentTarget)}
                   sx={{ color: 'inherit', p: 0.5 }}
                 >
-                  <MarkChatUnreadOutlinedIcon sx={{ fontSize: '1.05rem' }} />
+                  {isMuted ? (
+                    <NotificationsOffOutlinedIcon sx={{ fontSize: '1.05rem', color: '#fef08a' }} />
+                  ) : (
+                    <NotificationsActiveOutlinedIcon sx={{ fontSize: '1.05rem' }} />
+                  )}
                 </IconButton>
               </Tooltip>
+
+              {/* More options menu */}
+              <Tooltip title="More options" arrow>
+                <IconButton
+                  size="small"
+                  onClick={(e) => setMoreMenuAnchor(e.currentTarget)}
+                  sx={{ color: 'inherit', p: 0.5 }}
+                >
+                  <MoreVertIcon sx={{ fontSize: '1.15rem' }} />
+                </IconButton>
+              </Tooltip>
+
               <IconButton size="small" onClick={onToggleMinimize} sx={{ color: 'inherit', p: 0.5 }}>
                 <MinimizeIcon fontSize="small" />
               </IconButton>
@@ -610,6 +695,174 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           )}
         </>
       )}
+
+      {/* Mute Conversation Menu */}
+      <Menu
+        anchorEl={muteMenuAnchor}
+        open={Boolean(muteMenuAnchor)}
+        onClose={() => setMuteMenuAnchor(null)}
+        slotProps={{
+          paper: {
+            sx: { borderRadius: 2, minWidth: 170 },
+          },
+        }}
+      >
+        <Typography variant="caption" sx={{ px: 2, py: 0.75, display: 'block', color: 'text.secondary', fontWeight: 700 }}>
+          MUTE NOTIFICATIONS
+        </Typography>
+        {isMuted && (
+          <MenuItem onClick={handleApplyUnmute}>
+            <ListItemIcon>
+              <NotificationsActiveOutlinedIcon fontSize="small" color="primary" />
+            </ListItemIcon>
+            <ListItemText primary="Unmute" />
+          </MenuItem>
+        )}
+        <MenuItem onClick={() => handleApplyMute(60)}>For 1 hour</MenuItem>
+        <MenuItem onClick={() => handleApplyMute(480)}>For 8 hours</MenuItem>
+        <MenuItem onClick={() => handleApplyMute(1440)}>For 24 hours</MenuItem>
+        <MenuItem onClick={() => handleApplyMute(undefined, true)}>Until I turn it back on</MenuItem>
+      </Menu>
+
+      {/* More Options Menu */}
+      <Menu
+        anchorEl={moreMenuAnchor}
+        open={Boolean(moreMenuAnchor)}
+        onClose={() => setMoreMenuAnchor(null)}
+        slotProps={{
+          paper: {
+            sx: { borderRadius: 2, minWidth: 190 },
+          },
+        }}
+      >
+        {isGroup && (
+          <MenuItem
+            onClick={() => {
+              setMoreMenuAnchor(null);
+              setShowGroupDetails(true);
+            }}
+          >
+            <ListItemIcon>
+              <GroupsIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText primary="Group details & members" />
+          </MenuItem>
+        )}
+
+        <MenuItem
+          onClick={async () => {
+            setMoreMenuAnchor(null);
+            await markAsUnread(conversationId);
+          }}
+        >
+          <ListItemIcon>
+            <MarkChatUnreadOutlinedIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary="Mark as unread" />
+        </MenuItem>
+
+        {(isGroup || conversation?.type === 'CONTEXTUAL') && (
+          <MenuItem
+            onClick={() => {
+              setMoreMenuAnchor(null);
+              setLeaveConfirmOpen(true);
+            }}
+          >
+            <ListItemIcon>
+              <ExitToAppIcon fontSize="small" color="warning" />
+            </ListItemIcon>
+            <ListItemText primary="Leave chat" />
+          </MenuItem>
+        )}
+
+        {isManagerPlus && (
+          <MenuItem
+            onClick={() => {
+              setMoreMenuAnchor(null);
+              setDeleteConfirmOpen(true);
+            }}
+            sx={{ color: 'error.main' }}
+          >
+            <ListItemIcon>
+              <DeleteOutlinedIcon fontSize="small" color="error" />
+            </ListItemIcon>
+            <ListItemText primary="Delete entire chat" />
+          </MenuItem>
+        )}
+      </Menu>
+
+      {/* Delete / Clear Chat Confirmation Dialog */}
+      <Dialog
+        open={deleteConfirmOpen}
+        onClose={() => !actionLoading && setDeleteConfirmOpen(false)}
+      >
+        <DialogTitle sx={{ fontWeight: 700, color: 'error.main' }}>
+          Delete Chat
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ color: 'text.primary', fontWeight: 500 }}>
+            Are you sure you want to delete this entire chat? This action is not reversible.
+          </DialogContentText>
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+            Target: <strong>{displayTitle}</strong>
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button
+            onClick={() => setDeleteConfirmOpen(false)}
+            disabled={actionLoading}
+            variant="outlined"
+            size="small"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmDelete}
+            disabled={actionLoading}
+            variant="contained"
+            color="error"
+            size="small"
+            startIcon={actionLoading ? <CircularProgress size={16} color="inherit" /> : <DeleteOutlinedIcon />}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Leave Chat Confirmation Dialog */}
+      <Dialog
+        open={leaveConfirmOpen}
+        onClose={() => !actionLoading && setLeaveConfirmOpen(false)}
+      >
+        <DialogTitle sx={{ fontWeight: 700 }}>
+          Leave Chat
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ color: 'text.primary' }}>
+            Are you sure you want to leave <strong>{displayTitle}</strong>? You will no longer receive updates or messages from this discussion unless tagged.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button
+            onClick={() => setLeaveConfirmOpen(false)}
+            disabled={actionLoading}
+            variant="outlined"
+            size="small"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmLeave}
+            disabled={actionLoading}
+            variant="contained"
+            color="warning"
+            size="small"
+            startIcon={actionLoading ? <CircularProgress size={16} color="inherit" /> : <ExitToAppIcon />}
+          >
+            Leave
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Paper>
   );
 };

@@ -18,6 +18,7 @@ import { useNavigate } from 'react-router-dom';
 import type { AppNotification } from '../../types';
 import type { TranslationKeys } from '../../i18n/translations';
 import { useNotifications } from '../../context/NotificationContext';
+import { useChat } from '../../context/ChatContext';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { PAGE_ROUTES } from '../../constants';
@@ -75,6 +76,7 @@ export const NotificationsMenu: React.FC<NotificationsMenuProps> = ({
     deleteNotification,
     clearAllNotifications,
   } = useNotifications();
+  const { isDndActive, setDnd } = useChat();
 
   const totalBadgeCount = unreadCount + (hasPendingUsers ? pendingUsersCount : 0);
 
@@ -171,6 +173,39 @@ export const NotificationsMenu: React.FC<NotificationsMenuProps> = ({
           )}
         </Box>
       </Box>
+
+      {/* DND STATUS BANNER */}
+      {isDndActive && (
+        <Box
+          sx={{
+            px: 2,
+            py: 0.75,
+            bgcolor: 'warning.light',
+            color: 'warning.contrastText',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+          }}
+        >
+          <Typography variant="caption" sx={{ fontWeight: 600 }}>
+            Do Not Disturb is active
+          </Typography>
+          <Chip
+            size="small"
+            label="Turn Off"
+            onClick={() => setDnd(undefined, undefined, true)}
+            sx={{
+              height: 20,
+              fontSize: '0.65rem',
+              fontWeight: 700,
+              bgcolor: 'background.paper',
+              cursor: 'pointer',
+            }}
+          />
+        </Box>
+      )}
 
       {/* NOTIFICATIONS LIST */}
       <Box sx={{ flex: 1, overflowY: 'auto', maxHeight: 380 }}>

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import {
   Box,
   TextField,
@@ -10,11 +10,15 @@ import {
   Avatar,
   ListItemText,
   Typography,
+  Tooltip,
 } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
 import CloseIcon from '@mui/icons-material/Close';
 import ReplyIcon from '@mui/icons-material/Reply';
+import MicIcon from '@mui/icons-material/Mic';
+import MicOffIcon from '@mui/icons-material/MicOff';
 import { useChat, type ChatDirectoryUser } from '../../context/ChatContext';
+import { useLanguage } from '../../context/LanguageContext';
 import type { ChatMessageItem } from './chatApi';
 
 interface ChatMessageInputProps {
@@ -25,6 +29,14 @@ interface ChatMessageInputProps {
   placeholder?: string;
 }
 
+// Check for Web Speech API support
+const getSpeechRecognition = (): any => {
+  if (typeof window === 'undefined') return null;
+  const SpeechRecognition =
+    (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+  return SpeechRecognition ? new SpeechRecognition() : null;
+};
+
 export const ChatMessageInput: React.FC<ChatMessageInputProps> = ({
   onSendMessage,
   replyingTo,
@@ -33,13 +45,85 @@ export const ChatMessageInput: React.FC<ChatMessageInputProps> = ({
   placeholder = 'Type a message...',
 }) => {
   const { allUsers } = useChat();
+  const { language } = useLanguage();
   const [content, setContent] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
   const [mentionedIds, setMentionedIds] = useState<Set<string>>(new Set());
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<any>(null);
+
+  const speechLang = useMemo(() => {
+    return language.startsWith('sr') ? 'sr-RS' : 'en-US';
+  }, [language]);
+
+  const isSpeechSupported = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    return Boolean((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+  }, []);
+
+  // Cleanup speech recognition on unmount
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch {}
+      }
+    };
+  }, []);
+
+  const toggleSpeechRecognition = () => {
+    if (isListening) {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {}
+      }
+      setIsListening(false);
+      return;
+    }
+
+    const recognition = getSpeechRecognition();
+    if (!recognition) return;
+
+    recognitionRef.current = recognition;
+    recognition.lang = speechLang;
+    recognition.continuous = true;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+    };
+
+    recognition.onresult = (event: any) => {
+      const current = event.resultIndex;
+      const transcript = event.results[current][0].transcript;
+      if (transcript) {
+        setContent((prev) => {
+          const separator = prev.length > 0 && !prev.endsWith(' ') ? ' ' : '';
+          return `${prev}${separator}${transcript.trim()}`;
+        });
+      }
+    };
+
+    recognition.onerror = () => {
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    try {
+      recognition.start();
+    } catch {
+      setIsListening(false);
+    }
+  };
 
   const filteredUsers = useMemo(() => {
     if (mentionQuery === null) return [];
@@ -117,7 +201,13 @@ export const ChatMessageInput: React.FC<ChatMessageInputProps> = ({
       }
     }
 
+    // On touch mobile devices, standard enter creates a newline rather than premature send
+    const isTouch = typeof window !== 'undefined' && 'ontouchstart' in window;
     if (e.key === 'Enter' && !e.shiftKey) {
+      if (isTouch && !e.ctrlKey && !e.metaKey) {
+        // Let user hit newline on mobile soft keyboard without sending
+        return;
+      }
       e.preventDefault();
       await handleSubmit();
     }
@@ -126,6 +216,13 @@ export const ChatMessageInput: React.FC<ChatMessageInputProps> = ({
   const handleSubmit = async () => {
     const text = content.trim();
     if (!text || isSending || disabled) return;
+
+    if (isListening && recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {}
+      setIsListening(false);
+    }
 
     try {
       setIsSending(true);
@@ -214,8 +311,8 @@ export const ChatMessageInput: React.FC<ChatMessageInputProps> = ({
         </Box>
       )}
 
-      {/* Input Field with Send Button */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1, bgcolor: 'background.paper' }}>
+      {/* Input Field with Mic & Send Buttons */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, p: 1, bgcolor: 'background.paper' }}>
         <TextField
           inputRef={inputRef}
           fullWidth
@@ -228,6 +325,14 @@ export const ChatMessageInput: React.FC<ChatMessageInputProps> = ({
           onKeyDown={handleKeyDown}
           disabled={disabled || isSending}
           variant="outlined"
+          slotProps={{
+            htmlInput: {
+              lang: speechLang,
+              autoCapitalize: 'sentences',
+              autoCorrect: 'on',
+              spellCheck: 'true',
+            },
+          }}
           sx={{
             '& .MuiOutlinedInput-root': {
               borderRadius: 3,
@@ -235,11 +340,39 @@ export const ChatMessageInput: React.FC<ChatMessageInputProps> = ({
             },
           }}
         />
+
+        {/* Voice Dictation Button */}
+        {isSpeechSupported && (
+          <Tooltip title={isListening ? 'Stop listening' : `Dictate (${speechLang})`} arrow>
+            <IconButton
+              size="small"
+              onClick={toggleSpeechRecognition}
+              disabled={disabled || isSending}
+              sx={{
+                p: 0.75,
+                color: isListening ? 'error.main' : 'text.secondary',
+                bgcolor: isListening ? 'error.lighter' : 'transparent',
+                transition: 'all 0.2s ease',
+                ...(isListening && {
+                  animation: 'pulseMic 1.5s infinite',
+                  '@keyframes pulseMic': {
+                    '0%': { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(239, 68, 68, 0.4)' },
+                    '70%': { transform: 'scale(1.15)', boxShadow: '0 0 0 8px rgba(239, 68, 68, 0)' },
+                    '100%': { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(239, 68, 68, 0)' },
+                  },
+                }),
+              }}
+            >
+              {isListening ? <MicIcon fontSize="small" /> : <MicOffIcon fontSize="small" />}
+            </IconButton>
+          </Tooltip>
+        )}
+
         <IconButton
           color="primary"
           onClick={handleSubmit}
           disabled={!content.trim() || isSending || disabled}
-          sx={{ bgcolor: 'primary.main', color: 'primary.contrastText', '&:hover': { bgcolor: 'primary.dark' } }}
+          sx={{ bgcolor: 'primary.main', color: 'primary.contrastText', '&:hover': { bgcolor: 'primary.dark' }, p: 0.75 }}
           size="small"
         >
           <SendIcon fontSize="small" />
