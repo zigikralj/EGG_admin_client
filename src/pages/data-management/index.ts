@@ -1,6 +1,7 @@
 export { default as ProjectsPage } from './ProjectsPage';
 export { default as ClientsPage } from './ClientsPage';
 export { default as PermitsPage } from './PermitsPage';
+export { default as ContractsPage } from './ContractsPage';
 export { default as UsersPage } from './UsersPage';
 export { default as RolesPage } from './RolesPage';
 export { default as ServicesPage } from './ServicesPage';

@@ -7,4 +7,5 @@ export * from './invoice.types';
 export * from './reminder.types';
 export * from './service.types';
 export * from './activity.types';
+export * from './contract.types';
 import './globals.d';

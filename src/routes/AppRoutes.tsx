@@ -16,6 +16,7 @@ const TrackerWasteStatsPage = React.lazy(() => import('../pages/project-tracker/
 const ProjectsPage = React.lazy(() => import('../pages/data-management/ProjectsPage'));
 const ClientsPage = React.lazy(() => import('../pages/data-management/ClientsPage'));
 const PermitsPage = React.lazy(() => import('../pages/data-management/PermitsPage'));
+const ContractsPage = React.lazy(() => import('../pages/data-management/ContractsPage'));
 const UsersPage = React.lazy(() => import('../pages/data-management/UsersPage'));
 const ServicesPage = React.lazy(() => import('../pages/data-management/ServicesPage'));
 const ProvidedServicesPage = React.lazy(() => import('../pages/data-management/ProvidedServicesPage'));
@@ -51,6 +52,7 @@ export const AppRoutes: React.FC = () => {
         <Route path={PAGE_ROUTES.PROJECTS} element={<ProjectsPage />} />
         <Route path={PAGE_ROUTES.CLIENTS} element={<ClientsPage />} />
         <Route path={PAGE_ROUTES.PERMITS} element={<PermitsPage />} />
+        <Route path={PAGE_ROUTES.CONTRACTS} element={<ContractsPage />} />
         <Route path={PAGE_ROUTES.USERS} element={<UsersPage />} />
         <Route path={PAGE_ROUTES.SERVICES} element={<ServicesPage />} />
         <Route path={PAGE_ROUTES.PROVIDED_SERVICES} element={<ProvidedServicesPage />} />

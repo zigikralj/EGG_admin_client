@@ -10,7 +10,7 @@ import { AppHeader } from './AppHeader';
 import { UserProfileDialog } from './UserProfileDialog';
 import { SettingsDialog } from './SettingsDialog';
 import { CompanyInfoModal } from '../company/CompanyInfoModal';
-import { DashboardIcon, FolderIcon, BusinessIcon, AssignmentTurnedInIcon, PeopleIcon, BuildIcon, HandymanIcon, CategoryIcon, NotificationsActiveIcon, ReceiptLongIcon, SecurityIcon, AccessTimeIcon } from '../icons';
+import { DashboardIcon, FolderIcon, BusinessIcon, AssignmentTurnedInIcon, PeopleIcon, BuildIcon, HandymanIcon, CategoryIcon, NotificationsActiveIcon, ReceiptLongIcon, SecurityIcon, AccessTimeIcon, DescriptionIcon } from '../icons';
 import { useProjectModal } from '../../context/ProjectModalContext';
 import { useWasteDisposalServiceId } from '../../queries';
 import { PAGE_ROUTES } from '../../constants';
@@ -57,6 +57,7 @@ export const AdminLayout: React.FC<Props> = ({
     { path: PAGE_ROUTES.PROJECTS, label: t('tabProjects'), icon: <FolderIcon />, show: hasPermission('projects', 'view') },
     { path: PAGE_ROUTES.CLIENTS, label: t('tabClients'), icon: <BusinessIcon />, show: hasPermission('clients', 'view') },
     { path: PAGE_ROUTES.PERMITS, label: t('tabPermits'), icon: <AssignmentTurnedInIcon />, show: hasPermission('permits', 'view') },
+    { path: PAGE_ROUTES.CONTRACTS, label: t('tabContracts') || 'Ugovori', icon: <DescriptionIcon />, show: hasPermission('contracts', 'view') },
     { path: PAGE_ROUTES.USERS, label: t('tabUsers'), icon: <PeopleIcon />, show: hasPermission('users', 'view') },
     { path: PAGE_ROUTES.SERVICES, label: t('tabServices'), icon: <BuildIcon />, show: hasPermission('services', 'view') },
     { path: PAGE_ROUTES.PROVIDED_SERVICES, label: t('tabProvidedServices'), icon: <HandymanIcon />, show: hasPermission('providedServices', 'view') },

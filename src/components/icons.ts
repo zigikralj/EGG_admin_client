@@ -124,3 +124,5 @@ export { default as CompareArrowsIcon } from '@mui/icons-material/CompareArrows'
 export { default as TableChartIcon } from '@mui/icons-material/TableChart';
 export { default as UpdateIcon } from '@mui/icons-material/Update';
 export { default as SystemUpdateAltIcon } from '@mui/icons-material/SystemUpdateAlt';
+export { default as DescriptionIcon } from '@mui/icons-material/Description';
+export { default as PrintIcon } from '@mui/icons-material/Print';

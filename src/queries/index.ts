@@ -33,3 +33,4 @@ export * from './history.queries';
 export * from './autocomplete.queries';
 export * from './company.queries';
 export * from './systemSettings.queries';
+export * from './contracts.queries';

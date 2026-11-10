@@ -60,6 +60,7 @@ const APPS: AppDefinition[] = [
       { id: 'projects', label: 'Projects' },
       { id: 'clients', label: 'Clients' },
       { id: 'permits', label: 'Permits' },
+      { id: 'contracts', label: 'Contracts & Templates' },
       { id: 'users', label: 'Users' },
       { id: 'services', label: 'Services' },
       { id: 'providedServices', label: 'Provided Services' },

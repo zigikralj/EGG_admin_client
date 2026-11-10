@@ -15,6 +15,9 @@ export interface Reminder {
   permitId?: string | null;
   permitNumber?: string | null;
   permit?: Permit | null;
+  contractId?: string | null;
+  contractNumber?: string | null;
+  isAutoContractReminder?: boolean;
   isNewStaged?: boolean;
   isLinkedExisting?: boolean;
   createdAt?: string;

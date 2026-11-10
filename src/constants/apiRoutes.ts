@@ -70,6 +70,14 @@ export const API_ROUTES = {
     BASE: '/api/permits',
     BY_ID: (id: string) => `/api/permits/${encodeURIComponent(id)}`,
   },
+  CONTRACTS: {
+    BASE: '/api/contracts',
+    BY_ID: (id: string) => `/api/contracts/${encodeURIComponent(id)}`,
+  },
+  CONTRACT_TEMPLATES: {
+    BASE: '/api/contract-templates',
+    BY_ID: (id: string) => `/api/contract-templates/${encodeURIComponent(id)}`,
+  },
   WASTE_CATALOG: {
     BASE: '/api/waste-catalog',
     FREQUENT: (id: string) => `/api/waste-catalog/${encodeURIComponent(id)}/frequent`,

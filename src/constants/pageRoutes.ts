@@ -17,6 +17,7 @@ export const PAGE_ROUTES = {
   PROJECTS: '/data-management/projects',
   CLIENTS: '/data-management/clients',
   PERMITS: '/data-management/permits',
+  CONTRACTS: '/data-management/contracts',
   USERS: '/data-management/users',
   SERVICES: '/data-management/services',
   PROVIDED_SERVICES: '/data-management/provided-services',
