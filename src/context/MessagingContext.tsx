@@ -42,7 +42,84 @@ interface ChatContextType {
   openNewMessage: () => void;
   closeNewMessage: () => void;
   toggleMinimizeNewMessage: () => void;
+  isMainOpen: boolean;
+  setIsMainOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  openMainMessaging: () => void;
+  closeMainMessaging: () => void;
+  toggleMainMessaging: () => void;
 }
+
+interface SavedMessagingState {
+  isMainOpen: boolean;
+  windows: ActiveChatWindow[];
+}
+
+const loadSavedMessagingState = (userId: string): SavedMessagingState => {
+  try {
+    const raw =
+      localStorage.getItem(STORAGE_KEYS.MESSAGING_STATE(userId)) ||
+      localStorage.getItem(`ekos_open_chats_${userId}`);
+    if (!raw) return { isMainOpen: false, windows: [] };
+    const parsed = JSON.parse(raw);
+
+    let rawWindows: any[] = [];
+    let isMainOpen = false;
+
+    if (Array.isArray(parsed)) {
+      rawWindows = parsed;
+    } else if (parsed && typeof parsed === 'object') {
+      if (Array.isArray(parsed.windows)) {
+        rawWindows = parsed.windows;
+      }
+      if (typeof parsed.isMainOpen === 'boolean') {
+        isMainOpen = parsed.isMainOpen;
+      }
+    }
+
+    const seen = new Set<string>();
+    const valid: ActiveChatWindow[] = [];
+    for (const item of rawWindows) {
+      if (
+        item &&
+        typeof item.conversationId === 'string' &&
+        item.conversationId.trim() &&
+        typeof item.minimized === 'boolean' &&
+        !seen.has(item.conversationId)
+      ) {
+        seen.add(item.conversationId);
+        valid.push({
+          conversationId: item.conversationId,
+          minimized: item.minimized,
+          title: typeof item.title === 'string' ? item.title : undefined,
+        });
+      }
+    }
+    return {
+      isMainOpen,
+      windows: valid.slice(-3),
+    };
+  } catch (err) {
+    console.error('Failed to load saved messaging state', err);
+    return { isMainOpen: false, windows: [] };
+  }
+};
+
+const saveMessagingStateToStorage = (
+  userId: string,
+  state: { isMainOpen: boolean; windows: ActiveChatWindow[] }
+) => {
+  try {
+    localStorage.setItem(
+      STORAGE_KEYS.MESSAGING_STATE(userId),
+      JSON.stringify({
+        isMainOpen: state.isMainOpen,
+        windows: state.windows.slice(-3),
+      })
+    );
+  } catch (err) {
+    console.error('Failed to save messaging state', err);
+  }
+};
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
@@ -50,12 +127,51 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { currentUser } = useAuth();
   const queryClient = useQueryClient();
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
-  const [activeWindows, setActiveWindows] = useState<ActiveChatWindow[]>([]);
+
+  // Track the userId for which open chats have been loaded
+  const loadedUserIdRef = useRef<string | null>(currentUser?.id || null);
+
+  const [activeWindows, setActiveWindows] = useState<ActiveChatWindow[]>(() => {
+    if (currentUser?.id) {
+      return loadSavedMessagingState(currentUser.id).windows;
+    }
+    return [];
+  });
+  const [isMainOpen, setIsMainOpen] = useState<boolean>(() => {
+    if (currentUser?.id) {
+      return loadSavedMessagingState(currentUser.id).isMainOpen;
+    }
+    return false;
+  });
   const [isNewMessageOpen, setIsNewMessageOpen] = useState(false);
   const [isNewMessageMinimized, setIsNewMessageMinimized] = useState(false);
-  const activeWindowsRef = useRef<ActiveChatWindow[]>([]);
+  const activeWindowsRef = useRef<ActiveChatWindow[]>(activeWindows);
   activeWindowsRef.current = activeWindows;
   const eventSourceRef = useRef<EventSource | null>(null);
+
+  // Sync activeWindows and isMainOpen when user logs in or logs out
+  useEffect(() => {
+    if (!currentUser?.id) {
+      loadedUserIdRef.current = null;
+      setActiveWindows([]);
+      setIsMainOpen(false);
+      return;
+    }
+
+    if (loadedUserIdRef.current !== currentUser.id) {
+      loadedUserIdRef.current = currentUser.id;
+      const restored = loadSavedMessagingState(currentUser.id);
+      setActiveWindows(restored.windows);
+      setIsMainOpen(restored.isMainOpen);
+    }
+  }, [currentUser?.id]);
+
+  // Persist open chats whenever activeWindows or isMainOpen changes (only if authenticated and loaded)
+  useEffect(() => {
+    if (currentUser?.id && loadedUserIdRef.current === currentUser.id) {
+      saveMessagingStateToStorage(currentUser.id, { isMainOpen, windows: activeWindows });
+    }
+  }, [activeWindows, isMainOpen, currentUser?.id]);
 
   // Preload and cache all users for @mention highlights and directory lookups (only when authenticated)
   const { data: allUsers = [] } = useUsersDirectoryQuery({ enabled: Boolean(currentUser) });
@@ -491,6 +607,18 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsNewMessageMinimized((prev) => !prev);
   }, []);
 
+  const openMainMessaging = useCallback(() => {
+    setIsMainOpen(true);
+  }, []);
+
+  const closeMainMessaging = useCallback(() => {
+    setIsMainOpen(false);
+  }, []);
+
+  const toggleMainMessaging = useCallback(() => {
+    setIsMainOpen((prev) => !prev);
+  }, []);
+
   const markAsUnread = useCallback(async (conversationId: string) => {
     try {
       await chatApi.markAsUnread(conversationId);
@@ -654,6 +782,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       openNewMessage,
       closeNewMessage,
       toggleMinimizeNewMessage,
+      isMainOpen,
+      setIsMainOpen,
+      openMainMessaging,
+      closeMainMessaging,
+      toggleMainMessaging,
     }),
     [
       onlineUserIds,
@@ -679,6 +812,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       openNewMessage,
       closeNewMessage,
       toggleMinimizeNewMessage,
+      isMainOpen,
+      openMainMessaging,
+      closeMainMessaging,
+      toggleMainMessaging,
     ]
   );
 
@@ -716,6 +853,11 @@ const defaultChatContext: ChatContextType = {
   openNewMessage: () => {},
   closeNewMessage: () => {},
   toggleMinimizeNewMessage: () => {},
+  isMainOpen: false,
+  setIsMainOpen: () => {},
+  openMainMessaging: () => {},
+  closeMainMessaging: () => {},
+  toggleMainMessaging: () => {},
 };
 
 export const useChat = (): ChatContextType => {

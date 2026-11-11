@@ -42,9 +42,10 @@ export const MessagingDock: React.FC = () => {
     openNewMessage,
     closeNewMessage,
     toggleMinimizeNewMessage,
+    isMainOpen: isOpen,
+    setIsMainOpen: setIsOpen,
   } = useChat();
 
-  const [isOpen, setIsOpen] = useState(false);
   const [optionsMenuAnchor, setOptionsMenuAnchor] = useState<null | HTMLElement>(null);
   const [menuView, setMenuView] = useState<'root' | 'dnd'>('root');
 
