@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.11.14] - 2026-11-11
+
+- Various improvements (#118) by @zigikralj
+
 ## [v1.11.13] - 2026-11-10
 
 - bugfixing + docs (#116) by @zigikralj
