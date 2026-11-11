@@ -18,7 +18,7 @@ import { useNavigate } from 'react-router-dom';
 import type { AppNotification } from '../../types';
 import type { TranslationKeys } from '../../i18n/translations';
 import { useNotifications } from '../../context/NotificationContext';
-import { useChat } from '../../context/ChatContext';
+import { useMessaging } from '../../context/MessagingContext';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { PAGE_ROUTES } from '../../constants';
@@ -76,7 +76,7 @@ export const NotificationsMenu: React.FC<NotificationsMenuProps> = ({
     deleteNotification,
     clearAllNotifications,
   } = useNotifications();
-  const { isDndActive, setDnd } = useChat();
+  const { isDndActive, setDnd } = useMessaging();
 
   const totalBadgeCount = unreadCount + (hasPendingUsers ? pendingUsersCount : 0);
 

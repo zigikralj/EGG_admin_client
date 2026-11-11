@@ -1046,6 +1046,62 @@ export interface TranslationKeys {
   countVisits: string;
   countAction: string;
   countActions: string;
+
+  // Messaging
+  tabMessaging: string;
+  messagingTitle: string;
+  messagingOptions: string;
+  messagingNewMessage: string;
+  messagingStartConversation: string;
+  messagingCreateGroup: string;
+  messagingSelectUser: string;
+  messagingEnterGroupName: string;
+  messagingGroupDetails: string;
+  messagingLeaveConversation: string;
+  messagingDeleteConversation: string;
+  messagingDeleteEntireConversation: string;
+  messagingClearConversation: string;
+  messagingClearProjectConversation: string;
+  messagingConfirmDeleteTitle: string;
+  messagingConfirmDeleteText: string;
+  messagingConfirmClearProjectText: string;
+  messagingConfirmLeaveTitle: string;
+  messagingConfirmLeaveText: string;
+  messagingMuteNotifications: string;
+  messagingUnmuteConversation: string;
+  messagingClearHistory: string;
+  messagingSearchPlaceholder: string;
+  messagingSearchUsersToAdd: string;
+  messagingTypeUserPlaceholder: string;
+  messagingTypeMessagePlaceholder: string;
+  messagingNoConversationsFound: string;
+  messagingNoMatchingUsers: string;
+  messagingAllUsersSelected: string;
+  messagingAddToGroup: string;
+  messagingGroupConversation: string;
+  messagingProjectDiscussion: string;
+  messagingMembersCount: string;
+  messagingViewInfo: string;
+  messagingUsersListTitle: string;
+  messagingMembersListTitle: string;
+  messagingTabAll: string;
+  messagingTabProjects: string;
+  messagingTabPeople: string;
+  messagingTabGroups: string;
+  messagingDnd: string;
+  messagingDndActive: string;
+  messagingTurnOffDnd: string;
+  messagingResumeNotifications: string;
+  messagingFor30Min: string;
+  messagingFor1Hour: string;
+  messagingFor4Hours: string;
+  messagingFor8Hours: string;
+  messagingFor24Hours: string;
+  messagingUntilTurnOn: string;
+  messagingFeatureUsage: string;
+  messagingMarkAsRead: string;
+  messagingMarkAsUnread: string;
+  messagingMuted: string;
 }
 
 export const serviceTypeTranslations: Record<Language, Record<string, string>> = {

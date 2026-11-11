@@ -25,7 +25,7 @@ import {
 } from '../../constants';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import { useChat } from '../../context/ChatContext';
+import { useMessaging } from '../../context/MessagingContext';
 import ChatBubbleOutlinedIcon from '@mui/icons-material/ChatBubbleOutlined';
 import { stripHtmlToText } from '../../utils/stripHtmlToText';
 import { fmtDate, isLate, isNearDeadline, isStale } from '../../utils/dateUtils';
@@ -57,7 +57,7 @@ export const ProjectCard: React.FC<Props> = ({
 }) => {
   const { t, getServiceLabel, getResponsibleLabel } = useLanguage();
   const { canEditProject, users } = useAuth();
-  const { getProjectUnreadCount } = useChat();
+  const { getProjectUnreadCount } = useMessaging();
 
   const chatUnreadCount = getProjectUnreadCount(p.id);
 
@@ -259,18 +259,16 @@ export const ProjectCard: React.FC<Props> = ({
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             {chatUnreadCount > 0 && (
-              <Tooltip title={`Chat (${chatUnreadCount} unread)`}>
-                <IconButton
-                  size="small"
-                  onClick={() => (onView ? onView(p) : onEdit(p))}
-                  color="primary"
-                  sx={{ p: 0.5 }}
-                >
-                  <Badge badgeContent={chatUnreadCount} color="error">
-                    <ChatBubbleOutlinedIcon fontSize="small" />
-                  </Badge>
-                </IconButton>
-              </Tooltip>
+              <IconButton
+                size="small"
+                onClick={() => (onView ? onView(p) : onEdit(p))}
+                color="primary"
+                sx={{ p: 0.5 }}
+              >
+                <Badge badgeContent={chatUnreadCount} color="error">
+                  <ChatBubbleOutlinedIcon fontSize="small" />
+                </Badge>
+              </IconButton>
             )}
             <Tooltip title={t('btnView')}>
               <IconButton

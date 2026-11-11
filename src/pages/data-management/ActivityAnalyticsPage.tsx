@@ -305,7 +305,7 @@ export const ActivityAnalyticsPage: React.FC = () => {
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <ChatBubbleOutlinedIcon color="primary" />
                           <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1rem' }}>
-                            Chat Feature Usage
+                            {t('messagingFeatureUsage')}
                           </Typography>
                         </Box>
                         <Typography variant="caption" color="text.secondary">

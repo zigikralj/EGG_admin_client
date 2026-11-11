@@ -23,9 +23,9 @@ import { stripHtmlToText } from '../../utils/stripHtmlToText';
 import { ProjectProgressSlider } from './ProjectProgressSlider';
 import { ProjectReminderSection } from './ProjectReminderSection';
 import { ProjectInvoiceSection } from './ProjectInvoiceSection';
-import { ProjectChatPane } from '../chat/ProjectChatPane';
+import { ProjectMessagingPane } from '../messaging';
 import ChatBubbleOutlinedIcon from '@mui/icons-material/ChatBubbleOutlined';
-import { useChat } from '../../context/ChatContext';
+import { useMessaging } from '../../context/MessagingContext';
 import { useProjectForm } from '../../hooks/useProjectForm';
 import { HistoryTimelineModal } from '../history';
 import {
@@ -249,9 +249,9 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
     ? reminderState.stagedReminders?.length || 0
     : reminderState.projectReminders?.length || effectiveProject?.reminders?.length || 0;
 
-  // Chat unread count
-  const chatContext = useChat();
-  const chatUnreadCount = effectiveProject?.id ? chatContext.getProjectUnreadCount(effectiveProject.id) : 0;
+  // Messaging unread count
+  const messagingContext = useMessaging();
+  const chatUnreadCount = effectiveProject?.id ? messagingContext.getProjectUnreadCount(effectiveProject.id) : 0;
 
   // Auto-saving notes in view mode
   const prevProjectIdRef = useRef<string | undefined>(undefined);
@@ -887,7 +887,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                     iconPosition="start"
                     label={
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                        <span>Chat</span>
+                        <span>{t('tabMessaging')}</span>
                         {chatUnreadCount > 0 && (
                           <Chip
                             label={chatUnreadCount}
@@ -1109,10 +1109,10 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
             />
           </Grid>
 
-          {/* TAB 4: CHAT */}
+          {/* TAB 4: MESSAGING */}
           {effectiveProject && activeTab === 'chat' && (
             <Grid size={{ xs: 12 }}>
-              <ProjectChatPane projectId={effectiveProject.id} />
+              <ProjectMessagingPane projectId={effectiveProject.id} />
             </Grid>
           )}
         </Grid>

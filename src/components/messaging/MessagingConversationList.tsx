@@ -13,9 +13,6 @@ import {
   Button,
   IconButton,
   Tooltip,
-  Paper,
-  ListItem,
-  Divider,
   CircularProgress,
   Tabs,
   Tab,
@@ -29,32 +26,20 @@ import {
   DialogActions,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
-import GroupAddIcon from '@mui/icons-material/GroupAdd';
 import GroupsIcon from '@mui/icons-material/Groups';
 import FolderSpecialIcon from '@mui/icons-material/FolderSpecial';
-import CloseIcon from '@mui/icons-material/Close';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import PersonRemoveOutlinedIcon from '@mui/icons-material/PersonRemoveOutlined';
 import MarkChatUnreadOutlinedIcon from '@mui/icons-material/MarkChatUnreadOutlined';
 import MarkChatReadOutlinedIcon from '@mui/icons-material/MarkChatReadOutlined';
 import NotificationsOffOutlinedIcon from '@mui/icons-material/NotificationsOffOutlined';
 import NotificationsActiveOutlinedIcon from '@mui/icons-material/NotificationsActiveOutlined';
-import DoNotDisturbOnOutlinedIcon from '@mui/icons-material/DoNotDisturbOnOutlined';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import { useQuery } from '@tanstack/react-query';
-import { chatApi, type ChatConversationItem } from './chatApi';
-import { useChat } from '../../context/ChatContext';
+import { chatApi, type ChatConversationItem } from './messagingApi';
+import { useChat } from '../../context/MessagingContext';
 import { useAuth } from '../../context/AuthContext';
-import { UserAutocomplete } from '../common/autocomplete';
+import { useLanguage } from '../../context/LanguageContext';
 import { TIME_MS } from '../../constants';
-
-interface UserDirectoryItem {
-  id: string;
-  name: string;
-  role?: string;
-  avatarUrl?: string | null;
-}
 
 export interface UnifiedConversationItem {
   kind: 'conversation';
@@ -88,8 +73,9 @@ interface ChatConversationListProps {
   onClose?: () => void;
 }
 
-export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onClose }) => {
+export const ChatConversationList: React.FC<ChatConversationListProps> = () => {
   const { currentUser, role, actualRole, isRealAdmin, hasPermission } = useAuth();
+  const { t } = useLanguage();
   const {
     onlineUserIds,
     openChat,
@@ -100,23 +86,15 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
     deleteConversation,
     muteConversation,
     unmuteConversation,
-    setDnd,
-    isDndActive,
     allUsers,
   } = useChat();
 
   const [activeTab, setActiveTab] = useState<ChatTabType>('all');
   const [search, setSearch] = useState('');
-  const [showCreateGroup, setShowCreateGroup] = useState(false);
-  const [groupTitle, setGroupTitle] = useState('');
-  const [selectedUsers, setSelectedUsers] = useState<UserDirectoryItem[]>([]);
   const [actionLoading, setActionLoading] = useState(false);
 
   // Mute Menu State
   const [muteMenuAnchor, setMuteMenuAnchor] = useState<null | { el: HTMLElement; convId: string; isMuted: boolean }>(null);
-
-  // DND Menu State
-  const [dndMenuAnchor, setDndMenuAnchor] = useState<null | HTMLElement>(null);
 
   // Delete & Leave Confirmation Dialogs
   const [deleteDialogConv, setDeleteDialogConv] = useState<UnifiedConversationItem | null>(null);
@@ -132,7 +110,7 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
     hasPermission('projects', 'delete');
 
   // Fetch active conversations
-  const { data: conversations = [], refetch: refetchConversations } = useQuery<ChatConversationItem[]>({
+  const { data: conversations = [] } = useQuery<ChatConversationItem[]>({
     queryKey: ['chat', 'conversations'],
     queryFn: () => chatApi.getConversations(),
     staleTime: TIME_MS.ONE_MINUTE,
@@ -177,11 +155,11 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
           userSubtext = `${isOnline ? 'Online' : 'Offline'}`;
         }
       } else if (c.type === 'CONTEXTUAL') {
-        title = c.title ? `${c.title}` : 'Project Chat';
-        userSubtext = 'Project Discussion';
+        title = c.title ? `${c.title}` : t('messagingProjectDiscussion');
+        userSubtext = t('messagingProjectDiscussion');
       } else {
-        title = c.title || 'Group Chat';
-        userSubtext = `${pIds.length} members`;
+        title = c.title || t('messagingGroupConversation');
+        userSubtext = t('messagingMembersCount', { count: pIds.length });
       }
 
       const lastSenderName =
@@ -254,46 +232,6 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
     return items.filter((item) => item.title.toLowerCase().includes(q));
   }, [conversations, allUsers, currentUser?.id, onlineUserIds, activeTab, search]);
 
-  const handleAddMember = (user: any) => {
-    if (!user || !user.id) return;
-    if (user.id === currentUser?.id) return;
-    if (selectedUsers.some((u) => u.id === user.id)) return;
-    setSelectedUsers((prev) => [
-      ...prev,
-      {
-        id: user.id,
-        name: user.name || 'User',
-        role: user.role,
-        avatarUrl: user.avatarUrl,
-      },
-    ]);
-  };
-
-  const handleRemoveMember = (userId: string) => {
-    setSelectedUsers((prev) => prev.filter((u) => u.id !== userId));
-  };
-
-  const handleCreateGroup = async () => {
-    if (!groupTitle.trim() || selectedUsers.length === 0) return;
-    try {
-      setActionLoading(true);
-      const conv = await chatApi.createConversation({
-        type: 'GROUP',
-        title: groupTitle.trim(),
-        participantIds: selectedUsers.map((u) => u.id),
-      });
-      setShowCreateGroup(false);
-      setGroupTitle('');
-      setSelectedUsers([]);
-      await refetchConversations();
-      openChat(conv.id, { title: conv.title || 'Group Chat' });
-    } catch (err) {
-      console.error('Failed to create group chat', err);
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
   const handleConfirmDelete = async () => {
     if (!deleteDialogConv) return;
     try {
@@ -342,393 +280,75 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
     }
   };
 
-  const handleApplyDnd = async (durationMinutes?: number, forever?: boolean, off?: boolean) => {
-    setDndMenuAnchor(null);
-    try {
-      await setDnd(durationMinutes, forever, off);
-    } catch (err) {
-      console.error('Failed to update DND', err);
-    }
-  };
-
   return (
-    <Box sx={{ width: '100%', height: 600, maxHeight: '82vh', display: 'flex', flexDirection: 'column' }}>
-      {/* Header with Title, Close, New Group & Search */}
-      <Box sx={{ p: 1.25, borderBottom: 1, borderColor: 'divider', bgcolor: 'background.paper' }}>
-        {showCreateGroup ? (
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Box
-              sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer' }}
-              onClick={() => {
-                setShowCreateGroup(false);
-                setGroupTitle('');
-                setSelectedUsers([]);
-              }}
-            >
-              <IconButton size="small" sx={{ color: 'inherit', p: 0.25 }}>
-                <ArrowBackIcon fontSize="small" />
-              </IconButton>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '0.9rem' }}>
-                Create Group Chat
-              </Typography>
-            </Box>
-            {onClose && (
-              <IconButton size="small" onClick={onClose} sx={{ p: 0.5 }}>
-                <CloseIcon fontSize="small" />
-              </IconButton>
-            )}
-          </Box>
-        ) : (
-          <>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '0.9rem' }}>
-                Messaging
-              </Typography>
-
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <Tooltip title={isDndActive ? 'Do Not Disturb (Active)' : 'Do Not Disturb'}>
-                  <Button
-                    size="small"
-                    variant={isDndActive ? 'contained' : 'outlined'}
-                    color="warning"
-                    onClick={(e) => setDndMenuAnchor(e.currentTarget)}
-                    sx={{
-                      fontSize: '0.675rem',
-                      py: 0.2,
-                      px: 0.75,
-                      minWidth: 'auto',
-                      lineHeight: 1.4,
-                      textTransform: 'none',
-                      borderRadius: 1.5,
-                      fontWeight: 700,
-                      ...(isDndActive && {
-                        color: 'warning.contrastText',
-                        bgcolor: 'warning.main',
-                        '&:hover': {
-                          bgcolor: 'warning.dark',
-                        },
-                      }),
-                    }}
-                    startIcon={<DoNotDisturbOnOutlinedIcon sx={{ fontSize: '13px !important' }} />}
-                  >
-                    DND
-                  </Button>
-                </Tooltip>
-
-                <Button
-                  size="small"
-                  variant="outlined"
-                  onClick={() => setShowCreateGroup(true)}
-                  sx={{
-                    fontSize: '0.675rem',
-                    py: 0.2,
-                    px: 0.75,
-                    minWidth: 'auto',
-                    lineHeight: 1.4,
-                    textTransform: 'none',
-                    borderRadius: 1.5,
-                  }}
-                  startIcon={<GroupAddIcon sx={{ fontSize: '13px !important' }} />}
-                >
-                  Group
-                </Button>
-
-                {onClose && (
-                  <IconButton size="small" onClick={onClose} sx={{ p: 0.5 }}>
-                    <CloseIcon fontSize="small" />
-                  </IconButton>
-                )}
-              </Box>
-            </Box>
-
-            <TextField
-              fullWidth
-              size="small"
-              placeholder="Search people & chats..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon fontSize="small" />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-              sx={{
-                mb: 1,
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 2,
-                  fontSize: '0.825rem',
-                  height: 34,
-                },
-              }}
-            />
-
-            {/* Scrollable Filter Tabs */}
-            <Tabs
-              variant="scrollable"
-              scrollButtons="auto"
-              value={activeTab}
-              onChange={(_, val) => setActiveTab(val)}
-              sx={{
-                minHeight: 30,
-                borderTop: 1,
-                borderColor: 'divider',
-                '& .MuiTabs-indicator': {
-                  height: 2.5,
-                  borderRadius: 1,
-                },
-                '& .MuiTab-root': {
-                  minHeight: 30,
-                  minWidth: 'auto',
-                  px: 1.5,
-                  py: 0.25,
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  textTransform: 'none',
-                },
-              }}
-            >
-              <Tab label="All" value="all" />
-              <Tab label="Projects" value="projects" />
-              <Tab label="People" value="people" />
-              <Tab label="Groups" value="groups" />
-            </Tabs>
-          </>
-        )}
-      </Box>
-
-      {showCreateGroup ? (
-        /* Create Group View (matching Group Details layout) */
-        <Box
+    <Box sx={{ width: '100%', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      {/* Search and Tabs */}
+      <Box sx={{ p: 1.25, pb: 0, bgcolor: 'background.paper' }}>
+        <TextField
+          fullWidth
+          size="small"
+          placeholder={t('messagingSearchPlaceholder')}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            },
+          }}
           sx={{
-            flex: 1,
-            p: 1.5,
-            overflowY: 'auto',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 1.5,
-            bgcolor: 'background.default',
+            mb: 1,
+            '& .MuiOutlinedInput-root': {
+              borderRadius: 2,
+              fontSize: '0.825rem',
+              height: 34,
+            },
+          }}
+        />
+
+        {/* Scrollable Filter Tabs */}
+        <Tabs
+          variant="scrollable"
+          scrollButtons="auto"
+          value={activeTab}
+          onChange={(_, val) => setActiveTab(val)}
+          sx={{
+            minHeight: 30,
+            borderTop: 1,
+            borderColor: 'divider',
+            '& .MuiTabs-indicator': {
+              height: 2.5,
+              borderRadius: 1,
+            },
+            '& .MuiTab-root': {
+              minHeight: 30,
+              minWidth: 'auto',
+              px: 1.5,
+              py: 0.25,
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              textTransform: 'none',
+            },
           }}
         >
-          {/* 1. Group Title */}
-          <TextField
-            required
-            label="Group Name"
-            size="small"
-            fullWidth
-            value={groupTitle}
-            onChange={(e) => setGroupTitle(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && groupTitle.trim() && selectedUsers.length > 0) {
-                e.preventDefault();
-                handleCreateGroup();
-              }
-            }}
-            placeholder="Enter group name"
-            disabled={actionLoading}
-            sx={{ bgcolor: 'background.paper', borderRadius: 1 }}
-            slotProps={{
-              input: {
-                sx: { fontSize: '0.875rem', fontWeight: 600 },
-              },
-            }}
-          />
+          <Tab label={t('messagingTabAll')} value="all" />
+          <Tab label={t('messagingTabProjects')} value="projects" />
+          <Tab label={t('messagingTabPeople')} value="people" />
+          <Tab label={t('messagingTabGroups')} value="groups" />
+        </Tabs>
+      </Box>
 
-          {/* 2. Add Member */}
-          <UserAutocomplete
-            label="Add Member"
-            size="small"
-            fullWidth
-            value={null}
-            valueMode="object"
-            forAssignee={false}
-            useResponsibleLabel={false}
-            placeholder="Select colleague to add..."
-            disabled={actionLoading}
-            filterLoadedOptions={(opts) =>
-              opts.filter(
-                (u) => u.id !== currentUser?.id && !selectedUsers.some((sel) => sel.id === u.id)
-              )
-            }
-            onChange={(val) => {
-              if (val && typeof val === 'object' && val.id) {
-                handleAddMember(val);
-              }
-            }}
-            sx={{ bgcolor: 'background.paper', borderRadius: 1 }}
-          />
-
-          {/* 3. Members List */}
-          <Paper
-            variant="outlined"
-            sx={{
-              p: 1.25,
-              borderRadius: 2,
-              bgcolor: 'background.paper',
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              minHeight: 180,
-            }}
-          >
-            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
-              MEMBERS ({selectedUsers.length + (currentUser ? 1 : 0)})
-            </Typography>
-            <List dense disablePadding sx={{ mt: 0.5, flex: 1, maxHeight: 260, overflowY: 'auto' }}>
-              {/* Current user (You) */}
-              {currentUser && (
-                <ListItem disableGutters sx={{ py: 0.5 }}>
-                  <ListItemAvatar sx={{ minWidth: 34 }}>
-                    <Badge
-                      overlap="circular"
-                      anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                      variant="dot"
-                      sx={{
-                        '& .MuiBadge-badge': {
-                          bgcolor: '#22c55e',
-                          width: 8,
-                          height: 8,
-                          minWidth: 8,
-                          borderRadius: '50%',
-                          border: '1.5px solid white',
-                        },
-                      }}
-                    >
-                      <Avatar
-                        src={currentUser.avatarUrl || undefined}
-                        sx={{ width: 26, height: 26, fontSize: '0.75rem' }}
-                      >
-                        {currentUser.name?.charAt(0)?.toUpperCase() || 'U'}
-                      </Avatar>
-                    </Badge>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={
-                      <Typography variant="body2" sx={{ fontSize: '0.825rem', fontWeight: 600 }} noWrap>
-                        {currentUser.name} (You)
-                      </Typography>
-                    }
-                    secondary={
-                      <Typography variant="caption" sx={{ fontSize: '0.7rem', color: 'text.secondary' }} noWrap>
-                        Online • {currentUser.role || 'User'}
-                      </Typography>
-                    }
-                    sx={{ m: 0 }}
-                  />
-                </ListItem>
-              )}
-
-              {/* Selected Members */}
-              {selectedUsers.map((u) => {
-                const isOnline = onlineUserIds.has(u.id);
-
-                return (
-                  <ListItem
-                    key={u.id}
-                    disableGutters
-                    secondaryAction={
-                      <Tooltip title="Remove member">
-                        <IconButton
-                          edge="end"
-                          size="small"
-                          onClick={() => handleRemoveMember(u.id)}
-                          disabled={actionLoading}
-                          sx={{ color: 'error.main', p: 0.5 }}
-                        >
-                          <PersonRemoveOutlinedIcon sx={{ fontSize: '1.05rem' }} />
-                        </IconButton>
-                      </Tooltip>
-                    }
-                    sx={{ py: 0.5 }}
-                  >
-                    <ListItemAvatar sx={{ minWidth: 34 }}>
-                      <Badge
-                        overlap="circular"
-                        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                        variant="dot"
-                        sx={{
-                          '& .MuiBadge-badge': {
-                            bgcolor: isOnline ? '#22c55e' : '#9ca3af',
-                            width: 8,
-                            height: 8,
-                            minWidth: 8,
-                            borderRadius: '50%',
-                            border: '1.5px solid white',
-                          },
-                        }}
-                      >
-                        <Avatar
-                          src={u.avatarUrl || undefined}
-                          sx={{ width: 26, height: 26, fontSize: '0.75rem' }}
-                        >
-                          {u.name?.charAt(0)?.toUpperCase() || 'U'}
-                        </Avatar>
-                      </Badge>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={
-                        <Typography variant="body2" sx={{ fontSize: '0.825rem', fontWeight: 600 }} noWrap>
-                          {u.name}
-                        </Typography>
-                      }
-                      secondary={
-                        <Typography variant="caption" sx={{ fontSize: '0.7rem', color: 'text.secondary' }} noWrap>
-                          {isOnline ? 'Online' : 'Offline'} • {u.role || 'User'}
-                        </Typography>
-                      }
-                      sx={{ m: 0, pr: 4 }}
-                    />
-                  </ListItem>
-                );
-              })}
-
-              {selectedUsers.length === 0 && (
-                <Box sx={{ py: 2, textAlign: 'center' }}>
-                  <Typography
-                    variant="caption"
-                    sx={{ color: 'text.secondary', fontStyle: 'italic', display: 'block' }}
-                  >
-                    Select colleagues using the search above to add them to this group.
-                  </Typography>
-                </Box>
-              )}
-            </List>
-          </Paper>
-
-          <Divider sx={{ my: 0.5 }} />
-
-          {/* 4. Create Group Button */}
-          <Button
-            variant="contained"
-            color="primary"
-            size="small"
-            fullWidth
-            disabled={actionLoading || !groupTitle.trim() || selectedUsers.length === 0}
-            onClick={handleCreateGroup}
-            startIcon={
-              actionLoading ? (
-                <CircularProgress size={16} color="inherit" />
-              ) : (
-                <GroupAddIcon fontSize="small" />
-              )
-            }
-            sx={{ textTransform: 'none', borderRadius: 2, fontSize: '0.8rem' }}
-          >
-            Create Group
-          </Button>
-        </Box>
-      ) : (
-        /* Unified List content */
-        <Box sx={{ flex: 1, overflowY: 'auto' }}>
-          {filteredItems.length === 0 ? (
-            <Typography variant="caption" sx={{ display: 'block', p: 3, textAlign: 'center', color: 'text.secondary' }}>
-              No chats or colleagues found
-            </Typography>
-          ) : (
-            <List dense disablePadding>
+      {/* Unified List content */}
+      <Box sx={{ flex: 1, overflowY: 'auto' }}>
+        {filteredItems.length === 0 ? (
+          <Typography variant="caption" sx={{ display: 'block', p: 3, textAlign: 'center', color: 'text.secondary' }}>
+            {t('messagingNoConversationsFound')}
+          </Typography>
+        ) : (
+          <List dense disablePadding>
               {filteredItems.map((item) => {
                 if (item.kind === 'conversation') {
                   const isProject = item.type === 'CONTEXTUAL';
@@ -789,7 +409,7 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
                                 {item.title}
                               </Typography>
                               {item.muted && (
-                                <Tooltip title="Muted" arrow>
+                                <Tooltip title={t('messagingMuted')} arrow>
                                   <NotificationsOffOutlinedIcon
                                     sx={{ fontSize: '0.9rem', color: 'text.disabled', flexShrink: 0 }}
                                   />
@@ -857,7 +477,7 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
                             >
                               {/* Read / Unread toggle */}
                               {item.unreadCount > 0 ? (
-                                <Tooltip title="Mark as read" arrow>
+                                <Tooltip title={t('messagingMarkAsRead')} arrow>
                                   <IconButton
                                     size="small"
                                     onClick={(e) => {
@@ -870,7 +490,7 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
                                   </IconButton>
                                 </Tooltip>
                               ) : (
-                                <Tooltip title="Mark as unread" arrow>
+                                <Tooltip title={t('messagingMarkAsUnread')} arrow>
                                   <IconButton
                                     size="small"
                                     onClick={(e) => {
@@ -885,7 +505,7 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
                               )}
 
                               {/* Mute toggle button */}
-                              <Tooltip title={item.muted ? 'Unmute chat' : 'Mute notifications'} arrow>
+                              <Tooltip title={item.muted ? t('messagingUnmuteConversation') : t('messagingMuteNotifications')} arrow>
                                 <IconButton
                                   size="small"
                                   onClick={(e) => {
@@ -910,9 +530,9 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
                                 </IconButton>
                               </Tooltip>
 
-                              {/* Leave chat for group and project chats */}
+                              {/* Leave conversation for group and project conversations */}
                               {(isGroup || isProject) && (
-                                <Tooltip title="Leave chat" arrow>
+                                <Tooltip title={t('messagingLeaveConversation')} arrow>
                                   <IconButton
                                     size="small"
                                     onClick={(e) => {
@@ -926,9 +546,9 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
                                 </Tooltip>
                               )}
 
-                              {/* Delete / Clear chat for Manager+ */}
+                              {/* Delete / Clear conversation for Manager+ */}
                               {isManagerPlus && (
-                                <Tooltip title="Delete chat" arrow>
+                                <Tooltip title={t('messagingDeleteConversation')} arrow>
                                   <IconButton
                                     size="small"
                                     onClick={(e) => {
@@ -991,7 +611,6 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
             </List>
           )}
         </Box>
-      )}
 
       {/* Mute Conversation Menu */}
       <Menu
@@ -1012,55 +631,26 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
             <ListItemIcon>
               <NotificationsActiveOutlinedIcon fontSize="small" color="primary" />
             </ListItemIcon>
-            <ListItemText primary="Unmute" />
+            <ListItemText primary={t('messagingUnmuteConversation')} />
           </MenuItem>
         )}
-        <MenuItem onClick={() => handleApplyMute(60)}>For 1 hour</MenuItem>
-        <MenuItem onClick={() => handleApplyMute(480)}>For 8 hours</MenuItem>
-        <MenuItem onClick={() => handleApplyMute(1440)}>For 24 hours</MenuItem>
-        <MenuItem onClick={() => handleApplyMute(undefined, true)}>Until I turn it back on</MenuItem>
+        <MenuItem onClick={() => handleApplyMute(60)}>{t('messagingFor1Hour')}</MenuItem>
+        <MenuItem onClick={() => handleApplyMute(480)}>{t('messagingFor8Hours')}</MenuItem>
+        <MenuItem onClick={() => handleApplyMute(1440)}>{t('messagingFor24Hours')}</MenuItem>
+        <MenuItem onClick={() => handleApplyMute(undefined, true)}>{t('messagingUntilTurnOn')}</MenuItem>
       </Menu>
 
-      {/* Global DND Menu */}
-      <Menu
-        anchorEl={dndMenuAnchor}
-        open={Boolean(dndMenuAnchor)}
-        onClose={() => setDndMenuAnchor(null)}
-        slotProps={{
-          paper: {
-            sx: { borderRadius: 2, minWidth: 200 },
-          },
-        }}
-      >
-        <Typography variant="caption" sx={{ px: 2, py: 0.75, display: 'block', color: 'text.secondary', fontWeight: 700 }}>
-          DO NOT DISTURB
-        </Typography>
-        {isDndActive && (
-          <MenuItem onClick={() => handleApplyDnd(undefined, undefined, true)}>
-            <ListItemIcon>
-              <NotificationsActiveOutlinedIcon fontSize="small" color="primary" />
-            </ListItemIcon>
-            <ListItemText primary="Turn off DND" secondary="Resume notifications" />
-          </MenuItem>
-        )}
-        <MenuItem onClick={() => handleApplyDnd(30)}>For 30 minutes</MenuItem>
-        <MenuItem onClick={() => handleApplyDnd(60)}>For 1 hour</MenuItem>
-        <MenuItem onClick={() => handleApplyDnd(240)}>For 4 hours</MenuItem>
-        <MenuItem onClick={() => handleApplyDnd(1440)}>For 24 hours</MenuItem>
-        <MenuItem onClick={() => handleApplyDnd(undefined, true)}>Until I turn it back on</MenuItem>
-      </Menu>
-
-      {/* Delete / Clear Chat Confirmation Dialog */}
+      {/* Delete / Clear Conversation Confirmation Dialog */}
       <Dialog
         open={Boolean(deleteDialogConv)}
         onClose={() => !actionLoading && setDeleteDialogConv(null)}
       >
         <DialogTitle sx={{ fontWeight: 700, color: 'error.main' }}>
-          Delete Chat
+          {t('messagingConfirmDeleteTitle')}
         </DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ color: 'text.primary', fontWeight: 500 }}>
-            Are you sure you want to delete this entire chat? This action is not reversible.
+            {t('messagingConfirmDeleteText')}
           </DialogContentText>
           {deleteDialogConv && (
             <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
@@ -1075,7 +665,7 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
             variant="outlined"
             size="small"
           >
-            Cancel
+            {t('btnCancel')}
           </Button>
           <Button
             onClick={handleConfirmDelete}
@@ -1085,22 +675,22 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
             size="small"
             startIcon={actionLoading ? <CircularProgress size={16} color="inherit" /> : <DeleteOutlinedIcon />}
           >
-            Delete
+            {t('btnDelete')}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Leave Chat Confirmation Dialog */}
+      {/* Leave Conversation Confirmation Dialog */}
       <Dialog
         open={Boolean(leaveDialogConv)}
         onClose={() => !actionLoading && setLeaveDialogConv(null)}
       >
         <DialogTitle sx={{ fontWeight: 700 }}>
-          Leave Chat
+          {t('messagingConfirmLeaveTitle')}
         </DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ color: 'text.primary' }}>
-            Are you sure you want to leave <strong>{leaveDialogConv?.title}</strong>? You will no longer receive updates or messages from this discussion unless tagged.
+            {t('messagingConfirmLeaveText', { title: leaveDialogConv?.title || '' })}
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -1110,7 +700,7 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
             variant="outlined"
             size="small"
           >
-            Cancel
+            {t('btnCancel')}
           </Button>
           <Button
             onClick={handleConfirmLeave}
@@ -1120,10 +710,15 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({ onCl
             size="small"
             startIcon={actionLoading ? <CircularProgress size={16} color="inherit" /> : <ExitToAppIcon />}
           >
-            Leave
+            {t('messagingLeaveConversation')}
           </Button>
         </DialogActions>
       </Dialog>
     </Box>
   );
 };
+
+export const MessagingConversationList = ChatConversationList;
+export type MessagingConversationListProps = ChatConversationListProps;
+export type UnifiedMessagingItem = UnifiedChatItem;
+
