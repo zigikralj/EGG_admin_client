@@ -39,6 +39,7 @@ export interface ChatUsageAnalytics {
   groupMessages: number;
   totalMessages: number;
 }
+export type MessagingUsageAnalytics = ChatUsageAnalytics;
 
 export interface ActivityAnalytics {
   range: { from: string; to: string; granularity: 'day' | 'week' | 'month'; tz: string };

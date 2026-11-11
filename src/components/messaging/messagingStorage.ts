@@ -1,4 +1,4 @@
-import type { ChatMessageItem } from './chatApi';
+import type { ChatMessageItem } from './messagingApi';
 
 const DB_NAME = 'ekos_chat_cache_db';
 const DB_VERSION = 1;
@@ -214,3 +214,6 @@ export const chatStorage = {
     });
   },
 };
+
+export const messagingStorage = chatStorage;
+

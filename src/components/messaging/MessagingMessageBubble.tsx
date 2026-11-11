@@ -15,8 +15,8 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
-import { useChat } from '../../context/ChatContext';
-import type { ChatMessageItem } from './chatApi';
+import { useChat } from '../../context/MessagingContext';
+import type { ChatMessageItem } from './messagingApi';
 
 interface ChatMessageBubbleProps {
   message: ChatMessageItem;
@@ -341,3 +341,9 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = React.memo(({
     </Box>
   );
 });
+
+ChatMessageBubble.displayName = 'ChatMessageBubble';
+
+export const MessagingMessageBubble = ChatMessageBubble;
+export type MessagingMessageBubbleProps = ChatMessageBubbleProps;
+

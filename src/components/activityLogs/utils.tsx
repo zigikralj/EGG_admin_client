@@ -220,19 +220,19 @@ export const getPathLabelAndIcon = (
   }
   if (type === 'CHAT_MESSAGE_DIRECT') {
     return {
-      label: 'Direct Chat Message',
+      label: 'Direct Message',
       icon: <ChatBubbleOutlinedIcon fontSize="small" sx={{ color: '#0284c7' }} />,
     };
   }
   if (type === 'CHAT_MESSAGE_PROJECT') {
     return {
-      label: 'Project Chat Message',
+      label: 'Project Message',
       icon: <FolderSpecialIcon fontSize="small" sx={{ color: '#7c3aed' }} />,
     };
   }
   if (type === 'CHAT_MESSAGE_GROUP') {
     return {
-      label: 'Group Chat Message',
+      label: 'Group Message',
       icon: <GroupsIcon fontSize="small" sx={{ color: '#059669' }} />,
     };
   }

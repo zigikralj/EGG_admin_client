@@ -17,9 +17,9 @@ import CloseIcon from '@mui/icons-material/Close';
 import ReplyIcon from '@mui/icons-material/Reply';
 import MicIcon from '@mui/icons-material/Mic';
 import MicOffIcon from '@mui/icons-material/MicOff';
-import { useChat, type ChatDirectoryUser } from '../../context/ChatContext';
+import { useChat, type ChatDirectoryUser } from '../../context/MessagingContext';
 import { useLanguage } from '../../context/LanguageContext';
-import type { ChatMessageItem } from './chatApi';
+import type { ChatMessageItem } from './messagingApi';
 
 interface ChatMessageInputProps {
   onSendMessage: (content: string, replyToId?: string | null, mentionedUserIds?: string[]) => Promise<void>;
@@ -42,10 +42,10 @@ export const ChatMessageInput: React.FC<ChatMessageInputProps> = ({
   replyingTo,
   onCancelReply,
   disabled = false,
-  placeholder = 'Type a message...',
+  placeholder,
 }) => {
   const { allUsers } = useChat();
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const [content, setContent] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -319,7 +319,7 @@ export const ChatMessageInput: React.FC<ChatMessageInputProps> = ({
           size="small"
           multiline
           maxRows={3}
-          placeholder={placeholder}
+          placeholder={placeholder || t('messagingTypeMessagePlaceholder')}
           value={content}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
@@ -381,3 +381,7 @@ export const ChatMessageInput: React.FC<ChatMessageInputProps> = ({
     </Box>
   );
 };
+
+export const MessagingMessageInput = ChatMessageInput;
+export type MessagingMessageInputProps = ChatMessageInputProps;
+

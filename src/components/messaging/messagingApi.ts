@@ -304,3 +304,12 @@ export const chatApi = {
     return res.json();
   },
 };
+
+export const messagingApi = chatApi;
+export type MessagingParticipantUser = ChatParticipantUser;
+export type MessagingMessageSender = ChatMessageSender;
+export type MessagingMessageReplyTo = ChatMessageReplyTo;
+export type MessagingMessageItem = ChatMessageItem;
+export type MessagingConversationItem = ChatConversationItem;
+export type MessagingUnreadSummary = ChatUnreadSummary;
+

@@ -27,7 +27,7 @@ import logoUrl from '../../assets/logo.svg';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
-import { useChat } from '../../context/ChatContext';
+import { useMessaging } from '../../context/MessagingContext';
 import { useRoleLabels } from '../../hooks/useRoleLabels';
 import { DRAWER_WIDTH } from './Sidebar';
 import { NotificationsMenu } from './NotificationsMenu';
@@ -84,7 +84,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
   const canSeePendingUsers = hasPermission('users', 'edit') && pendingUsersCount > 0;
   const totalNotificationsCount = unreadCount + (canSeePendingUsers ? pendingUsersCount : 0);
-  const { isDndActive } = useChat();
+  const { isDndActive } = useMessaging();
   const displayNotifCount = isDndActive ? 0 : totalNotificationsCount;
 
   const [appsAnchorEl, setAppsAnchorEl] = React.useState<null | HTMLElement>(null);
