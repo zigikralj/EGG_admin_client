@@ -126,7 +126,7 @@ export const ChatMemberSelector: React.FC<ChatMemberSelectorProps> = ({
         display: 'flex',
         flexDirection: 'column',
         gap: 1,
-        overflow: 'hidden',
+        p: '2px',
       }}
     >
       {/* Autocomplete Input Container with Chips */}
@@ -138,12 +138,13 @@ export const ChatMemberSelector: React.FC<ChatMemberSelectorProps> = ({
           gap: 0.5,
           p: 0.75,
           borderRadius: 1.5,
-          border: 1.5,
+          border: '1.5px solid',
           borderColor: 'primary.main',
           bgcolor: 'background.paper',
           maxHeight: 100,
           overflowY: 'auto',
           cursor: 'text',
+          transition: 'box-shadow 0.15s ease-in-out',
           boxShadow: (theme) =>
             theme.palette.mode === 'dark'
               ? '0 0 0 1px rgba(76, 175, 80, 0.2)'
