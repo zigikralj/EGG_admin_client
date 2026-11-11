@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.11.16] - 2026-11-11
+
+- Messaging windows persistence (#122) by @zigikralj
+
 ## [v1.11.15] - 2026-11-11
 
 - Bugfixing chat members input outline (#120) by @zigikralj
