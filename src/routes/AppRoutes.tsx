@@ -12,7 +12,7 @@ const TrackerWasteDisposalPage = React.lazy(() => import('../pages/project-track
 const TrackerProjectsStatsPage = React.lazy(() => import('../pages/project-tracker/TrackerProjectsStatsPage'));
 const TrackerWasteStatsPage = React.lazy(() => import('../pages/project-tracker/TrackerWasteStatsPage'));
 
-// App 2: Data Management (12 dedicated pages)
+// App 2: Data Management (9 dedicated pages)
 const ProjectsPage = React.lazy(() => import('../pages/data-management/ProjectsPage'));
 const ClientsPage = React.lazy(() => import('../pages/data-management/ClientsPage'));
 const PermitsPage = React.lazy(() => import('../pages/data-management/PermitsPage'));
@@ -22,9 +22,12 @@ const ProvidedServicesPage = React.lazy(() => import('../pages/data-management/P
 const CategoriesPage = React.lazy(() => import('../pages/data-management/CategoriesPage'));
 const InvoicesPage = React.lazy(() => import('../pages/data-management/InvoicesPage'));
 const RemindersPage = React.lazy(() => import('../pages/data-management/RemindersPage'));
-const RolesPage = React.lazy(() => import('../pages/data-management/RolesPage'));
-const ActivityLogsPage = React.lazy(() => import('../pages/data-management/ActivityLogsPage'));
-const ActivityAnalyticsPage = React.lazy(() => import('../pages/data-management/ActivityAnalyticsPage'));
+
+// App 3: System (4 dedicated pages)
+const RolesPage = React.lazy(() => import('../pages/system/RolesPage'));
+const ActivityLogsPage = React.lazy(() => import('../pages/system/ActivityLogsPage'));
+const ActivityAnalyticsPage = React.lazy(() => import('../pages/system/ActivityAnalyticsPage'));
+const SystemSettingsPage = React.lazy(() => import('../pages/system/SystemSettingsPage'));
 
 const RouteLoadingFallback: React.FC = () => (
   <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', p: 4 }}>
@@ -57,9 +60,18 @@ export const AppRoutes: React.FC = () => {
         <Route path={PAGE_ROUTES.CATEGORIES} element={<CategoriesPage />} />
         <Route path={PAGE_ROUTES.INVOICES} element={<InvoicesPage />} />
         <Route path={PAGE_ROUTES.REMINDERS} element={<RemindersPage />} />
+
+        {/* Legacy Data Management Redirects */}
+        <Route path={PAGE_ROUTES.LEGACY_ROLES} element={<Navigate to={PAGE_ROUTES.ROLES} replace />} />
+        <Route path={PAGE_ROUTES.LEGACY_ACTIVITY_LOGS} element={<Navigate to={PAGE_ROUTES.ACTIVITY_LOGS} replace />} />
+        <Route path={PAGE_ROUTES.LEGACY_ACTIVITY_ANALYTICS} element={<Navigate to={PAGE_ROUTES.ACTIVITY_ANALYTICS} replace />} />
+
+        {/* System Navigation */}
+        <Route path={PAGE_ROUTES.SYSTEM_PREFIX} element={<Navigate to={PAGE_ROUTES.ROLES} replace />} />
         <Route path={PAGE_ROUTES.ROLES} element={<RolesPage />} />
         <Route path={PAGE_ROUTES.ACTIVITY_LOGS} element={<ActivityLogsPage />} />
         <Route path={PAGE_ROUTES.ACTIVITY_ANALYTICS} element={<ActivityAnalyticsPage />} />
+        <Route path={PAGE_ROUTES.SYSTEM_SETTINGS} element={<SystemSettingsPage />} />
 
         {/* Default Fallbacks */}
         <Route path="/" element={<Navigate to={PAGE_ROUTES.PROJECT_TRACKER_PROJECTS} replace />} />

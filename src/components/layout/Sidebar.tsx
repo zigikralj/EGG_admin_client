@@ -26,7 +26,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
 import { useWasteDisposalServiceId } from '../../queries';
-import { PAGE_ROUTES } from '../../constants';
+import { APP_SECTIONS, PAGE_ROUTES, getAppFromPathname } from '../../constants';
 import type { DashboardSubTab, ProvidedServicesSubTab } from '../../types';
 import {
   ExpandMoreIcon,
@@ -103,7 +103,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const location = useLocation();
   const navigate = useNavigate();
-  const currentApp = location.pathname.startsWith(PAGE_ROUTES.DATA_MANAGEMENT_PREFIX) ? 'data-management' : 'project-tracker';
+  const currentAppEntry = getAppFromPathname(location.pathname);
+  const currentApp = currentAppEntry.id;
   const isDashboardActive = location.pathname.startsWith(PAGE_ROUTES.PROJECT_TRACKER);
 
   const canViewWaste = hasPermission('wasteDisposal', 'view');
@@ -122,7 +123,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     if (hasPermission('tracker_invoices', 'view')) {
       items.push({ id: 'invoices', label: t('tabInvoices'), icon: <ReceiptLongIcon fontSize="small" />, show: true });
     }
-    if (canViewWaste && (Boolean(wasteDisposalServiceId) || Boolean(isRealAdmin))) {
+    if (canViewWaste && (Boolean(wasteDisposalServiceId) || hasPermission('systemSettings', 'edit') || Boolean(isRealAdmin))) {
       items.push({ id: 'waste-disposal', label: t('subTabWasteDisposal'), icon: <DeleteSweepIcon fontSize="small" />, show: true });
     }
     return items;
@@ -156,7 +157,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <Box sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1, overflow: 'hidden' }}>
         <Box sx={{ overflowY: 'auto', flexGrow: 1, p: 1.5 }}>
           {/* APP-SPECIFIC NAVIGATION ITEMS */}
-          {currentApp === 'project-tracker' ? (
+          {currentApp === APP_SECTIONS.PROJECT_TRACKER ? (
             <List component="nav" disablePadding sx={{ gap: 0.5, display: 'flex', flexDirection: 'column' }}>
               {(() => {
                 return (
@@ -334,7 +335,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           ) : (
             <List component="nav" disablePadding sx={{ gap: 0.5, display: 'flex', flexDirection: 'column' }}>
               {navItems
-                .filter((item) => item.show && item.path !== PAGE_ROUTES.PROJECT_TRACKER)
+                .filter(
+                  (item) =>
+                    item.show &&
+                    item.path !== PAGE_ROUTES.PROJECT_TRACKER &&
+                    item.path.startsWith(`${currentAppEntry.prefix}/`)
+                )
                 .map((item) => {
                   const isSelected = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
                   return (

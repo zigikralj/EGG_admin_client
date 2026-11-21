@@ -42,7 +42,7 @@ export interface UserActivityCardProps {
   onToggleSession: (sessionId: string, defaultExpanded?: boolean) => void;
   expandedRows: Record<string, boolean>;
   onToggleRowDetail: (rowKey: string) => void;
-  onDeleteSession: (session: Session) => void;
+  onDeleteSession?: (session: Session) => void;
   isDark: boolean;
   language?: string;
   t: (key: any, params?: Record<string, string | number>) => string;

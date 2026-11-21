@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Box, Toolbar } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -10,10 +10,33 @@ import { AppHeader } from './AppHeader';
 import { UserProfileDialog } from './UserProfileDialog';
 import { SettingsDialog } from './SettingsDialog';
 import { CompanyInfoModal } from '../company/CompanyInfoModal';
-import { DashboardIcon, FolderIcon, BusinessIcon, AssignmentTurnedInIcon, PeopleIcon, BuildIcon, HandymanIcon, CategoryIcon, NotificationsActiveIcon, ReceiptLongIcon, SecurityIcon, AccessTimeIcon } from '../icons';
+import {
+  DashboardIcon,
+  FolderIcon,
+  BusinessIcon,
+  AssignmentTurnedInIcon,
+  PeopleIcon,
+  BuildIcon,
+  HandymanIcon,
+  CategoryIcon,
+  NotificationsActiveIcon,
+  ReceiptLongIcon,
+  SecurityIcon,
+  AccessTimeIcon,
+  SettingsIcon,
+} from '../icons';
 import { useProjectModal } from '../../context/ProjectModalContext';
 import { useWasteDisposalServiceId } from '../../queries';
-import { PAGE_ROUTES } from '../../constants';
+import {
+  APP_REGISTRY,
+  APP_SECTIONS,
+  LEGACY_ROUTE_REDIRECTS,
+  PAGE_ROUTES,
+  resolveRouteAccess,
+  type AppNavIconKey,
+  type AppNavItem,
+  type AppRegistryEntry,
+} from '../../constants';
 
 interface Props {
   userPreferences?: Record<string, any>;
@@ -21,6 +44,26 @@ interface Props {
   onOpenProject?: (projectId: string) => void;
   children: React.ReactNode;
 }
+
+const renderNavIcon = (iconKey: AppNavIconKey): React.ReactNode => {
+  switch (iconKey) {
+    case 'folder': return <FolderIcon />;
+    case 'business': return <BusinessIcon />;
+    case 'assignment': return <AssignmentTurnedInIcon />;
+    case 'people': return <PeopleIcon />;
+    case 'build': return <BuildIcon />;
+    case 'handyman': return <HandymanIcon />;
+    case 'category': return <CategoryIcon />;
+    case 'notifications': return <NotificationsActiveIcon />;
+    case 'receipt': return <ReceiptLongIcon />;
+    case 'security': return <SecurityIcon />;
+    case 'accessTime': return <AccessTimeIcon />;
+    case 'settings': return <SettingsIcon />;
+    case 'dashboard':
+    default:
+      return <DashboardIcon />;
+  }
+};
 
 export const AdminLayout: React.FC<Props> = ({
   userPreferences,
@@ -52,123 +95,126 @@ export const AdminLayout: React.FC<Props> = ({
   const location = useLocation();
   const navigate = useNavigate();
 
-  const navItems = useMemo(() => [
-    { path: PAGE_ROUTES.PROJECT_TRACKER, label: t('tabDashboard'), icon: <DashboardIcon />, show: true },
-    { path: PAGE_ROUTES.PROJECTS, label: t('tabProjects'), icon: <FolderIcon />, show: hasPermission('projects', 'view') },
-    { path: PAGE_ROUTES.CLIENTS, label: t('tabClients'), icon: <BusinessIcon />, show: hasPermission('clients', 'view') },
-    { path: PAGE_ROUTES.PERMITS, label: t('tabPermits'), icon: <AssignmentTurnedInIcon />, show: hasPermission('permits', 'view') },
-    { path: PAGE_ROUTES.USERS, label: t('tabUsers'), icon: <PeopleIcon />, show: hasPermission('users', 'view') },
-    { path: PAGE_ROUTES.SERVICES, label: t('tabServices'), icon: <BuildIcon />, show: hasPermission('services', 'view') },
-    { path: PAGE_ROUTES.PROVIDED_SERVICES, label: t('tabProvidedServices'), icon: <HandymanIcon />, show: hasPermission('providedServices', 'view') },
-    { path: PAGE_ROUTES.CATEGORIES, label: t('tabCategories'), icon: <CategoryIcon />, show: hasPermission('categories', 'view') },
-    { path: PAGE_ROUTES.REMINDERS, label: t('tabReminders'), icon: <NotificationsActiveIcon />, show: hasPermission('reminders', 'view') },
-    { path: PAGE_ROUTES.INVOICES, label: t('tabInvoices'), icon: <ReceiptLongIcon />, show: hasPermission('invoices', 'view') },
-    { path: PAGE_ROUTES.ROLES, label: t('tabRoles'), icon: <SecurityIcon />, show: hasPermission('roles', 'view') },
-    { path: PAGE_ROUTES.ACTIVITY_LOGS, label: t('tabActivityLogs'), icon: <AccessTimeIcon />, show: hasPermission('activityLogs', 'view') },
-  ], [t, hasPermission]);
+  const canAccessNavItem = useCallback(
+    (item: AppNavItem): boolean => {
+      const hasPrimary = hasPermission(item.resourceId, item.action);
+      const hasAlt = item.altPermission
+        ? hasPermission(item.altPermission.resourceId, item.altPermission.action)
+        : false;
+      if (!hasPrimary && !hasAlt) return false;
+
+      if (
+        item.path === PAGE_ROUTES.PROJECT_TRACKER_WASTE_STATISTICS ||
+        item.path === '/project-tracker/statistic-waste-management'
+      ) {
+        return Boolean(wasteDisposalServiceId);
+      }
+
+      if (
+        item.path === PAGE_ROUTES.PROJECT_TRACKER_WASTE ||
+        item.path === '/project-tracker/waste-management'
+      ) {
+        return (
+          Boolean(wasteDisposalServiceId) ||
+          hasPermission('systemSettings', 'edit') ||
+          Boolean(isRealAdmin)
+        );
+      }
+
+      return true;
+    },
+    [hasPermission, wasteDisposalServiceId, isRealAdmin]
+  );
+
+  const navItems = useMemo(() => {
+    const registryItems = APP_REGISTRY.filter(
+      (app) => app.id === APP_SECTIONS.DATA_MANAGEMENT || app.id === APP_SECTIONS.SYSTEM
+    ).flatMap((app) =>
+      app.navItems
+        .filter((item) => !item.hiddenInSidebar)
+        .map((item) => ({
+          path: item.path,
+          label: t(item.labelKey as any),
+          icon: renderNavIcon(item.iconKey),
+          show: canAccessNavItem(item),
+        }))
+    );
+
+    return [
+      { path: PAGE_ROUTES.PROJECT_TRACKER, label: t('tabDashboard'), icon: <DashboardIcon />, show: true },
+      ...registryItems,
+    ];
+  }, [t, canAccessNavItem]);
+
+  const findFirstAllowedPathForApp = useCallback(
+    (appEntry: AppRegistryEntry, excludePath?: string): string | null => {
+      const candidate = appEntry.navItems.find(
+        (item) =>
+          !item.hiddenInSidebar &&
+          item.path !== excludePath &&
+          canAccessNavItem(item)
+      );
+      return candidate ? candidate.path : null;
+    },
+    [canAccessNavItem]
+  );
 
   useEffect(() => {
     if (isRolesLoading || isSettingsLoading) return;
 
-    const parts = location.pathname.split('/').filter(Boolean);
-    const appName = parts[0];
-    const page = parts[1];
+    // Allow legacy URLs (/data-management/roles, /data-management/activity-logs*)
+    // to pass through to AppRoutes' <Navigate replace /> redirects
+    if (LEGACY_ROUTE_REDIRECTS[location.pathname]) return;
 
-    if (!appName) return;
+    const resolved = resolveRouteAccess(location.pathname);
+    if (!resolved) return;
 
-    const canAccessTracker = hasPermission('apps', 'project-tracker');
-    const canAccessDataMgmt = hasPermission('apps', 'data-management');
+    const { app, navItem } = resolved;
 
-    const canAccessApp = appName === 'data-management' ? canAccessDataMgmt : canAccessTracker;
-
-    if (!canAccessApp) {
-      if (appName === 'data-management' && canAccessTracker) {
-        navigate(PAGE_ROUTES.PROJECT_TRACKER, { replace: true });
-        return;
+    const redirectToOtherAccessibleApp = () => {
+      for (const candidateApp of APP_REGISTRY) {
+        if (candidateApp.id === app.id) continue;
+        if (!hasPermission('apps', candidateApp.id)) continue;
+        const firstAllowed = findFirstAllowedPathForApp(candidateApp);
+        navigate(firstAllowed || candidateApp.defaultPath, { replace: true });
+        return true;
       }
-      if (appName === 'project-tracker' && canAccessDataMgmt) {
-        const firstAllowed = navItems.find((item) => item.show && item.path.startsWith(`${PAGE_ROUTES.DATA_MANAGEMENT_PREFIX}/`));
-        navigate(firstAllowed ? firstAllowed.path : PAGE_ROUTES.PROJECTS, { replace: true });
-        return;
-      }
-      // If neither app is accessible, do not navigate in an infinite loop
+      return false;
+    };
+
+    if (!hasPermission('apps', app.id)) {
+      redirectToOtherAccessibleApp();
       return;
     }
 
-    if (page) {
-      let resource = page.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-      
-      // Map project-tracker pages to their respective role resource IDs
-      if (appName === 'project-tracker') {
-        if (page === 'projects') resource = 'tracker_projects';
-        if (page === 'updates') resource = 'tracker_updates';
-        if (page === 'reminders') resource = 'tracker_reminders';
-        if (page === 'invoices') resource = 'tracker_invoices';
-        if (page === 'statistic') resource = 'statistics';
-        if (page === 'waste-disposal' || page === 'statistic-waste-disposal' || page === 'statistic-waste-management') resource = 'wasteDisposal';
+    if (navItem && !canAccessNavItem(navItem)) {
+      const firstAllowedInSameApp = findFirstAllowedPathForApp(app, location.pathname);
+      if (firstAllowedInSameApp) {
+        navigate(firstAllowedInSameApp, { replace: true });
+        return;
       }
-
-      let hasAccess = hasPermission(resource, 'view');
-      if (hasAccess && (page === 'statistic-waste-disposal' || page === 'statistic-waste-management')) {
-        if (!wasteDisposalServiceId) {
-          hasAccess = false;
-        }
-      }
-      if (hasAccess && (page === 'waste-disposal' || page === 'waste-management')) {
-        if (!wasteDisposalServiceId && !isRealAdmin) {
-          hasAccess = false;
-        }
-      }
-
-      if (!hasAccess) {
-        if (appName === 'data-management') {
-          const firstAllowed = navItems.find((item) => item.show && item.path.startsWith(`${PAGE_ROUTES.DATA_MANAGEMENT_PREFIX}/`) && item.path !== location.pathname);
-          if (firstAllowed) {
-            navigate(firstAllowed.path, { replace: true });
-            return;
-          }
-          if (canAccessTracker) {
-            navigate(PAGE_ROUTES.PROJECT_TRACKER, { replace: true });
-            return;
-          }
-        } else if (appName === 'project-tracker') {
-          const canAccessWasteDisposal = hasPermission('wasteDisposal', 'view') && (Boolean(wasteDisposalServiceId) || Boolean(isRealAdmin));
-          const trackerSubTabs = [
-            { path: PAGE_ROUTES.PROJECT_TRACKER_PROJECTS, allowed: hasPermission('tracker_projects', 'view') },
-            { path: PAGE_ROUTES.PROJECT_TRACKER_UPDATES, allowed: hasPermission('tracker_updates', 'view') },
-            { path: PAGE_ROUTES.PROJECT_TRACKER_INVOICES, allowed: hasPermission('tracker_invoices', 'view') },
-            { path: PAGE_ROUTES.PROJECT_TRACKER_REMINDERS, allowed: hasPermission('tracker_reminders', 'view') },
-            { path: PAGE_ROUTES.PROJECT_TRACKER_WASTE, allowed: canAccessWasteDisposal },
-            { path: PAGE_ROUTES.PROJECT_TRACKER_STATISTICS, allowed: hasPermission('statistics', 'view') },
-          ];
-          const firstAllowedSub = trackerSubTabs.find((sub) => sub.allowed && sub.path !== location.pathname);
-          if (firstAllowedSub) {
-            navigate(firstAllowedSub.path, { replace: true });
-            return;
-          }
-          if (canAccessDataMgmt) {
-            const firstAllowed = navItems.find((item) => item.show && item.path.startsWith(`${PAGE_ROUTES.DATA_MANAGEMENT_PREFIX}/`));
-            navigate(firstAllowed ? firstAllowed.path : PAGE_ROUTES.PROJECTS, { replace: true });
-            return;
-          }
-        }
-      }
+      redirectToOtherAccessibleApp();
     }
-  }, [role, isRolesLoading, isSettingsLoading, wasteDisposalServiceId, isRealAdmin, hasPermission, location.pathname, navigate, navItems]);
+  }, [
+    role,
+    isRolesLoading,
+    isSettingsLoading,
+    hasPermission,
+    canAccessNavItem,
+    findFirstAllowedPathForApp,
+    location.pathname,
+    navigate,
+  ]);
 
   useEffect(() => {
-    // Scroll window and main content
     const resetScroll = () => {
       window.scrollTo({ top: 0, behavior: 'instant' });
       if (mainContentRef.current) {
         mainContentRef.current.scrollTo({ top: 0, behavior: 'instant' });
       }
     };
-    
-    // Call immediately
+
     resetScroll();
-    
-    // Call again after a short delay to account for React.lazy / Suspense rendering new content
     const timeoutId = setTimeout(resetScroll, 100);
     return () => clearTimeout(timeoutId);
   }, [location.pathname]);

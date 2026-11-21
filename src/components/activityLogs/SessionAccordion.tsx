@@ -42,7 +42,7 @@ export interface SessionAccordionProps {
   onToggle: () => void;
   expandedRows: Record<string, boolean>;
   onToggleRowDetail: (rowKey: string) => void;
-  onDeleteSession: (session: Session) => void;
+  onDeleteSession?: (session: Session) => void;
   isDark: boolean;
   language?: string;
   t: (key: any, params?: Record<string, string | number>) => string;
@@ -156,18 +156,20 @@ export const SessionAccordion: React.FC<SessionAccordionProps> = ({
           >
             {isExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
           </IconButton>
-          <Tooltip title={t('tooltipDeleteSession')}>
-            <IconButton
-              size="small"
-              color="error"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDeleteSession(session);
-              }}
-            >
-              <DeleteIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
+          {onDeleteSession && (
+            <Tooltip title={t('tooltipDeleteSession')}>
+              <IconButton
+                size="small"
+                color="error"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteSession(session);
+                }}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
         </Box>
       </Box>
 

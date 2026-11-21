@@ -154,6 +154,49 @@ export const handlers = [
     return HttpResponse.json([]);
   }),
   http.get('/api/roles', () => HttpResponse.json([])),
+  http.get('/api/permissions/catalog', () =>
+    HttpResponse.json({
+      apps: [
+        {
+          id: 'project-tracker',
+          resources: [
+            { id: 'tracker_projects', actions: ['view', 'create', 'edit', 'delete'], supportsOnlyOwn: true },
+            { id: 'tracker_updates', actions: ['view'], supportsOnlyOwn: true },
+            { id: 'tracker_reminders', actions: ['view', 'create', 'edit', 'delete'], supportsOnlyOwn: true },
+            { id: 'tracker_invoices', actions: ['view', 'create', 'edit', 'delete'] },
+            { id: 'wasteDisposal', actions: ['view', 'create', 'edit', 'delete'] },
+            { id: 'statistics', actions: ['view'] },
+            { id: 'messaging', actions: ['delete', 'moderate'] },
+          ],
+        },
+        {
+          id: 'data-management',
+          resources: [
+            { id: 'projects', actions: ['view', 'create', 'edit', 'delete'], supportsOnlyOwn: true },
+            { id: 'clients', actions: ['view', 'create', 'edit', 'delete'] },
+            { id: 'permits', actions: ['view', 'create', 'edit', 'delete'] },
+            { id: 'users', actions: ['view', 'create', 'edit', 'delete'] },
+            { id: 'services', actions: ['view', 'create', 'edit', 'delete'] },
+            { id: 'providedServices', actions: ['view', 'create', 'edit', 'delete'] },
+            { id: 'categories', actions: ['view', 'create', 'edit', 'delete'] },
+            { id: 'reminders', actions: ['view', 'create', 'edit', 'delete'], supportsOnlyOwn: true },
+            { id: 'invoices', actions: ['view', 'create', 'edit', 'delete'] },
+            { id: 'companyInfo', actions: ['view', 'edit'] },
+            { id: 'history', actions: ['view', 'restore'] },
+          ],
+        },
+        {
+          id: 'system',
+          resources: [
+            { id: 'roles', actions: ['view', 'create', 'edit', 'delete'] },
+            { id: 'activityLogs', actions: ['view', 'delete', 'configure'] },
+            { id: 'activityAnalytics', actions: ['view'] },
+            { id: 'systemSettings', actions: ['view', 'edit'] },
+          ],
+        },
+      ],
+    })
+  ),
   http.get('/api/users', ({ request }) => {
     const url = new URL(request.url);
     if (url.searchParams.get('page') || url.searchParams.get('limit')) {

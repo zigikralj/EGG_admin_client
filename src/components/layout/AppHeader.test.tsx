@@ -98,13 +98,22 @@ describe('AppHeader', () => {
     expect(screen.getByText('Test User')).toBeInTheDocument();
   });
 
-  it('opens and closes apps menu', () => {
+  it('opens apps menu and displays System app when user has apps.system permission', () => {
     renderComponent();
     const appsButton = screen.getByRole('button', { name: 'appsTitle' });
-    
-    // Open menu
+
     fireEvent.click(appsButton);
     expect(screen.getByText('appDataManagement')).toBeInTheDocument();
+    expect(screen.getByText('appSystem')).toBeInTheDocument();
+  });
+
+  it('omits System app from apps menu when user lacks apps.system permission', () => {
+    mockHasPermission.mockImplementation((res: string, action: string) => !(res === 'apps' && action === 'system'));
+    renderComponent();
+
+    fireEvent.click(screen.getByRole('button', { name: 'appsTitle' }));
+    expect(screen.getByText('appDataManagement')).toBeInTheDocument();
+    expect(screen.queryByText('appSystem')).not.toBeInTheDocument();
   });
 
   it('calls handleLogoutClick when logout is clicked from profile menu', () => {

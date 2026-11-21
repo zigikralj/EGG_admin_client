@@ -125,14 +125,20 @@ Modularized domain query modules re-exported through barrel `src/queries/index.t
 | `/data-management/clients` | `CLIENTS` | `ClientsPage.tsx` | Clients administration table with permit linking. |
 | `/data-management/permits` | `PERMITS` | `PermitsPage.tsx` | Environmental permits table, status badges, reminders. |
 | `/data-management/users` | `USERS` | `UsersPage.tsx` | Users administration, approve/reject, force logout. |
-| `/data-management/roles` | `ROLES` | `RolesPage.tsx` | Granular permissions matrix management. |
 | `/data-management/services` | `SERVICES` | `ServicesPage.tsx` | Services catalog with custom data model schema editor. |
 | `/data-management/provided-services` | `PROVIDED_SERVICES` | `ProvidedServicesPage.tsx` | Service delivery logs table. |
 | `/data-management/categories` | `CATEGORIES` | `CategoriesPage.tsx` | Service categories CRUD table. |
 | `/data-management/invoices` | `INVOICES` | `InvoicesPage.tsx` | Invoices lifecycle, parent/child links, line items. |
 | `/data-management/reminders` | `REMINDERS` | `RemindersPage.tsx` | Reminders administration table with entity links. |
-| `/data-management/activity-logs` | `ACTIVITY_LOGS` | `ActivityLogsPage.tsx` | Audit log viewer with diffs. |
-| `/data-management/activity-logs/analytics` | `ACTIVITY_ANALYTICS` | `ActivityAnalyticsPage.tsx` | Activity metrics, user breakdowns, heatmap, and insights. |
+
+### App 3: System (`src/pages/system/`)
+*(Legacy `/data-management/roles` and `/data-management/activity-logs*` routes redirect here via `LEGACY_ROUTE_REDIRECTS` in `constants/appRegistry.ts`.)*
+| Path | Route Constant | Page Component | Notes |
+|---|---|---|---|
+| `/system/roles` | `ROLES` | `RolesPage.tsx` | Granular permissions matrix management driven by `GET /api/permissions/catalog` and `Role.level` hierarchy. |
+| `/system/activity-logs` | `ACTIVITY_LOGS` | `ActivityLogsPage.tsx` | Audit log viewer with diffs. |
+| `/system/activity-logs/analytics` | `ACTIVITY_ANALYTICS` | `ActivityAnalyticsPage.tsx` | Activity metrics, user breakdowns, heatmap, and insights. |
+| `/system/settings` | `SYSTEM_SETTINGS` | `SystemSettingsPage.tsx` | Global system settings (`waste_disposal_service_id`, `activity_logging_enabled`, `activity_log_retention_days`). |
 
 ---
 
@@ -219,7 +225,11 @@ Modularized domain query modules re-exported through barrel `src/queries/index.t
 > [!IMPORTANT]
 > **CRITICAL RULE — Developer Administrator Visibility:**
 > The developer operates using an Administrator account. Administrator level **MUST see everything and have full access to all features**.
-> **NEVER hide any options, switches, menus, or features from Administrator.** If something is available to Manager, Accountant, or User, Administrator MUST have full access and visibility.
+> **NEVER hide any options, switches, menus, or features from Administrator.**
+>
+> **HARD RULE — NO ROLE NAMES IN AUTHORIZATION LOGIC:**
+> - **NEVER** branch on role display names (such as `'Manager'`, `'Accountant'`, or `isManagerPlus`) in client logic.
+> - **ALWAYS** use granular `hasPermission(resource, action)` / `isRestrictedToOwn(resource)` checks backed by `GET /api/permissions/catalog`, and numeric `roleLevel` / `isSystemAdmin` comparisons for user/role hierarchy. Only `Administrator` (`isRealAdmin` / `isSystemAdmin`) is special-cased.
 
 ### HARD RULE: NO HARDCODED NAMES OR STRINGS FOR FINDING SERVICES (E.G. WASTE DISPOSAL)
 > [!CAUTION]

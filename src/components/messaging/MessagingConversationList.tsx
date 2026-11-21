@@ -74,7 +74,8 @@ interface ChatConversationListProps {
 }
 
 export const ChatConversationList: React.FC<ChatConversationListProps> = () => {
-  const { currentUser, role, actualRole, isRealAdmin, hasPermission } = useAuth();
+  const { currentUser, hasPermission } = useAuth();
+  const canDeleteChat = hasPermission('messaging', 'delete');
   const { t } = useLanguage();
   const {
     onlineUserIds,
@@ -99,15 +100,6 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = () => {
   // Delete & Leave Confirmation Dialogs
   const [deleteDialogConv, setDeleteDialogConv] = useState<UnifiedConversationItem | null>(null);
   const [leaveDialogConv, setLeaveDialogConv] = useState<UnifiedConversationItem | null>(null);
-
-  const isManagerPlus =
-    Boolean(currentUser?.isSystemAdmin) ||
-    isRealAdmin ||
-    role === 'Administrator' ||
-    role === 'Manager' ||
-    actualRole === 'Administrator' ||
-    actualRole === 'Manager' ||
-    hasPermission('projects', 'delete');
 
   // Fetch active conversations
   const { data: conversations = [] } = useQuery<ChatConversationItem[]>({
@@ -546,8 +538,8 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = () => {
                                 </Tooltip>
                               )}
 
-                              {/* Delete / Clear conversation for Manager+ */}
-                              {isManagerPlus && (
+                              {/* Delete / Clear conversation */}
+                              {canDeleteChat && (
                                 <Tooltip title={t('messagingDeleteConversation')} arrow>
                                   <IconButton
                                     size="small"
