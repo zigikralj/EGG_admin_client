@@ -18,6 +18,7 @@ import {
   NotificationsActiveIcon,
   ReceiptLongIcon,
   SecurityIcon,
+  SettingsIcon,
   WebIcon,
   LoginIcon,
   LogoutIcon,
@@ -167,6 +168,7 @@ const API_PREFIX_TO_PAGE_ROUTE: Array<{ prefix: string; page: string }> = [
   { prefix: API_ROUTES.ROLES.BASE, page: PAGE_ROUTES.ROLES },
   { prefix: API_ROUTES.REMINDERS.BASE, page: PAGE_ROUTES.REMINDERS },
   { prefix: API_ROUTES.ACTIVITY_LOGS.BASE, page: PAGE_ROUTES.ACTIVITY_LOGS },
+  { prefix: API_ROUTES.SYSTEM_SETTINGS.BASE, page: PAGE_ROUTES.SYSTEM_SETTINGS },
 ];
 
 export const getCanonicalPagePath = (rawPath?: string): string => {
@@ -288,6 +290,9 @@ export const getPathLabelAndIcon = (
   }
   if (path.includes(PAGE_ROUTES.ACTIVITY_LOGS) || path.includes(API_ROUTES.ACTIVITY_LOGS.BASE) || path.includes('/activity-logs')) {
     return { label: t('tabActivityLogs'), icon: <AccessTimeIcon fontSize="small" sx={{ color: '#475569' }} /> };
+  }
+  if (path.includes(PAGE_ROUTES.SYSTEM_SETTINGS) || path.includes(API_ROUTES.SYSTEM_SETTINGS.BASE) || path.includes('/settings')) {
+    return { label: t('tabSystemSettings'), icon: <SettingsIcon fontSize="small" sx={{ color: '#0284c7' }} /> };
   }
   if (path.includes(PAGE_ROUTES.LOGIN) || path.includes(API_ROUTES.AUTH.LOGIN) || path.includes('/login')) {
     return {

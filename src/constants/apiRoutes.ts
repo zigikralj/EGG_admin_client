@@ -16,6 +16,9 @@ export const API_ROUTES = {
     BASE: '/api/roles',
     BY_NAME: (name: string) => `/api/roles/${encodeURIComponent(name)}`,
   },
+  PERMISSIONS: {
+    CATALOG: '/api/permissions/catalog',
+  },
   USERS: {
     BASE: '/api/users',
     BY_ID: (id: string) => `/api/users/${encodeURIComponent(id)}`,

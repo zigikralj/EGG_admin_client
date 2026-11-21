@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { apiFetch } from '../api';
-import { API_ROUTES, TIME_MS } from '../constants';
+import { API_ROUTES, QUERY_KEYS, TIME_MS } from '../constants';
 import { buildPaginationQueryParams, useGenericMutations, useGenericActionMutation } from './queryUtils';
-import type { User, Role, PaginatedResponse } from '../types';
+import type { User, Role, PermissionCatalogResponse, PaginatedResponse } from '../types';
 
 export const USERS_SUMMARY_QUERY_KEY = ['users', 'summary'] as const;
 export const USERS_DIRECTORY_QUERY_KEY = ['users', 'directory'] as const;
@@ -246,6 +246,19 @@ export function useRolesQuery(options?: { enabled?: boolean }) {
     queryFn: async () => {
       const res = await apiFetch(API_ROUTES.ROLES.BASE);
       if (!res.ok) throw new Error('Failed to fetch roles');
+      return res.json();
+    },
+  });
+}
+
+export function usePermissionCatalogQuery(options?: { enabled?: boolean }) {
+  return useQuery<PermissionCatalogResponse>({
+    queryKey: QUERY_KEYS.PERMISSIONS.CATALOG,
+    enabled: options?.enabled ?? true,
+    staleTime: TIME_MS.TEN_MINUTES,
+    queryFn: async () => {
+      const res = await apiFetch(API_ROUTES.PERMISSIONS.CATALOG);
+      if (!res.ok) throw new Error('Failed to fetch permission catalog');
       return res.json();
     },
   });

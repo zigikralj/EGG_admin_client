@@ -30,8 +30,6 @@ import {
   useUsersSummaryQuery,
   useActivityLogsMutations,
   useActivityLogStatusQuery,
-  useActivityLogToggleMutation,
-  useActivityLogUpdateSettingsMutation,
 } from '../../queries';
 import { flushActivityTracker } from '../../hooks/useActivityTracker';
 import { PAGE_ROUTES } from '../../constants';
@@ -81,6 +79,12 @@ export const ActivityLogsPage: React.FC = () => {
     return cutoff.toISOString();
   }, [timeRangeFilter]);
 
+  const { hasPermission } = useAuth();
+  const canViewLogs = hasPermission('activityLogs', 'view');
+  const canDeleteLogs = hasPermission('activityLogs', 'delete');
+  const canConfigureLogs = hasPermission('activityLogs', 'configure');
+  const canViewAnalytics = hasPermission('activityAnalytics', 'view');
+
   // Lightweight SQL-aggregated summary (KPIs and user header metrics only)
   const {
     data: summaryData,
@@ -88,7 +92,7 @@ export const ActivityLogsPage: React.FC = () => {
     isFetching: isSummaryFetching,
     error: summaryError,
     refetch: refetchSummary,
-  } = useActivityLogsSummaryQuery(fromIso);
+  } = useActivityLogsSummaryQuery(fromIso, { enabled: canViewLogs });
 
   // Pre-aggregated monthly overview stats
   const {
@@ -96,57 +100,19 @@ export const ActivityLogsPage: React.FC = () => {
     isLoading: isMonthlyLoading,
     isFetching: isMonthlyFetching,
     refetch: refetchMonthly,
-  } = useActivityMonthlyStatsQuery(undefined, { enabled: activeTab === 'monthly' });
+  } = useActivityMonthlyStatsQuery(undefined, { enabled: canViewLogs && activeTab === 'monthly' });
 
-  const { data: users = [] } = useUsersSummaryQuery({ enabled: activeTab === 'daily' });
+  const { data: users = [] } = useUsersSummaryQuery({ enabled: canViewLogs && activeTab === 'daily' });
   const userMap = useMemo(() => new Map(users.map(u => [u.id, u as any])), [users]);
   const { clearAllMutation, deleteSessionMutation } = useActivityLogsMutations();
 
-  const { hasPermission } = useAuth();
-  const { data: statusData, isLoading: isStatusLoading } = useActivityLogStatusQuery();
-  const toggleMutation = useActivityLogToggleMutation();
-  const updateSettingsMutation = useActivityLogUpdateSettingsMutation();
-
+  const { data: statusData } = useActivityLogStatusQuery();
   const isLoggingEnabled = statusData?.enabled ?? true;
-  const retentionDays = statusData?.retentionDays ?? 30;
-  const [confirmDeactivateOpen, setConfirmDeactivateOpen] = useState(false);
-  const [customRetentionOpen, setCustomRetentionOpen] = useState(false);
-  const [customDaysInput, setCustomDaysInput] = useState<string>('30');
 
   const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState>({
     isOpen: false,
     type: 'all'
   });
-
-  const handleToggleClick = (nextChecked: boolean) => {
-    if (!nextChecked) {
-      setConfirmDeactivateOpen(true);
-    } else {
-      toggleMutation.mutate(true);
-    }
-  };
-
-  const handleDeactivateConfirm = () => {
-    setConfirmDeactivateOpen(false);
-    toggleMutation.mutate(false);
-  };
-
-  const handleRetentionSelect = (value: number | 'custom') => {
-    if (value === 'custom') {
-      setCustomDaysInput(String(retentionDays));
-      setCustomRetentionOpen(true);
-    } else {
-      updateSettingsMutation.mutate({ retentionDays: value });
-    }
-  };
-
-  const handleCustomRetentionSubmit = () => {
-    const parsed = parseInt(customDaysInput, 10);
-    if (Number.isFinite(parsed) && parsed >= 1 && parsed <= 3650) {
-      updateSettingsMutation.mutate({ retentionDays: parsed });
-      setCustomRetentionOpen(false);
-    }
-  };
 
   React.useEffect(() => {
     void flushActivityTracker(true);
@@ -173,7 +139,7 @@ export const ActivityLogsPage: React.FC = () => {
         }
       }
     } catch (err) {
-      console.error("Delete failed", err);
+      console.error('Delete failed', err);
     } finally {
       setDeleteDialog({ isOpen: false, type: 'all' });
     }
@@ -257,7 +223,7 @@ export const ActivityLogsPage: React.FC = () => {
     return result;
   }, [userSummaries, selectedUserFilter, searchQuery, userMap]);
 
-  if (!hasPermission('activityLogs', 'view')) {
+  if (!canViewLogs) {
     return (
       <Box sx={{ p: 4, textAlign: 'center', minHeight: 300, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
         <Typography color="error" variant="h6" sx={{ fontWeight: 600 }}>
@@ -293,20 +259,12 @@ export const ActivityLogsPage: React.FC = () => {
     <Box sx={{ p: { xs: 1.5, sm: 2.5, md: 3 }, maxWidth: 1400, mx: 'auto' }}>
       {/* Page Title & Refresh Header */}
       <ActivityLogsHeader
-        isLoggingEnabled={isLoggingEnabled}
-        retentionDays={retentionDays}
-        isStatusLoading={isStatusLoading}
         isFetching={activeTab === 'daily' ? isSummaryFetching : isMonthlyFetching}
-        isPendingToggle={toggleMutation.isPending}
-        isPendingSettings={updateSettingsMutation.isPending}
-        onAnalyticsClick={() => navigate(PAGE_ROUTES.ACTIVITY_ANALYTICS)}
-        onToggleClick={handleToggleClick}
-        onRetentionSelect={handleRetentionSelect}
-        onClearAllClick={() => setDeleteDialog({ isOpen: true, type: 'all' })}
+        onAnalyticsClick={canViewAnalytics ? () => navigate(PAGE_ROUTES.ACTIVITY_ANALYTICS) : undefined}
+        onClearAllClick={canDeleteLogs ? () => setDeleteDialog({ isOpen: true, type: 'all' }) : undefined}
         onRefreshClick={handleRefreshClick}
         language={language}
         t={t}
-        isDark={isDark}
       />
 
       {/* View Mode Tabs: Daily Activity Feed vs Monthly Overview */}
@@ -332,6 +290,18 @@ export const ActivityLogsPage: React.FC = () => {
         <Alert
           severity="warning"
           variant="outlined"
+          action={
+            canConfigureLogs ? (
+              <Button
+                color="inherit"
+                size="small"
+                onClick={() => navigate(PAGE_ROUTES.SYSTEM_SETTINGS)}
+                sx={{ textTransform: 'none', fontWeight: 600 }}
+              >
+                {t('goToSystemSettings')}
+              </Button>
+            ) : undefined
+          }
           sx={{
             mb: 3,
             borderRadius: 2.5,
@@ -454,7 +424,7 @@ export const ActivityLogsPage: React.FC = () => {
                   onToggleSession={toggleSessionAccordion}
                   expandedRows={expandedRows}
                   onToggleRowDetail={toggleRowDetail}
-                  onDeleteSession={handleDeleteSession}
+                  onDeleteSession={canDeleteLogs ? handleDeleteSession : undefined}
                   isDark={isDark}
                   language={language}
                   t={t}
@@ -466,22 +436,15 @@ export const ActivityLogsPage: React.FC = () => {
       )}
 
       {/* Dialogs */}
-      <ActivityLogsDialogs
-        deleteDialog={deleteDialog}
-        onCloseDeleteDialog={() => setDeleteDialog({ isOpen: false, type: 'all' })}
-        onConfirmDelete={handleDeleteConfirm}
-        confirmDeactivateOpen={confirmDeactivateOpen}
-        onCloseDeactivateDialog={() => setConfirmDeactivateOpen(false)}
-        onConfirmDeactivate={handleDeactivateConfirm}
-        customRetentionOpen={customRetentionOpen}
-        onCloseCustomRetentionDialog={() => setCustomRetentionOpen(false)}
-        onSubmitCustomRetention={handleCustomRetentionSubmit}
-        customDaysInput={customDaysInput}
-        onCustomDaysInputChange={setCustomDaysInput}
-        isCustomRetentionPending={updateSettingsMutation.isPending}
-        language={language}
-        t={t}
-      />
+      {canDeleteLogs && (
+        <ActivityLogsDialogs
+          deleteDialog={deleteDialog}
+          onCloseDeleteDialog={() => setDeleteDialog({ isOpen: false, type: 'all' })}
+          onConfirmDelete={handleDeleteConfirm}
+          language={language}
+          t={t}
+        />
+      )}
     </Box>
   );
 };

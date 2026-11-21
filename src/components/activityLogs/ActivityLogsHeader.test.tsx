@@ -5,97 +5,66 @@ import { ActivityLogsHeader } from './ActivityLogsHeader';
 describe('ActivityLogsHeader component', () => {
   const mockT = (key: string) => key;
 
-  it('renders header elements and triggers actions', () => {
-    const handleToggleClick = vi.fn();
-    const handleRetentionSelect = vi.fn();
+  it('renders header elements and triggers actions when handlers are provided', () => {
+    const handleAnalyticsClick = vi.fn();
     const handleClearAllClick = vi.fn();
     const handleRefreshClick = vi.fn();
 
     render(
       <ActivityLogsHeader
-        isLoggingEnabled={true}
-        retentionDays={90}
-        isStatusLoading={false}
         isFetching={false}
-        isPendingToggle={false}
-        isPendingSettings={false}
-        onToggleClick={handleToggleClick}
-        onRetentionSelect={handleRetentionSelect}
+        onAnalyticsClick={handleAnalyticsClick}
         onClearAllClick={handleClearAllClick}
         onRefreshClick={handleRefreshClick}
         language="en"
         t={mockT}
-        isDark={false}
       />
     );
 
-    // Header title
     expect(screen.getByText('tabActivityLogs')).toBeInTheDocument();
+    expect(screen.getByText('activityLogsSubtitle')).toBeInTheDocument();
 
-    // Toggle switch
-    const switchEl = screen.getByRole('switch');
-    expect(switchEl).toBeChecked();
-    fireEvent.click(switchEl);
-    expect(handleToggleClick).toHaveBeenCalledWith(false);
+    const analyticsBtn = screen.getByRole('button', { name: /activityAnalytics/i });
+    fireEvent.click(analyticsBtn);
+    expect(handleAnalyticsClick).toHaveBeenCalledTimes(1);
 
-    // Clear All button
     const clearButton = screen.getByRole('button', { name: 'btnClearAll' });
     fireEvent.click(clearButton);
-    expect(handleClearAllClick).toHaveBeenCalled();
+    expect(handleClearAllClick).toHaveBeenCalledTimes(1);
 
-    // Refresh button
     const refreshIcon = screen.getByTestId('RefreshIcon');
     const refreshButton = refreshIcon.closest('button')!;
+    expect(refreshButton).not.toBeDisabled();
     fireEvent.click(refreshButton);
-    expect(handleRefreshClick).toHaveBeenCalled();
+    expect(handleRefreshClick).toHaveBeenCalledTimes(1);
   });
 
-  it('shows paused status label when logging is disabled', () => {
+  it('omits analytics and clear-all buttons when handlers are undefined', () => {
     render(
       <ActivityLogsHeader
-        isLoggingEnabled={false}
-        retentionDays={90}
-        isStatusLoading={false}
         isFetching={false}
-        isPendingToggle={false}
-        isPendingSettings={false}
-        onToggleClick={vi.fn()}
-        onRetentionSelect={vi.fn()}
-        onClearAllClick={vi.fn()}
         onRefreshClick={vi.fn()}
         language="en"
         t={mockT}
-        isDark={false}
       />
     );
 
-    expect(screen.getByText('activityLogsStatusPaused')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /activityAnalytics/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'btnClearAll' })).not.toBeInTheDocument();
   });
 
-  it('renders analytics button and triggers onAnalyticsClick', () => {
-    const handleAnalyticsClick = vi.fn();
+  it('disables refresh button while fetching', () => {
     render(
       <ActivityLogsHeader
-        isLoggingEnabled={true}
-        retentionDays={90}
-        isStatusLoading={false}
-        isFetching={false}
-        isPendingToggle={false}
-        isPendingSettings={false}
-        onAnalyticsClick={handleAnalyticsClick}
-        onToggleClick={vi.fn()}
-        onRetentionSelect={vi.fn()}
-        onClearAllClick={vi.fn()}
+        isFetching={true}
         onRefreshClick={vi.fn()}
         language="en"
         t={mockT}
-        isDark={false}
       />
     );
 
-    const btn = screen.getByRole('button', { name: /activityAnalytics/i });
-    expect(btn).toBeInTheDocument();
-    fireEvent.click(btn);
-    expect(handleAnalyticsClick).toHaveBeenCalled();
+    const refreshIcon = screen.getByTestId('RefreshIcon');
+    const refreshButton = refreshIcon.closest('button')!;
+    expect(refreshButton).toBeDisabled();
   });
 });

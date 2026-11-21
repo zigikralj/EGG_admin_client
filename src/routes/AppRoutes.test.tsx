@@ -1,68 +1,54 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { AppRoutes } from './AppRoutes';
 
-// Mock sub-pages so AppRoutes tests test route matching without heavy page mounts
-vi.mock('../pages/project-tracker/TrackerProjectsPage', () => ({
-  default: () => <div data-testid="tracker-projects-page">Tracker Projects</div>,
-}));
-vi.mock('../pages/project-tracker/TrackerUpdatesPage', () => ({
-  default: () => <div data-testid="tracker-updates-page">Tracker Updates</div>,
-}));
-vi.mock('../pages/project-tracker/TrackerInvoicesPage', () => ({
-  default: () => <div data-testid="tracker-invoices-page">Tracker Invoices</div>,
-}));
-vi.mock('../pages/data-management/ProjectsPage', () => ({
-  default: () => <div data-testid="dm-projects-page">Data Management Projects</div>,
-}));
-vi.mock('../pages/data-management/ClientsPage', () => ({
-  default: () => <div data-testid="dm-clients-page">Data Management Clients</div>,
+vi.mock('../pages/system/RolesPage', () => ({
+  default: () => <div data-testid="system-roles-page">System Roles Page</div>,
 }));
 
-describe('AppRoutes', () => {
-  it('redirects root / to /project-tracker/projects', async () => {
+vi.mock('../pages/system/ActivityLogsPage', () => ({
+  default: () => <div data-testid="system-activity-logs-page">System Activity Logs Page</div>,
+}));
+
+vi.mock('../pages/system/ActivityAnalyticsPage', () => ({
+  default: () => <div data-testid="system-activity-analytics-page">System Activity Analytics Page</div>,
+}));
+
+describe('AppRoutes legacy redirects', () => {
+  it('redirects /data-management/roles to /system/roles', async () => {
     render(
-      <MemoryRouter initialEntries={['/']}>
+      <MemoryRouter initialEntries={['/data-management/roles']}>
         <AppRoutes />
       </MemoryRouter>
     );
-    expect(await screen.findByTestId('tracker-projects-page')).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('system-roles-page')).toBeInTheDocument();
+    });
   });
 
-  it('renders TrackerUpdatesPage on /project-tracker/updates', async () => {
+  it('redirects /data-management/activity-logs to /system/activity-logs', async () => {
     render(
-      <MemoryRouter initialEntries={['/project-tracker/updates']}>
+      <MemoryRouter initialEntries={['/data-management/activity-logs']}>
         <AppRoutes />
       </MemoryRouter>
     );
-    expect(await screen.findByTestId('tracker-updates-page')).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('system-activity-logs-page')).toBeInTheDocument();
+    });
   });
 
-  it('renders TrackerInvoicesPage on /project-tracker/invoices', async () => {
+  it('redirects /data-management/activity-logs/analytics to /system/activity-logs/analytics', async () => {
     render(
-      <MemoryRouter initialEntries={['/project-tracker/invoices']}>
+      <MemoryRouter initialEntries={['/data-management/activity-logs/analytics']}>
         <AppRoutes />
       </MemoryRouter>
     );
-    expect(await screen.findByTestId('tracker-invoices-page')).toBeInTheDocument();
-  });
 
-  it('renders Data Management ProjectsPage on /data-management/projects', async () => {
-    render(
-      <MemoryRouter initialEntries={['/data-management/projects']}>
-        <AppRoutes />
-      </MemoryRouter>
-    );
-    expect(await screen.findByTestId('dm-projects-page')).toBeInTheDocument();
-  });
-
-  it('renders Data Management ClientsPage on /data-management/clients', async () => {
-    render(
-      <MemoryRouter initialEntries={['/data-management/clients']}>
-        <AppRoutes />
-      </MemoryRouter>
-    );
-    expect(await screen.findByTestId('dm-clients-page')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('system-activity-analytics-page')).toBeInTheDocument();
+    });
   });
 });

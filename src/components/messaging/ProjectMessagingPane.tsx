@@ -33,7 +33,9 @@ interface ProjectChatPaneProps {
 }
 
 export const ProjectChatPane: React.FC<ProjectChatPaneProps> = ({ projectId }) => {
-  const { currentUser, role, actualRole, isRealAdmin, hasPermission } = useAuth();
+  const { currentUser, hasPermission } = useAuth();
+  const canDeleteChat = hasPermission('messaging', 'delete');
+  const canModerateChat = hasPermission('messaging', 'moderate');
   const { t } = useLanguage();
   const {
     getProjectUnreadCount,
@@ -48,15 +50,6 @@ export const ProjectChatPane: React.FC<ProjectChatPaneProps> = ({ projectId }) =
   const [muteMenuAnchor, setMuteMenuAnchor] = useState<null | HTMLElement>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  const isManagerPlus =
-    Boolean(currentUser?.isSystemAdmin) ||
-    isRealAdmin ||
-    role === 'Administrator' ||
-    role === 'Manager' ||
-    actualRole === 'Administrator' ||
-    actualRole === 'Manager' ||
-    hasPermission('projects', 'delete');
 
   // 1. Get or create contextual conversation for this project
   const { data: conversation, isLoading: isLoadingConv } = useQuery<ChatConversationItem>({
@@ -221,8 +214,8 @@ export const ProjectChatPane: React.FC<ProjectChatPaneProps> = ({ projectId }) =
             </IconButton>
           </Tooltip>
 
-          {/* Clear chat button for Manager+ */}
-          {isManagerPlus && messages.length > 0 && (
+          {/* Clear chat button */}
+          {canDeleteChat && messages.length > 0 && (
             <Tooltip title={t('messagingClearHistory')} arrow>
               <Button
                 size="small"
@@ -275,7 +268,7 @@ export const ProjectChatPane: React.FC<ProjectChatPaneProps> = ({ projectId }) =
               key={msg.id}
               message={msg}
               isCurrentUser={msg.senderId === currentUser?.id}
-              canModerate={currentUser?.role === 'Administrator' || Boolean(currentUser?.isSystemAdmin)}
+              canModerate={canModerateChat}
               onReply={(m) => setReplyingTo(m)}
               onEdit={handleEditMessage}
               onDelete={handleDeleteMessage}

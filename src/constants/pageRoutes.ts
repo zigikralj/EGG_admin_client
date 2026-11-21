@@ -23,9 +23,14 @@ export const PAGE_ROUTES = {
   CATEGORIES: '/data-management/categories',
   INVOICES: '/data-management/invoices',
   REMINDERS: '/data-management/reminders',
-  ROLES: '/data-management/roles',
-  ACTIVITY_LOGS: '/data-management/activity-logs',
-  ACTIVITY_ANALYTICS: '/data-management/activity-logs/analytics',
+  SYSTEM_PREFIX: '/system',
+  ROLES: '/system/roles',
+  ACTIVITY_LOGS: '/system/activity-logs',
+  ACTIVITY_ANALYTICS: '/system/activity-logs/analytics',
+  SYSTEM_SETTINGS: '/system/settings',
+  LEGACY_ROLES: '/data-management/roles',
+  LEGACY_ACTIVITY_LOGS: '/data-management/activity-logs',
+  LEGACY_ACTIVITY_ANALYTICS: '/data-management/activity-logs/analytics',
 } as const;
 
 export type PageRoute = typeof PAGE_ROUTES[keyof typeof PAGE_ROUTES];

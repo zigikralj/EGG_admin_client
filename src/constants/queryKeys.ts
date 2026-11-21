@@ -47,6 +47,9 @@ export const QUERY_KEYS = {
     DETAILS: (id: string) => ['users', 'details', id] as const,
     ROLES: ['roles'] as const,
   },
+  PERMISSIONS: {
+    CATALOG: ['permissions', 'catalog'] as const,
+  },
   ACTIVITY_LOGS: {
     ALL: ['activity-logs'] as const,
     SUMMARY: (from?: string) => ['activity-logs', 'summary', from ?? 'all'] as const,

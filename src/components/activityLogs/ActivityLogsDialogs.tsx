@@ -11,18 +11,18 @@ import {
 import type { DeleteDialogState } from './types';
 
 export interface ActivityLogsDialogsProps {
-  deleteDialog: DeleteDialogState;
-  onCloseDeleteDialog: () => void;
-  onConfirmDelete: () => void;
-  confirmDeactivateOpen: boolean;
-  onCloseDeactivateDialog: () => void;
-  onConfirmDeactivate: () => void;
-  customRetentionOpen: boolean;
-  onCloseCustomRetentionDialog: () => void;
-  onSubmitCustomRetention: () => void;
-  customDaysInput: string;
-  onCustomDaysInputChange: (val: string) => void;
-  isCustomRetentionPending: boolean;
+  deleteDialog?: DeleteDialogState;
+  onCloseDeleteDialog?: () => void;
+  onConfirmDelete?: () => void;
+  confirmDeactivateOpen?: boolean;
+  onCloseDeactivateDialog?: () => void;
+  onConfirmDeactivate?: () => void;
+  customRetentionOpen?: boolean;
+  onCloseCustomRetentionDialog?: () => void;
+  onSubmitCustomRetention?: () => void;
+  customDaysInput?: string;
+  onCustomDaysInputChange?: (val: string) => void;
+  isCustomRetentionPending?: boolean;
   language?: string;
   t: (key: any, params?: Record<string, string | number>) => string;
 }
@@ -31,15 +31,15 @@ export const ActivityLogsDialogs: React.FC<ActivityLogsDialogsProps> = ({
   deleteDialog,
   onCloseDeleteDialog,
   onConfirmDelete,
-  confirmDeactivateOpen,
+  confirmDeactivateOpen = false,
   onCloseDeactivateDialog,
   onConfirmDeactivate,
-  customRetentionOpen,
+  customRetentionOpen = false,
   onCloseCustomRetentionDialog,
   onSubmitCustomRetention,
-  customDaysInput,
+  customDaysInput = '',
   onCustomDaysInputChange,
-  isCustomRetentionPending,
+  isCustomRetentionPending = false,
   t
 }) => {
   const parsedDays = parseInt(customDaysInput, 10);
@@ -52,30 +52,32 @@ export const ActivityLogsDialogs: React.FC<ActivityLogsDialogsProps> = ({
   return (
     <>
       {/* Delete Confirmation Dialog */}
-      <Dialog
-        open={deleteDialog.isOpen}
-        onClose={onCloseDeleteDialog}
-      >
-        <DialogTitle>
-          {deleteDialog.type === 'all' && t('clearAllLogsTitle')}
-          {deleteDialog.type === 'session' && t('deleteSessionTitle')}
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            {deleteDialog.type === 'all' && t('clearAllLogsConfirm')}
-            {deleteDialog.type === 'session' &&
-              t('deleteSessionConfirm', { label: deleteDialog.label || '' })}
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={onCloseDeleteDialog}>
-            {t('btnCancel')}
-          </Button>
-          <Button color="error" variant="contained" onClick={onConfirmDelete}>
-            {t('btnDelete')}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {deleteDialog && (
+        <Dialog
+          open={deleteDialog.isOpen}
+          onClose={onCloseDeleteDialog}
+        >
+          <DialogTitle>
+            {deleteDialog.type === 'all' && t('clearAllLogsTitle')}
+            {deleteDialog.type === 'session' && t('deleteSessionTitle')}
+          </DialogTitle>
+          <DialogContent>
+            <DialogContentText>
+              {deleteDialog.type === 'all' && t('clearAllLogsConfirm')}
+              {deleteDialog.type === 'session' &&
+                t('deleteSessionConfirm', { label: deleteDialog.label || '' })}
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={onCloseDeleteDialog}>
+              {t('btnCancel')}
+            </Button>
+            <Button color="error" variant="contained" onClick={onConfirmDelete}>
+              {t('btnDelete')}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
 
       {/* Confirm Deactivate Dialog */}
       <Dialog
@@ -132,7 +134,7 @@ export const ActivityLogsDialogs: React.FC<ActivityLogsDialogsProps> = ({
             type="number"
             label={t('retentionCustomDaysLabel')}
             value={customDaysInput}
-            onChange={(e) => onCustomDaysInputChange(e.target.value)}
+            onChange={(e) => onCustomDaysInputChange?.(e.target.value)}
             fullWidth
             size="small"
             slotProps={{ htmlInput: { min: 1, max: 3650 } }}

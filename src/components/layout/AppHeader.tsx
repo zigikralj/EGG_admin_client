@@ -31,7 +31,7 @@ import { useMessaging } from '../../context/MessagingContext';
 import { useRoleLabels } from '../../hooks/useRoleLabels';
 import { DRAWER_WIDTH } from './Sidebar';
 import { NotificationsMenu } from './NotificationsMenu';
-import { PAGE_ROUTES } from '../../constants';
+import { APP_REGISTRY, PAGE_ROUTES, getAppFromPathname, type AppRegistryEntry } from '../../constants';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   MenuIcon,
@@ -67,7 +67,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const currentApp = location.pathname.startsWith(PAGE_ROUTES.DATA_MANAGEMENT_PREFIX) ? 'data-management' : 'project-tracker';
+  const currentAppEntry = getAppFromPathname(location.pathname);
+  const currentApp = currentAppEntry.id;
   const { t } = useLanguage();
   const { getRoleBadgeLabel } = useRoleLabels();
   const { unreadCount } = useNotifications();
@@ -79,8 +80,17 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     logout,
   } = useAuth();
 
-  const canAccessProjectTracker = hasPermission('apps', 'project-tracker');
-  const canAccessDataManagement = hasPermission('apps', 'data-management');
+  const renderAppIcon = (iconKey: AppRegistryEntry['iconKey']) => {
+    switch (iconKey) {
+      case 'storage':
+        return <StorageIcon fontSize="small" />;
+      case 'settings':
+        return <SettingsIcon fontSize="small" />;
+      case 'dashboard':
+      default:
+        return <DashboardIcon fontSize="small" />;
+    }
+  };
 
   const canSeePendingUsers = hasPermission('users', 'edit') && pendingUsersCount > 0;
   const totalNotificationsCount = unreadCount + (canSeePendingUsers ? pendingUsersCount : 0);
@@ -273,7 +283,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               textAlign: 'left',
             }}
           >
-            {currentApp === 'project-tracker' ? t('appProjectTracker') : t('appDataManagement')}
+            {t(currentAppEntry.labelKey as any)}
           </Typography>
         </Box>
 
@@ -512,113 +522,62 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             anchorOrigin={{ horizontal: 'left', vertical: 'bottom' }}
           >
 
-            {/* APP: PROJECT TRACKER */}
-            {canAccessProjectTracker && (
-              <MenuItem
-                onClick={() => {
-                  handleAppsMenuClose();
-                  navigate(PAGE_ROUTES.PROJECT_TRACKER);
-                  setMobileOpen(false);
-                }}
-                selected={currentApp === 'project-tracker'}
-                sx={{
-                  borderRadius: 2,
-                  py: 1.2,
-                  px: 1.5,
-                  my: 0.5,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1.5,
-                  bgcolor: currentApp === 'project-tracker' ? 'action.selected' : 'transparent',
-                }}
-              >
-                <Box
+            {APP_REGISTRY.filter((app) => hasPermission('apps', app.id)).map((app) => {
+              const isSelected = currentApp === app.id;
+              return (
+                <MenuItem
+                  key={app.id}
+                  onClick={() => {
+                    handleAppsMenuClose();
+                    navigate(app.defaultPath);
+                    setMobileOpen(false);
+                  }}
+                  selected={isSelected}
                   sx={{
-                    p: 1,
                     borderRadius: 2,
-                    bgcolor: currentApp === 'project-tracker' ? 'primary.main' : 'action.hover',
-                    color: currentApp === 'project-tracker' ? '#ffffff' : 'primary.main',
+                    py: 1.2,
+                    px: 1.5,
+                    my: 0.5,
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
+                    gap: 1.5,
+                    bgcolor: isSelected ? 'action.selected' : 'transparent',
                   }}
                 >
-                  <DashboardIcon fontSize="small" />
-                </Box>
-                <Box sx={{ flexGrow: 1 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography variant="body2" sx={{ fontWeight: currentApp === 'project-tracker' ? 700 : 600 }}>
-                      {t('appProjectTracker')}
-                    </Typography>
-                    {currentApp === 'project-tracker' && (
-                      <Chip
-                        label={t('appCurrentActive')}
-                        size="small"
-                        color="primary"
-                        sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700 }}
-                      />
-                    )}
+                  <Box
+                    sx={{
+                      p: 1,
+                      borderRadius: 2,
+                      bgcolor: isSelected ? 'primary.main' : 'action.hover',
+                      color: isSelected ? '#ffffff' : 'primary.main',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    {renderAppIcon(app.iconKey)}
                   </Box>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.725rem' }}>
-                    {t('appProjectTrackerDesc')}
-                  </Typography>
-                </Box>
-              </MenuItem>
-            )}
-
-            {/* APP: DATA MANAGEMENT */}
-            {canAccessDataManagement && (
-              <MenuItem
-                onClick={() => {
-                  handleAppsMenuClose();
-                  navigate(PAGE_ROUTES.PROJECTS);
-                  setMobileOpen(false);
-                }}
-                selected={currentApp === 'data-management'}
-                sx={{
-                  borderRadius: 2,
-                  py: 1.2,
-                  px: 1.5,
-                  my: 0.5,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1.5,
-                  bgcolor: currentApp === 'data-management' ? 'action.selected' : 'transparent',
-                }}
-              >
-                <Box
-                  sx={{
-                    p: 1,
-                    borderRadius: 2,
-                    bgcolor: currentApp === 'data-management' ? 'primary.main' : 'action.hover',
-                    color: currentApp === 'data-management' ? '#ffffff' : 'primary.main',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <StorageIcon fontSize="small" />
-                </Box>
-                <Box sx={{ flexGrow: 1 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography variant="body2" sx={{ fontWeight: currentApp === 'data-management' ? 700 : 600 }}>
-                      {t('appDataManagement')}
+                  <Box sx={{ flexGrow: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="body2" sx={{ fontWeight: isSelected ? 700 : 600 }}>
+                        {t(app.labelKey as any)}
+                      </Typography>
+                      {isSelected && (
+                        <Chip
+                          label={t('appCurrentActive')}
+                          size="small"
+                          color="primary"
+                          sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700 }}
+                        />
+                      )}
+                    </Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.725rem' }}>
+                      {t(app.descKey as any)}
                     </Typography>
-                    {currentApp === 'data-management' && (
-                      <Chip
-                        label={t('appCurrentActive')}
-                        size="small"
-                        color="primary"
-                        sx={{ height: 18, fontSize: '0.65rem', fontWeight: 700 }}
-                      />
-                    )}
                   </Box>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: '0.725rem' }}>
-                    {t('appDataManagementDesc')}
-                  </Typography>
-                </Box>
-              </MenuItem>
-            )}
+                </MenuItem>
+              );
+            })}
           </Menu>
 
           {/* NOTIFICATIONS DROPDOWN MENU */}

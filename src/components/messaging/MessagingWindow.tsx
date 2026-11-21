@@ -61,7 +61,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   onClose,
   onToggleMinimize,
 }) => {
-  const { currentUser, role, actualRole, isRealAdmin, hasPermission } = useAuth();
+  const { currentUser, hasPermission } = useAuth();
+  const canDeleteChat = hasPermission('messaging', 'delete');
+  const canModerateChat = hasPermission('messaging', 'moderate');
   const { t } = useLanguage();
   const {
     markAsUnread,
@@ -86,15 +88,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const [moreMenuView, setMoreMenuView] = useState<'root' | 'mute'>('root');
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
-
-  const isManagerPlus =
-    Boolean(currentUser?.isSystemAdmin) ||
-    isRealAdmin ||
-    role === 'Administrator' ||
-    role === 'Manager' ||
-    actualRole === 'Administrator' ||
-    actualRole === 'Manager' ||
-    hasPermission('projects', 'delete');
 
   // Read existing conversation metadata from the conversations list cache if available
   const cachedConversation = useMemo(() => {
@@ -746,7 +739,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                       key={msg.id}
                       message={msg}
                       isCurrentUser={msg.senderId === currentUser?.id}
-                      canModerate={currentUser?.role === 'Administrator' || Boolean(currentUser?.isSystemAdmin)}
+                      canModerate={canModerateChat}
                       onReply={(m) => setReplyingTo(m)}
                       onEdit={handleEditMessage}
                       onDelete={handleDeleteMessage}
@@ -849,7 +842,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               </MenuItem>
             )}
 
-            {isManagerPlus && (
+            {canDeleteChat && (
               <MenuItem
                 onClick={() => {
                   handleCloseMoreMenu();

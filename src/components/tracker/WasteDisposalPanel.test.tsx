@@ -287,7 +287,25 @@ describe('WasteDisposalPanel - Client and Project / Location reactivity', () => 
     renderWithProviders(
       <WasteDisposalPanel
         openNewTrigger={1}
-      />
+      />,
+      {
+        authValue: {
+          currentUser: { id: 'user1', name: 'Test User', role: 'User', roleLevel: 10, permissions: {} },
+          role: 'User',
+          actualRole: 'User',
+          roleLevel: 10,
+          hasMinRoleLevel: vi.fn().mockReturnValue(false),
+          isRealAdmin: false,
+          hasPermission: vi.fn().mockReturnValue(true),
+          canEditProject: vi.fn().mockReturnValue(true),
+          canDeleteProject: vi.fn().mockReturnValue(false),
+          isRestrictedToOwn: vi.fn().mockReturnValue(false),
+          login: vi.fn(),
+          logout: vi.fn(),
+          checkAuth: vi.fn(),
+          status: 'authenticated' as const,
+        },
+      }
     );
 
     // Dialog should open
@@ -332,7 +350,25 @@ describe('WasteDisposalPanel - Client and Project / Location reactivity', () => 
     renderWithProviders(
       <WasteDisposalPanel
         openNewTrigger={1}
-      />
+      />,
+      {
+        authValue: {
+          currentUser: { id: 'user1', name: 'Test User', role: 'User', roleLevel: 10, permissions: {} },
+          role: 'User',
+          actualRole: 'User',
+          roleLevel: 10,
+          hasMinRoleLevel: vi.fn().mockReturnValue(false),
+          isRealAdmin: false,
+          hasPermission: vi.fn().mockReturnValue(true),
+          canEditProject: vi.fn().mockReturnValue(true),
+          canDeleteProject: vi.fn().mockReturnValue(false),
+          isRestrictedToOwn: vi.fn().mockReturnValue(false),
+          login: vi.fn(),
+          logout: vi.fn(),
+          checkAuth: vi.fn(),
+          status: 'authenticated' as const,
+        },
+      }
     );
 
     // Dialog should open

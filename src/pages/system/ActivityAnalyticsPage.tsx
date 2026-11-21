@@ -14,7 +14,7 @@ import {
 import ChatBubbleOutlinedIcon from '@mui/icons-material/ChatBubbleOutlined';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
-import { useUsersSummaryQuery, useActivityAnalyticsQuery } from '../../queries';
+import { useUsersSummaryQuery, useActivityAnalyticsQuery, useRolesQuery } from '../../queries';
 import { PAGE_ROUTES, TIME_MS } from '../../constants';
 import {
   AnalyticsHeader,
@@ -86,38 +86,40 @@ export const ActivityAnalyticsPage: React.FC = () => {
   }, [preset, customStartDate, customEndDate]);
 
   // 3. React Query hooks
-  const { data: usersData = [] } = useUsersSummaryQuery();
+  const canViewAnalytics = hasPermission('activityAnalytics', 'view');
+  const { data: usersData = [] } = useUsersSummaryQuery({ enabled: canViewAnalytics });
+  const { data: rolesData = [] } = useRolesQuery({ enabled: canViewAnalytics });
   const {
     data: analytics,
     isLoading,
     isFetching,
     refetch,
     error,
-  } = useActivityAnalyticsQuery({
-    from: fromIso,
-    to: toIso,
-    granularity,
-    userIds: selectedUserIds.length > 0 ? selectedUserIds : undefined,
-    roles: selectedRoles.length > 0 ? selectedRoles : undefined,
-    excludeAdminPages,
-    compare: true,
-  });
+  } = useActivityAnalyticsQuery(
+    {
+      from: fromIso,
+      to: toIso,
+      granularity,
+      userIds: selectedUserIds.length > 0 ? selectedUserIds : undefined,
+      roles: selectedRoles.length > 0 ? selectedRoles : undefined,
+      excludeAdminPages,
+      compare: true,
+    },
+    { enabled: canViewAnalytics }
+  );
 
-  // Param update helpers
-  const updateParam = (key: string, value: string | undefined) => {
+  // 4. URL update helpers
+  const updateParam = (key: string, value?: string) => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
-      if (value) {
-        next.set(key, value);
-      } else {
-        next.delete(key);
-      }
+      if (value) next.set(key, value);
+      else next.delete(key);
       return next;
     });
   };
 
-  const handleTabChange = (_: React.SyntheticEvent, newTab: AnalyticsTab) => {
-    updateParam('tab', newTab === 'overview' ? undefined : newTab);
+  const handleTabChange = (_: React.SyntheticEvent, newVal: AnalyticsTab) => {
+    updateParam('tab', newVal === 'overview' ? undefined : newVal);
   };
 
   const handlePresetChange = (newPreset: RangePreset) => {
@@ -135,8 +137,11 @@ export const ActivityAnalyticsPage: React.FC = () => {
   const handleCustomDateChange = (start: string, end: string) => {
     setSearchParams((prev) => {
       const next = new URLSearchParams(prev);
-      next.set('from', start);
-      next.set('to', end);
+      next.set('range', 'custom');
+      if (start) next.set('from', start);
+      else next.delete('from');
+      if (end) next.set('to', end);
+      else next.delete('to');
       return next;
     });
   };
@@ -154,7 +159,7 @@ export const ActivityAnalyticsPage: React.FC = () => {
   };
 
   // RBAC guard
-  if (!hasPermission('activityLogs', 'view')) {
+  if (!canViewAnalytics) {
     return (
       <Box sx={{ p: 4, textAlign: 'center', minHeight: 300, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
         <Typography color="error" variant="h6" sx={{ fontWeight: 600 }}>
@@ -183,6 +188,7 @@ export const ActivityAnalyticsPage: React.FC = () => {
         onRefresh={() => refetch()}
         isFetching={isFetching}
         users={usersData as any}
+        roles={rolesData}
         t={t}
         language={language}
       />
