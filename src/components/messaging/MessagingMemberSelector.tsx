@@ -13,7 +13,7 @@ import {
   InputBase,
 } from '@mui/material';
 import { useAuth } from '../../context/AuthContext';
-import { useChat, type ChatDirectoryUser } from '../../context/MessagingContext';
+import { useMessaging, type MessagingDirectoryUser } from '../../context/MessagingContext';
 import { useLanguage } from '../../context/LanguageContext';
 
 export interface ExistingGroupMember {
@@ -23,9 +23,9 @@ export interface ExistingGroupMember {
   avatarUrl?: string | null;
 }
 
-export interface ChatMemberSelectorProps {
-  selectedUsers: ChatDirectoryUser[];
-  onSelectedUsersChange: (users: ChatDirectoryUser[]) => void;
+export interface MessagingMemberSelectorProps {
+  selectedUsers: MessagingDirectoryUser[];
+  onSelectedUsersChange: (users: MessagingDirectoryUser[]) => void;
   existingMembers?: ExistingGroupMember[];
   onRemoveExistingMember?: (userId: string) => void;
   excludeUserIds?: Set<string>;
@@ -34,7 +34,7 @@ export interface ChatMemberSelectorProps {
   label?: string;
 }
 
-export const ChatMemberSelector: React.FC<ChatMemberSelectorProps> = ({
+export const MessagingMemberSelector: React.FC<MessagingMemberSelectorProps> = ({
   selectedUsers,
   onSelectedUsersChange,
   existingMembers,
@@ -46,7 +46,7 @@ export const ChatMemberSelector: React.FC<ChatMemberSelectorProps> = ({
 }) => {
   const { currentUser } = useAuth();
   const { t } = useLanguage();
-  const { allUsers, onlineUserIds } = useChat();
+  const { allUsers, onlineUserIds } = useMessaging();
 
   const effectivePlaceholder = placeholder || t('messagingTypeUserPlaceholder');
   const effectiveListTitle = listTitle || t('messagingUsersListTitle');
@@ -103,7 +103,7 @@ export const ChatMemberSelector: React.FC<ChatMemberSelectorProps> = ({
     );
   }, [allUsers, currentUser?.id, selectedUserIds, existingUserIds, excludeUserIds, onlineUserIds, search]);
 
-  const handleAddMember = (user: ChatDirectoryUser) => {
+  const handleAddMember = (user: MessagingDirectoryUser) => {
     if (!user || !user.id || user.id === currentUser?.id) return;
     if (selectedUserIds.has(user.id)) return;
     if (existingUserIds.has(user.id)) return;
@@ -353,7 +353,4 @@ export const ChatMemberSelector: React.FC<ChatMemberSelectorProps> = ({
     </Box>
   );
 };
-
-export const MessagingMemberSelector = ChatMemberSelector;
-export type MessagingMemberSelectorProps = ChatMemberSelectorProps;
 

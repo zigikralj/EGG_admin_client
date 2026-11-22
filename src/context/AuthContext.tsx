@@ -471,14 +471,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return perms[resource].includes(action);
     }
 
-    if ((resource === 'messaging' || resource === 'messages') && Array.isArray(perms.chat)) {
-      return perms.chat.includes(action);
-    }
-    if (resource === 'chat') {
-      if (Array.isArray(perms.messaging)) return perms.messaging.includes(action);
-      if (Array.isArray(perms.messages)) return perms.messages.includes(action);
-    }
-
     return false;
   }, [isSystemAdmin, userPermissions]);
 

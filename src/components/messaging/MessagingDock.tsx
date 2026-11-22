@@ -21,7 +21,7 @@ import DriveFileRenameOutlineIcon from '@mui/icons-material/DriveFileRenameOutli
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useAuth } from '../../context/AuthContext';
-import { useChat } from '../../context/MessagingContext';
+import { useMessaging } from '../../context/MessagingContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { MessagingConversationList } from './MessagingConversationList';
 import { MessagingWindow } from './MessagingWindow';
@@ -35,7 +35,7 @@ export const MessagingDock: React.FC = () => {
     totalUnreadCount,
     isDndActive,
     setDnd,
-    closeChat,
+    closeMessaging,
     toggleMinimize,
     isNewMessageOpen,
     isNewMessageMinimized,
@@ -44,7 +44,7 @@ export const MessagingDock: React.FC = () => {
     toggleMinimizeNewMessage,
     isMainOpen: isOpen,
     setIsMainOpen: setIsOpen,
-  } = useChat();
+  } = useMessaging();
 
   const [optionsMenuAnchor, setOptionsMenuAnchor] = useState<null | HTMLElement>(null);
   const [menuView, setMenuView] = useState<'root' | 'dnd'>('root');
@@ -292,14 +292,14 @@ export const MessagingDock: React.FC = () => {
         </Box>
       )}
 
-      {/* Active Floating Chat Windows (Docked to the left of the new message / tray) */}
+      {/* Active Floating Messaging Windows (Docked to the left of the new message / tray) */}
       {activeWindows.map((win) => (
         <Box key={win.conversationId} sx={{ pointerEvents: 'auto' }}>
           <MessagingWindow
             conversationId={win.conversationId}
             minimized={win.minimized}
             title={win.title}
-            onClose={() => closeChat(win.conversationId)}
+            onClose={() => closeMessaging(win.conversationId)}
             onToggleMinimize={() => toggleMinimize(win.conversationId)}
           />
         </Box>
@@ -394,6 +394,4 @@ export const MessagingDock: React.FC = () => {
     </Box>
   );
 };
-
-export const ChatDock = MessagingDock;
 

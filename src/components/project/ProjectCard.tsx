@@ -59,7 +59,7 @@ export const ProjectCard: React.FC<Props> = ({
   const { canEditProject, users } = useAuth();
   const { getProjectUnreadCount } = useMessaging();
 
-  const chatUnreadCount = getProjectUnreadCount(p.id);
+  const messagesUnreadCount = getProjectUnreadCount(p.id);
 
   const [notesExpanded, setNotesExpanded] = useState(false);
   const canEdit = canEditProject(p);
@@ -258,14 +258,14 @@ export const ProjectCard: React.FC<Props> = ({
             )}
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            {chatUnreadCount > 0 && (
+            {messagesUnreadCount > 0 && (
               <IconButton
                 size="small"
                 onClick={() => (onView ? onView(p) : onEdit(p))}
                 color="primary"
                 sx={{ p: 0.5 }}
               >
-                <Badge badgeContent={chatUnreadCount} color="error">
+                <Badge badgeContent={messagesUnreadCount} color="error">
                   <ChatBubbleOutlinedIcon fontSize="small" />
                 </Badge>
               </IconButton>

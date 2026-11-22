@@ -18,27 +18,27 @@ import GroupAddIcon from '@mui/icons-material/GroupAdd';
 import ChatBubbleOutlinedIcon from '@mui/icons-material/ChatBubbleOutlined';
 import DriveFileRenameOutlineIcon from '@mui/icons-material/DriveFileRenameOutline';
 import { useQueryClient } from '@tanstack/react-query';
-import { chatApi } from './messagingApi';
-import { useChat, type ChatDirectoryUser } from '../../context/MessagingContext';
+import { messagingApi } from './messagingApi';
+import { useMessaging, type MessagingDirectoryUser } from '../../context/MessagingContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { MessagingMemberSelector } from './MessagingMemberSelector';
 
-interface NewChatWindowProps {
+interface NewMessagingWindowProps {
   minimized: boolean;
   onClose: () => void;
   onToggleMinimize: () => void;
 }
 
-export const NewChatWindow: React.FC<NewChatWindowProps> = ({
+export const NewMessagingWindow: React.FC<NewMessagingWindowProps> = ({
   minimized,
   onClose,
   onToggleMinimize,
 }) => {
-  const { openDirectChatWithUser, openChat, onlineUserIds } = useChat();
+  const { openDirectMessagingWithUser, openMessaging, onlineUserIds } = useMessaging();
   const { t } = useLanguage();
   const queryClient = useQueryClient();
 
-  const [selectedUsers, setSelectedUsers] = useState<ChatDirectoryUser[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<MessagingDirectoryUser[]>([]);
   const [groupTitle, setGroupTitle] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -52,27 +52,27 @@ export const NewChatWindow: React.FC<NewChatWindowProps> = ({
       try {
         setActionLoading(true);
         const target = selectedUsers[0];
-        await openDirectChatWithUser(target.id, target.name);
+        await openDirectMessagingWithUser(target.id, target.name);
         onClose();
       } catch (err) {
-        console.error('Failed to open direct chat', err);
+        console.error('Failed to open direct conversation', err);
       } finally {
         setActionLoading(false);
       }
       return;
     }
 
-    // Group chat (2+ members)
+    // Group conversation (2+ members)
     if (!groupTitle.trim()) return;
     try {
       setActionLoading(true);
-      const conv = await chatApi.createConversation({
+      const conv = await messagingApi.createConversation({
         type: 'GROUP',
         title: groupTitle.trim(),
         participantIds: selectedUsers.map((u) => u.id),
       });
-      await queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] });
-      openChat(conv.id, { title: conv.title || t('messagingGroupConversation') });
+      await queryClient.invalidateQueries({ queryKey: ['messaging', 'conversations'] });
+      openMessaging(conv.id, { title: conv.title || t('messagingGroupConversation') });
       onClose();
     } catch (err) {
       console.error('Failed to create group conversation', err);
@@ -299,7 +299,7 @@ export const NewChatWindow: React.FC<NewChatWindowProps> = ({
 
           <Divider sx={{ my: 0.25 }} />
 
-          {/* Action Button: Start Chat (1 user) or Create Group (2+ users) */}
+          {/* Action Button: Start Conversation (1 user) or Create Group (2+ users) */}
           <Button
             variant="contained"
             color="primary"
@@ -336,4 +336,3 @@ export const NewChatWindow: React.FC<NewChatWindowProps> = ({
   );
 };
 
-export const NewMessagingWindow = NewChatWindow;

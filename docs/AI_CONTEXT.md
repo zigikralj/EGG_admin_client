@@ -24,7 +24,7 @@ The client communicates with a separate Express 5 REST API server (see `../serve
 |---|---|
 | `index.html` | HTML shell — mounts `#root` |
 | `src/main.tsx` | ReactDOM entry. Initializes selective query cache persistence (`restorePersistedQueries` / `setupQueryPersistence`), wraps `<App />` in StrictMode, QueryClientProvider, and `<BrowserRouter>` with dynamic basename (`getRouterBasename()`). |
-| `src/App.tsx` | **Lightweight root orchestrator** (~65 lines). Wraps providers (`LanguageProvider`, `AuthProvider`, `NotificationProvider`, `LoadingProvider`, `CustomThemeProvider`, `ProjectModalProvider`, `ChatProvider`), renders `AdminLayout`, `AppRoutes`, `ChatDock`, `LoadingMask`, and `VersionUpdatePrompt`. |
+| `src/App.tsx` | **Lightweight root orchestrator** (~65 lines). Wraps providers (`LanguageProvider`, `AuthProvider`, `NotificationProvider`, `LoadingProvider`, `CustomThemeProvider`, `ProjectModalProvider`, `MessagingProvider`), renders `AdminLayout`, `AppRoutes`, `MessagingDock`, `LoadingMask`, and `VersionUpdatePrompt`. |
 | `src/routes/AppRoutes.tsx` | **Centralized routing** with React 19 / Vite lazy-loaded chunks for each of the 19 dedicated pages. |
 | `vite.config.ts` | Vite + React plugin, dev proxy `/api` → `:5000`, manual chunk splitting, version.json generation, SPA 404 fallback, and dynamic base path resolution. |
 | `playwright.config.ts` | Playwright E2E configuration — base URL `http://localhost:3000`, webServer auto-start (`npm run dev`), auth state fixture (`playwright/.auth/user.json`). |
@@ -59,7 +59,7 @@ Modularized domain types defined in `src/types/` (re-exported via `src/types/ind
 | `ThemeContext.tsx` | `CustomThemeProvider` | `useThemeContext()` | Light/dark/system theme mode, system preference listener via `matchMedia`, syncs `data-theme` attribute on `<html>`. |
 | `NotificationContext.tsx` | `NotificationProvider` | `useNotifications()` | Fetches, polls (25s intervals with Page Visibility pausing), and manages @mention notifications. Optimistic UI for mark-read/delete/clear-all. |
 | `LoadingContext.tsx` | `LoadingProvider` | `useLoading()` | Global async loading spinner state. |
-| `ChatContext.tsx` | `ChatProvider` | `useChat()` | Real-time direct & contextual project messaging state, SSE stream management (`/api/chat/stream` with 5-minute idle sleep), multi-window floating `ChatDock` orchestration, IndexedDB message/conversation cache (`chatStorage.ts`) with sequence-number delta sync, typing/presence tracking, and unread counters. |
+| `MessagingContext.tsx` | `MessagingProvider` | `useMessaging()` | Real-time direct & contextual project messaging state, SSE stream management (`/api/messaging/stream` with 5-minute idle sleep), multi-window floating `MessagingDock` orchestration, IndexedDB message/conversation cache (`messagingStorage.ts`) with sequence-number delta sync, typing/presence tracking, and unread counters. |
 
 ### Constants (`src/constants/`)
 | File | Purpose |
@@ -148,7 +148,7 @@ Modularized domain query modules re-exported through barrel `src/queries/index.t
 - `common/dialogs/`: Generic dialogs (`ConfirmDialog`, `ConfirmDeleteDialog`, `ErrorDialog`, `VersionUpdatePrompt`).
 - `common/tiptap/`: Rich text TipTap editor, toolbar, and mentions.
 - `layout/`: App shell (`AdminLayout`, `AppHeader`, `Sidebar`, `SettingsDialog`, `UserProfileDialog`, `NotificationsMenu`).
-- `chat/`: Real-time messaging suite (`ChatDock`, `ChatConversationList`, `ChatWindow`, `ProjectChatPane`, `ChatMessageBubble`, `ChatMessageInput`, `chatApi.ts`, `chatStorage.ts`).
+- `messaging/`: Real-time messaging suite (`MessagingDock`, `MessagingConversationList`, `MessagingWindow`, `ProjectMessagingPane`, `MessagingMessageBubble`, `MessagingMessageInput`, `messagingApi.ts`, `messagingStorage.ts`).
 - `project/`: Project cards, `ProjectModal`, `ProjectViewModal`, sections, sliders, notes.
 - `client/`: Client components including extracted `ClientModal`.
 - `permit/`: Permit components, `PermitModal`, status badges, table, reminder dialogs.

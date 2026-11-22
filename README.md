@@ -18,10 +18,10 @@ A professional project management and invoicing application for **EkosGreenGroup
   - Role-tailored views: Standard dashboard for managers/team members and specialized invoice-centric dashboard for accountants.
   - Organization-wide **Project Updates Panel**: real-time activity stream for project changes, note revisions, and task completions.
   - Administrative **Activity Analytics Dashboard**: interactive timeline, heatmap, usage charts, transition analysis, feature adoption, and rule-based insights.
-- **Real-Time Messaging & Contextual Project Chat**:
-  - Floating multi-window **Chat Dock** supporting **Direct (1-on-1)**, **Group**, and **Contextual Project** conversations.
+- **Real-Time & Contextual Project Messaging**:
+  - Floating multi-window **Messaging Dock** supporting **Direct (1-on-1)**, **Group**, and **Contextual Project** conversations.
   - Live updates and online presence indicators powered by **Server-Sent Events (SSE)** with automatic 5-minute idle sleep/wake recovery.
-  - **IndexedDB Message Cache & Sequence Delta Sync** (`ekos_chat_cache_db`): Instant 0ms conversation history rendering with incremental sequence delta synchronization (`afterSeq` / `sinceUpdatedAt`).
+  - **IndexedDB Message Cache & Sequence Delta Sync** (`ekos_messaging_cache_db`): Instant 0ms conversation history rendering with incremental sequence delta synchronization (`afterSeq` / `sinceUpdatedAt`).
   - Rich collaboration features: `@mentions`, message reply threading, edit/delete actions, Web Speech API voice-to-text dictation, per-conversation mute timers, and global **Do Not Disturb (DND)**.
 - **Environmental Permits & Waste Catalog**: Environmental permits management with validity ranges, client associations, permit type filters, and official Serbian national waste index codes with hazard indicators.
 - **Multi-Tier Offline Waste Catalog Storage**: Instant 0ms reads via in-memory caching backed by **IndexedDB** browser storage (`ekos_project_tracker_db`), incremental delta synchronization, and cross-tab **BroadcastChannel** synchronization.
@@ -42,7 +42,7 @@ A professional project management and invoicing application for **EkosGreenGroup
 - **Rich Text Editing**: [TipTap](https://tiptap.dev/) 3 + ProseMirror + Table & Mention Extensions
 - **Data Visualization & Charts**: [@mui/x-charts](https://mui.com/x/react-charts/)
 - **State & Data Fetching**: [TanStack React Query v5](https://tanstack.com/query) + Server-Side Pagination + Selective Query Cache Persistence
-- **Real-Time & Offline Sync**: Server-Sent Events (SSE) + IndexedDB (`ekos_project_tracker_db`, `ekos_chat_cache_db`) + BroadcastChannel Web APIs
+- **Real-Time & Offline Sync**: Server-Sent Events (SSE) + IndexedDB (`ekos_project_tracker_db`, `ekos_messaging_cache_db`) + BroadcastChannel Web APIs
 - **HTML Sanitization**: [DOMPurify](https://github.com/cure53/DOMPurify)
 - **Routing**: [React Router v7](https://reactrouter.com/)
 - **Testing**: [Playwright](https://playwright.dev/) (End-to-End E2E) + [Vitest](https://vitest.dev/) (Unit / Integration) + [Testing Library](https://testing-library.com/)
@@ -177,9 +177,9 @@ client/
 ├── public/                  # Static assets & public files
 ├── src/
 │   ├── assets/              # Logos and SVGs
-│   ├── components/          # Domain-grouped components (project, chat, invoice, permit, etc.)
+│   ├── components/          # Domain-grouped components (project, messaging, invoice, permit, etc.)
 │   ├── constants/           # API routes, page routes, query keys, storage & time constants
-│   ├── context/             # React contexts (Auth, Chat, Language, Theme, Notifications, ProjectModal)
+│   ├── context/             # React contexts (Auth, Messaging, Language, Theme, Notifications, ProjectModal)
 │   ├── hooks/               # Custom hooks (useTableView, useProjectForm, useActivityTracker, etc.)
 │   ├── i18n/                # Localization dictionaries (en, sr-Latn, sr-Cyrl)
 │   ├── pages/               # 1 Route -> 1 Page components

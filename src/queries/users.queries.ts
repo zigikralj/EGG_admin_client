@@ -30,7 +30,7 @@ export function useUsersSummaryQuery(options?: { enabled?: boolean }) {
 
 /**
  * Preloads and caches the global user directory (id, name, role, avatarUrl).
- * Shared across Chat, @mention highlights, directory pickers, and autocompletes.
+ * Shared across Messaging, @mention highlights, directory pickers, and autocompletes.
  * Automatically persisted to browser storage with 10-minute staleTime and 24-hour cacheTime.
  */
 export function useUsersDirectoryQuery(options?: { enabled?: boolean }) {

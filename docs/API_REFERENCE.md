@@ -226,7 +226,7 @@ Paginated client listing (`?page=&limit=&search=&sortBy=&sortOrder=`), summary p
 
 ### `GET /api/users`
 
-List users with server-side pagination (`?page=&limit=&search=&role=&status=`) or lightweight projections (`?fields=summary` for responsible dropdowns, `?fields=mention` for @mention / chat directory).
+List users with server-side pagination (`?page=&limit=&search=&role=&status=`) or lightweight projections (`?fields=summary` for responsible dropdowns, `?fields=mention` for @mention / messaging directory).
 
 ### `POST /api/users` / `PUT /api/users/:id` / `DELETE /api/users/:id` / `PATCH /api/users/:id/approve` / `PATCH /api/users/:id/reject` / `POST /api/users/:id/force-logout`
 
@@ -672,38 +672,38 @@ Restore entity state to version `:v`.
 
 ---
 
-## Real-Time Chat & Contextual Messaging (`/api/chat`)
+## Real-Time & Contextual Messaging (`/api/messaging`)
 
-> **Client Layer:** [`src/components/chat/chatApi.ts`](../src/components/chat/chatApi.ts) and [`src/context/ChatContext.tsx`](../src/context/ChatContext.tsx)
+> **Client Layer:** [`src/components/messaging/messagingApi.ts`](../src/components/messaging/messagingApi.ts) and [`src/context/MessagingContext.tsx`](../src/context/MessagingContext.tsx)
 
 | Endpoint | Method | Purpose |
 |---|---|---|
-| `/api/chat/stream` | `GET` | Persistent Server-Sent Events (SSE) stream (`connected`, `presence:snapshot`, `presence:update`, `message:new`, `message:updated`, `message:deleted`, `conversation:updated`, `conversation:read`, `typing`). |
-| `/api/chat/presence` | `GET` | List currently online user IDs. |
-| `/api/chat/users` | `GET` | Search active chat users directory (`?search=`). |
-| `/api/chat/messages/search` | `GET` | Full-text message search across user's conversations (`?q=&limit=`). |
-| `/api/chat/conversations` | `GET` | List user's conversations with `unreadCount`, `lastMessage`, `serverSeq`, and participants. |
-| `/api/chat/conversations/direct` | `POST` | Get or create a 1-on-1 `DIRECT` conversation (`{ targetUserId }`). |
-| `/api/chat/conversations/group` | `POST` | Create a `GROUP` conversation (`{ title, participantIds }`). |
-| `/api/chat/conversations/project/:projectId` | `POST` | Get or create a contextual `PROJECT` conversation (`{ title? }`). |
-| `/api/chat/conversations/:id/participants` | `POST` | Add participants to a group/project conversation (`{ userIds }`). |
-| `/api/chat/conversations/:id/participants/:userId` | `DELETE` | Remove a participant from a conversation. |
-| `/api/chat/conversations/:id` | `PATCH` | Rename a group/project conversation (`{ title }`). |
-| `/api/chat/conversations/:id/mute` | `PATCH` | Mute or unmute notifications for a conversation (`{ muted }`). |
-| `/api/chat/conversations/:id/messages` | `GET` | Cursor/sequence message fetch (`?limit=&beforeSeq=&sinceSeq=`). |
-| `/api/chat/conversations/:id/messages` | `POST` | Send a message (`{ content, replyToId?, mentionedUserIds?, clientTempId? }`). |
-| `/api/chat/messages/:id` | `PATCH` | Edit a sent message (`{ content }`). |
-| `/api/chat/messages/:id` | `DELETE` | Soft-delete a message (`deletedAt` tombstone + `seq` bump). |
-| `/api/chat/conversations/:id/read` | `POST` | Mark conversation read up to `lastReadSeq` (`{ seq? }`). |
-| `/api/chat/conversations/:id/typing` | `POST` | Broadcast ephemeral typing status (`{ isTyping }`). |
+| `/api/messaging/stream` | `GET` | Persistent Server-Sent Events (SSE) stream (`connected`, `presence:snapshot`, `presence:update`, `message:new`, `message:updated`, `message:deleted`, `conversation:updated`, `conversation:read`, `typing`). |
+| `/api/messaging/presence` | `GET` | List currently online user IDs. |
+| `/api/messaging/users` | `GET` | Search active messaging users directory (`?search=`). |
+| `/api/messaging/messages/search` | `GET` | Full-text message search across user's conversations (`?q=&limit=`). |
+| `/api/messaging/conversations` | `GET` | List user's conversations with `unreadCount`, `lastMessage`, `serverSeq`, and participants. |
+| `/api/messaging/conversations/direct` | `POST` | Get or create a 1-on-1 `DIRECT` conversation (`{ targetUserId }`). |
+| `/api/messaging/conversations/group` | `POST` | Create a `GROUP` conversation (`{ title, participantIds }`). |
+| `/api/messaging/conversations/project/:projectId` | `POST` | Get or create a contextual `PROJECT` conversation (`{ title? }`). |
+| `/api/messaging/conversations/:id/participants` | `POST` | Add participants to a group/project conversation (`{ userIds }`). |
+| `/api/messaging/conversations/:id/participants/:userId` | `DELETE` | Remove a participant from a conversation. |
+| `/api/messaging/conversations/:id` | `PATCH` | Rename a group/project conversation (`{ title }`). |
+| `/api/messaging/conversations/:id/mute` | `PATCH` | Mute or unmute notifications for a conversation (`{ muted }`). |
+| `/api/messaging/conversations/:id/messages` | `GET` | Cursor/sequence message fetch (`?limit=&beforeSeq=&sinceSeq=`). |
+| `/api/messaging/conversations/:id/messages` | `POST` | Send a message (`{ content, replyToId?, mentionedUserIds?, clientTempId? }`). |
+| `/api/messaging/messages/:id` | `PATCH` | Edit a sent message (`{ content }`). |
+| `/api/messaging/messages/:id` | `DELETE` | Soft-delete a message (`deletedAt` tombstone + `seq` bump). |
+| `/api/messaging/conversations/:id/read` | `POST` | Mark conversation read up to `lastReadSeq` (`{ seq? }`). |
+| `/api/messaging/conversations/:id/typing` | `POST` | Broadcast ephemeral typing status (`{ isTyping }`). |
 
 ---
 
 ## Client-Side Persistence & Delta Storage Engines
 
-### 1. Chat IndexedDB Cache & Sequence Delta Sync (`src/components/chat/chatStorage.ts`)
-- Stores conversations, messages (up to 400 per conversation), and sequence cursors in IndexedDB (`ekos_chat_cache_db`).
-- Compares local `cursorSeq` against server `serverSeq` and fetches only incremental changes via `GET /api/chat/conversations/:id/messages?sinceSeq=<cursorSeq>`.
+### 1. Messaging IndexedDB Cache & Sequence Delta Sync (`src/components/messaging/messagingStorage.ts`)
+- Stores conversations, messages (up to 400 per conversation), and sequence cursors in IndexedDB (`ekos_messaging_cache_db`).
+- Compares local `cursorSeq` against server `serverSeq` and fetches only incremental changes via `GET /api/messaging/conversations/:id/messages?sinceSeq=<cursorSeq>`.
 
 ### 2. Multi-Tier Waste Catalog Storage (`src/utils/wasteCatalogStorage.ts`)
 - **In-Memory Cache (Tier 1):** 0ms synchronous read access.

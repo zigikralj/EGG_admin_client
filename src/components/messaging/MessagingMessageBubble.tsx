@@ -15,21 +15,21 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
-import { useChat } from '../../context/MessagingContext';
-import type { ChatMessageItem } from './messagingApi';
+import { useMessaging } from '../../context/MessagingContext';
+import type { MessagingMessageItem } from './messagingApi';
 
-interface ChatMessageBubbleProps {
-  message: ChatMessageItem;
+export interface MessagingMessageBubbleProps {
+  message: MessagingMessageItem;
   isCurrentUser: boolean;
   canModerate: boolean;
-  onReply: (message: ChatMessageItem) => void;
+  onReply: (message: MessagingMessageItem) => void;
   onEdit: (messageId: string, newContent: string) => Promise<void>;
   onDelete: (messageId: string) => Promise<void>;
 }
 
 const escapeRegex = (s: string) => s.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
 
-export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = React.memo(({
+export const MessagingMessageBubble: React.FC<MessagingMessageBubbleProps> = React.memo(({
   message,
   isCurrentUser,
   canModerate,
@@ -37,7 +37,7 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = React.memo(({
   onEdit,
   onDelete,
 }) => {
-  const { allUsers } = useChat();
+  const { allUsers } = useMessaging();
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(message.content);
@@ -342,8 +342,5 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = React.memo(({
   );
 });
 
-ChatMessageBubble.displayName = 'ChatMessageBubble';
-
-export const MessagingMessageBubble = ChatMessageBubble;
-export type MessagingMessageBubbleProps = ChatMessageBubbleProps;
+MessagingMessageBubble.displayName = 'MessagingMessageBubble';
 

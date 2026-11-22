@@ -17,13 +17,13 @@ import CloseIcon from '@mui/icons-material/Close';
 import ReplyIcon from '@mui/icons-material/Reply';
 import MicIcon from '@mui/icons-material/Mic';
 import MicOffIcon from '@mui/icons-material/MicOff';
-import { useChat, type ChatDirectoryUser } from '../../context/MessagingContext';
+import { useMessaging, type MessagingDirectoryUser } from '../../context/MessagingContext';
 import { useLanguage } from '../../context/LanguageContext';
-import type { ChatMessageItem } from './messagingApi';
+import type { MessagingMessageItem } from './messagingApi';
 
-interface ChatMessageInputProps {
+export interface MessagingMessageInputProps {
   onSendMessage: (content: string, replyToId?: string | null, mentionedUserIds?: string[]) => Promise<void>;
-  replyingTo: ChatMessageItem | null;
+  replyingTo: MessagingMessageItem | null;
   onCancelReply: () => void;
   disabled?: boolean;
   placeholder?: string;
@@ -37,14 +37,14 @@ const getSpeechRecognition = (): any => {
   return SpeechRecognition ? new SpeechRecognition() : null;
 };
 
-export const ChatMessageInput: React.FC<ChatMessageInputProps> = ({
+export const MessagingMessageInput: React.FC<MessagingMessageInputProps> = ({
   onSendMessage,
   replyingTo,
   onCancelReply,
   disabled = false,
   placeholder,
 }) => {
-  const { allUsers } = useChat();
+  const { allUsers } = useMessaging();
   const { language, t } = useLanguage();
   const [content, setContent] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -153,7 +153,7 @@ export const ChatMessageInput: React.FC<ChatMessageInputProps> = ({
     setMentionQuery(null);
   };
 
-  const handleSelectMention = (user: ChatDirectoryUser) => {
+  const handleSelectMention = (user: MessagingDirectoryUser) => {
     if (!inputRef.current) return;
     const cursorPos = inputRef.current.selectionStart || content.length;
     const textBeforeCursor = content.slice(0, cursorPos);
@@ -381,7 +381,4 @@ export const ChatMessageInput: React.FC<ChatMessageInputProps> = ({
     </Box>
   );
 };
-
-export const MessagingMessageInput = ChatMessageInput;
-export type MessagingMessageInputProps = ChatMessageInputProps;
 

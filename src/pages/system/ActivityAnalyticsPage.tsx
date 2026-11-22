@@ -304,8 +304,8 @@ export const ActivityAnalyticsPage: React.FC = () => {
                     </Grid>
                   </Grid>
 
-                  {/* Chat Usage Metric Card */}
-                  {analytics.chatUsage && (
+                  {/* Messaging Usage Metric Card */}
+                  {analytics.messagingUsage && (
                     <Card sx={{ p: 2.5, borderRadius: 2 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -323,7 +323,7 @@ export const ActivityAnalyticsPage: React.FC = () => {
                           <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center', borderRadius: 2 }}>
                             <Typography variant="caption" color="text.secondary">Total Messages</Typography>
                             <Typography variant="h5" sx={{ fontWeight: 700, mt: 0.5 }}>
-                              {analytics.chatUsage.totalMessages}
+                              {analytics.messagingUsage.totalMessages}
                             </Typography>
                           </Paper>
                         </Grid>
@@ -331,7 +331,7 @@ export const ActivityAnalyticsPage: React.FC = () => {
                           <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center', borderRadius: 2 }}>
                             <Typography variant="caption" color="text.secondary">Direct (1-on-1)</Typography>
                             <Typography variant="h5" sx={{ fontWeight: 700, mt: 0.5, color: 'info.main' }}>
-                              {analytics.chatUsage.directMessages}
+                              {analytics.messagingUsage.directMessages}
                             </Typography>
                           </Paper>
                         </Grid>
@@ -339,7 +339,7 @@ export const ActivityAnalyticsPage: React.FC = () => {
                           <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center', borderRadius: 2 }}>
                             <Typography variant="caption" color="text.secondary">Project Discussions</Typography>
                             <Typography variant="h5" sx={{ fontWeight: 700, mt: 0.5, color: 'secondary.main' }}>
-                              {analytics.chatUsage.projectMessages}
+                              {analytics.messagingUsage.projectMessages}
                             </Typography>
                           </Paper>
                         </Grid>
@@ -347,7 +347,7 @@ export const ActivityAnalyticsPage: React.FC = () => {
                           <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center', borderRadius: 2 }}>
                             <Typography variant="caption" color="text.secondary">Group Messages</Typography>
                             <Typography variant="h5" sx={{ fontWeight: 700, mt: 0.5, color: 'success.main' }}>
-                              {analytics.chatUsage.groupMessages}
+                              {analytics.messagingUsage.groupMessages}
                             </Typography>
                           </Paper>
                         </Grid>

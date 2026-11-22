@@ -36,7 +36,7 @@ describe('queryPersistence', () => {
     it('rejects volatile, paginated, or sensitive queries', () => {
       expect(isPersistableQuery(['users', 'paginated', 1, 10])).toBe(false);
       expect(isPersistableQuery(['projects'])).toBe(false);
-      expect(isPersistableQuery(['chat', 'messages', 'conv-1'])).toBe(false);
+      expect(isPersistableQuery(['messaging', 'messages', 'conv-1'])).toBe(false);
       expect(isPersistableQuery(['invoices'])).toBe(false);
       expect(isPersistableQuery([])).toBe(false);
       expect(isPersistableQuery(null as any)).toBe(false);

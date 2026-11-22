@@ -35,8 +35,8 @@ import NotificationsActiveOutlinedIcon from '@mui/icons-material/NotificationsAc
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import { useQuery } from '@tanstack/react-query';
-import { chatApi, type ChatConversationItem } from './messagingApi';
-import { useChat } from '../../context/MessagingContext';
+import { messagingApi, type MessagingConversationItem } from './messagingApi';
+import { useMessaging } from '../../context/MessagingContext';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { TIME_MS } from '../../constants';
@@ -65,22 +65,22 @@ export interface UnifiedUserItem {
   isOnline: boolean;
 }
 
-export type UnifiedChatItem = UnifiedConversationItem | UnifiedUserItem;
+export type UnifiedMessagingItem = UnifiedConversationItem | UnifiedUserItem;
 
-type ChatTabType = 'all' | 'projects' | 'people' | 'groups';
+type MessagingTabType = 'all' | 'projects' | 'people' | 'groups';
 
-interface ChatConversationListProps {
+interface MessagingConversationListProps {
   onClose?: () => void;
 }
 
-export const ChatConversationList: React.FC<ChatConversationListProps> = () => {
+export const MessagingConversationList: React.FC<MessagingConversationListProps> = () => {
   const { currentUser, hasPermission } = useAuth();
-  const canDeleteChat = hasPermission('messaging', 'delete');
+  const canDeleteMessages = hasPermission('messaging', 'delete');
   const { t } = useLanguage();
   const {
     onlineUserIds,
-    openChat,
-    openDirectChatWithUser,
+    openMessaging,
+    openDirectMessagingWithUser,
     markAsRead,
     markAsUnread,
     leaveConversation,
@@ -88,9 +88,9 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = () => {
     muteConversation,
     unmuteConversation,
     allUsers,
-  } = useChat();
+  } = useMessaging();
 
-  const [activeTab, setActiveTab] = useState<ChatTabType>('all');
+  const [activeTab, setActiveTab] = useState<MessagingTabType>('all');
   const [search, setSearch] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -102,9 +102,9 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = () => {
   const [leaveDialogConv, setLeaveDialogConv] = useState<UnifiedConversationItem | null>(null);
 
   // Fetch active conversations
-  const { data: conversations = [] } = useQuery<ChatConversationItem[]>({
-    queryKey: ['chat', 'conversations'],
-    queryFn: () => chatApi.getConversations(),
+  const { data: conversations = [] } = useQuery<MessagingConversationItem[]>({
+    queryKey: ['messaging', 'conversations'],
+    queryFn: () => messagingApi.getConversations(),
     staleTime: TIME_MS.ONE_MINUTE,
     meta: { silent: true },
   });
@@ -113,7 +113,7 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = () => {
   const filteredItems = useMemo(() => {
     const directPartnerUserIds = new Set<string>();
 
-    // Merely opening a 1-1 chat with someone without sending anything should NOT mark it as recent
+    // Merely opening a 1-1 conversation with someone without sending anything should NOT mark it as recent
     // or remove them from the colleagues list.
     const activeConversations = conversations.filter(
       (c) => c.type !== 'DIRECT' || Boolean(c.lastMessage)
@@ -201,7 +201,7 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = () => {
       return a.title.localeCompare(b.title);
     });
 
-    let items: UnifiedChatItem[] = [];
+    let items: UnifiedMessagingItem[] = [];
 
     switch (activeTab) {
       case 'projects':
@@ -350,7 +350,7 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = () => {
                   return (
                     <ListItemButton
                       key={`conv-${item.id}`}
-                      onClick={() => openChat(item.id, { title: item.title })}
+                      onClick={() => openMessaging(item.id, { title: item.title })}
                       sx={{ py: 1, px: 1.5 }}
                     >
                       <ListItemAvatar sx={{ minWidth: 42 }}>
@@ -539,7 +539,7 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = () => {
                               )}
 
                               {/* Delete / Clear conversation */}
-                              {canDeleteChat && (
+                              {canDeleteMessages && (
                                 <Tooltip title={t('messagingDeleteConversation')} arrow>
                                   <IconButton
                                     size="small"
@@ -565,7 +565,7 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = () => {
                 return (
                   <ListItemButton
                     key={`user-${item.id}`}
-                    onClick={() => openDirectChatWithUser(item.id, item.title)}
+                    onClick={() => openDirectMessagingWithUser(item.id, item.title)}
                     sx={{ py: 1, px: 1.5 }}
                   >
                     <ListItemAvatar sx={{ minWidth: 42 }}>
@@ -709,8 +709,4 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = () => {
     </Box>
   );
 };
-
-export const MessagingConversationList = ChatConversationList;
-export type MessagingConversationListProps = ChatConversationListProps;
-export type UnifiedMessagingItem = UnifiedChatItem;
 

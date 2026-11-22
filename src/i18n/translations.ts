@@ -998,7 +998,6 @@ export interface TranslationKeys {
   statistics: string;
   messaging: string;
   messages: string;
-  chat: string;
   projects: string;
   clients: string;
   permits: string;
@@ -1022,7 +1021,7 @@ export interface TranslationKeys {
   restore: string;
   configure: string;
   moderate: string;
-  permResourceChat: string;
+  permResourceMessaging: string;
   permResourceActivityLogs: string;
   permResourceActivityAnalytics: string;
   permResourceSystemSettings: string;

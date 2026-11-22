@@ -36,17 +36,17 @@ import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import FolderSpecialIcon from '@mui/icons-material/FolderSpecial';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { chatApi, type ChatMessageItem, type ChatConversationItem } from './messagingApi';
-import { chatStorage } from './messagingStorage';
+import { messagingApi, type MessagingMessageItem, type MessagingConversationItem } from './messagingApi';
+import { messagingStorage } from './messagingStorage';
 import { MessagingMessageBubble } from './MessagingMessageBubble';
 import { MessagingMessageInput } from './MessagingMessageInput';
 import { useAuth } from '../../context/AuthContext';
-import { useChat, type ChatDirectoryUser } from '../../context/MessagingContext';
+import { useMessaging, type MessagingDirectoryUser } from '../../context/MessagingContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { MessagingMemberSelector } from './MessagingMemberSelector';
 import { TIME_MS } from '../../constants';
 
-interface ChatWindowProps {
+interface MessagingWindowProps {
   conversationId: string;
   minimized: boolean;
   title?: string;
@@ -54,7 +54,7 @@ interface ChatWindowProps {
   onToggleMinimize: () => void;
 }
 
-export const ChatWindow: React.FC<ChatWindowProps> = ({
+export const MessagingWindow: React.FC<MessagingWindowProps> = ({
   conversationId,
   minimized,
   title,
@@ -62,8 +62,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   onToggleMinimize,
 }) => {
   const { currentUser, hasPermission } = useAuth();
-  const canDeleteChat = hasPermission('messaging', 'delete');
-  const canModerateChat = hasPermission('messaging', 'moderate');
+  const canDeleteMessages = hasPermission('messaging', 'delete');
+  const canModerateMessages = hasPermission('messaging', 'moderate');
   const { t } = useLanguage();
   const {
     markAsUnread,
@@ -73,14 +73,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     unmuteConversation,
     deleteConversation,
     leaveConversation,
-  } = useChat();
+  } = useMessaging();
   const queryClient = useQueryClient();
-  const [replyingTo, setReplyingTo] = useState<ChatMessageItem | null>(null);
+  const [replyingTo, setReplyingTo] = useState<MessagingMessageItem | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Group Details View state
   const [showGroupDetails, setShowGroupDetails] = useState(false);
-  const [selectedUsersToAdd, setSelectedUsersToAdd] = useState<ChatDirectoryUser[]>([]);
+  const [selectedUsersToAdd, setSelectedUsersToAdd] = useState<MessagingDirectoryUser[]>([]);
   const [actionLoading, setActionLoading] = useState(false);
 
   // Menus and Dialogs
@@ -91,15 +91,15 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
   // Read existing conversation metadata from the conversations list cache if available
   const cachedConversation = useMemo(() => {
-    const list = queryClient.getQueryData<ChatConversationItem[]>(['chat', 'conversations']);
+    const list = queryClient.getQueryData<MessagingConversationItem[]>(['messaging', 'conversations']);
     return list?.find((c) => c.id === conversationId);
   }, [queryClient, conversationId]);
 
   // Load conversation details (participants, title, type)
   // Gated: only triggers network fetch if missing from cache or when opening Group Details drawer
-  const { data: conversation = cachedConversation } = useQuery<ChatConversationItem>({
-    queryKey: ['chat', 'conversation', conversationId],
-    queryFn: () => chatApi.getConversation(conversationId),
+  const { data: conversation = cachedConversation } = useQuery<MessagingConversationItem>({
+    queryKey: ['messaging', 'conversation', conversationId],
+    queryFn: () => messagingApi.getConversation(conversationId),
     enabled: !cachedConversation || showGroupDetails,
     initialData: cachedConversation,
     staleTime: TIME_MS.FIVE_MINUTES,
@@ -133,7 +133,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       setDeleteConfirmOpen(false);
       onClose();
     } catch (err) {
-      console.error('Failed to delete chat', err);
+      console.error('Failed to delete conversation', err);
     } finally {
       setActionLoading(false);
     }
@@ -146,7 +146,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       setLeaveConfirmOpen(false);
       onClose();
     } catch (err) {
-      console.error('Failed to leave chat', err);
+      console.error('Failed to leave conversation', err);
     } finally {
       setActionLoading(false);
     }
@@ -205,17 +205,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const isPartnerOnline = directPartner ? onlineUserIds.has(directPartner.id) : false;
 
   // Load message history with IndexedDB local cache + cursor delta sync
-  const { data: messages = [], isLoading } = useQuery<ChatMessageItem[]>({
-    queryKey: ['chat', 'messages', conversationId],
+  const { data: messages = [], isLoading } = useQuery<MessagingMessageItem[]>({
+    queryKey: ['messaging', 'messages', conversationId],
     queryFn: async () => {
       // 1. Try reading from local IndexedDB cache first
-      const cached = await chatStorage.getMessages(conversationId);
-      const meta = await chatStorage.getConversationMeta(conversationId);
+      const cached = await messagingStorage.getMessages(conversationId);
+      const meta = await messagingStorage.getConversationMeta(conversationId);
 
       // If we have cached messages and a known sequence watermark, perform a lightweight forward delta sync
       if (cached && cached.length > 0 && meta?.maxSeq) {
         try {
-          const deltaRes = await chatApi.syncMessageDeltas(conversationId, {
+          const deltaRes = await messagingApi.syncMessageDeltas(conversationId, {
             afterSeq: meta.maxSeq,
             sinceUpdatedAt: meta.syncedAt,
           });
@@ -238,18 +238,18 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             merged.sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0));
             // Keep up to 100 most recent in IndexedDB
             const toPersist = merged.slice(-100);
-            await chatStorage.saveMessages(conversationId, toPersist);
+            await messagingStorage.saveMessages(conversationId, toPersist);
             return merged;
           }
         } catch (e) {
-          console.warn('[ChatWindow] Delta sync failed, using cached messages:', e);
+          console.warn('[MessagingWindow] Delta sync failed, using cached messages:', e);
           return cached;
         }
       }
 
       // 2. Full fresh fetch if no local cache exists
-      const fresh = (await chatApi.getMessages(conversationId, { limit: 50 })) as ChatMessageItem[];
-      await chatStorage.saveMessages(conversationId, fresh);
+      const fresh = (await messagingApi.getMessages(conversationId, { limit: 50 })) as MessagingMessageItem[];
+      await messagingStorage.saveMessages(conversationId, fresh);
       return fresh;
     },
     refetchOnWindowFocus: false,
@@ -268,7 +268,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     replyToId?: string | null,
     mentionedUserIds?: string[]
   ) => {
-    await chatApi.sendMessage(conversationId, {
+    await messagingApi.sendMessage(conversationId, {
       content,
       replyToId,
       mentionedUserIds,
@@ -276,21 +276,21 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   };
 
   const handleEditMessage = async (messageId: string, newContent: string) => {
-    const updated = await chatApi.editMessage(messageId, newContent);
-    chatStorage.upsertMessage(updated).catch(() => {});
-    queryClient.setQueryData<ChatMessageItem[]>(
-      ['chat', 'messages', conversationId],
+    const updated = await messagingApi.editMessage(messageId, newContent);
+    messagingStorage.upsertMessage(updated).catch(() => {});
+    queryClient.setQueryData<MessagingMessageItem[]>(
+      ['messaging', 'messages', conversationId],
       (old = []) => old.map((m) => (m.id === messageId ? updated : m))
     );
   };
 
   const handleDeleteMessage = async (messageId: string) => {
-    const res = await chatApi.deleteMessage(messageId);
+    const res = await messagingApi.deleteMessage(messageId);
     if (res.hardDeleted) {
-      chatStorage.removeMessage(messageId).catch(() => {});
+      messagingStorage.removeMessage(messageId).catch(() => {});
     }
-    queryClient.setQueryData<ChatMessageItem[]>(
-      ['chat', 'messages', conversationId],
+    queryClient.setQueryData<MessagingMessageItem[]>(
+      ['messaging', 'messages', conversationId],
       (old = []) => {
         if (res.hardDeleted) {
           return old.filter((m) => m.id !== messageId);
@@ -298,21 +298,21 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         return old.map((m) => {
           if (m.id !== messageId) return m;
           const softDeleted = { ...m, isDeleted: true, content: '' };
-          chatStorage.upsertMessage(softDeleted).catch(() => {});
+          messagingStorage.upsertMessage(softDeleted).catch(() => {});
           return softDeleted;
         });
       }
     );
   };
 
-  // Rename group chat
+  // Rename group conversation
   const handleSaveTitle = async () => {
     if (!isTitleChanged || actionLoading) return;
     try {
       setActionLoading(true);
-      await chatApi.renameConversation(conversationId, groupTitle.trim());
-      await queryClient.invalidateQueries({ queryKey: ['chat', 'conversation', conversationId] });
-      await queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] });
+      await messagingApi.renameConversation(conversationId, groupTitle.trim());
+      await queryClient.invalidateQueries({ queryKey: ['messaging', 'conversation', conversationId] });
+      await queryClient.invalidateQueries({ queryKey: ['messaging', 'conversations'] });
     } catch (err) {
       console.error('Failed to rename group', err);
     } finally {
@@ -325,12 +325,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     if (selectedUsersToAdd.length === 0 || actionLoading) return;
     try {
       setActionLoading(true);
-      await chatApi.addParticipants(
+      await messagingApi.addParticipants(
         conversationId,
         selectedUsersToAdd.map((u) => u.id)
       );
-      await queryClient.invalidateQueries({ queryKey: ['chat', 'conversation', conversationId] });
-      await queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] });
+      await queryClient.invalidateQueries({ queryKey: ['messaging', 'conversation', conversationId] });
+      await queryClient.invalidateQueries({ queryKey: ['messaging', 'conversations'] });
       setSelectedUsersToAdd([]);
     } catch (err) {
       console.error('Failed to add participants', err);
@@ -349,12 +349,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
     try {
       setActionLoading(true);
-      await chatApi.removeParticipant(conversationId, targetUserId);
+      await messagingApi.removeParticipant(conversationId, targetUserId);
       if (isSelf) {
         onClose();
       } else {
-        await queryClient.invalidateQueries({ queryKey: ['chat', 'conversation', conversationId] });
-        await queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] });
+        await queryClient.invalidateQueries({ queryKey: ['messaging', 'conversation', conversationId] });
+        await queryClient.invalidateQueries({ queryKey: ['messaging', 'conversations'] });
       }
     } catch (err) {
       console.error('Failed to remove participant', err);
@@ -651,7 +651,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       {!minimized && (
         <>
           {showGroupDetails ? (
-            /* Group Details & Member Management View using ChatMemberSelector */
+            /* Group Details & Member Management View using MessagingMemberSelector */
             <Box
               sx={{
                 flex: 1,
@@ -710,7 +710,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               </Button>
             </Box>
           ) : (
-            /* Standard Chat Messages Stream */
+            /* Standard Messages Stream */
             <>
               <Box
                 ref={scrollRef}
@@ -739,7 +739,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                       key={msg.id}
                       message={msg}
                       isCurrentUser={msg.senderId === currentUser?.id}
-                      canModerate={canModerateChat}
+                      canModerate={canModerateMessages}
                       onReply={(m) => setReplyingTo(m)}
                       onEdit={handleEditMessage}
                       onDelete={handleDeleteMessage}
@@ -842,7 +842,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               </MenuItem>
             )}
 
-            {canDeleteChat && (
+            {canDeleteMessages && (
               <MenuItem
                 onClick={() => {
                   handleCloseMoreMenu();
@@ -972,4 +972,3 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   );
 };
 
-export const MessagingWindow = ChatWindow;
