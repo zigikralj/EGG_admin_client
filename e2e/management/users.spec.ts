@@ -7,7 +7,7 @@ test.describe('Users & Roles Management', () => {
       id: '1',
       name: 'Petar Petrović',
       email: 'petar@ekosgreen.rs',
-      role: USER_ROLES.MANAGER,
+      role: 'Manager',
       status: USER_STATUSES.APPROVED,
       phone: '+381641234567',
       gender: 'Male',
@@ -16,7 +16,7 @@ test.describe('Users & Roles Management', () => {
       id: '2',
       name: 'Jelena Jovanović',
       email: 'jelena@ekosgreen.rs',
-      role: USER_ROLES.USER,
+      role: 'User',
       status: USER_STATUSES.APPROVED,
       phone: '+381649876543',
       gender: 'Female',
@@ -34,7 +34,7 @@ test.describe('Users & Roles Management', () => {
     },
     {
       id: 'r-2',
-      name: USER_ROLES.MANAGER,
+      name: 'Manager',
       description: 'Menadžer projekata i klijenata',
       isSystemAdmin: false,
       permissions: { projects: ['view', 'create', 'edit'] },
@@ -42,7 +42,7 @@ test.describe('Users & Roles Management', () => {
     },
     {
       id: 'r-3',
-      name: USER_ROLES.USER,
+      name: 'User',
       description: 'Standardni korisnik sistema',
       isSystemAdmin: false,
       permissions: { projects: ['view'] },
@@ -56,7 +56,7 @@ test.describe('Users & Roles Management', () => {
         id: '1',
         name: 'Petar Petrović',
         email: 'petar@ekosgreen.rs',
-        role: USER_ROLES.MANAGER,
+        role: 'Manager',
         status: USER_STATUSES.APPROVED,
         phone: '+381641234567',
         gender: 'Male',
@@ -65,7 +65,7 @@ test.describe('Users & Roles Management', () => {
         id: '2',
         name: 'Jelena Jovanović',
         email: 'jelena@ekosgreen.rs',
-        role: USER_ROLES.USER,
+        role: 'User',
         status: USER_STATUSES.APPROVED,
         phone: '+381649876543',
         gender: 'Female',
@@ -83,7 +83,7 @@ test.describe('Users & Roles Management', () => {
       },
       {
         id: 'r-2',
-        name: USER_ROLES.MANAGER,
+        name: 'Manager',
         description: 'Menadžer projekata i klijenata',
         isSystemAdmin: false,
         permissions: { projects: ['view', 'create', 'edit'] },
@@ -91,7 +91,7 @@ test.describe('Users & Roles Management', () => {
       },
       {
         id: 'r-3',
-        name: USER_ROLES.USER,
+        name: 'User',
         description: 'Standardni korisnik sistema',
         isSystemAdmin: false,
         permissions: { projects: ['view'] },
@@ -288,7 +288,7 @@ test.describe('Users & Roles Management', () => {
     expect(createdPayload).not.toBeNull();
     expect(createdPayload.name).toBe('Milan Nikolić');
     expect(createdPayload.email).toBe('milan@ekosgreen.rs');
-    expect(createdPayload.role).toBe(USER_ROLES.MANAGER);
+    expect(createdPayload.role).toBe('Manager');
   });
 
   test('should edit existing user role', async ({ page }) => {
@@ -326,7 +326,7 @@ test.describe('Users & Roles Management', () => {
 
     await expect(dialog).not.toBeVisible();
     expect(updatedPayload).not.toBeNull();
-    expect(updatedPayload.role).toBe(USER_ROLES.MANAGER);
+    expect(updatedPayload.role).toBe('Manager');
   });
 
   test('should display the roles page with roles list', async ({ page }) => {
