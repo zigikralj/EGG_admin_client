@@ -33,6 +33,7 @@ export interface MessagingContextType {
   isDndActive: boolean;
   totalUnreadCount: number;
   getProjectUnreadCount: (projectId: string) => number;
+  getConversationUnreadCount: (conversationId: string) => number;
   allUsers: MessagingDirectoryUser[];
   isNewMessageOpen: boolean;
   isNewMessageMinimized: boolean;
@@ -318,6 +319,15 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             (old = []) =>
               old.map((c) => (c.id === conversationId ? { ...c, unreadCount: 0, lastReadAt } : c))
           );
+          queryClient.setQueryData<MessagingUnreadSummary>(
+            ['messaging', 'unread-summary'],
+            (old) => {
+              if (!old?.byConversation?.[conversationId]) return old;
+              const nextByConv = { ...old.byConversation };
+              delete nextByConv[conversationId];
+              return { ...old, byConversation: nextByConv };
+            }
+          );
           queryClient.invalidateQueries({ queryKey: ['messaging', 'unread-summary'] });
         } catch {}
       });
@@ -525,6 +535,15 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         (old = []) =>
           old.map((c) => (c.id === conversationId ? { ...c, unreadCount: 0 } : c))
       );
+      queryClient.setQueryData<MessagingUnreadSummary>(
+        ['messaging', 'unread-summary'],
+        (old) => {
+          if (!old?.byConversation?.[conversationId]) return old;
+          const nextByConv = { ...old.byConversation };
+          delete nextByConv[conversationId];
+          return { ...old, byConversation: nextByConv };
+        }
+      );
       await messagingApi.markAsRead(conversationId);
       queryClient.invalidateQueries({ queryKey: ['messaging', 'unread-summary'] });
     } catch (err) {
@@ -581,13 +600,30 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setActiveWindows((prev) => prev.filter((w) => w.conversationId !== conversationId));
   }, []);
 
+  const getConversationUnreadCount = useCallback(
+    (conversationId: string) => {
+      const summaryCount = unreadSummary?.byConversation?.[conversationId] ?? 0;
+      const convList = queryClient.getQueryData<MessagingConversationItem[]>(['messaging', 'conversations']);
+      const listCount = convList?.find((c) => c.id === conversationId)?.unreadCount ?? 0;
+      return Math.max(summaryCount, listCount);
+    },
+    [unreadSummary, queryClient]
+  );
+
   const toggleMinimize = useCallback((conversationId: string) => {
+    const target = activeWindowsRef.current.find((w) => w.conversationId === conversationId);
+    const willOpen = Boolean(target?.minimized);
+
     setActiveWindows((prev) =>
       prev.map((w) =>
         w.conversationId === conversationId ? { ...w, minimized: !w.minimized } : w
       )
     );
-  }, []);
+
+    if (willOpen && getConversationUnreadCount(conversationId) > 0) {
+      markAsRead(conversationId);
+    }
+  }, [getConversationUnreadCount, markAsRead]);
 
   const openNewMessage = useCallback(() => {
     setIsNewMessageOpen(true);
@@ -769,6 +805,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       isDndActive,
       totalUnreadCount,
       getProjectUnreadCount,
+      getConversationUnreadCount,
       allUsers,
       isNewMessageOpen,
       isNewMessageMinimized,
@@ -799,6 +836,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       isDndActive,
       totalUnreadCount,
       getProjectUnreadCount,
+      getConversationUnreadCount,
       allUsers,
       isNewMessageOpen,
       isNewMessageMinimized,
@@ -837,6 +875,7 @@ const defaultMessagingContext: MessagingContextType = {
   isDndActive: false,
   totalUnreadCount: 0,
   getProjectUnreadCount: () => 0,
+  getConversationUnreadCount: () => 0,
   allUsers: [],
   isNewMessageOpen: false,
   isNewMessageMinimized: false,

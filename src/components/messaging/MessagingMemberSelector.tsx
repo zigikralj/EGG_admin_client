@@ -28,6 +28,7 @@ export interface MessagingMemberSelectorProps {
   onSelectedUsersChange: (users: MessagingDirectoryUser[]) => void;
   existingMembers?: ExistingGroupMember[];
   onRemoveExistingMember?: (userId: string) => void;
+  onClickExistingMember?: (member: ExistingGroupMember) => void;
   excludeUserIds?: Set<string>;
   placeholder?: string;
   listTitle?: string;
@@ -39,6 +40,7 @@ export const MessagingMemberSelector: React.FC<MessagingMemberSelectorProps> = (
   onSelectedUsersChange,
   existingMembers,
   onRemoveExistingMember,
+  onClickExistingMember,
   excludeUserIds,
   placeholder,
   listTitle,
@@ -185,6 +187,7 @@ export const MessagingMemberSelector: React.FC<MessagingMemberSelectorProps> = (
               </Avatar>
             }
             label={m.name}
+            onClick={onClickExistingMember ? () => onClickExistingMember(m) : undefined}
             onDelete={onRemoveExistingMember ? () => onRemoveExistingMember(m.id) : undefined}
             sx={{
               fontWeight: 600,

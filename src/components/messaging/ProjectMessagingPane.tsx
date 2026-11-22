@@ -282,6 +282,7 @@ export const ProjectMessagingPane: React.FC<ProjectMessagingPaneProps> = ({ proj
         onSendMessage={handleSendMessage}
         replyingTo={replyingTo}
         onCancelReply={() => setReplyingTo(null)}
+        allowMentions
         placeholder="Type a message or note about this project..."
       />
 

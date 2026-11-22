@@ -69,6 +69,8 @@ export const MessagingWindow: React.FC<MessagingWindowProps> = ({
     markAsUnread,
     allUsers,
     onlineUserIds,
+    openDirectMessagingWithUser,
+    getConversationUnreadCount,
     muteConversation,
     unmuteConversation,
     deleteConversation,
@@ -89,30 +91,71 @@ export const MessagingWindow: React.FC<MessagingWindowProps> = ({
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
 
-  // Read existing conversation metadata from the conversations list cache if available
-  const cachedConversation = useMemo(() => {
-    const list = queryClient.getQueryData<MessagingConversationItem[]>(['messaging', 'conversations']);
-    return list?.find((c) => c.id === conversationId);
-  }, [queryClient, conversationId]);
+  // Passively subscribe to the conversations list cache without triggering extra fetches
+  const { data: conversationList } = useQuery<MessagingConversationItem[]>({
+    queryKey: ['messaging', 'conversations'],
+    queryFn: () => messagingApi.getConversations(),
+    enabled: false,
+  });
+  const cachedConversation = useMemo(
+    () => conversationList?.find((c) => c.id === conversationId),
+    [conversationList, conversationId]
+  );
 
   // Load conversation details (participants, title, type)
   // Gated: only triggers network fetch if missing from cache or when opening Group Details drawer
-  const { data: conversation = cachedConversation } = useQuery<MessagingConversationItem>({
+  const { data: fetchedConversation } = useQuery<MessagingConversationItem>({
     queryKey: ['messaging', 'conversation', conversationId],
     queryFn: () => messagingApi.getConversation(conversationId),
     enabled: !cachedConversation || showGroupDetails,
-    initialData: cachedConversation,
     staleTime: TIME_MS.FIVE_MINUTES,
     refetchOnWindowFocus: false,
     meta: { silent: true },
   });
 
+  const conversation = showGroupDetails
+    ? (fetchedConversation ?? cachedConversation)
+    : (cachedConversation ?? fetchedConversation);
+
   const isGroup = conversation?.type === 'GROUP';
   const isProject = conversation?.type === 'CONTEXTUAL' || conversation?.contextType === 'PROJECT';
-  const displayTitle =
-    conversation?.title ||
-    title ||
-    (isGroup ? t('messagingGroupConversation') : isProject ? t('messagingProjectDiscussion') : t('messagingTitle'));
+
+  // Normalized participants list with guaranteed user details and IDs resolved from /users directory
+  const normalizedParticipants = useMemo(() => {
+    const rawList = conversation?.participantIds || conversation?.participants || [];
+    return rawList.map((p: any) => {
+      const u = p?.user || p;
+      const uid = (typeof p === 'string' ? p : u?.id || p?.userId || p?.id) as string;
+      const directoryUser = allUsers.find((user) => user.id === uid);
+      return {
+        id: uid,
+        name: directoryUser?.name || (typeof p === 'object' ? p?.name || u?.name : '') || 'User',
+        role: directoryUser?.role || (typeof p === 'object' ? p?.role || u?.role : '') || 'User',
+        avatarUrl: directoryUser?.avatarUrl ?? (typeof p === 'object' ? p?.avatarUrl ?? u?.avatarUrl : null),
+      };
+    });
+  }, [conversation?.participantIds, conversation?.participants, allUsers]);
+
+  // Other participants (excluding currentUser)
+  const otherParticipants = useMemo(() => {
+    return normalizedParticipants.filter((p) => p.id !== currentUser?.id);
+  }, [normalizedParticipants, currentUser?.id]);
+
+  // For 1-on-1 direct conversations:
+  const directPartner = useMemo(() => {
+    if (isGroup || isProject) return null;
+    return otherParticipants[0] || normalizedParticipants[0] || null;
+  }, [isGroup, isProject, otherParticipants, normalizedParticipants]);
+
+  const isPartnerOnline = directPartner ? onlineUserIds.has(directPartner.id) : false;
+
+  const displayTitle = isGroup
+    ? conversation?.title || title || t('messagingGroupConversation')
+    : isProject
+    ? conversation?.title || title || t('messagingProjectDiscussion')
+    : directPartner?.name || title || t('messagingTitle');
+
+  const allowMentions = isGroup || isProject;
   const [groupTitle, setGroupTitle] = useState(displayTitle);
 
   // Keep groupTitle in sync when displayTitle updates
@@ -125,6 +168,10 @@ export const MessagingWindow: React.FC<MessagingWindowProps> = ({
   );
 
   const isMuted = Boolean(conversation?.muted);
+  const unreadCount = Math.max(
+    getConversationUnreadCount(conversationId),
+    conversation?.unreadCount ?? 0
+  );
 
   const handleConfirmDelete = async () => {
     try {
@@ -174,35 +221,6 @@ export const MessagingWindow: React.FC<MessagingWindowProps> = ({
       console.error('Failed to unmute conversation', err);
     }
   };
-
-  // Normalized participants list with guaranteed user details and IDs resolved from /users directory
-  const normalizedParticipants = useMemo(() => {
-    const rawList = conversation?.participantIds || conversation?.participants || [];
-    return rawList.map((p: any) => {
-      const u = p?.user || p;
-      const uid = (typeof p === 'string' ? p : u?.id || p?.userId || p?.id) as string;
-      const directoryUser = allUsers.find((user) => user.id === uid);
-      return {
-        id: uid,
-        name: directoryUser?.name || (typeof p === 'object' ? p?.name || u?.name : '') || 'User',
-        role: directoryUser?.role || (typeof p === 'object' ? p?.role || u?.role : '') || 'User',
-        avatarUrl: directoryUser?.avatarUrl ?? (typeof p === 'object' ? p?.avatarUrl ?? u?.avatarUrl : null),
-      };
-    });
-  }, [conversation?.participantIds, conversation?.participants, allUsers]);
-
-  // Other participants (excluding currentUser)
-  const otherParticipants = useMemo(() => {
-    return normalizedParticipants.filter((p) => p.id !== currentUser?.id);
-  }, [normalizedParticipants, currentUser?.id]);
-
-  // For 1-on-1 direct conversations:
-  const directPartner = useMemo(() => {
-    if (isGroup || isProject) return null;
-    return otherParticipants[0] || normalizedParticipants[0] || null;
-  }, [isGroup, isProject, otherParticipants, normalizedParticipants]);
-
-  const isPartnerOnline = directPartner ? onlineUserIds.has(directPartner.id) : false;
 
   // Load message history with IndexedDB local cache + cursor delta sync
   const { data: messages = [], isLoading } = useQuery<MessagingMessageItem[]>({
@@ -559,6 +577,25 @@ export const MessagingWindow: React.FC<MessagingWindowProps> = ({
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, lineHeight: 1.2, fontSize: '0.85rem' }} noWrap>
                   {displayTitle}
                 </Typography>
+                {minimized && unreadCount > 0 && (
+                  <Badge
+                    badgeContent={unreadCount}
+                    color="error"
+                    max={99}
+                    sx={{
+                      flexShrink: 0,
+                      '& .MuiBadge-badge': {
+                        position: 'static',
+                        transform: 'none',
+                        height: 18,
+                        minWidth: 18,
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        px: 0.5,
+                      },
+                    }}
+                  />
+                )}
                 {isMuted && (
                   <Tooltip title={t('messagingMuted')} arrow>
                     <NotificationsOffOutlinedIcon
@@ -674,6 +711,7 @@ export const MessagingWindow: React.FC<MessagingWindowProps> = ({
                     avatarUrl: p.avatarUrl,
                   }))}
                 onRemoveExistingMember={handleRemoveParticipant}
+                onClickExistingMember={(m) => void openDirectMessagingWithUser(m.id, m.name)}
                 selectedUsers={selectedUsersToAdd}
                 onSelectedUsersChange={setSelectedUsersToAdd}
                 placeholder="Search users to add..."
@@ -740,6 +778,7 @@ export const MessagingWindow: React.FC<MessagingWindowProps> = ({
                       message={msg}
                       isCurrentUser={msg.senderId === currentUser?.id}
                       canModerate={canModerateMessages}
+                      highlightMentions={allowMentions}
                       onReply={(m) => setReplyingTo(m)}
                       onEdit={handleEditMessage}
                       onDelete={handleDeleteMessage}
@@ -753,6 +792,9 @@ export const MessagingWindow: React.FC<MessagingWindowProps> = ({
                 onSendMessage={handleSendMessage}
                 replyingTo={replyingTo}
                 onCancelReply={() => setReplyingTo(null)}
+                allowMentions={allowMentions}
+                mentionCandidates={isGroup ? otherParticipants : undefined}
+                autoFocus
               />
             </>
           )}

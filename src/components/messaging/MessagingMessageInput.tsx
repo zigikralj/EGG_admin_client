@@ -27,6 +27,9 @@ export interface MessagingMessageInputProps {
   onCancelReply: () => void;
   disabled?: boolean;
   placeholder?: string;
+  allowMentions?: boolean;
+  mentionCandidates?: MessagingDirectoryUser[];
+  autoFocus?: boolean;
 }
 
 // Check for Web Speech API support
@@ -43,6 +46,9 @@ export const MessagingMessageInput: React.FC<MessagingMessageInputProps> = ({
   onCancelReply,
   disabled = false,
   placeholder,
+  allowMentions = true,
+  mentionCandidates,
+  autoFocus = false,
 }) => {
   const { allUsers } = useMessaging();
   const { language, t } = useLanguage();
@@ -55,6 +61,23 @@ export const MessagingMessageInput: React.FC<MessagingMessageInputProps> = ({
 
   const inputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
+
+  const candidateUsers = mentionCandidates ?? allUsers;
+
+  useEffect(() => {
+    if (!allowMentions) {
+      setMentionQuery(null);
+      setMentionedIds(new Set());
+    }
+  }, [allowMentions]);
+
+  useEffect(() => {
+    if (!autoFocus || disabled) return;
+    const timer = setTimeout(() => {
+      inputRef.current?.focus();
+    }, 60);
+    return () => clearTimeout(timer);
+  }, [autoFocus, disabled]);
 
   const speechLang = useMemo(() => {
     return language.startsWith('sr') ? 'sr-RS' : 'en-US';
@@ -126,14 +149,19 @@ export const MessagingMessageInput: React.FC<MessagingMessageInputProps> = ({
   };
 
   const filteredUsers = useMemo(() => {
-    if (mentionQuery === null) return [];
+    if (!allowMentions || mentionQuery === null) return [];
     const q = mentionQuery.toLowerCase();
-    return allUsers.filter((u) => u.name.toLowerCase().includes(q)).slice(0, 5);
-  }, [mentionQuery, allUsers]);
+    return candidateUsers.filter((u) => u.name.toLowerCase().includes(q)).slice(0, 5);
+  }, [allowMentions, mentionQuery, candidateUsers]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setContent(val);
+
+    if (!allowMentions) {
+      setMentionQuery(null);
+      return;
+    }
 
     const cursorPos = e.target.selectionStart ?? val.length;
     const textBeforeCursor = val.slice(0, cursorPos);
@@ -154,7 +182,7 @@ export const MessagingMessageInput: React.FC<MessagingMessageInputProps> = ({
   };
 
   const handleSelectMention = (user: MessagingDirectoryUser) => {
-    if (!inputRef.current) return;
+    if (!allowMentions || !inputRef.current) return;
     const cursorPos = inputRef.current.selectionStart || content.length;
     const textBeforeCursor = content.slice(0, cursorPos);
     const textAfterCursor = content.slice(cursorPos);
@@ -178,7 +206,7 @@ export const MessagingMessageInput: React.FC<MessagingMessageInputProps> = ({
   };
 
   const handleKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (mentionQuery !== null && filteredUsers.length > 0) {
+    if (allowMentions && mentionQuery !== null && filteredUsers.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         setSelectedMentionIndex((prev) => (prev + 1) % filteredUsers.length);
@@ -226,7 +254,7 @@ export const MessagingMessageInput: React.FC<MessagingMessageInputProps> = ({
 
     try {
       setIsSending(true);
-      await onSendMessage(text, replyingTo?.id, Array.from(mentionedIds));
+      await onSendMessage(text, replyingTo?.id, allowMentions ? Array.from(mentionedIds) : []);
       setContent('');
       setMentionedIds(new Set());
       setMentionQuery(null);
@@ -239,7 +267,7 @@ export const MessagingMessageInput: React.FC<MessagingMessageInputProps> = ({
   return (
     <Box sx={{ position: 'relative', width: '100%' }}>
       {/* Mention Popup */}
-      {mentionQuery !== null && filteredUsers.length > 0 && (
+      {allowMentions && mentionQuery !== null && filteredUsers.length > 0 && (
         <Paper
           elevation={8}
           sx={{
