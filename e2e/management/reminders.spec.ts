@@ -1,54 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { REMINDER_STATUSES } from '../../src/constants';
+import { mockCommonApi } from '../helpers/mockApi';
 
 test.describe('Reminders Management', () => {
-  let remindersData = [
-    {
-      id: 'rem-1',
-      title: 'Godišnji izveštaj o otpadu',
-      projectId: 'proj-1',
-      projectName: 'Eko Plan 2026',
-      clientId: 'client-1',
-      clientName: 'Eko Metal d.o.o.',
-      responsibleId: 'u-1',
-      responsible: 'Petar Petrović',
-      status: REMINDER_STATUSES.PENDING,
-      notes: 'Podneti izveštaj do kraja meseca',
-      dueDate: '2026-11-15',
-      permitId: null,
-      permitNumber: null,
-    },
-    {
-      id: 'rem-2',
-      title: 'Obnova dozvole za skladištenje',
-      projectId: 'proj-2',
-      projectName: 'Reciklaža Centar',
-      clientId: 'client-2',
-      clientName: 'BioReciklaža d.o.o.',
-      responsibleId: 'u-2',
-      responsible: 'Marko Marković',
-      status: REMINDER_STATUSES.COMPLETED,
-      notes: 'Dozvola uspešno obnovljena',
-      dueDate: '2026-10-01',
-      permitId: null,
-      permitNumber: null,
-    },
-    {
-      id: 'rem-3',
-      title: 'Periodično merenje buke',
-      projectId: 'proj-1',
-      projectName: 'Eko Plan 2026',
-      clientId: 'client-1',
-      clientName: 'Eko Metal d.o.o.',
-      responsibleId: 'u-1',
-      responsible: 'Petar Petrović',
-      status: REMINDER_STATUSES.OVERDUE,
-      notes: 'Hitno kontaktirati laboratoriju',
-      dueDate: '2026-09-01',
-      permitId: null,
-      permitNumber: null,
-    },
-  ];
+  let remindersData: any[] = [];
 
   test.beforeEach(async ({ page }) => {
     remindersData = [
@@ -99,6 +54,15 @@ test.describe('Reminders Management', () => {
       },
     ];
 
+    await mockCommonApi(page, {
+      user: {
+        id: 'u-1',
+        name: 'Petar Petrović',
+        email: 'petar@example.com',
+        role: 'Administrator',
+      },
+    });
+
     await page.route('**/api/reminders/**', async (route) => {
       const url = route.request().url();
       const method = route.request().method();
@@ -141,7 +105,7 @@ test.describe('Reminders Management', () => {
           body: JSON.stringify({ success: true }),
         });
       } else {
-        await route.continue();
+        await route.fallback();
       }
     });
 
@@ -181,49 +145,8 @@ test.describe('Reminders Management', () => {
           body: JSON.stringify(created),
         });
       } else {
-        await route.continue();
+        await route.fallback();
       }
-    });
-
-    await page.route('**/api/auth/me', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          id: 'u-1',
-          name: 'Petar Petrović',
-          email: 'petar@example.com',
-          role: 'Admin',
-        }),
-      });
-    });
-
-    await page.route('**/api/roles', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([{ id: 1, name: 'Admin', isSystemAdmin: true, permissions: {} }]),
-      });
-    });
-
-    await page.route('**/api/preferences/**', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-    });
-
-    await page.route('**/api/preferences', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-    });
-
-    await page.route('**/api/system-settings**', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-    });
-
-    await page.route('**/api/stats', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-    });
-
-    await page.route('**/api/projects/stats', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
     });
 
     await page.route(/\/api\/projects(\?.*)?$/, async (route) => {
@@ -248,18 +171,6 @@ test.describe('Reminders Management', () => {
       });
     });
 
-    await page.route(/\/api\/services(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route(/\/api\/categories(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route(/\/api\/permits(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
     await page.route(/\/api\/users(\?.*)?$/, async (route) => {
       await route.fulfill({
         status: 200,
@@ -269,34 +180,6 @@ test.describe('Reminders Management', () => {
           { id: 'u-2', name: 'Marko Marković', email: 'marko@example.com', role: 'Worker', isApproved: true },
         ]),
       });
-    });
-
-    await page.route('**/api/notifications', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route(/\/api\/activity-logs(\?.*)?$/, async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ logs: [], totalCount: 0, totalPages: 1 }),
-      });
-    });
-
-    await page.route('**/api/activity-logs/status', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ enabled: true }),
-      });
-    });
-
-    await page.route(/\/api\/invoices(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route(/\/api\/provided-services(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
   });
 
@@ -399,7 +282,7 @@ test.describe('Reminders Management', () => {
         });
         return;
       }
-      await route.continue();
+      await route.fallback();
     });
 
     await page.goto('/data-management/reminders');
@@ -433,7 +316,7 @@ test.describe('Reminders Management', () => {
         });
         return;
       }
-      await route.continue();
+      await route.fallback();
     });
 
     await page.goto('/data-management/reminders');
@@ -475,7 +358,7 @@ test.describe('Reminders Management', () => {
         });
         return;
       }
-      await route.continue();
+      await route.fallback();
     });
 
     await page.goto('/data-management/reminders');
