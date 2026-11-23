@@ -30,6 +30,13 @@ describe('ActivityAnalyticsPage Integration', () => {
     expect(screen.getByText('analyticsTabActions')).toBeInTheDocument();
     expect(screen.getByText('analyticsTabUsers')).toBeInTheDocument();
     expect(screen.getByText('analyticsTabBehavior')).toBeInTheDocument();
+
+    // Check messaging usage counts
+    expect(screen.getByText('messagingFeatureUsage')).toBeInTheDocument();
+    expect(screen.getByText('27', { selector: 'h5' })).toBeInTheDocument();
+    expect(screen.getByText('14', { selector: 'h5' })).toBeInTheDocument();
+    expect(screen.getByText('9', { selector: 'h5' })).toBeInTheDocument();
+    expect(screen.getByText('4', { selector: 'h5' })).toBeInTheDocument();
   });
 
   it('allows switching tabs', async () => {

@@ -89,6 +89,13 @@ export const handlers = [
       avgSessionSeconds: 300,
       avgPagesPerSession: 3.7,
     },
+    messagingUsage: {
+      directCount: 14,
+      projectCount: 9,
+      groupCount: 4,
+      totalCount: 27,
+      uniqueUsers: 3,
+    },
     timeline: [
       { bucket: '2026-10-15', activeUsers: 2, sessions: 6, trackedSeconds: 1800, pageViews: 20, actions: 10 },
       { bucket: '2026-10-16', activeUsers: 3, sessions: 6, trackedSeconds: 1800, pageViews: 25, actions: 8 },

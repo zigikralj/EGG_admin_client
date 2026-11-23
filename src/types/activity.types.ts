@@ -34,10 +34,11 @@ export interface AnalyticsTotals {
 }
 
 export interface MessagingUsageAnalytics {
-  directMessages: number;
-  projectMessages: number;
-  groupMessages: number;
-  totalMessages: number;
+  directCount: number;
+  projectCount: number;
+  groupCount: number;
+  totalCount: number;
+  uniqueUsers: number;
 }
 
 export interface ActivityAnalytics {
