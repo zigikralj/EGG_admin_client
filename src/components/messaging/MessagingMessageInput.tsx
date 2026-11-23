@@ -61,6 +61,7 @@ export const MessagingMessageInput: React.FC<MessagingMessageInputProps> = ({
 
   const inputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
+  const isSendingRef = useRef(false);
 
   const candidateUsers = mentionCandidates ?? allUsers;
 
@@ -155,6 +156,7 @@ export const MessagingMessageInput: React.FC<MessagingMessageInputProps> = ({
   }, [allowMentions, mentionQuery, candidateUsers]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isSending || isSendingRef.current) return;
     const val = e.target.value;
     setContent(val);
 
@@ -237,13 +239,14 @@ export const MessagingMessageInput: React.FC<MessagingMessageInputProps> = ({
         return;
       }
       e.preventDefault();
+      e.stopPropagation();
       await handleSubmit();
     }
   };
 
   const handleSubmit = async () => {
     const text = content.trim();
-    if (!text || isSending || disabled) return;
+    if (!text || isSending || isSendingRef.current || disabled) return;
 
     if (isListening && recognitionRef.current) {
       try {
@@ -252,6 +255,7 @@ export const MessagingMessageInput: React.FC<MessagingMessageInputProps> = ({
       setIsListening(false);
     }
 
+    isSendingRef.current = true;
     try {
       setIsSending(true);
       await onSendMessage(text, replyingTo?.id, allowMentions ? Array.from(mentionedIds) : []);
@@ -259,8 +263,14 @@ export const MessagingMessageInput: React.FC<MessagingMessageInputProps> = ({
       setMentionedIds(new Set());
       setMentionQuery(null);
       onCancelReply();
+    } catch (err) {
+      console.error('Failed to send message', err);
     } finally {
+      isSendingRef.current = false;
       setIsSending(false);
+      if (!disabled) {
+        inputRef.current?.focus();
+      }
     }
   };
 
@@ -351,7 +361,7 @@ export const MessagingMessageInput: React.FC<MessagingMessageInputProps> = ({
           value={content}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
-          disabled={disabled || isSending}
+          disabled={disabled}
           variant="outlined"
           slotProps={{
             htmlInput: {
@@ -359,6 +369,8 @@ export const MessagingMessageInput: React.FC<MessagingMessageInputProps> = ({
               autoCapitalize: 'sentences',
               autoCorrect: 'on',
               spellCheck: 'true',
+              readOnly: isSending,
+              'aria-busy': isSending || undefined,
             },
           }}
           sx={{
@@ -398,6 +410,7 @@ export const MessagingMessageInput: React.FC<MessagingMessageInputProps> = ({
 
         <IconButton
           color="primary"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={handleSubmit}
           disabled={!content.trim() || isSending || disabled}
           sx={{ bgcolor: 'primary.main', color: 'primary.contrastText', '&:hover': { bgcolor: 'primary.dark' }, p: 0.75 }}

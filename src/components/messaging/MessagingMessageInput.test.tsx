@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { screen, fireEvent, act } from '@testing-library/react';
 import { renderWithProviders } from '../../tests/test-utils';
 import {
@@ -238,5 +238,142 @@ describe('MessagingMessageBubble mention highlighting', () => {
 
     expect(document.activeElement).toBe(textbox);
     vi.useRealTimers();
+  });
+});
+
+describe('MessagingMessageInput focus persistence', () => {
+  const originalOntouchstartDescriptor = Object.getOwnPropertyDescriptor(window, 'ontouchstart');
+
+  beforeEach(() => {
+    // jsdom 29 defines window.ontouchstart = null; remove it to simulate a desktop browser
+    delete (window as unknown as Record<string, unknown>).ontouchstart;
+  });
+
+  afterEach(() => {
+    if (originalOntouchstartDescriptor) {
+      Object.defineProperty(window, 'ontouchstart', originalOntouchstartDescriptor);
+    }
+  });
+
+  it('keeps focus on the message input during and after Enter-to-send so multiple messages can be sent in a row', async () => {
+    let resolveFirst!: () => void;
+    const firstPromise = new Promise<void>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const onSendMessage = vi
+      .fn()
+      .mockReturnValueOnce(firstPromise)
+      .mockResolvedValueOnce(undefined);
+    const messagingValue = createMockMessagingValue(MOCK_USERS);
+
+    renderWithProviders(
+      <MessagingContext.Provider value={messagingValue}>
+        <MessagingMessageInput
+          onSendMessage={onSendMessage}
+          replyingTo={null}
+          onCancelReply={vi.fn()}
+          placeholder="Write message"
+        />
+      </MessagingContext.Provider>
+    );
+
+    const textbox = screen.getByPlaceholderText('Write message') as HTMLTextAreaElement;
+    textbox.focus();
+    expect(document.activeElement).toBe(textbox);
+
+    fireEvent.change(textbox, { target: { value: 'First message', selectionStart: 13 } });
+    await act(async () => {
+      fireEvent.keyDown(textbox, { key: 'Enter', shiftKey: false });
+    });
+
+    expect(onSendMessage).toHaveBeenCalledTimes(1);
+    expect(onSendMessage).toHaveBeenCalledWith('First message', undefined, []);
+    expect(textbox.disabled).toBe(false);
+    expect(textbox.readOnly).toBe(true);
+    expect(document.activeElement).toBe(textbox);
+
+    await act(async () => {
+      resolveFirst();
+      await firstPromise;
+    });
+
+    expect(textbox.readOnly).toBe(false);
+    expect(textbox.value).toBe('');
+    expect(document.activeElement).toBe(textbox);
+
+    // Immediately type and send a second message without re-focusing
+    fireEvent.change(textbox, { target: { value: 'Second message', selectionStart: 14 } });
+    await act(async () => {
+      fireEvent.keyDown(textbox, { key: 'Enter', shiftKey: false });
+    });
+
+    expect(onSendMessage).toHaveBeenCalledTimes(2);
+    expect(onSendMessage).toHaveBeenLastCalledWith('Second message', undefined, []);
+    expect(document.activeElement).toBe(textbox);
+  });
+
+  it('keeps focus on the message input when clicking the Send button', async () => {
+    const onSendMessage = vi.fn().mockResolvedValue(undefined);
+    const messagingValue = createMockMessagingValue(MOCK_USERS);
+
+    renderWithProviders(
+      <MessagingContext.Provider value={messagingValue}>
+        <MessagingMessageInput
+          onSendMessage={onSendMessage}
+          replyingTo={null}
+          onCancelReply={vi.fn()}
+          placeholder="Write message"
+        />
+      </MessagingContext.Provider>
+    );
+
+    const textbox = screen.getByPlaceholderText('Write message') as HTMLTextAreaElement;
+    textbox.focus();
+    fireEvent.change(textbox, { target: { value: 'Clicked send', selectionStart: 12 } });
+
+    const sendButton = screen.getByTestId('SendIcon').closest('button')!;
+    let wasNotCancelled = true;
+    await act(async () => {
+      wasNotCancelled = fireEvent.mouseDown(sendButton);
+    });
+    expect(wasNotCancelled).toBe(false);
+
+    await act(async () => {
+      fireEvent.click(sendButton);
+    });
+
+    expect(onSendMessage).toHaveBeenCalledWith('Clicked send', undefined, []);
+    expect(document.activeElement).toBe(textbox);
+  });
+
+  it('keeps focus and unsent text when onSendMessage rejects', async () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const onSendMessage = vi.fn().mockRejectedValue(new Error('Network error'));
+    const messagingValue = createMockMessagingValue(MOCK_USERS);
+
+    renderWithProviders(
+      <MessagingContext.Provider value={messagingValue}>
+        <MessagingMessageInput
+          onSendMessage={onSendMessage}
+          replyingTo={null}
+          onCancelReply={vi.fn()}
+          placeholder="Write message"
+        />
+      </MessagingContext.Provider>
+    );
+
+    const textbox = screen.getByPlaceholderText('Write message') as HTMLTextAreaElement;
+    textbox.focus();
+    fireEvent.change(textbox, { target: { value: 'Retry me', selectionStart: 8 } });
+
+    await act(async () => {
+      fireEvent.keyDown(textbox, { key: 'Enter', shiftKey: false });
+    });
+
+    expect(onSendMessage).toHaveBeenCalledWith('Retry me', undefined, []);
+    expect(textbox.value).toBe('Retry me');
+    expect(textbox.readOnly).toBe(false);
+    expect(document.activeElement).toBe(textbox);
+    consoleErrorSpy.mockRestore();
   });
 });
