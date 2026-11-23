@@ -323,7 +323,7 @@ export const ActivityAnalyticsPage: React.FC = () => {
                           <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center', borderRadius: 2 }}>
                             <Typography variant="caption" color="text.secondary">Total Messages</Typography>
                             <Typography variant="h5" sx={{ fontWeight: 700, mt: 0.5 }}>
-                              {analytics.messagingUsage.totalMessages}
+                              {analytics.messagingUsage.totalCount ?? 0}
                             </Typography>
                           </Paper>
                         </Grid>
@@ -331,7 +331,7 @@ export const ActivityAnalyticsPage: React.FC = () => {
                           <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center', borderRadius: 2 }}>
                             <Typography variant="caption" color="text.secondary">Direct (1-on-1)</Typography>
                             <Typography variant="h5" sx={{ fontWeight: 700, mt: 0.5, color: 'info.main' }}>
-                              {analytics.messagingUsage.directMessages}
+                              {analytics.messagingUsage.directCount ?? 0}
                             </Typography>
                           </Paper>
                         </Grid>
@@ -339,7 +339,7 @@ export const ActivityAnalyticsPage: React.FC = () => {
                           <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center', borderRadius: 2 }}>
                             <Typography variant="caption" color="text.secondary">Project Discussions</Typography>
                             <Typography variant="h5" sx={{ fontWeight: 700, mt: 0.5, color: 'secondary.main' }}>
-                              {analytics.messagingUsage.projectMessages}
+                              {analytics.messagingUsage.projectCount ?? 0}
                             </Typography>
                           </Paper>
                         </Grid>
@@ -347,7 +347,7 @@ export const ActivityAnalyticsPage: React.FC = () => {
                           <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center', borderRadius: 2 }}>
                             <Typography variant="caption" color="text.secondary">Group Messages</Typography>
                             <Typography variant="h5" sx={{ fontWeight: 700, mt: 0.5, color: 'success.main' }}>
-                              {analytics.messagingUsage.groupMessages}
+                              {analytics.messagingUsage.groupCount ?? 0}
                             </Typography>
                           </Paper>
                         </Grid>
