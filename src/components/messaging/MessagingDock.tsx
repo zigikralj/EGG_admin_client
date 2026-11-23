@@ -11,11 +11,13 @@ import {
   MenuItem,
   ListItemIcon,
   ListItemText,
+  Switch,
 } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import DoNotDisturbOnOutlinedIcon from '@mui/icons-material/DoNotDisturbOnOutlined';
 import NotificationsActiveOutlinedIcon from '@mui/icons-material/NotificationsActiveOutlined';
+import NotificationsOffOutlinedIcon from '@mui/icons-material/NotificationsOffOutlined';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import DriveFileRenameOutlineIcon from '@mui/icons-material/DriveFileRenameOutline';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -44,10 +46,26 @@ export const MessagingDock: React.FC = () => {
     toggleMinimizeNewMessage,
     isMainOpen: isOpen,
     setIsMainOpen: setIsOpen,
+    notificationPermission,
+    notificationPrefs,
+    setDesktopNotificationsEnabled,
+    setDesktopNotificationsShowPreview,
   } = useMessaging();
 
   const [optionsMenuAnchor, setOptionsMenuAnchor] = useState<null | HTMLElement>(null);
-  const [menuView, setMenuView] = useState<'root' | 'dnd'>('root');
+  const [menuView, setMenuView] = useState<'root' | 'dnd' | 'notifications'>('root');
+
+  const isNotificationsActive =
+    notificationPermission === 'granted' && notificationPrefs.enabled;
+
+  const notificationStatusText =
+    notificationPermission === 'unsupported'
+      ? t('messagingNotificationsUnsupported')
+      : notificationPermission === 'denied'
+        ? t('messagingNotificationsBlocked')
+        : isNotificationsActive
+          ? t('messagingNotificationsEnabled')
+          : t('messagingNotificationsOff');
 
   const leftGroupRef = useRef<HTMLDivElement>(null);
   const rightGroupRef = useRef<HTMLDivElement>(null);
@@ -305,14 +323,18 @@ export const MessagingDock: React.FC = () => {
         </Box>
       ))}
 
-      {/* Options Menu with nested DND view */}
+      {/* Options Menu with nested DND and Desktop Notifications views */}
       <Menu
         anchorEl={optionsMenuAnchor}
         open={Boolean(optionsMenuAnchor)}
         onClose={handleCloseMenu}
         slotProps={{
           paper: {
-            sx: { borderRadius: 2, minWidth: 220 },
+            sx: {
+              borderRadius: 2,
+              minWidth: menuView === 'notifications' ? 270 : 220,
+              maxWidth: 300,
+            },
           },
         }}
       >
@@ -351,8 +373,51 @@ export const MessagingDock: React.FC = () => {
               </Box>
               <ChevronRightIcon fontSize="small" sx={{ color: 'text.secondary' }} />
             </MenuItem>
+
+            <MenuItem
+              onClick={() => setMenuView('notifications')}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                py: 1,
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+                <ListItemIcon sx={{ minWidth: 28 }}>
+                  {notificationPermission === 'denied' ? (
+                    <NotificationsOffOutlinedIcon fontSize="small" sx={{ color: 'error.main' }} />
+                  ) : (
+                    <NotificationsActiveOutlinedIcon
+                      fontSize="small"
+                      sx={{ color: isNotificationsActive ? 'primary.main' : 'text.secondary' }}
+                    />
+                  )}
+                </ListItemIcon>
+                <ListItemText
+                  primary={t('messagingDesktopNotifications')}
+                  secondary={notificationStatusText}
+                  slotProps={{
+                    primary: { sx: { fontSize: '0.875rem', fontWeight: 500 } },
+                    secondary: {
+                      sx: {
+                        fontSize: '0.725rem',
+                        color:
+                          notificationPermission === 'denied'
+                            ? 'error.main'
+                            : isNotificationsActive
+                              ? 'primary.main'
+                              : 'text.secondary',
+                        fontWeight: 600,
+                      },
+                    },
+                  }}
+                />
+              </Box>
+              <ChevronRightIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+            </MenuItem>
           </>
-        ) : (
+        ) : menuView === 'dnd' ? (
           <>
             <Box
               sx={{
@@ -388,6 +453,124 @@ export const MessagingDock: React.FC = () => {
             <MenuItem onClick={() => handleApplyDnd(240)}>{t('messagingFor4Hours')}</MenuItem>
             <MenuItem onClick={() => handleApplyDnd(1440)}>{t('messagingFor24Hours')}</MenuItem>
             <MenuItem onClick={() => handleApplyDnd(undefined, true)}>{t('messagingUntilTurnOn')}</MenuItem>
+          </>
+        ) : (
+          <>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                px: 1,
+                py: 0.75,
+                borderBottom: 1,
+                borderColor: 'divider',
+              }}
+            >
+              <IconButton
+                size="small"
+                onClick={() => setMenuView('root')}
+                sx={{ p: 0.5, mr: 0.5, color: 'text.secondary' }}
+              >
+                <ArrowBackIcon fontSize="small" />
+              </IconButton>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '0.85rem' }}>
+                {t('messagingDesktopNotifications')}
+              </Typography>
+            </Box>
+
+            {notificationPermission === 'unsupported' ? (
+              <Typography
+                variant="caption"
+                sx={{ px: 2, py: 1.5, display: 'block', color: 'text.secondary' }}
+              >
+                {t('messagingNotificationsUnsupported')}
+              </Typography>
+            ) : notificationPermission === 'denied' ? (
+              <Box sx={{ px: 2, py: 1.5 }}>
+                <Typography
+                  variant="body2"
+                  sx={{ fontWeight: 600, color: 'error.main', fontSize: '0.825rem' }}
+                >
+                  {t('messagingNotificationsBlocked')}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  sx={{ display: 'block', color: 'text.secondary', mt: 0.5, lineHeight: 1.35 }}
+                >
+                  {t('messagingNotificationsBlockedHint')}
+                </Typography>
+              </Box>
+            ) : (
+              <Box sx={{ py: 0.5 }}>
+                <Box
+                  onClick={() => void setDesktopNotificationsEnabled(!isNotificationsActive)}
+                  sx={{
+                    px: 2,
+                    py: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 1.5,
+                    cursor: 'pointer',
+                    '&:hover': { bgcolor: 'action.hover' },
+                  }}
+                >
+                  <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.85rem' }}>
+                    {t('messagingEnableNotifications')}
+                  </Typography>
+                  <Switch
+                    size="small"
+                    checked={isNotificationsActive}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      void setDesktopNotificationsEnabled(e.target.checked);
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </Box>
+
+                <Box
+                  onClick={() => {
+                    if (isNotificationsActive) {
+                      setDesktopNotificationsShowPreview(!notificationPrefs.showPreview);
+                    }
+                  }}
+                  sx={{
+                    px: 2,
+                    py: 1,
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    justifyContent: 'space-between',
+                    gap: 1.5,
+                    cursor: isNotificationsActive ? 'pointer' : 'default',
+                    opacity: isNotificationsActive ? 1 : 0.6,
+                    '&:hover': isNotificationsActive ? { bgcolor: 'action.hover' } : undefined,
+                  }}
+                >
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.85rem' }}>
+                      {t('messagingShowMessagePreview')}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      sx={{ display: 'block', color: 'text.secondary', lineHeight: 1.3, mt: 0.25 }}
+                    >
+                      {t('messagingShowMessagePreviewHint')}
+                    </Typography>
+                  </Box>
+                  <Switch
+                    size="small"
+                    disabled={!isNotificationsActive}
+                    checked={notificationPrefs.showPreview}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      setDesktopNotificationsShowPreview(e.target.checked);
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </Box>
+              </Box>
+            )}
           </>
         )}
       </Menu>

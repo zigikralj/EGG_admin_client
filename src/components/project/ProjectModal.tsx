@@ -56,6 +56,7 @@ export interface ProjectModalProps {
   project?: Project | null;
   initialMode?: ModalMode;
   diffRange?: { dateFrom: string; dateTo: string } | null;
+  initialTab?: 'notes' | 'invoices' | 'reminders' | 'messages';
   onClose: () => void;
   onEdit?: (project: Project) => void;
 }
@@ -66,6 +67,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   project: propProject,
   initialMode,
   diffRange,
+  initialTab,
   onClose,
   onEdit,
 }) => {
@@ -208,7 +210,9 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   } = formState;
 
   // Active Tab navigation
-  const [activeTab, setActiveTab] = useState<'notes' | 'invoices' | 'reminders' | 'messages'>('notes');
+  const [activeTab, setActiveTab] = useState<'notes' | 'invoices' | 'reminders' | 'messages'>(
+    initialTab || 'notes'
+  );
   const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null);
   const [viewingReminder, setViewingReminder] = useState<Reminder | null>(null);
 
@@ -235,12 +239,12 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      setActiveTab('notes');
+      setActiveTab(initialTab || 'notes');
     } else {
       setViewingInvoice(null);
       setViewingReminder(null);
     }
-  }, [isOpen, targetProjectId]);
+  }, [isOpen, targetProjectId, initialTab]);
 
   const invoiceCount = isCreate
     ? invoiceState.stagedInvoices?.length || 0

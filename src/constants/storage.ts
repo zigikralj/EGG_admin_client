@@ -15,6 +15,7 @@ export const STORAGE_KEYS = {
   DRAFT_NOTES: (projectId: string) => `ekos_draft_notes_${projectId}`,
   QUERY_CACHE: 'ekos_persisted_query_cache_v1',
   MESSAGING_STATE: (userId: string) => `ekos_messaging_state_${userId}`,
+  MESSAGING_NOTIFICATION_PREFS: (userId: string) => `ekos_messaging_notification_prefs_${userId}`,
 } as const;
 
 export const APP_EVENTS = {

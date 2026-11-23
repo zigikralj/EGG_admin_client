@@ -1100,7 +1100,19 @@ const srLatnTranslations: TranslationKeys = {
   "messagingFeatureUsage": "Korišćenje funkcije poruka",
   "messagingMarkAsRead": "Označi kao pročitano",
   "messagingMarkAsUnread": "Označi kao nepročitano",
-  "messagingMuted": "Utišano"
+  "messagingMuted": "Utišano",
+  "messagingOpenProjectDetails": "Otvori poruke projekta",
+  "messagingDesktopNotifications": "Obaveštenja na radnoj površini",
+  "messagingNotificationsEnabled": "Uključeno",
+  "messagingNotificationsOff": "Isključeno",
+  "messagingNotificationsBlocked": "Blokirano u podešavanjima pregledača",
+  "messagingNotificationsBlockedHint": "Dozvolite obaveštenja za ovaj sajt u podešavanjima adresne trake pregledača.",
+  "messagingNotificationsUnsupported": "Obaveštenja pregledača nisu podržana",
+  "messagingEnableNotifications": "Uključi",
+  "messagingEnableNotificationsPrompt": "Uključite obaveštenja pregledača za nove poruke",
+  "messagingShowMessagePreview": "Prikaži pregled poruke",
+  "messagingShowMessagePreviewHint": "Prikaži ime pošiljaoca i deo poruke u obaveštenju",
+  "messagingNotificationPrivacyBody": "Primljena je nova poruka"
 };
 
 export default srLatnTranslations;

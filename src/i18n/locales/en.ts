@@ -1100,7 +1100,19 @@ const enTranslations: TranslationKeys = {
   "messagingFeatureUsage": "Messaging Feature Usage",
   "messagingMarkAsRead": "Mark as read",
   "messagingMarkAsUnread": "Mark as unread",
-  "messagingMuted": "Muted"
+  "messagingMuted": "Muted",
+  "messagingOpenProjectDetails": "Open Project Messaging",
+  "messagingDesktopNotifications": "Desktop Notifications",
+  "messagingNotificationsEnabled": "Enabled",
+  "messagingNotificationsOff": "Off",
+  "messagingNotificationsBlocked": "Blocked in browser settings",
+  "messagingNotificationsBlockedHint": "Allow notifications for this site in your browser address bar settings to enable alerts.",
+  "messagingNotificationsUnsupported": "Browser notifications are not supported",
+  "messagingEnableNotifications": "Enable",
+  "messagingEnableNotificationsPrompt": "Enable desktop notifications for new messages",
+  "messagingShowMessagePreview": "Show message preview",
+  "messagingShowMessagePreviewHint": "Include sender name and message snippet in alerts",
+  "messagingNotificationPrivacyBody": "New message received"
 };
 
 export default enTranslations;

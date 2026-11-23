@@ -46,6 +46,12 @@ const createMockMessagingValue = (overrides?: Partial<MessagingContextType>): Me
   openMainMessaging: vi.fn(),
   closeMainMessaging: vi.fn(),
   toggleMainMessaging: vi.fn(),
+  notificationPermission: 'default',
+  notificationPrefs: { enabled: true, showPreview: true, bannerDismissed: false },
+  enableDesktopNotifications: vi.fn().mockResolvedValue('granted'),
+  setDesktopNotificationsEnabled: vi.fn().mockResolvedValue(undefined),
+  setDesktopNotificationsShowPreview: vi.fn(),
+  dismissNotificationBanner: vi.fn(),
   ...overrides,
 });
 

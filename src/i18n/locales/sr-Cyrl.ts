@@ -1100,7 +1100,19 @@ const srCyrlTranslations: TranslationKeys = {
   "messagingFeatureUsage": "Коришћење функције порука",
   "messagingMarkAsRead": "Означи као прочитано",
   "messagingMarkAsUnread": "Означи као непрочитано",
-  "messagingMuted": "Утишано"
+  "messagingMuted": "Утишано",
+  "messagingOpenProjectDetails": "Отвори поруке пројекта",
+  "messagingDesktopNotifications": "Обавештења на радној површини",
+  "messagingNotificationsEnabled": "Укључено",
+  "messagingNotificationsOff": "Искључено",
+  "messagingNotificationsBlocked": "Блокирано у подешавањима прегледача",
+  "messagingNotificationsBlockedHint": "Дозволите обавештења за овај сајт у подешавањима адресне траке прегледача.",
+  "messagingNotificationsUnsupported": "Обавештења прегледача нису подржана",
+  "messagingEnableNotifications": "Укључи",
+  "messagingEnableNotificationsPrompt": "Укључите обавештења прегледача за нове поруке",
+  "messagingShowMessagePreview": "Прикажи преглед поруке",
+  "messagingShowMessagePreviewHint": "Прикажи име пошиљаоца и део поруке у обавештењу",
+  "messagingNotificationPrivacyBody": "Примљена је нова порука"
 };
 
 export default srCyrlTranslations;

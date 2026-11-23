@@ -34,12 +34,14 @@ import NotificationsOffOutlinedIcon from '@mui/icons-material/NotificationsOffOu
 import NotificationsActiveOutlinedIcon from '@mui/icons-material/NotificationsActiveOutlined';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
+import CloseIcon from '@mui/icons-material/Close';
 import { useQuery } from '@tanstack/react-query';
 import { messagingApi, type MessagingConversationItem } from './messagingApi';
 import { useMessaging } from '../../context/MessagingContext';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { TIME_MS } from '../../constants';
+import { isBrowserNotificationSupported } from '../../utils/browserNotifications';
 
 export interface UnifiedConversationItem {
   kind: 'conversation';
@@ -88,7 +90,16 @@ export const MessagingConversationList: React.FC<MessagingConversationListProps>
     muteConversation,
     unmuteConversation,
     allUsers,
+    notificationPermission,
+    notificationPrefs,
+    enableDesktopNotifications,
+    dismissNotificationBanner,
   } = useMessaging();
+
+  const showNotificationBanner =
+    isBrowserNotificationSupported() &&
+    notificationPermission === 'default' &&
+    !notificationPrefs.bannerDismissed;
 
   const [activeTab, setActiveTab] = useState<MessagingTabType>('all');
   const [search, setSearch] = useState('');
@@ -332,6 +343,61 @@ export const MessagingConversationList: React.FC<MessagingConversationListProps>
           <Tab label={t('messagingTabGroups')} value="groups" />
         </Tabs>
       </Box>
+
+      {/* Subtle Desktop Notification Permission Banner */}
+      {showNotificationBanner && (
+        <Box
+          sx={{
+            px: 1.5,
+            py: 0.85,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            bgcolor: (theme) =>
+              theme.palette.mode === 'dark'
+                ? 'rgba(76, 175, 80, 0.14)'
+                : 'rgba(46, 125, 50, 0.08)',
+            borderTop: 1,
+            borderBottom: 1,
+            borderColor: 'divider',
+          }}
+        >
+          <NotificationsActiveOutlinedIcon
+            fontSize="small"
+            sx={{ color: 'primary.main', flexShrink: 0 }}
+          />
+          <Typography
+            variant="caption"
+            sx={{ flex: 1, minWidth: 0, lineHeight: 1.25, color: 'text.primary', fontWeight: 500 }}
+          >
+            {t('messagingEnableNotificationsPrompt')}
+          </Typography>
+          <Button
+            size="small"
+            variant="contained"
+            onClick={() => void enableDesktopNotifications()}
+            sx={{
+              minWidth: 'auto',
+              px: 1.25,
+              py: 0.25,
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              textTransform: 'none',
+              flexShrink: 0,
+            }}
+          >
+            {t('messagingEnableNotifications')}
+          </Button>
+          <IconButton
+            size="small"
+            aria-label={t('btnClose')}
+            onClick={dismissNotificationBanner}
+            sx={{ p: 0.25, color: 'text.secondary', flexShrink: 0 }}
+          >
+            <CloseIcon sx={{ fontSize: 15 }} />
+          </IconButton>
+        </Box>
+      )}
 
       {/* Unified List content */}
       <Box sx={{ flex: 1, overflowY: 'auto' }}>

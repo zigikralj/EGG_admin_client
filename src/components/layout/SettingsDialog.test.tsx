@@ -49,12 +49,14 @@ describe('SettingsDialog', () => {
     );
   };
 
-  it('renders settings dialog correctly', () => {
+  it('renders settings dialog correctly without app version', () => {
     renderComponent();
     expect(screen.getByText('userPreferencesTitle')).toBeInTheDocument();
     expect(screen.getByText('lblTheme')).toBeInTheDocument();
     expect(screen.getByText('lblLanguage')).toBeInTheDocument();
     expect(screen.getByText('lblTableColumns')).toBeInTheDocument();
+    expect(screen.getByText('messagingDesktopNotifications')).toBeInTheDocument();
+    expect(screen.queryByText(/appVersion/)).not.toBeInTheDocument();
   });
 
   it('handles theme change', () => {

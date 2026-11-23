@@ -1,11 +1,22 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from './AuthContext';
+import { useLanguage } from './LanguageContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { STORAGE_KEYS, TIME_MS } from '../constants';
 import { getApiUrl } from '../api';
 import { useUsersDirectoryQuery, type DirectoryUser } from '../queries';
 import { messagingApi, type MessagingConversationItem, type MessagingMessageItem, type MessagingUnreadSummary } from '../components/messaging/messagingApi';
 import { messagingStorage } from '../components/messaging/messagingStorage';
+import { useMessagingTitleIndicator } from '../hooks/useMessagingTitleIndicator';
+import {
+  DEFAULT_NOTIFICATION_PREFS,
+  getBrowserNotificationPermission,
+  loadNotificationPrefs,
+  requestBrowserNotificationPermission,
+  saveNotificationPrefs,
+  showMessagingBrowserNotification,
+  type MessagingNotificationPrefs,
+} from '../utils/browserNotifications';
 
 export interface ActiveMessagingWindow {
   conversationId: string;
@@ -45,6 +56,12 @@ export interface MessagingContextType {
   openMainMessaging: () => void;
   closeMainMessaging: () => void;
   toggleMainMessaging: () => void;
+  notificationPermission: NotificationPermission | 'unsupported';
+  notificationPrefs: MessagingNotificationPrefs;
+  enableDesktopNotifications: () => Promise<NotificationPermission | 'unsupported'>;
+  setDesktopNotificationsEnabled: (enabled: boolean) => Promise<void>;
+  setDesktopNotificationsShowPreview: (showPreview: boolean) => void;
+  dismissNotificationBanner: () => void;
 }
 
 interface SavedMessagingState {
@@ -122,8 +139,19 @@ export const MessagingContext = createContext<MessagingContextType | undefined>(
 
 export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser } = useAuth();
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
+
+  const [notificationPermission, setNotificationPermission] = useState<
+    NotificationPermission | 'unsupported'
+  >(() => getBrowserNotificationPermission());
+  const [notificationPrefs, setNotificationPrefs] = useState<MessagingNotificationPrefs>(() => {
+    if (currentUser?.id) {
+      return loadNotificationPrefs(currentUser.id);
+    }
+    return { ...DEFAULT_NOTIFICATION_PREFS };
+  });
 
   // Track the userId for which open conversations have been loaded
   const loadedUserIdRef = useRef<string | null>(currentUser?.id || null);
@@ -145,13 +173,18 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const activeWindowsRef = useRef<ActiveMessagingWindow[]>(activeWindows);
   activeWindowsRef.current = activeWindows;
   const eventSourceRef = useRef<EventSource | null>(null);
+  const notificationPrefsRef = useRef<MessagingNotificationPrefs>(notificationPrefs);
+  notificationPrefsRef.current = notificationPrefs;
+  const tRef = useRef(t);
+  tRef.current = t;
 
-  // Sync activeWindows and isMainOpen when user logs in or logs out
+  // Sync activeWindows, isMainOpen, and notification prefs when user logs in or logs out
   useEffect(() => {
     if (!currentUser?.id) {
       loadedUserIdRef.current = null;
       setActiveWindows([]);
       setIsMainOpen(false);
+      setNotificationPrefs({ ...DEFAULT_NOTIFICATION_PREFS });
       return;
     }
 
@@ -160,6 +193,8 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const restored = loadSavedMessagingState(currentUser.id);
       setActiveWindows(restored.windows);
       setIsMainOpen(restored.isMainOpen);
+      setNotificationPrefs(loadNotificationPrefs(currentUser.id));
+      setNotificationPermission(getBrowserNotificationPermission());
     }
   }, [currentUser?.id]);
 
@@ -170,8 +205,19 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, [activeWindows, isMainOpen, currentUser?.id]);
 
+  // Persist notification prefs whenever they change (only if authenticated and loaded)
+  useEffect(() => {
+    if (currentUser?.id && loadedUserIdRef.current === currentUser.id) {
+      saveNotificationPrefs(currentUser.id, notificationPrefs);
+    }
+  }, [notificationPrefs, currentUser?.id]);
+
   // Preload and cache all users for @mention highlights and directory lookups (only when authenticated)
   const { data: allUsers = [] } = useUsersDirectoryQuery({ enabled: Boolean(currentUser) });
+  const allUsersRef = useRef(allUsers);
+  allUsersRef.current = allUsers;
+  const isDndActiveRef = useRef(false);
+  const openMessagingRef = useRef<(conversationId: string, options?: { title?: string }) => void>(() => {});
 
   // Fetch lightweight unread summary (counts only) for badges; real-time updates pushed via SSE
   const { data: unreadSummary } = useQuery<MessagingUnreadSummary>({
@@ -240,11 +286,37 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       es.addEventListener('MESSAGE_CREATED', (e: MessageEvent) => {
         try {
           const { conversationId, message, conversation } = JSON.parse(e.data);
-          const isWindowOpenAndVisible = activeWindowsRef.current.some(
-            (w) => w.conversationId === conversationId && !w.minimized
-          );
+          const isWindowOpenAndVisible =
+            !document.hidden &&
+            activeWindowsRef.current.some(
+              (w) => w.conversationId === conversationId && !w.minimized
+            );
           const isOwnMessage = message.senderId === currentUser.id;
           const shouldBeRead = isOwnMessage || isWindowOpenAndVisible;
+
+          const cachedList = queryClient.getQueryData<MessagingConversationItem[]>([
+            'messaging',
+            'conversations',
+          ]);
+          const cachedConv = cachedList?.find((c) => c.id === conversationId);
+          const targetConv = cachedConv || conversation;
+          const isMuted = Boolean(cachedConv?.muted || conversation?.muted);
+          const convParticipants: string[] =
+            targetConv?.participantIds ||
+            (targetConv?.participants || []).map((cp: any) =>
+              typeof cp === 'string' ? cp : cp.userId || cp.user?.id || cp.id
+            );
+          const isProjectConversation =
+            targetConv?.type === 'CONTEXTUAL' || targetConv?.contextType === 'PROJECT';
+          const isGroupConversation = targetConv?.type === 'GROUP';
+          const isWindowOpen = activeWindowsRef.current.some(
+            (w) => w.conversationId === conversationId
+          );
+          const isConvParticipant =
+            (convParticipants.length > 0
+              ? convParticipants.includes(currentUser.id)
+              : Boolean(cachedConv)) || isWindowOpen;
+          const isAllowedForProject = !isProjectConversation || isConvParticipant;
 
           messagingStorage.upsertMessage(message).catch(() => {});
 
@@ -268,9 +340,9 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                   );
 
                 // If this is a project conversation, only add it if current user is participant or sender or window is open
-                const isProjectConversation = conversation.type === 'CONTEXTUAL' || conversation.contextType === 'PROJECT';
+                const isProjConv = conversation.type === 'CONTEXTUAL' || conversation.contextType === 'PROJECT';
                 const isParticipant = pIds.includes(currentUser.id);
-                if (isProjectConversation && !isParticipant && !isOwnMessage && !isWindowOpenAndVisible) {
+                if (isProjConv && !isParticipant && !isOwnMessage && !isWindowOpenAndVisible) {
                   return old;
                 }
 
@@ -306,6 +378,40 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               messagingApi.markAsRead(conversationId).catch(() => {});
             } else {
               queryClient.invalidateQueries({ queryKey: ['messaging', 'unread-summary'] });
+            }
+
+            const isBackgrounded = document.hidden || !document.hasFocus();
+            if (
+              isBackgrounded &&
+              !isDndActiveRef.current &&
+              !isMuted &&
+              isAllowedForProject &&
+              notificationPrefsRef.current.enabled
+            ) {
+              const senderName =
+                message.sender?.name ||
+                allUsersRef.current.find((u) => u.id === message.senderId)?.name ||
+                'User';
+              const convTitle =
+                targetConv?.title ||
+                (isProjectConversation
+                  ? tRef.current('messagingProjectDiscussion')
+                  : isGroupConversation
+                    ? tRef.current('messagingGroupConversation')
+                    : senderName);
+
+              showMessagingBrowserNotification({
+                conversationId,
+                senderName,
+                conversationTitle: convTitle,
+                isGroup: isGroupConversation,
+                isProject: isProjectConversation,
+                messageContent: message.content,
+                showPreview: notificationPrefsRef.current.showPreview,
+                privacyTitle: 'Ekos Green Group',
+                privacyBody: tRef.current('messagingNotificationPrivacyBody'),
+                onClick: () => openMessagingRef.current(conversationId, { title: convTitle }),
+              });
             }
           }
         } catch {}
@@ -665,6 +771,11 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const totalUnreadCount = unreadSummary?.totalUnread ?? 0;
 
+  useMessagingTitleIndicator({
+    unreadCount: totalUnreadCount,
+    enabled: Boolean(currentUser),
+  });
+
   const dndUntil = unreadSummary?.dndUntil ?? null;
 
   const isDndActive = useMemo(() => {
@@ -673,6 +784,45 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const time = new Date(dndUntil).getTime();
     return !isNaN(time) && time > Date.now();
   }, [dndUntil]);
+
+  isDndActiveRef.current = isDndActive;
+  openMessagingRef.current = openMessaging;
+
+  const enableDesktopNotifications = useCallback(async () => {
+    const perm = await requestBrowserNotificationPermission();
+    setNotificationPermission(perm);
+    if (perm === 'granted') {
+      setNotificationPrefs((prev) => ({
+        ...prev,
+        enabled: true,
+        bannerDismissed: true,
+      }));
+    }
+    return perm;
+  }, []);
+
+  const setDesktopNotificationsEnabled = useCallback(async (enabled: boolean) => {
+    if (enabled) {
+      const currentPerm = getBrowserNotificationPermission();
+      setNotificationPermission(currentPerm);
+      if (currentPerm === 'default') {
+        const perm = await requestBrowserNotificationPermission();
+        setNotificationPermission(perm);
+        if (perm !== 'granted') return;
+      } else if (currentPerm !== 'granted') {
+        return;
+      }
+    }
+    setNotificationPrefs((prev) => ({ ...prev, enabled }));
+  }, []);
+
+  const setDesktopNotificationsShowPreview = useCallback((showPreview: boolean) => {
+    setNotificationPrefs((prev) => ({ ...prev, showPreview }));
+  }, []);
+
+  const dismissNotificationBanner = useCallback(() => {
+    setNotificationPrefs((prev) => ({ ...prev, bannerDismissed: true }));
+  }, []);
 
   const getProjectUnreadCount = useCallback(
     (projectId: string) => {
@@ -817,6 +967,12 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       openMainMessaging,
       closeMainMessaging,
       toggleMainMessaging,
+      notificationPermission,
+      notificationPrefs,
+      enableDesktopNotifications,
+      setDesktopNotificationsEnabled,
+      setDesktopNotificationsShowPreview,
+      dismissNotificationBanner,
     }),
     [
       onlineUserIds,
@@ -847,6 +1003,12 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       openMainMessaging,
       closeMainMessaging,
       toggleMainMessaging,
+      notificationPermission,
+      notificationPrefs,
+      enableDesktopNotifications,
+      setDesktopNotificationsEnabled,
+      setDesktopNotificationsShowPreview,
+      dismissNotificationBanner,
     ]
   );
 
@@ -887,6 +1049,12 @@ const defaultMessagingContext: MessagingContextType = {
   openMainMessaging: () => {},
   closeMainMessaging: () => {},
   toggleMainMessaging: () => {},
+  notificationPermission: 'unsupported',
+  notificationPrefs: { ...DEFAULT_NOTIFICATION_PREFS },
+  enableDesktopNotifications: async () => 'unsupported',
+  setDesktopNotificationsEnabled: async () => {},
+  setDesktopNotificationsShowPreview: () => {},
+  dismissNotificationBanner: () => {},
 };
 
 export const useMessaging = (): MessagingContextType => {

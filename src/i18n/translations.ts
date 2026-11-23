@@ -1151,6 +1151,18 @@ export interface TranslationKeys {
   messagingMarkAsRead: string;
   messagingMarkAsUnread: string;
   messagingMuted: string;
+  messagingOpenProjectDetails: string;
+  messagingDesktopNotifications: string;
+  messagingNotificationsEnabled: string;
+  messagingNotificationsOff: string;
+  messagingNotificationsBlocked: string;
+  messagingNotificationsBlockedHint: string;
+  messagingNotificationsUnsupported: string;
+  messagingEnableNotifications: string;
+  messagingEnableNotificationsPrompt: string;
+  messagingShowMessagePreview: string;
+  messagingShowMessagePreviewHint: string;
+  messagingNotificationPrivacyBody: string;
 }
 
 export const serviceTypeTranslations: Record<Language, Record<string, string>> = {

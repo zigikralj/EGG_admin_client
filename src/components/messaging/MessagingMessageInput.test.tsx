@@ -46,6 +46,12 @@ const createMockMessagingValue = (allUsers: MessagingDirectoryUser[]): Messaging
   openMainMessaging: vi.fn(),
   closeMainMessaging: vi.fn(),
   toggleMainMessaging: vi.fn(),
+  notificationPermission: 'default',
+  notificationPrefs: { enabled: true, showPreview: true, bannerDismissed: false },
+  enableDesktopNotifications: vi.fn().mockResolvedValue('granted'),
+  setDesktopNotificationsEnabled: vi.fn().mockResolvedValue(undefined),
+  setDesktopNotificationsShowPreview: vi.fn(),
+  dismissNotificationBanner: vi.fn(),
 });
 
 describe('MessagingMessageInput @mention scoping', () => {

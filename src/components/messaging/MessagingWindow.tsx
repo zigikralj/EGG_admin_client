@@ -43,6 +43,7 @@ import { MessagingMessageInput } from './MessagingMessageInput';
 import { useAuth } from '../../context/AuthContext';
 import { useMessaging, type MessagingDirectoryUser } from '../../context/MessagingContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { useProjectModal } from '../../context/ProjectModalContext';
 import { MessagingMemberSelector } from './MessagingMemberSelector';
 import { TIME_MS } from '../../constants';
 
@@ -65,6 +66,7 @@ export const MessagingWindow: React.FC<MessagingWindowProps> = ({
   const canDeleteMessages = hasPermission('messaging', 'delete');
   const canModerateMessages = hasPermission('messaging', 'moderate');
   const { t } = useLanguage();
+  const { openProjectById } = useProjectModal();
   const {
     markAsUnread,
     allUsers,
@@ -202,6 +204,13 @@ export const MessagingWindow: React.FC<MessagingWindowProps> = ({
   const handleCloseMoreMenu = () => {
     setMoreMenuAnchor(null);
     setMoreMenuView('root');
+  };
+
+  const handleOpenProjectDetails = (e?: React.MouseEvent | React.KeyboardEvent) => {
+    e?.stopPropagation();
+    if (isProject && conversation?.contextId) {
+      openProjectById(conversation.contextId, 'messages');
+    }
   };
 
   const handleApplyMute = async (durationMinutes?: number, forever?: boolean) => {
@@ -525,18 +534,51 @@ export const MessagingWindow: React.FC<MessagingWindowProps> = ({
                     ))}
               </AvatarGroup>
             ) : isProject ? (
-              <Avatar
-                sx={{
-                  width: 24,
-                  height: 24,
-                  flexShrink: 0,
-                  bgcolor: 'rgba(255, 255, 255, 0.25)',
-                  color: '#ffffff',
-                  border: '1.5px solid rgba(255, 255, 255, 0.8)',
-                }}
-              >
-                <FolderSpecialIcon sx={{ fontSize: 14 }} />
-              </Avatar>
+              conversation?.contextId ? (
+                <Tooltip title={t('messagingOpenProjectDetails')} arrow>
+                  <Avatar
+                    role="button"
+                    tabIndex={0}
+                    aria-label={t('messagingOpenProjectDetails')}
+                    onClick={handleOpenProjectDetails}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleOpenProjectDetails(e);
+                      }
+                    }}
+                    sx={{
+                      width: 24,
+                      height: 24,
+                      flexShrink: 0,
+                      bgcolor: 'rgba(255, 255, 255, 0.25)',
+                      color: '#ffffff',
+                      border: '1.5px solid rgba(255, 255, 255, 0.8)',
+                      cursor: 'pointer',
+                      transition: 'transform 0.15s ease, background-color 0.15s ease',
+                      '&:hover': {
+                        bgcolor: 'rgba(255, 255, 255, 0.4)',
+                        transform: 'scale(1.08)',
+                      },
+                    }}
+                  >
+                    <FolderSpecialIcon sx={{ fontSize: 14 }} />
+                  </Avatar>
+                </Tooltip>
+              ) : (
+                <Avatar
+                  sx={{
+                    width: 24,
+                    height: 24,
+                    flexShrink: 0,
+                    bgcolor: 'rgba(255, 255, 255, 0.25)',
+                    color: '#ffffff',
+                    border: '1.5px solid rgba(255, 255, 255, 0.8)',
+                  }}
+                >
+                  <FolderSpecialIcon sx={{ fontSize: 14 }} />
+                </Avatar>
+              )
             ) : (
               <Badge
                 overlap="circular"
@@ -825,6 +867,20 @@ export const MessagingWindow: React.FC<MessagingWindowProps> = ({
                   <GroupsIcon fontSize="small" />
                 </ListItemIcon>
                 <ListItemText primary={t('messagingGroupDetails')} />
+              </MenuItem>
+            )}
+
+            {isProject && conversation?.contextId && (
+              <MenuItem
+                onClick={() => {
+                  handleCloseMoreMenu();
+                  openProjectById(conversation.contextId!, 'messages');
+                }}
+              >
+                <ListItemIcon>
+                  <FolderSpecialIcon fontSize="small" />
+                </ListItemIcon>
+                <ListItemText primary={t('messagingOpenProjectDetails')} />
               </MenuItem>
             )}
 
