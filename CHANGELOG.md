@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.11.18] - 2026-11-23
+
+- Bugfixing enter focus (#126) by @zigikralj
+
 ## [v1.11.17] - 2026-11-23
 
 - Messaging refactor (#124) by @zigikralj
