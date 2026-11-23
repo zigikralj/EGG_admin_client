@@ -21,19 +21,21 @@ import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import NotificationsOffOutlinedIcon from '@mui/icons-material/NotificationsOffOutlined';
 import NotificationsActiveOutlinedIcon from '@mui/icons-material/NotificationsActiveOutlined';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { chatApi, type ChatMessageItem, type ChatConversationItem } from './messagingApi';
+import { messagingApi, type MessagingMessageItem, type MessagingConversationItem } from './messagingApi';
 import { MessagingMessageBubble } from './MessagingMessageBubble';
 import { MessagingMessageInput } from './MessagingMessageInput';
 import { useAuth } from '../../context/AuthContext';
-import { useChat } from '../../context/MessagingContext';
+import { useMessaging } from '../../context/MessagingContext';
 import { useLanguage } from '../../context/LanguageContext';
 
-interface ProjectChatPaneProps {
+export interface ProjectMessagingPaneProps {
   projectId: string;
 }
 
-export const ProjectChatPane: React.FC<ProjectChatPaneProps> = ({ projectId }) => {
-  const { currentUser, role, actualRole, isRealAdmin, hasPermission } = useAuth();
+export const ProjectMessagingPane: React.FC<ProjectMessagingPaneProps> = ({ projectId }) => {
+  const { currentUser, hasPermission } = useAuth();
+  const canDeleteMessages = hasPermission('messaging', 'delete');
+  const canModerateMessages = hasPermission('messaging', 'moderate');
   const { t } = useLanguage();
   const {
     getProjectUnreadCount,
@@ -41,27 +43,18 @@ export const ProjectChatPane: React.FC<ProjectChatPaneProps> = ({ projectId }) =
     deleteConversation,
     muteConversation,
     unmuteConversation,
-  } = useChat();
+  } = useMessaging();
   const queryClient = useQueryClient();
-  const [replyingTo, setReplyingTo] = useState<ChatMessageItem | null>(null);
+  const [replyingTo, setReplyingTo] = useState<MessagingMessageItem | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [muteMenuAnchor, setMuteMenuAnchor] = useState<null | HTMLElement>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const isManagerPlus =
-    Boolean(currentUser?.isSystemAdmin) ||
-    isRealAdmin ||
-    role === 'Administrator' ||
-    role === 'Manager' ||
-    actualRole === 'Administrator' ||
-    actualRole === 'Manager' ||
-    hasPermission('projects', 'delete');
-
   // 1. Get or create contextual conversation for this project
-  const { data: conversation, isLoading: isLoadingConv } = useQuery<ChatConversationItem>({
-    queryKey: ['chat', 'context', 'PROJECT', projectId],
-    queryFn: () => chatApi.getContextualConversation('PROJECT', projectId),
+  const { data: conversation, isLoading: isLoadingConv } = useQuery<MessagingConversationItem>({
+    queryKey: ['messaging', 'context', 'PROJECT', projectId],
+    queryFn: () => messagingApi.getContextualConversation('PROJECT', projectId),
     meta: { silent: true },
   });
 
@@ -70,9 +63,9 @@ export const ProjectChatPane: React.FC<ProjectChatPaneProps> = ({ projectId }) =
   const isMuted = Boolean(conversation?.muted);
 
   // 2. Fetch messages
-  const { data: messages = [], isLoading: isLoadingMessages } = useQuery<ChatMessageItem[]>({
-    queryKey: ['chat', 'messages', conversationId],
-    queryFn: () => (conversationId ? chatApi.getMessages(conversationId, { limit: 100 }) : Promise.resolve([])),
+  const { data: messages = [], isLoading: isLoadingMessages } = useQuery<MessagingMessageItem[]>({
+    queryKey: ['messaging', 'messages', conversationId],
+    queryFn: () => (conversationId ? messagingApi.getMessages(conversationId, { limit: 100 }) : Promise.resolve([])),
     enabled: Boolean(conversationId),
     refetchOnWindowFocus: false,
     meta: { silent: true },
@@ -98,7 +91,7 @@ export const ProjectChatPane: React.FC<ProjectChatPaneProps> = ({ projectId }) =
     mentionedUserIds?: string[]
   ) => {
     if (!conversationId) return;
-    await chatApi.sendMessage(conversationId, {
+    await messagingApi.sendMessage(conversationId, {
       content,
       replyToId,
       mentionedUserIds,
@@ -107,18 +100,18 @@ export const ProjectChatPane: React.FC<ProjectChatPaneProps> = ({ projectId }) =
 
   const handleEditMessage = async (messageId: string, newContent: string) => {
     if (!conversationId) return;
-    const updated = await chatApi.editMessage(messageId, newContent);
-    queryClient.setQueryData<ChatMessageItem[]>(
-      ['chat', 'messages', conversationId],
+    const updated = await messagingApi.editMessage(messageId, newContent);
+    queryClient.setQueryData<MessagingMessageItem[]>(
+      ['messaging', 'messages', conversationId],
       (old = []) => old.map((m) => (m.id === messageId ? updated : m))
     );
   };
 
   const handleDeleteMessage = async (messageId: string) => {
     if (!conversationId) return;
-    const res = await chatApi.deleteMessage(messageId);
-    queryClient.setQueryData<ChatMessageItem[]>(
-      ['chat', 'messages', conversationId],
+    const res = await messagingApi.deleteMessage(messageId);
+    queryClient.setQueryData<MessagingMessageItem[]>(
+      ['messaging', 'messages', conversationId],
       (old = []) => {
         if (res.hardDeleted) {
           return old.filter((m) => m.id !== messageId);
@@ -136,12 +129,12 @@ export const ProjectChatPane: React.FC<ProjectChatPaneProps> = ({ projectId }) =
       setActionLoading(true);
       await deleteConversation(conversationId);
       setDeleteConfirmOpen(false);
-      queryClient.setQueryData<ChatMessageItem[]>(
-        ['chat', 'messages', conversationId],
+      queryClient.setQueryData<MessagingMessageItem[]>(
+        ['messaging', 'messages', conversationId],
         []
       );
     } catch (err) {
-      console.error('Failed to clear project chat', err);
+      console.error('Failed to clear project conversation', err);
     } finally {
       setActionLoading(false);
     }
@@ -221,8 +214,8 @@ export const ProjectChatPane: React.FC<ProjectChatPaneProps> = ({ projectId }) =
             </IconButton>
           </Tooltip>
 
-          {/* Clear chat button for Manager+ */}
-          {isManagerPlus && messages.length > 0 && (
+          {/* Clear conversation button */}
+          {canDeleteMessages && messages.length > 0 && (
             <Tooltip title={t('messagingClearHistory')} arrow>
               <Button
                 size="small"
@@ -275,7 +268,7 @@ export const ProjectChatPane: React.FC<ProjectChatPaneProps> = ({ projectId }) =
               key={msg.id}
               message={msg}
               isCurrentUser={msg.senderId === currentUser?.id}
-              canModerate={currentUser?.role === 'Administrator' || Boolean(currentUser?.isSystemAdmin)}
+              canModerate={canModerateMessages}
               onReply={(m) => setReplyingTo(m)}
               onEdit={handleEditMessage}
               onDelete={handleDeleteMessage}
@@ -289,6 +282,7 @@ export const ProjectChatPane: React.FC<ProjectChatPaneProps> = ({ projectId }) =
         onSendMessage={handleSendMessage}
         replyingTo={replyingTo}
         onCancelReply={() => setReplyingTo(null)}
+        allowMentions
         placeholder="Type a message or note about this project..."
       />
 
@@ -357,7 +351,4 @@ export const ProjectChatPane: React.FC<ProjectChatPaneProps> = ({ projectId }) =
     </Paper>
   );
 };
-
-export const ProjectMessagingPane = ProjectChatPane;
-export type ProjectMessagingPaneProps = ProjectChatPaneProps;
 

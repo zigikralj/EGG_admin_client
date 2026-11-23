@@ -34,12 +34,14 @@ import NotificationsOffOutlinedIcon from '@mui/icons-material/NotificationsOffOu
 import NotificationsActiveOutlinedIcon from '@mui/icons-material/NotificationsActiveOutlined';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
+import CloseIcon from '@mui/icons-material/Close';
 import { useQuery } from '@tanstack/react-query';
-import { chatApi, type ChatConversationItem } from './messagingApi';
-import { useChat } from '../../context/MessagingContext';
+import { messagingApi, type MessagingConversationItem } from './messagingApi';
+import { useMessaging } from '../../context/MessagingContext';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { TIME_MS } from '../../constants';
+import { isBrowserNotificationSupported } from '../../utils/browserNotifications';
 
 export interface UnifiedConversationItem {
   kind: 'conversation';
@@ -65,21 +67,22 @@ export interface UnifiedUserItem {
   isOnline: boolean;
 }
 
-export type UnifiedChatItem = UnifiedConversationItem | UnifiedUserItem;
+export type UnifiedMessagingItem = UnifiedConversationItem | UnifiedUserItem;
 
-type ChatTabType = 'all' | 'projects' | 'people' | 'groups';
+type MessagingTabType = 'all' | 'projects' | 'people' | 'groups';
 
-interface ChatConversationListProps {
+interface MessagingConversationListProps {
   onClose?: () => void;
 }
 
-export const ChatConversationList: React.FC<ChatConversationListProps> = () => {
-  const { currentUser, role, actualRole, isRealAdmin, hasPermission } = useAuth();
+export const MessagingConversationList: React.FC<MessagingConversationListProps> = () => {
+  const { currentUser, hasPermission } = useAuth();
+  const canDeleteMessages = hasPermission('messaging', 'delete');
   const { t } = useLanguage();
   const {
     onlineUserIds,
-    openChat,
-    openDirectChatWithUser,
+    openMessaging,
+    openDirectMessagingWithUser,
     markAsRead,
     markAsUnread,
     leaveConversation,
@@ -87,9 +90,18 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = () => {
     muteConversation,
     unmuteConversation,
     allUsers,
-  } = useChat();
+    notificationPermission,
+    notificationPrefs,
+    enableDesktopNotifications,
+    dismissNotificationBanner,
+  } = useMessaging();
 
-  const [activeTab, setActiveTab] = useState<ChatTabType>('all');
+  const showNotificationBanner =
+    isBrowserNotificationSupported() &&
+    notificationPermission === 'default' &&
+    !notificationPrefs.bannerDismissed;
+
+  const [activeTab, setActiveTab] = useState<MessagingTabType>('all');
   const [search, setSearch] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -100,19 +112,10 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = () => {
   const [deleteDialogConv, setDeleteDialogConv] = useState<UnifiedConversationItem | null>(null);
   const [leaveDialogConv, setLeaveDialogConv] = useState<UnifiedConversationItem | null>(null);
 
-  const isManagerPlus =
-    Boolean(currentUser?.isSystemAdmin) ||
-    isRealAdmin ||
-    role === 'Administrator' ||
-    role === 'Manager' ||
-    actualRole === 'Administrator' ||
-    actualRole === 'Manager' ||
-    hasPermission('projects', 'delete');
-
   // Fetch active conversations
-  const { data: conversations = [] } = useQuery<ChatConversationItem[]>({
-    queryKey: ['chat', 'conversations'],
-    queryFn: () => chatApi.getConversations(),
+  const { data: conversations = [] } = useQuery<MessagingConversationItem[]>({
+    queryKey: ['messaging', 'conversations'],
+    queryFn: () => messagingApi.getConversations(),
     staleTime: TIME_MS.ONE_MINUTE,
     meta: { silent: true },
   });
@@ -121,7 +124,7 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = () => {
   const filteredItems = useMemo(() => {
     const directPartnerUserIds = new Set<string>();
 
-    // Merely opening a 1-1 chat with someone without sending anything should NOT mark it as recent
+    // Merely opening a 1-1 conversation with someone without sending anything should NOT mark it as recent
     // or remove them from the colleagues list.
     const activeConversations = conversations.filter(
       (c) => c.type !== 'DIRECT' || Boolean(c.lastMessage)
@@ -209,7 +212,7 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = () => {
       return a.title.localeCompare(b.title);
     });
 
-    let items: UnifiedChatItem[] = [];
+    let items: UnifiedMessagingItem[] = [];
 
     switch (activeTab) {
       case 'projects':
@@ -341,6 +344,61 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = () => {
         </Tabs>
       </Box>
 
+      {/* Subtle Desktop Notification Permission Banner */}
+      {showNotificationBanner && (
+        <Box
+          sx={{
+            px: 1.5,
+            py: 0.85,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            bgcolor: (theme) =>
+              theme.palette.mode === 'dark'
+                ? 'rgba(76, 175, 80, 0.14)'
+                : 'rgba(46, 125, 50, 0.08)',
+            borderTop: 1,
+            borderBottom: 1,
+            borderColor: 'divider',
+          }}
+        >
+          <NotificationsActiveOutlinedIcon
+            fontSize="small"
+            sx={{ color: 'primary.main', flexShrink: 0 }}
+          />
+          <Typography
+            variant="caption"
+            sx={{ flex: 1, minWidth: 0, lineHeight: 1.25, color: 'text.primary', fontWeight: 500 }}
+          >
+            {t('messagingEnableNotificationsPrompt')}
+          </Typography>
+          <Button
+            size="small"
+            variant="contained"
+            onClick={() => void enableDesktopNotifications()}
+            sx={{
+              minWidth: 'auto',
+              px: 1.25,
+              py: 0.25,
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              textTransform: 'none',
+              flexShrink: 0,
+            }}
+          >
+            {t('messagingEnableNotifications')}
+          </Button>
+          <IconButton
+            size="small"
+            aria-label={t('btnClose')}
+            onClick={dismissNotificationBanner}
+            sx={{ p: 0.25, color: 'text.secondary', flexShrink: 0 }}
+          >
+            <CloseIcon sx={{ fontSize: 15 }} />
+          </IconButton>
+        </Box>
+      )}
+
       {/* Unified List content */}
       <Box sx={{ flex: 1, overflowY: 'auto' }}>
         {filteredItems.length === 0 ? (
@@ -358,7 +416,7 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = () => {
                   return (
                     <ListItemButton
                       key={`conv-${item.id}`}
-                      onClick={() => openChat(item.id, { title: item.title })}
+                      onClick={() => openMessaging(item.id, { title: item.title })}
                       sx={{ py: 1, px: 1.5 }}
                     >
                       <ListItemAvatar sx={{ minWidth: 42 }}>
@@ -546,8 +604,8 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = () => {
                                 </Tooltip>
                               )}
 
-                              {/* Delete / Clear conversation for Manager+ */}
-                              {isManagerPlus && (
+                              {/* Delete / Clear conversation */}
+                              {canDeleteMessages && (
                                 <Tooltip title={t('messagingDeleteConversation')} arrow>
                                   <IconButton
                                     size="small"
@@ -573,7 +631,7 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = () => {
                 return (
                   <ListItemButton
                     key={`user-${item.id}`}
-                    onClick={() => openDirectChatWithUser(item.id, item.title)}
+                    onClick={() => openDirectMessagingWithUser(item.id, item.title)}
                     sx={{ py: 1, px: 1.5 }}
                   >
                     <ListItemAvatar sx={{ minWidth: 42 }}>
@@ -717,8 +775,4 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = () => {
     </Box>
   );
 };
-
-export const MessagingConversationList = ChatConversationList;
-export type MessagingConversationListProps = ChatConversationListProps;
-export type UnifiedMessagingItem = UnifiedChatItem;
 

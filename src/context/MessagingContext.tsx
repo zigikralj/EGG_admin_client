@@ -1,28 +1,36 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from './AuthContext';
+import { useLanguage } from './LanguageContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { STORAGE_KEYS, TIME_MS } from '../constants';
 import { getApiUrl } from '../api';
 import { useUsersDirectoryQuery, type DirectoryUser } from '../queries';
-import { chatApi, type ChatConversationItem, type ChatMessageItem, type ChatUnreadSummary } from '../components/messaging/messagingApi';
-import { chatStorage } from '../components/messaging/messagingStorage';
+import { messagingApi, type MessagingConversationItem, type MessagingMessageItem, type MessagingUnreadSummary } from '../components/messaging/messagingApi';
+import { messagingStorage } from '../components/messaging/messagingStorage';
+import { useMessagingTitleIndicator } from '../hooks/useMessagingTitleIndicator';
+import {
+  DEFAULT_NOTIFICATION_PREFS,
+  getBrowserNotificationPermission,
+  loadNotificationPrefs,
+  requestBrowserNotificationPermission,
+  saveNotificationPrefs,
+  showMessagingBrowserNotification,
+  type MessagingNotificationPrefs,
+} from '../utils/browserNotifications';
 
-export interface ActiveChatWindow {
+export interface ActiveMessagingWindow {
   conversationId: string;
   minimized: boolean;
   title?: string;
 }
 
-export type ChatDirectoryUser = DirectoryUser;
+export type MessagingDirectoryUser = DirectoryUser;
 
-interface ChatContextType {
+export interface MessagingContextType {
   onlineUserIds: Set<string>;
-  activeWindows: ActiveChatWindow[];
-  openChat: (conversationId: string, options?: { title?: string }) => void;
+  activeWindows: ActiveMessagingWindow[];
   openMessaging: (conversationId: string, options?: { title?: string }) => void;
-  openDirectChatWithUser: (userId: string, userName?: string) => Promise<void>;
   openDirectMessagingWithUser: (userId: string, userName?: string) => Promise<void>;
-  closeChat: (conversationId: string) => void;
   closeMessaging: (conversationId: string) => void;
   toggleMinimize: (conversationId: string) => void;
   markAsRead: (conversationId: string) => Promise<void>;
@@ -36,7 +44,8 @@ interface ChatContextType {
   isDndActive: boolean;
   totalUnreadCount: number;
   getProjectUnreadCount: (projectId: string) => number;
-  allUsers: ChatDirectoryUser[];
+  getConversationUnreadCount: (conversationId: string) => number;
+  allUsers: MessagingDirectoryUser[];
   isNewMessageOpen: boolean;
   isNewMessageMinimized: boolean;
   openNewMessage: () => void;
@@ -47,18 +56,23 @@ interface ChatContextType {
   openMainMessaging: () => void;
   closeMainMessaging: () => void;
   toggleMainMessaging: () => void;
+  notificationPermission: NotificationPermission | 'unsupported';
+  notificationPrefs: MessagingNotificationPrefs;
+  enableDesktopNotifications: () => Promise<NotificationPermission | 'unsupported'>;
+  setDesktopNotificationsEnabled: (enabled: boolean) => Promise<void>;
+  setDesktopNotificationsShowPreview: (showPreview: boolean) => void;
+  dismissNotificationBanner: () => void;
 }
 
 interface SavedMessagingState {
   isMainOpen: boolean;
-  windows: ActiveChatWindow[];
+  windows: ActiveMessagingWindow[];
 }
 
 const loadSavedMessagingState = (userId: string): SavedMessagingState => {
   try {
     const raw =
-      localStorage.getItem(STORAGE_KEYS.MESSAGING_STATE(userId)) ||
-      localStorage.getItem(`ekos_open_chats_${userId}`);
+      localStorage.getItem(STORAGE_KEYS.MESSAGING_STATE(userId));
     if (!raw) return { isMainOpen: false, windows: [] };
     const parsed = JSON.parse(raw);
 
@@ -77,7 +91,7 @@ const loadSavedMessagingState = (userId: string): SavedMessagingState => {
     }
 
     const seen = new Set<string>();
-    const valid: ActiveChatWindow[] = [];
+    const valid: ActiveMessagingWindow[] = [];
     for (const item of rawWindows) {
       if (
         item &&
@@ -106,7 +120,7 @@ const loadSavedMessagingState = (userId: string): SavedMessagingState => {
 
 const saveMessagingStateToStorage = (
   userId: string,
-  state: { isMainOpen: boolean; windows: ActiveChatWindow[] }
+  state: { isMainOpen: boolean; windows: ActiveMessagingWindow[] }
 ) => {
   try {
     localStorage.setItem(
@@ -121,17 +135,28 @@ const saveMessagingStateToStorage = (
   }
 };
 
-const ChatContext = createContext<ChatContextType | undefined>(undefined);
+export const MessagingContext = createContext<MessagingContextType | undefined>(undefined);
 
-export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { currentUser } = useAuth();
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
 
-  // Track the userId for which open chats have been loaded
+  const [notificationPermission, setNotificationPermission] = useState<
+    NotificationPermission | 'unsupported'
+  >(() => getBrowserNotificationPermission());
+  const [notificationPrefs, setNotificationPrefs] = useState<MessagingNotificationPrefs>(() => {
+    if (currentUser?.id) {
+      return loadNotificationPrefs(currentUser.id);
+    }
+    return { ...DEFAULT_NOTIFICATION_PREFS };
+  });
+
+  // Track the userId for which open conversations have been loaded
   const loadedUserIdRef = useRef<string | null>(currentUser?.id || null);
 
-  const [activeWindows, setActiveWindows] = useState<ActiveChatWindow[]>(() => {
+  const [activeWindows, setActiveWindows] = useState<ActiveMessagingWindow[]>(() => {
     if (currentUser?.id) {
       return loadSavedMessagingState(currentUser.id).windows;
     }
@@ -145,16 +170,21 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
   const [isNewMessageOpen, setIsNewMessageOpen] = useState(false);
   const [isNewMessageMinimized, setIsNewMessageMinimized] = useState(false);
-  const activeWindowsRef = useRef<ActiveChatWindow[]>(activeWindows);
+  const activeWindowsRef = useRef<ActiveMessagingWindow[]>(activeWindows);
   activeWindowsRef.current = activeWindows;
   const eventSourceRef = useRef<EventSource | null>(null);
+  const notificationPrefsRef = useRef<MessagingNotificationPrefs>(notificationPrefs);
+  notificationPrefsRef.current = notificationPrefs;
+  const tRef = useRef(t);
+  tRef.current = t;
 
-  // Sync activeWindows and isMainOpen when user logs in or logs out
+  // Sync activeWindows, isMainOpen, and notification prefs when user logs in or logs out
   useEffect(() => {
     if (!currentUser?.id) {
       loadedUserIdRef.current = null;
       setActiveWindows([]);
       setIsMainOpen(false);
+      setNotificationPrefs({ ...DEFAULT_NOTIFICATION_PREFS });
       return;
     }
 
@@ -163,23 +193,36 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const restored = loadSavedMessagingState(currentUser.id);
       setActiveWindows(restored.windows);
       setIsMainOpen(restored.isMainOpen);
+      setNotificationPrefs(loadNotificationPrefs(currentUser.id));
+      setNotificationPermission(getBrowserNotificationPermission());
     }
   }, [currentUser?.id]);
 
-  // Persist open chats whenever activeWindows or isMainOpen changes (only if authenticated and loaded)
+  // Persist open conversations whenever activeWindows or isMainOpen changes (only if authenticated and loaded)
   useEffect(() => {
     if (currentUser?.id && loadedUserIdRef.current === currentUser.id) {
       saveMessagingStateToStorage(currentUser.id, { isMainOpen, windows: activeWindows });
     }
   }, [activeWindows, isMainOpen, currentUser?.id]);
 
+  // Persist notification prefs whenever they change (only if authenticated and loaded)
+  useEffect(() => {
+    if (currentUser?.id && loadedUserIdRef.current === currentUser.id) {
+      saveNotificationPrefs(currentUser.id, notificationPrefs);
+    }
+  }, [notificationPrefs, currentUser?.id]);
+
   // Preload and cache all users for @mention highlights and directory lookups (only when authenticated)
   const { data: allUsers = [] } = useUsersDirectoryQuery({ enabled: Boolean(currentUser) });
+  const allUsersRef = useRef(allUsers);
+  allUsersRef.current = allUsers;
+  const isDndActiveRef = useRef(false);
+  const openMessagingRef = useRef<(conversationId: string, options?: { title?: string }) => void>(() => {});
 
   // Fetch lightweight unread summary (counts only) for badges; real-time updates pushed via SSE
-  const { data: unreadSummary } = useQuery<ChatUnreadSummary>({
-    queryKey: ['chat', 'unread-summary'],
-    queryFn: () => chatApi.getUnreadSummary(),
+  const { data: unreadSummary } = useQuery<MessagingUnreadSummary>({
+    queryKey: ['messaging', 'unread-summary'],
+    queryFn: () => messagingApi.getUnreadSummary(),
     enabled: Boolean(currentUser),
     staleTime: TIME_MS.ONE_MINUTE,
     meta: { silent: true },
@@ -196,7 +239,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         eventSourceRef.current.close();
         eventSourceRef.current = null;
       }
-      chatStorage.clearAll().catch(() => {});
+      messagingStorage.clearAll().catch(() => {});
       return;
     }
 
@@ -211,7 +254,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const connectSSE = () => {
       if (es) return;
 
-      const url = getApiUrl(`/api/chat/stream?token=${encodeURIComponent(token)}`);
+      const url = getApiUrl(`/api/messaging/stream?token=${encodeURIComponent(token)}`);
       es = new EventSource(url);
       eventSourceRef.current = es;
 
@@ -243,24 +286,50 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       es.addEventListener('MESSAGE_CREATED', (e: MessageEvent) => {
         try {
           const { conversationId, message, conversation } = JSON.parse(e.data);
-          const isWindowOpenAndVisible = activeWindowsRef.current.some(
-            (w) => w.conversationId === conversationId && !w.minimized
-          );
+          const isWindowOpenAndVisible =
+            !document.hidden &&
+            activeWindowsRef.current.some(
+              (w) => w.conversationId === conversationId && !w.minimized
+            );
           const isOwnMessage = message.senderId === currentUser.id;
           const shouldBeRead = isOwnMessage || isWindowOpenAndVisible;
 
-          chatStorage.upsertMessage(message).catch(() => {});
+          const cachedList = queryClient.getQueryData<MessagingConversationItem[]>([
+            'messaging',
+            'conversations',
+          ]);
+          const cachedConv = cachedList?.find((c) => c.id === conversationId);
+          const targetConv = cachedConv || conversation;
+          const isMuted = Boolean(cachedConv?.muted || conversation?.muted);
+          const convParticipants: string[] =
+            targetConv?.participantIds ||
+            (targetConv?.participants || []).map((cp: any) =>
+              typeof cp === 'string' ? cp : cp.userId || cp.user?.id || cp.id
+            );
+          const isProjectConversation =
+            targetConv?.type === 'CONTEXTUAL' || targetConv?.contextType === 'PROJECT';
+          const isGroupConversation = targetConv?.type === 'GROUP';
+          const isWindowOpen = activeWindowsRef.current.some(
+            (w) => w.conversationId === conversationId
+          );
+          const isConvParticipant =
+            (convParticipants.length > 0
+              ? convParticipants.includes(currentUser.id)
+              : Boolean(cachedConv)) || isWindowOpen;
+          const isAllowedForProject = !isProjectConversation || isConvParticipant;
 
-          queryClient.setQueryData<ChatMessageItem[]>(
-            ['chat', 'messages', conversationId],
+          messagingStorage.upsertMessage(message).catch(() => {});
+
+          queryClient.setQueryData<MessagingMessageItem[]>(
+            ['messaging', 'messages', conversationId],
             (old = []) => {
               if (old.some((m) => m.id === message.id)) return old;
               return [...old, message];
             }
           );
 
-          queryClient.setQueryData<ChatConversationItem[]>(
-            ['chat', 'conversations'],
+          queryClient.setQueryData<MessagingConversationItem[]>(
+            ['messaging', 'conversations'],
             (old = []) => {
               const exists = old.some((c) => c.id === conversationId);
               if (!exists && conversation) {
@@ -270,14 +339,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     typeof cp === 'string' ? cp : cp.userId || cp.user?.id || cp.id
                   );
 
-                // If this is a project chat, only add it if current user is participant or sender or window is open
-                const isProjectChat = conversation.type === 'CONTEXTUAL' || conversation.contextType === 'PROJECT';
+                // If this is a project conversation, only add it if current user is participant or sender or window is open
+                const isProjConv = conversation.type === 'CONTEXTUAL' || conversation.contextType === 'PROJECT';
                 const isParticipant = pIds.includes(currentUser.id);
-                if (isProjectChat && !isParticipant && !isOwnMessage && !isWindowOpenAndVisible) {
+                if (isProjConv && !isParticipant && !isOwnMessage && !isWindowOpenAndVisible) {
                   return old;
                 }
 
-                const newConv: ChatConversationItem = {
+                const newConv: MessagingConversationItem = {
                   id: conversation.id,
                   type: conversation.type,
                   title: conversation.title,
@@ -306,9 +375,43 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           if (!isOwnMessage) {
             if (isWindowOpenAndVisible) {
-              chatApi.markAsRead(conversationId).catch(() => {});
+              messagingApi.markAsRead(conversationId).catch(() => {});
             } else {
-              queryClient.invalidateQueries({ queryKey: ['chat', 'unread-summary'] });
+              queryClient.invalidateQueries({ queryKey: ['messaging', 'unread-summary'] });
+            }
+
+            const isBackgrounded = document.hidden || !document.hasFocus();
+            if (
+              isBackgrounded &&
+              !isDndActiveRef.current &&
+              !isMuted &&
+              isAllowedForProject &&
+              notificationPrefsRef.current.enabled
+            ) {
+              const senderName =
+                message.sender?.name ||
+                allUsersRef.current.find((u) => u.id === message.senderId)?.name ||
+                'User';
+              const convTitle =
+                targetConv?.title ||
+                (isProjectConversation
+                  ? tRef.current('messagingProjectDiscussion')
+                  : isGroupConversation
+                    ? tRef.current('messagingGroupConversation')
+                    : senderName);
+
+              showMessagingBrowserNotification({
+                conversationId,
+                senderName,
+                conversationTitle: convTitle,
+                isGroup: isGroupConversation,
+                isProject: isProjectConversation,
+                messageContent: message.content,
+                showPreview: notificationPrefsRef.current.showPreview,
+                privacyTitle: 'Ekos Green Group',
+                privacyBody: tRef.current('messagingNotificationPrivacyBody'),
+                onClick: () => openMessagingRef.current(conversationId, { title: convTitle }),
+              });
             }
           }
         } catch {}
@@ -317,37 +420,46 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       es.addEventListener('READ_RECEIPT', (e: MessageEvent) => {
         try {
           const { conversationId, lastReadAt } = JSON.parse(e.data);
-          queryClient.setQueryData<ChatConversationItem[]>(
-            ['chat', 'conversations'],
+          queryClient.setQueryData<MessagingConversationItem[]>(
+            ['messaging', 'conversations'],
             (old = []) =>
               old.map((c) => (c.id === conversationId ? { ...c, unreadCount: 0, lastReadAt } : c))
           );
-          queryClient.invalidateQueries({ queryKey: ['chat', 'unread-summary'] });
+          queryClient.setQueryData<MessagingUnreadSummary>(
+            ['messaging', 'unread-summary'],
+            (old) => {
+              if (!old?.byConversation?.[conversationId]) return old;
+              const nextByConv = { ...old.byConversation };
+              delete nextByConv[conversationId];
+              return { ...old, byConversation: nextByConv };
+            }
+          );
+          queryClient.invalidateQueries({ queryKey: ['messaging', 'unread-summary'] });
         } catch {}
       });
 
       es.addEventListener('UNREAD_STATUS', (e: MessageEvent) => {
         try {
           const { conversationId, lastReadAt, unreadCount } = JSON.parse(e.data);
-          queryClient.setQueryData<ChatConversationItem[]>(
-            ['chat', 'conversations'],
+          queryClient.setQueryData<MessagingConversationItem[]>(
+            ['messaging', 'conversations'],
             (old = []) =>
               old.map((c) => (c.id === conversationId ? { ...c, unreadCount, lastReadAt } : c))
           );
-          queryClient.invalidateQueries({ queryKey: ['chat', 'unread-summary'] });
+          queryClient.invalidateQueries({ queryKey: ['messaging', 'unread-summary'] });
         } catch {}
       });
 
       es.addEventListener('MESSAGE_UPDATED', (e: MessageEvent) => {
         try {
           const { conversationId, message } = JSON.parse(e.data);
-          chatStorage.upsertMessage(message).catch(() => {});
-          queryClient.setQueryData<ChatMessageItem[]>(
-            ['chat', 'messages', conversationId],
+          messagingStorage.upsertMessage(message).catch(() => {});
+          queryClient.setQueryData<MessagingMessageItem[]>(
+            ['messaging', 'messages', conversationId],
             (old = []) => old.map((m) => (m.id === message.id ? message : m))
           );
-          queryClient.setQueryData<ChatConversationItem[]>(
-            ['chat', 'conversations'],
+          queryClient.setQueryData<MessagingConversationItem[]>(
+            ['messaging', 'conversations'],
             (old = []) =>
               old.map((c) => {
                 if (c.id !== conversationId || !c.lastMessage) return c;
@@ -373,12 +485,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           const { conversationId, messageId, hardDeleted, updatedMessage } = JSON.parse(e.data);
           if (hardDeleted) {
-            chatStorage.removeMessage(messageId).catch(() => {});
+            messagingStorage.removeMessage(messageId).catch(() => {});
           } else if (updatedMessage) {
-            chatStorage.upsertMessage(updatedMessage).catch(() => {});
+            messagingStorage.upsertMessage(updatedMessage).catch(() => {});
           }
-          queryClient.setQueryData<ChatMessageItem[]>(
-            ['chat', 'messages', conversationId],
+          queryClient.setQueryData<MessagingMessageItem[]>(
+            ['messaging', 'messages', conversationId],
             (old = []) => {
               if (hardDeleted) {
                 return old.filter((m) => m.id !== messageId);
@@ -397,8 +509,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           const conversation = JSON.parse(e.data);
           if (conversation?.id) {
-            queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] });
-            queryClient.invalidateQueries({ queryKey: ['chat', 'conversation', conversation.id] });
+            queryClient.invalidateQueries({ queryKey: ['messaging', 'conversations'] });
+            queryClient.invalidateQueries({ queryKey: ['messaging', 'conversation', conversation.id] });
             if (conversation.title) {
               setActiveWindows((prev) =>
                 prev.map((w) =>
@@ -415,8 +527,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const { conversationId } = JSON.parse(e.data);
           if (conversationId) {
             setActiveWindows((prev) => prev.filter((w) => w.conversationId !== conversationId));
-            queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] });
-            queryClient.invalidateQueries({ queryKey: ['chat', 'unread-summary'] });
+            queryClient.invalidateQueries({ queryKey: ['messaging', 'conversations'] });
+            queryClient.invalidateQueries({ queryKey: ['messaging', 'unread-summary'] });
           }
         } catch {}
       });
@@ -425,14 +537,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           const { conversationId } = JSON.parse(e.data);
           if (conversationId) {
-            chatStorage.clearConversation(conversationId).catch(() => {});
-            queryClient.setQueryData<ChatMessageItem[]>(
-              ['chat', 'messages', conversationId],
+            messagingStorage.clearConversation(conversationId).catch(() => {});
+            queryClient.setQueryData<MessagingMessageItem[]>(
+              ['messaging', 'messages', conversationId],
               []
             );
             setActiveWindows((prev) => prev.filter((w) => w.conversationId !== conversationId));
-            queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] });
-            queryClient.invalidateQueries({ queryKey: ['chat', 'unread-summary'] });
+            queryClient.invalidateQueries({ queryKey: ['messaging', 'conversations'] });
+            queryClient.invalidateQueries({ queryKey: ['messaging', 'unread-summary'] });
           }
         } catch {}
       });
@@ -440,8 +552,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       es.addEventListener('MUTE_UPDATED', (e: MessageEvent) => {
         try {
           const { conversationId, mutedUntil } = JSON.parse(e.data);
-          queryClient.setQueryData<ChatConversationItem[]>(
-            ['chat', 'conversations'],
+          queryClient.setQueryData<MessagingConversationItem[]>(
+            ['messaging', 'conversations'],
             (old = []) =>
               old.map((c) =>
                 c.id === conversationId
@@ -449,19 +561,19 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   : c
               )
           );
-          queryClient.invalidateQueries({ queryKey: ['chat', 'unread-summary'] });
+          queryClient.invalidateQueries({ queryKey: ['messaging', 'unread-summary'] });
         } catch {}
       });
 
       es.addEventListener('DND_UPDATED', (e: MessageEvent) => {
         try {
           const { dndUntil } = JSON.parse(e.data);
-          queryClient.setQueryData<ChatUnreadSummary>(
-            ['chat', 'unread-summary'],
+          queryClient.setQueryData<MessagingUnreadSummary>(
+            ['messaging', 'unread-summary'],
             (old) => (old ? { ...old, dndUntil } : { totalUnread: 0, byConversation: {}, byProject: {}, dndUntil })
           );
-          queryClient.invalidateQueries({ queryKey: ['chat', 'unread-summary'] });
-          queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] });
+          queryClient.invalidateQueries({ queryKey: ['messaging', 'unread-summary'] });
+          queryClient.invalidateQueries({ queryKey: ['messaging', 'conversations'] });
         } catch {}
       });
     };
@@ -480,8 +592,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isIdle = false;
         connectSSE();
         // Delta re-sync unread counters & conversations when waking up from idle
-        queryClient.invalidateQueries({ queryKey: ['chat', 'unread-summary'] });
-        queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] });
+        queryClient.invalidateQueries({ queryKey: ['messaging', 'unread-summary'] });
+        queryClient.invalidateQueries({ queryKey: ['messaging', 'conversations'] });
       }
       idleTimer = setTimeout(() => {
         isIdle = true;
@@ -524,19 +636,28 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const markAsRead = useCallback(async (conversationId: string) => {
     try {
-      queryClient.setQueryData<ChatConversationItem[]>(
-        ['chat', 'conversations'],
+      queryClient.setQueryData<MessagingConversationItem[]>(
+        ['messaging', 'conversations'],
         (old = []) =>
           old.map((c) => (c.id === conversationId ? { ...c, unreadCount: 0 } : c))
       );
-      await chatApi.markAsRead(conversationId);
-      queryClient.invalidateQueries({ queryKey: ['chat', 'unread-summary'] });
+      queryClient.setQueryData<MessagingUnreadSummary>(
+        ['messaging', 'unread-summary'],
+        (old) => {
+          if (!old?.byConversation?.[conversationId]) return old;
+          const nextByConv = { ...old.byConversation };
+          delete nextByConv[conversationId];
+          return { ...old, byConversation: nextByConv };
+        }
+      );
+      await messagingApi.markAsRead(conversationId);
+      queryClient.invalidateQueries({ queryKey: ['messaging', 'unread-summary'] });
     } catch (err) {
       console.error('Failed to mark as read', err);
     }
   }, [queryClient]);
 
-  const openChat = useCallback((
+  const openMessaging = useCallback((
     conversationId: string,
     options?: { title?: string }
   ) => {
@@ -561,37 +682,54 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Only call markAsRead if the conversation actually has unread messages
     const summaryUnread = unreadSummary?.byConversation?.[conversationId] ?? 0;
-    const convList = queryClient.getQueryData<ChatConversationItem[]>(['chat', 'conversations']);
+    const convList = queryClient.getQueryData<MessagingConversationItem[]>(['messaging', 'conversations']);
     const listUnread = convList?.find((c) => c.id === conversationId)?.unreadCount ?? 0;
     if (summaryUnread > 0 || listUnread > 0) {
       markAsRead(conversationId);
     }
   }, [queryClient, unreadSummary, markAsRead]);
 
-  const openDirectChatWithUser = useCallback(async (targetUserId: string, targetUserName?: string) => {
+  const openDirectMessagingWithUser = useCallback(async (targetUserId: string, targetUserName?: string) => {
     if (!currentUser || targetUserId === currentUser.id) return;
     try {
-      const conv = await chatApi.createConversation({
+      const conv = await messagingApi.createConversation({
         type: 'DIRECT',
         participantIds: [targetUserId],
       });
-      openChat(conv.id, { title: targetUserName || 'Direct Chat' });
+      openMessaging(conv.id, { title: targetUserName || 'Direct Message' });
     } catch (err) {
-      console.error('Failed to start chat with user', err);
+      console.error('Failed to start conversation with user', err);
     }
-  }, [currentUser, openChat]);
+  }, [currentUser, openMessaging]);
 
-  const closeChat = useCallback((conversationId: string) => {
+  const closeMessaging = useCallback((conversationId: string) => {
     setActiveWindows((prev) => prev.filter((w) => w.conversationId !== conversationId));
   }, []);
 
+  const getConversationUnreadCount = useCallback(
+    (conversationId: string) => {
+      const summaryCount = unreadSummary?.byConversation?.[conversationId] ?? 0;
+      const convList = queryClient.getQueryData<MessagingConversationItem[]>(['messaging', 'conversations']);
+      const listCount = convList?.find((c) => c.id === conversationId)?.unreadCount ?? 0;
+      return Math.max(summaryCount, listCount);
+    },
+    [unreadSummary, queryClient]
+  );
+
   const toggleMinimize = useCallback((conversationId: string) => {
+    const target = activeWindowsRef.current.find((w) => w.conversationId === conversationId);
+    const willOpen = Boolean(target?.minimized);
+
     setActiveWindows((prev) =>
       prev.map((w) =>
         w.conversationId === conversationId ? { ...w, minimized: !w.minimized } : w
       )
     );
-  }, []);
+
+    if (willOpen && getConversationUnreadCount(conversationId) > 0) {
+      markAsRead(conversationId);
+    }
+  }, [getConversationUnreadCount, markAsRead]);
 
   const openNewMessage = useCallback(() => {
     setIsNewMessageOpen(true);
@@ -621,17 +759,22 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const markAsUnread = useCallback(async (conversationId: string) => {
     try {
-      await chatApi.markAsUnread(conversationId);
+      await messagingApi.markAsUnread(conversationId);
       // Close active window if open so it doesn't immediately auto-read
       setActiveWindows((prev) => prev.filter((w) => w.conversationId !== conversationId));
-      queryClient.invalidateQueries({ queryKey: ['chat', 'unread-summary'] });
-      queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] });
+      queryClient.invalidateQueries({ queryKey: ['messaging', 'unread-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['messaging', 'conversations'] });
     } catch (err) {
       console.error('Failed to mark as unread', err);
     }
   }, [queryClient]);
 
   const totalUnreadCount = unreadSummary?.totalUnread ?? 0;
+
+  useMessagingTitleIndicator({
+    unreadCount: totalUnreadCount,
+    enabled: Boolean(currentUser),
+  });
 
   const dndUntil = unreadSummary?.dndUntil ?? null;
 
@@ -641,6 +784,45 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const time = new Date(dndUntil).getTime();
     return !isNaN(time) && time > Date.now();
   }, [dndUntil]);
+
+  isDndActiveRef.current = isDndActive;
+  openMessagingRef.current = openMessaging;
+
+  const enableDesktopNotifications = useCallback(async () => {
+    const perm = await requestBrowserNotificationPermission();
+    setNotificationPermission(perm);
+    if (perm === 'granted') {
+      setNotificationPrefs((prev) => ({
+        ...prev,
+        enabled: true,
+        bannerDismissed: true,
+      }));
+    }
+    return perm;
+  }, []);
+
+  const setDesktopNotificationsEnabled = useCallback(async (enabled: boolean) => {
+    if (enabled) {
+      const currentPerm = getBrowserNotificationPermission();
+      setNotificationPermission(currentPerm);
+      if (currentPerm === 'default') {
+        const perm = await requestBrowserNotificationPermission();
+        setNotificationPermission(perm);
+        if (perm !== 'granted') return;
+      } else if (currentPerm !== 'granted') {
+        return;
+      }
+    }
+    setNotificationPrefs((prev) => ({ ...prev, enabled }));
+  }, []);
+
+  const setDesktopNotificationsShowPreview = useCallback((showPreview: boolean) => {
+    setNotificationPrefs((prev) => ({ ...prev, showPreview }));
+  }, []);
+
+  const dismissNotificationBanner = useCallback(() => {
+    setNotificationPrefs((prev) => ({ ...prev, bannerDismissed: true }));
+  }, []);
 
   const getProjectUnreadCount = useCallback(
     (projectId: string) => {
@@ -653,48 +835,48 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     async (conversationId: string) => {
       if (!currentUser) return;
       try {
-        await chatApi.leaveConversation(conversationId, currentUser.id);
-        closeChat(conversationId);
-        queryClient.setQueryData<ChatConversationItem[]>(
-          ['chat', 'conversations'],
+        await messagingApi.leaveConversation(conversationId, currentUser.id);
+        closeMessaging(conversationId);
+        queryClient.setQueryData<MessagingConversationItem[]>(
+          ['messaging', 'conversations'],
           (old = []) => old.filter((c) => c.id !== conversationId)
         );
-        queryClient.invalidateQueries({ queryKey: ['chat', 'unread-summary'] });
-        queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] });
+        queryClient.invalidateQueries({ queryKey: ['messaging', 'unread-summary'] });
+        queryClient.invalidateQueries({ queryKey: ['messaging', 'conversations'] });
       } catch (err) {
         console.error('Failed to leave conversation', err);
         throw err;
       }
     },
-    [currentUser, closeChat, queryClient]
+    [currentUser, closeMessaging, queryClient]
   );
 
   const deleteConversation = useCallback(
     async (conversationId: string) => {
       try {
-        await chatApi.deleteConversation(conversationId);
-        await chatStorage.clearConversation(conversationId);
-        closeChat(conversationId);
-        queryClient.setQueryData<ChatMessageItem[]>(
-          ['chat', 'messages', conversationId],
+        await messagingApi.deleteConversation(conversationId);
+        await messagingStorage.clearConversation(conversationId);
+        closeMessaging(conversationId);
+        queryClient.setQueryData<MessagingMessageItem[]>(
+          ['messaging', 'messages', conversationId],
           []
         );
-        queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] });
-        queryClient.invalidateQueries({ queryKey: ['chat', 'unread-summary'] });
+        queryClient.invalidateQueries({ queryKey: ['messaging', 'conversations'] });
+        queryClient.invalidateQueries({ queryKey: ['messaging', 'unread-summary'] });
       } catch (err) {
         console.error('Failed to delete/clear conversation', err);
         throw err;
       }
     },
-    [closeChat, queryClient]
+    [closeMessaging, queryClient]
   );
 
   const muteConversation = useCallback(
     async (conversationId: string, durationMinutes?: number, forever?: boolean) => {
       try {
-        const res = await chatApi.muteConversation(conversationId, { durationMinutes, forever });
-        queryClient.setQueryData<ChatConversationItem[]>(
-          ['chat', 'conversations'],
+        const res = await messagingApi.muteConversation(conversationId, { durationMinutes, forever });
+        queryClient.setQueryData<MessagingConversationItem[]>(
+          ['messaging', 'conversations'],
           (old = []) =>
             old.map((c) =>
               c.id === conversationId
@@ -702,7 +884,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 : c
             )
         );
-        queryClient.invalidateQueries({ queryKey: ['chat', 'unread-summary'] });
+        queryClient.invalidateQueries({ queryKey: ['messaging', 'unread-summary'] });
       } catch (err) {
         console.error('Failed to mute conversation', err);
         throw err;
@@ -714,9 +896,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const unmuteConversation = useCallback(
     async (conversationId: string) => {
       try {
-        await chatApi.unmuteConversation(conversationId);
-        queryClient.setQueryData<ChatConversationItem[]>(
-          ['chat', 'conversations'],
+        await messagingApi.unmuteConversation(conversationId);
+        queryClient.setQueryData<MessagingConversationItem[]>(
+          ['messaging', 'conversations'],
           (old = []) =>
             old.map((c) =>
               c.id === conversationId
@@ -724,7 +906,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 : c
             )
         );
-        queryClient.invalidateQueries({ queryKey: ['chat', 'unread-summary'] });
+        queryClient.invalidateQueries({ queryKey: ['messaging', 'unread-summary'] });
       } catch (err) {
         console.error('Failed to unmute conversation', err);
         throw err;
@@ -736,16 +918,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const setDnd = useCallback(
     async (durationMinutes?: number, forever?: boolean, off?: boolean) => {
       try {
-        const res = await chatApi.setDnd({ durationMinutes, forever, off });
-        queryClient.setQueryData<ChatUnreadSummary>(
-          ['chat', 'unread-summary'],
+        const res = await messagingApi.setDnd({ durationMinutes, forever, off });
+        queryClient.setQueryData<MessagingUnreadSummary>(
+          ['messaging', 'unread-summary'],
           (old) =>
             old
               ? { ...old, dndUntil: res.dndUntil }
               : { totalUnread: 0, byConversation: {}, byProject: {}, dndUntil: res.dndUntil }
         );
-        queryClient.invalidateQueries({ queryKey: ['chat', 'unread-summary'] });
-        queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] });
+        queryClient.invalidateQueries({ queryKey: ['messaging', 'unread-summary'] });
+        queryClient.invalidateQueries({ queryKey: ['messaging', 'conversations'] });
       } catch (err) {
         console.error('Failed to update DND setting', err);
         throw err;
@@ -754,16 +936,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [queryClient]
   );
 
-  const contextValue = useMemo<ChatContextType>(
+  const contextValue = useMemo<MessagingContextType>(
     () => ({
       onlineUserIds,
       activeWindows,
-      openChat,
-      openMessaging: openChat,
-      openDirectChatWithUser,
-      openDirectMessagingWithUser: openDirectChatWithUser,
-      closeChat,
-      closeMessaging: closeChat,
+      openMessaging,
+      openDirectMessagingWithUser,
+      closeMessaging,
       toggleMinimize,
       markAsRead,
       markAsUnread,
@@ -776,6 +955,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isDndActive,
       totalUnreadCount,
       getProjectUnreadCount,
+      getConversationUnreadCount,
       allUsers,
       isNewMessageOpen,
       isNewMessageMinimized,
@@ -787,13 +967,19 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       openMainMessaging,
       closeMainMessaging,
       toggleMainMessaging,
+      notificationPermission,
+      notificationPrefs,
+      enableDesktopNotifications,
+      setDesktopNotificationsEnabled,
+      setDesktopNotificationsShowPreview,
+      dismissNotificationBanner,
     }),
     [
       onlineUserIds,
       activeWindows,
-      openChat,
-      openDirectChatWithUser,
-      closeChat,
+      openMessaging,
+      openDirectMessagingWithUser,
+      closeMessaging,
       toggleMinimize,
       markAsRead,
       markAsUnread,
@@ -806,6 +992,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isDndActive,
       totalUnreadCount,
       getProjectUnreadCount,
+      getConversationUnreadCount,
       allUsers,
       isNewMessageOpen,
       isNewMessageMinimized,
@@ -816,24 +1003,27 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       openMainMessaging,
       closeMainMessaging,
       toggleMainMessaging,
+      notificationPermission,
+      notificationPrefs,
+      enableDesktopNotifications,
+      setDesktopNotificationsEnabled,
+      setDesktopNotificationsShowPreview,
+      dismissNotificationBanner,
     ]
   );
 
   return (
-    <ChatContext.Provider value={contextValue}>
+    <MessagingContext.Provider value={contextValue}>
       {children}
-    </ChatContext.Provider>
+    </MessagingContext.Provider>
   );
 };
 
-const defaultChatContext: ChatContextType = {
+const defaultMessagingContext: MessagingContextType = {
   onlineUserIds: new Set(),
   activeWindows: [],
-  openChat: () => {},
   openMessaging: () => {},
-  openDirectChatWithUser: async () => {},
   openDirectMessagingWithUser: async () => {},
-  closeChat: () => {},
   closeMessaging: () => {},
   toggleMinimize: () => {},
   markAsRead: async () => {},
@@ -847,6 +1037,7 @@ const defaultChatContext: ChatContextType = {
   isDndActive: false,
   totalUnreadCount: 0,
   getProjectUnreadCount: () => 0,
+  getConversationUnreadCount: () => 0,
   allUsers: [],
   isNewMessageOpen: false,
   isNewMessageMinimized: false,
@@ -858,20 +1049,19 @@ const defaultChatContext: ChatContextType = {
   openMainMessaging: () => {},
   closeMainMessaging: () => {},
   toggleMainMessaging: () => {},
+  notificationPermission: 'unsupported',
+  notificationPrefs: { ...DEFAULT_NOTIFICATION_PREFS },
+  enableDesktopNotifications: async () => 'unsupported',
+  setDesktopNotificationsEnabled: async () => {},
+  setDesktopNotificationsShowPreview: () => {},
+  dismissNotificationBanner: () => {},
 };
 
-export const useChat = (): ChatContextType => {
-  const context = useContext(ChatContext);
+export const useMessaging = (): MessagingContextType => {
+  const context = useContext(MessagingContext);
   if (!context) {
-    return defaultChatContext;
+    return defaultMessagingContext;
   }
   return context;
 };
-
-export const useMessaging = useChat;
-export const MessagingProvider = ChatProvider;
-export const MessagingContext = ChatContext;
-export type MessagingContextType = ChatContextType;
-export type ActiveMessagingWindow = ActiveChatWindow;
-export type MessagingDirectoryUser = ChatDirectoryUser;
 

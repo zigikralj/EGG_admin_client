@@ -1,6 +1,6 @@
 import { apiFetch } from '../../api';
 
-export interface ChatParticipantUser {
+export interface MessagingParticipantUser {
   id: string;
   name: string;
   avatarUrl?: string | null;
@@ -15,21 +15,21 @@ export interface ChatParticipantUser {
   };
 }
 
-export interface ChatMessageSender {
+export interface MessagingMessageSender {
   id: string;
   name: string;
   avatarUrl?: string | null;
   role?: string;
 }
 
-export interface ChatMessageReplyTo {
+export interface MessagingMessageReplyTo {
   id: string;
   content: string;
   isDeleted: boolean;
   sender?: { id: string; name: string };
 }
 
-export interface ChatMessageItem {
+export interface MessagingMessageItem {
   id: string;
   conversationId: string;
   seq?: number;
@@ -41,11 +41,11 @@ export interface ChatMessageItem {
   isDeleted: boolean;
   createdAt: string;
   updatedAt?: string;
-  sender: ChatMessageSender;
-  replyTo?: ChatMessageReplyTo | null;
+  sender: MessagingMessageSender;
+  replyTo?: MessagingMessageReplyTo | null;
 }
 
-export interface ChatConversationItem {
+export interface MessagingConversationItem {
   id: string;
   type: 'DIRECT' | 'GROUP' | 'CONTEXTUAL';
   title?: string | null;
@@ -59,7 +59,7 @@ export interface ChatConversationItem {
   muted?: boolean;
   mutedUntil?: string | null;
   participantIds?: string[];
-  participants?: (ChatParticipantUser | { id: string; userId?: string } | string)[];
+  participants?: (MessagingParticipantUser | { id: string; userId?: string } | string)[];
   lastMessage?: {
     id: string;
     content: string;
@@ -68,30 +68,30 @@ export interface ChatConversationItem {
   } | null;
 }
 
-export interface ChatMessageDeltaSyncResponse {
+export interface MessagingMessageDeltaSyncResponse {
   delta: boolean;
-  newMessages: ChatMessageItem[];
-  updatedMessages: ChatMessageItem[];
+  newMessages: MessagingMessageItem[];
+  updatedMessages: MessagingMessageItem[];
   currentSeq: number;
   syncedAt: string;
 }
 
-export interface ChatUnreadSummary {
+export interface MessagingUnreadSummary {
   totalUnread: number;
   byConversation: Record<string, number>;
   byProject: Record<string, number>;
   dndUntil?: string | null;
 }
 
-export const chatApi = {
-  getUnreadSummary: async (): Promise<ChatUnreadSummary> => {
-    const res = await apiFetch('/api/chat/unread-summary');
+export const messagingApi = {
+  getUnreadSummary: async (): Promise<MessagingUnreadSummary> => {
+    const res = await apiFetch('/api/messaging/unread-summary');
     if (!res.ok) throw new Error('Failed to fetch unread summary');
     return res.json();
   },
 
-  getConversations: async (): Promise<ChatConversationItem[]> => {
-    const res = await apiFetch('/api/chat/conversations');
+  getConversations: async (): Promise<MessagingConversationItem[]> => {
+    const res = await apiFetch('/api/messaging/conversations');
     if (!res.ok) throw new Error('Failed to fetch conversations');
     return res.json();
   },
@@ -100,8 +100,8 @@ export const chatApi = {
     type?: 'DIRECT' | 'GROUP';
     participantIds: string[];
     title?: string;
-  }): Promise<ChatConversationItem> => {
-    const res = await apiFetch('/api/chat/conversations', {
+  }): Promise<MessagingConversationItem> => {
+    const res = await apiFetch('/api/messaging/conversations', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -113,8 +113,8 @@ export const chatApi = {
   getContextualConversation: async (
     type: string,
     id: string
-  ): Promise<ChatConversationItem> => {
-    const res = await apiFetch(`/api/chat/conversations/context/${type}/${id}`);
+  ): Promise<MessagingConversationItem> => {
+    const res = await apiFetch(`/api/messaging/conversations/context/${type}/${id}`);
     if (!res.ok) throw new Error('Failed to load contextual conversation');
     return res.json();
   },
@@ -122,13 +122,13 @@ export const chatApi = {
   getMessages: async (
     conversationId: string,
     options?: { beforeSeq?: number; limit?: number }
-  ): Promise<ChatMessageItem[]> => {
+  ): Promise<MessagingMessageItem[]> => {
     const params = new URLSearchParams();
     if (options?.beforeSeq !== undefined) params.set('beforeSeq', String(options.beforeSeq));
     if (options?.limit) params.set('limit', String(options.limit));
     const qs = params.toString() ? `?${params.toString()}` : '';
 
-    const res = await apiFetch(`/api/chat/conversations/${conversationId}/messages${qs}`);
+    const res = await apiFetch(`/api/messaging/conversations/${conversationId}/messages${qs}`);
     if (!res.ok) throw new Error('Failed to fetch messages');
     return res.json();
   },
@@ -136,12 +136,12 @@ export const chatApi = {
   syncMessageDeltas: async (
     conversationId: string,
     options: { afterSeq: number; sinceUpdatedAt?: string }
-  ): Promise<ChatMessageDeltaSyncResponse> => {
+  ): Promise<MessagingMessageDeltaSyncResponse> => {
     const params = new URLSearchParams();
     params.set('afterSeq', String(options.afterSeq));
     if (options.sinceUpdatedAt) params.set('sinceUpdatedAt', options.sinceUpdatedAt);
 
-    const res = await apiFetch(`/api/chat/conversations/${conversationId}/messages?${params.toString()}`);
+    const res = await apiFetch(`/api/messaging/conversations/${conversationId}/messages?${params.toString()}`);
     if (!res.ok) throw new Error('Failed to sync message deltas');
     return res.json();
   },
@@ -153,8 +153,8 @@ export const chatApi = {
       replyToId?: string | null;
       mentionedUserIds?: string[];
     }
-  ): Promise<ChatMessageItem> => {
-    const res = await apiFetch(`/api/chat/conversations/${conversationId}/messages`, {
+  ): Promise<MessagingMessageItem> => {
+    const res = await apiFetch(`/api/messaging/conversations/${conversationId}/messages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -166,8 +166,8 @@ export const chatApi = {
   editMessage: async (
     messageId: string,
     content: string
-  ): Promise<ChatMessageItem> => {
-    const res = await apiFetch(`/api/chat/messages/${messageId}`, {
+  ): Promise<MessagingMessageItem> => {
+    const res = await apiFetch(`/api/messaging/messages/${messageId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content }),
@@ -179,7 +179,7 @@ export const chatApi = {
   deleteMessage: async (
     messageId: string
   ): Promise<{ success: boolean; hardDeleted: boolean }> => {
-    const res = await apiFetch(`/api/chat/messages/${messageId}`, {
+    const res = await apiFetch(`/api/messaging/messages/${messageId}`, {
       method: 'DELETE',
     });
     if (!res.ok) throw new Error('Failed to delete message');
@@ -187,21 +187,21 @@ export const chatApi = {
   },
 
   markAsRead: async (conversationId: string): Promise<void> => {
-    await apiFetch(`/api/chat/conversations/${conversationId}/read`, {
+    await apiFetch(`/api/messaging/conversations/${conversationId}/read`, {
       method: 'POST',
     });
   },
 
   markAsUnread: async (conversationId: string): Promise<{ success: boolean; unreadCount: number }> => {
-    const res = await apiFetch(`/api/chat/conversations/${conversationId}/unread`, {
+    const res = await apiFetch(`/api/messaging/conversations/${conversationId}/unread`, {
       method: 'POST',
     });
     if (!res.ok) throw new Error('Failed to mark conversation as unread');
     return res.json();
   },
 
-  getConversation: async (conversationId: string): Promise<ChatConversationItem> => {
-    const res = await apiFetch(`/api/chat/conversations/${conversationId}`);
+  getConversation: async (conversationId: string): Promise<MessagingConversationItem> => {
+    const res = await apiFetch(`/api/messaging/conversations/${conversationId}`);
     if (!res.ok) throw new Error('Failed to fetch conversation details');
     return res.json();
   },
@@ -209,8 +209,8 @@ export const chatApi = {
   renameConversation: async (
     conversationId: string,
     title: string
-  ): Promise<ChatConversationItem> => {
-    const res = await apiFetch(`/api/chat/conversations/${conversationId}`, {
+  ): Promise<MessagingConversationItem> => {
+    const res = await apiFetch(`/api/messaging/conversations/${conversationId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title }),
@@ -222,8 +222,8 @@ export const chatApi = {
   addParticipants: async (
     conversationId: string,
     userIds: string[]
-  ): Promise<{ conversation: ChatConversationItem; addedUsers: ChatParticipantUser[] }> => {
-    const res = await apiFetch(`/api/chat/conversations/${conversationId}/participants`, {
+  ): Promise<{ conversation: MessagingConversationItem; addedUsers: MessagingParticipantUser[] }> => {
+    const res = await apiFetch(`/api/messaging/conversations/${conversationId}/participants`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userIds }),
@@ -236,7 +236,7 @@ export const chatApi = {
     conversationId: string,
     targetUserId: string
   ): Promise<{ success: boolean; removedUserId: string; isLeaving: boolean }> => {
-    const res = await apiFetch(`/api/chat/conversations/${conversationId}/participants/${targetUserId}`, {
+    const res = await apiFetch(`/api/messaging/conversations/${conversationId}/participants/${targetUserId}`, {
       method: 'DELETE',
     });
     if (!res.ok) throw new Error('Failed to remove participant');
@@ -247,7 +247,7 @@ export const chatApi = {
     conversationId: string,
     userId: string
   ): Promise<{ success: boolean; isLeaving: boolean }> => {
-    const res = await apiFetch(`/api/chat/conversations/${conversationId}/participants/${userId}`, {
+    const res = await apiFetch(`/api/messaging/conversations/${conversationId}/participants/${userId}`, {
       method: 'DELETE',
     });
     if (!res.ok) throw new Error('Failed to leave conversation');
@@ -258,7 +258,7 @@ export const chatApi = {
     conversationId: string,
     options?: { durationMinutes?: number; forever?: boolean }
   ): Promise<{ success: boolean; conversationId: string; mutedUntil: string | null }> => {
-    const res = await apiFetch(`/api/chat/conversations/${conversationId}/mute`, {
+    const res = await apiFetch(`/api/messaging/conversations/${conversationId}/mute`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(options || {}),
@@ -270,7 +270,7 @@ export const chatApi = {
   unmuteConversation: async (
     conversationId: string
   ): Promise<{ success: boolean; conversationId: string; mutedUntil: null }> => {
-    const res = await apiFetch(`/api/chat/conversations/${conversationId}/mute`, {
+    const res = await apiFetch(`/api/messaging/conversations/${conversationId}/mute`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ unmute: true }),
@@ -282,7 +282,7 @@ export const chatApi = {
   setDnd: async (
     options: { durationMinutes?: number; forever?: boolean; off?: boolean }
   ): Promise<{ success: boolean; dndUntil: string | null }> => {
-    const res = await apiFetch('/api/chat/dnd', {
+    const res = await apiFetch('/api/messaging/dnd', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(options),
@@ -294,7 +294,7 @@ export const chatApi = {
   deleteConversation: async (
     conversationId: string
   ): Promise<{ success: boolean; message?: string }> => {
-    const res = await apiFetch(`/api/chat/conversations/${conversationId}`, {
+    const res = await apiFetch(`/api/messaging/conversations/${conversationId}`, {
       method: 'DELETE',
     });
     if (!res.ok) {
@@ -304,12 +304,4 @@ export const chatApi = {
     return res.json();
   },
 };
-
-export const messagingApi = chatApi;
-export type MessagingParticipantUser = ChatParticipantUser;
-export type MessagingMessageSender = ChatMessageSender;
-export type MessagingMessageReplyTo = ChatMessageReplyTo;
-export type MessagingMessageItem = ChatMessageItem;
-export type MessagingConversationItem = ChatConversationItem;
-export type MessagingUnreadSummary = ChatUnreadSummary;
 

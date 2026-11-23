@@ -1,6 +1,6 @@
-import type { ChatMessageItem } from './messagingApi';
+import type { MessagingMessageItem } from './messagingApi';
 
-const DB_NAME = 'ekos_chat_cache_db';
+const DB_NAME = 'ekos_messaging_cache_db';
 const DB_VERSION = 1;
 const CONV_STORE = 'conversations';
 const MSG_STORE = 'messages';
@@ -56,8 +56,8 @@ function openDB(): Promise<IDBDatabase | null> {
   return dbPromise;
 }
 
-export const chatStorage = {
-  async getMessages(conversationId: string): Promise<ChatMessageItem[] | null> {
+export const messagingStorage = {
+  async getMessages(conversationId: string): Promise<MessagingMessageItem[] | null> {
     const db = await openDB();
     if (!db) return null;
 
@@ -69,7 +69,7 @@ export const chatStorage = {
         const req = index.getAll(conversationId);
 
         req.onsuccess = () => {
-          const list: ChatMessageItem[] = req.result || [];
+          const list: MessagingMessageItem[] = req.result || [];
           list.sort((a, b) => (a.seq ?? 0) - (b.seq ?? 0));
           resolve(list.length > 0 ? list : null);
         };
@@ -80,7 +80,7 @@ export const chatStorage = {
     });
   },
 
-  async saveMessages(conversationId: string, messages: ChatMessageItem[]): Promise<void> {
+  async saveMessages(conversationId: string, messages: MessagingMessageItem[]): Promise<void> {
     const db = await openDB();
     if (!db || messages.length === 0) return;
 
@@ -110,7 +110,7 @@ export const chatStorage = {
     });
   },
 
-  async upsertMessage(message: ChatMessageItem): Promise<void> {
+  async upsertMessage(message: MessagingMessageItem): Promise<void> {
     const db = await openDB();
     if (!db || !message?.id) return;
 
@@ -214,6 +214,4 @@ export const chatStorage = {
     });
   },
 };
-
-export const messagingStorage = chatStorage;
 

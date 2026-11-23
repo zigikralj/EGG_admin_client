@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { mockCommonApi } from '../helpers/mockApi';
 
 test.describe('Activity Logs Management', () => {
   const mockUsers = [
@@ -6,45 +7,7 @@ test.describe('Activity Logs Management', () => {
     { id: 'u-2', name: 'Marko Marković', email: 'marko@example.com', role: 'Worker', isApproved: true },
   ];
 
-  let mockLogs = [
-    {
-      id: 'log-1',
-      userId: 'u-1',
-      userName: 'Petar Petrović',
-      type: 'ACTION',
-      path: '/data-management/clients',
-      details: JSON.stringify({
-        action: 'CREATE',
-        model: 'Client',
-        recordId: 'c-1',
-        diff: { name: { new: 'Eko Metal d.o.o.' }, city: { new: 'Kraljevo' } },
-      }),
-      durationSeconds: 15,
-      sessionId: 'sess-1',
-      timestamp: new Date().toISOString(),
-    },
-    {
-      id: 'log-2',
-      userId: 'u-1',
-      userName: 'Petar Petrović',
-      type: 'PAGE_VIEW',
-      path: '/project-tracker',
-      durationSeconds: 120,
-      sessionId: 'sess-1',
-      timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-    },
-    {
-      id: 'log-3',
-      userId: 'u-2',
-      userName: 'Marko Marković',
-      type: 'PAGE_VIEW',
-      path: '/data-management/reminders',
-      durationSeconds: 45,
-      sessionId: 'sess-2',
-      timestamp: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-    },
-  ];
-
+  let mockLogs: any[] = [];
   let mockStatus = {
     enabled: true,
     retentionDays: 90,
@@ -94,6 +57,15 @@ test.describe('Activity Logs Management', () => {
       enabled: true,
       retentionDays: 90,
     };
+
+    await mockCommonApi(page, {
+      user: {
+        id: 'u-1',
+        name: 'Petar Petrović',
+        email: 'petar@example.com',
+        role: 'Administrator',
+      },
+    });
 
     // Single unified route handler for all activity-logs routes to avoid route precedence leaking
     await page.route('**/api/activity-logs**', async (route) => {
@@ -235,89 +207,12 @@ test.describe('Activity Logs Management', () => {
       }
     });
 
-    await page.route('**/api/auth/me', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          id: 'u-1',
-          name: 'Petar Petrović',
-          email: 'petar@example.com',
-          role: 'Admin',
-        }),
-      });
-    });
-
-    await page.route('**/api/roles', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([{ id: 1, name: 'Admin', isSystemAdmin: true, permissions: {} }]),
-      });
-    });
-
     await page.route(/\/api\/users(\?.*)?$/, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify(mockUsers),
       });
-    });
-
-    await page.route('**/api/preferences/**', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-    });
-
-    await page.route('**/api/preferences', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-    });
-
-    await page.route('**/api/system-settings**', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-    });
-
-    await page.route('**/api/stats', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-    });
-
-    await page.route('**/api/projects/stats', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-    });
-
-    await page.route(/\/api\/projects(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route(/\/api\/clients(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route(/\/api\/services(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route(/\/api\/categories(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route(/\/api\/permits(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route(/\/api\/reminders(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route(/\/api\/invoices(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route(/\/api\/provided-services(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route('**/api/notifications', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
     });
   });
 
@@ -382,12 +277,12 @@ test.describe('Activity Logs Management', () => {
   });
 
   test('should toggle activity logging active and paused status', async ({ page }) => {
-    await page.goto('/data-management/activity-logs');
+    await page.goto('/system/settings');
 
     const mainContent = page.locator('main');
-    await expect(mainContent.getByRole('heading', { name: /Istorija aktivnosti|Activity Logs/i })).toBeVisible({ timeout: 15000 });
+    await expect(mainContent.getByRole('heading', { name: /Sistemska podešavanja|System Settings/i })).toBeVisible({ timeout: 15000 });
 
-    // Locate active switch
+    // Locate active switch on System Settings page
     const toggleSwitch = mainContent.locator('input[type="checkbox"]').first();
     await expect(toggleSwitch).toBeChecked();
 
@@ -402,6 +297,11 @@ test.describe('Activity Logs Management', () => {
     await expect(confirmDialog).not.toBeVisible();
 
     expect(mockStatus.enabled).toBe(false);
+
+    // Navigate to Activity Logs and verify paused banner is shown
+    await page.goto('/system/activity-logs');
+    await expect(mainContent.getByRole('alert')).toBeVisible({ timeout: 15000 });
+    await expect(mainContent.getByText(/Praćenje pauzirano|Paused/i).first()).toBeVisible();
   });
 
   test('should record and display a new activity log after user action', async ({ page }) => {

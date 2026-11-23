@@ -9,11 +9,13 @@ import {
   Select,
   MenuItem,
   Button,
+  Switch,
 } from '@mui/material';
 import { BaseModal } from '../common/modal/BaseModal';
 import { useLanguage } from '../../context/LanguageContext';
 import { useThemeContext } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import { useMessaging } from '../../context/MessagingContext';
 import { LanguageSelector } from '../common/LanguageSelector';
 import { TableOptionsSelector, type ColumnDef } from '../common/ColumnSelector';
 import { LightModeIcon, DarkModeIcon, SettingsBrightnessIcon } from '../icons';
@@ -36,6 +38,15 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   const { t } = useLanguage();
   const { themeMode, setThemeMode } = useThemeContext();
   const { hasPermission } = useAuth();
+  const {
+    notificationPermission,
+    notificationPrefs,
+    setDesktopNotificationsEnabled,
+    setDesktopNotificationsShowPreview,
+  } = useMessaging();
+
+  const isNotificationsActive =
+    notificationPermission === 'granted' && notificationPrefs.enabled;
 
   const entityOptions = React.useMemo(() => [
     { value: 'projects' as EntityType, label: t('tabProjects') },
@@ -184,28 +195,9 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
       maxWidth="xs"
       fullWidth
       actions={
-        <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <Button onClick={onClose} variant="contained" fullWidth sx={{ borderRadius: 2 }}>
-            {t('btnSave')}
-          </Button>
-          {typeof __APP_VERSION__ !== 'undefined' && (
-            <Typography
-              variant="caption"
-              sx={{
-                color: 'text.secondary',
-                fontSize: '0.7rem',
-                textAlign: 'center',
-                mt: 0.5,
-              }}
-            >
-              {t('appVersion')} {__APP_VERSION__}
-              {typeof __COMMIT_HASH__ !== 'undefined' && __COMMIT_HASH__ ? ` (${__COMMIT_HASH__})` : ''}
-              {typeof __BUILD_TIME__ !== 'undefined' && __BUILD_TIME__
-                ? ` • ${new Date(__BUILD_TIME__).toLocaleDateString()}`
-                : ''}
-            </Typography>
-          )}
-        </Box>
+        <Button onClick={onClose} variant="contained" fullWidth sx={{ borderRadius: 2 }}>
+          {t('btnSave')}
+        </Button>
       }
       actionsSx={{ p: 2 }}
     >
@@ -296,6 +288,73 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
               }}
             />
           </Box>
+        </Box>
+
+        <Divider />
+
+        {/* BROWSER NOTIFICATIONS */}
+        <Box>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+            {t('messagingDesktopNotifications')}
+          </Typography>
+          {notificationPermission === 'unsupported' ? (
+            <Typography variant="caption" color="text.secondary">
+              {t('messagingNotificationsUnsupported')}
+            </Typography>
+          ) : notificationPermission === 'denied' ? (
+            <Box>
+              <Typography variant="body2" sx={{ fontWeight: 600, color: 'error.main', fontSize: '0.85rem' }}>
+                {t('messagingNotificationsBlocked')}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                {t('messagingNotificationsBlockedHint')}
+              </Typography>
+            </Box>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 1.5,
+                }}
+              >
+                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  {t('messagingEnableNotifications')}
+                </Typography>
+                <Switch
+                  size="small"
+                  checked={isNotificationsActive}
+                  onChange={(e) => void setDesktopNotificationsEnabled(e.target.checked)}
+                />
+              </Box>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                  gap: 1.5,
+                  opacity: isNotificationsActive ? 1 : 0.6,
+                }}
+              >
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    {t('messagingShowMessagePreview')}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.3 }}>
+                    {t('messagingShowMessagePreviewHint')}
+                  </Typography>
+                </Box>
+                <Switch
+                  size="small"
+                  disabled={!isNotificationsActive}
+                  checked={notificationPrefs.showPreview}
+                  onChange={(e) => setDesktopNotificationsShowPreview(e.target.checked)}
+                />
+              </Box>
+            </Box>
+          )}
         </Box>
       </Box>
     </BaseModal>

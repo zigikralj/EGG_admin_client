@@ -3,6 +3,7 @@ export type UserRole = string;
 export interface Role {
   name: string;
   description?: string;
+  level?: number;
   isSystemAdmin: boolean;
   permissions: Record<string, any>;
   createdAt?: string;
@@ -10,11 +11,36 @@ export interface Role {
   _count?: { users: number };
 }
 
+export type PermissionAction =
+  | 'view'
+  | 'create'
+  | 'edit'
+  | 'delete'
+  | 'restore'
+  | 'configure'
+  | 'moderate';
+
+export interface CatalogResource {
+  id: string;
+  actions: PermissionAction[];
+  supportsOnlyOwn?: boolean;
+}
+
+export interface CatalogApp {
+  id: string;
+  resources: CatalogResource[];
+}
+
+export interface PermissionCatalogResponse {
+  apps: CatalogApp[];
+}
+
 export interface User {
   id: string;
   name: string;
   email?: string | null;
   role?: UserRole;
+  roleLevel?: number;
   roleEntity?: Role | null;
   permissions?: Record<string, any>;
   isSystemAdmin?: boolean;

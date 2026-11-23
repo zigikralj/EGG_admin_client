@@ -11,6 +11,8 @@ export interface TranslationKeys {
   appProjectTrackerDesc: string;
   appDataManagement: string;
   appDataManagementDesc: string;
+  appSystem: string;
+  appSystemDesc: string;
   appCurrentActive: string;
 
   // Tabs
@@ -959,6 +961,9 @@ export interface TranslationKeys {
   modalEditRole: string;
   modalRoleDetails: string;
   colRoleName: string;
+  colRoleLevel: string;
+  lblRoleLevel: string;
+  roleLevelHelperText: string;
   colAccessLevel: string;
   badgeSystemAdmin: string;
   badgeCustomRole: string;
@@ -981,7 +986,51 @@ export interface TranslationKeys {
   permCreate: string;
   permEdit: string;
   permDelete: string;
+  permRestore: string;
+  permConfigure: string;
+  permModerate: string;
   permOnlyOwn: string;
+  tracker_projects: string;
+  tracker_updates: string;
+  tracker_reminders: string;
+  tracker_invoices: string;
+  wasteDisposal: string;
+  statistics: string;
+  messaging: string;
+  messages: string;
+  projects: string;
+  clients: string;
+  permits: string;
+  users: string;
+  services: string;
+  providedServices: string;
+  categories: string;
+  reminders: string;
+  invoices: string;
+  companyInfo: string;
+  history: string;
+  activityLogs: string;
+  systemSettings: string;
+  'project-tracker': string;
+  'data-management': string;
+  system: string;
+  view: string;
+  create: string;
+  edit: string;
+  delete: string;
+  restore: string;
+  configure: string;
+  moderate: string;
+  permResourceMessaging: string;
+  permResourceActivityLogs: string;
+  permResourceActivityAnalytics: string;
+  permResourceSystemSettings: string;
+  tabSystemSettings: string;
+  systemSettingsSubtitle: string;
+  wasteServiceSettingsDesc: string;
+  activityLoggingSettingsDesc: string;
+  wasteServiceUnconfiguredHint: string;
+  goToSystemSettings: string;
   diffEmptyOrUnchanged: string;
   diffNoDifferenceDetected: string;
   diffNoFieldsModified: string;
@@ -1102,6 +1151,18 @@ export interface TranslationKeys {
   messagingMarkAsRead: string;
   messagingMarkAsUnread: string;
   messagingMuted: string;
+  messagingOpenProjectDetails: string;
+  messagingDesktopNotifications: string;
+  messagingNotificationsEnabled: string;
+  messagingNotificationsOff: string;
+  messagingNotificationsBlocked: string;
+  messagingNotificationsBlockedHint: string;
+  messagingNotificationsUnsupported: string;
+  messagingEnableNotifications: string;
+  messagingEnableNotificationsPrompt: string;
+  messagingShowMessagePreview: string;
+  messagingShowMessagePreviewHint: string;
+  messagingNotificationPrivacyBody: string;
 }
 
 export const serviceTypeTranslations: Record<Language, Record<string, string>> = {

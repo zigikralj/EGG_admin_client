@@ -1,139 +1,25 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import TrackerWasteDisposalPage from './TrackerWasteDisposalPage';
 import { renderWithProviders } from '../../tests/test-utils';
+import { PAGE_ROUTES } from '../../constants';
 import * as api from '../../api';
+
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
 
 describe('TrackerWasteDisposalPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('renders title, count chip, and new button', async () => {
-    renderWithProviders(<TrackerWasteDisposalPage />);
-    await waitFor(() => {
-      expect(screen.getByText('subTabWasteDisposal')).toBeInTheDocument();
-      expect(screen.getByText('btnNewWasteDisposal')).toBeInTheDocument();
-    });
-  });
-
-  it('renders service selector next to title for administrators', async () => {
-    vi.spyOn(api, 'apiFetch').mockImplementation(async (url: any) => {
-      const urlStr = String(url);
-      if (urlStr.includes('/api/system-settings')) {
-        return {
-          ok: true,
-          json: async () => ({ waste_disposal_service_id: 'srv-1' }),
-        } as any;
-      }
-      return {
-        ok: true,
-        json: async () => ([]),
-      } as any;
-    });
-
-    renderWithProviders(<TrackerWasteDisposalPage />, {
-      authValue: {
-        currentUser: { id: 'admin1', name: 'Admin', role: 'Administrator' } as any,
-        isRealAdmin: true,
-        hasPermission: vi.fn().mockReturnValue(true),
-      } as any,
-    });
-
-    await waitFor(() => {
-      expect(screen.getByLabelText(/lblSelectedWasteService|service/i)).toBeInTheDocument();
-    });
-  });
-
-  it('does not render service selector for non-administrators', async () => {
-    renderWithProviders(<TrackerWasteDisposalPage />, {
-      authValue: {
-        currentUser: { id: 'user1', name: 'User', role: 'User' } as any,
-        isRealAdmin: false,
-        hasPermission: vi.fn().mockReturnValue(true),
-      } as any,
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText('subTabWasteDisposal')).toBeInTheDocument();
-    });
-
-    expect(screen.queryByLabelText(/lblSelectedWasteService/i)).not.toBeInTheDocument();
-  });
-
-  it('displays the service name and not raw UUID when service is selected', async () => {
-    vi.spyOn(api, 'apiFetch').mockImplementation(async (url: any) => {
-      const urlStr = String(url);
-      if (urlStr.includes('/api/system-settings')) {
-        return {
-          ok: true,
-          json: async () => ({ waste_disposal_service_id: 'srv-waste-123' }),
-        } as any;
-      }
-      if (urlStr.includes('/api/services')) {
-        return {
-          ok: true,
-          json: async () => ([
-            { id: 'srv-waste-123', name: 'Zbrinjavanje Otpada', code: 'waste-disposal' },
-          ]),
-        } as any;
-      }
-      return {
-        ok: true,
-        json: async () => ([]),
-      } as any;
-    });
-
-    renderWithProviders(<TrackerWasteDisposalPage />, {
-      authValue: {
-        currentUser: { id: 'admin1', name: 'Admin', role: 'Administrator' } as any,
-        isRealAdmin: true,
-        hasPermission: vi.fn().mockReturnValue(true),
-      } as any,
-    });
-
-    await waitFor(() => {
-      const input = screen.getByLabelText(/lblSelectedWasteService|service/i) as HTMLInputElement;
-      expect(input.value).toBe('Zbrinjavanje Otpada');
-    });
-  });
-
-  it('displays the service name when backend returns single object for service details', async () => {
-    vi.spyOn(api, 'apiFetch').mockImplementation(async (url: any) => {
-      const urlStr = String(url);
-      if (urlStr.includes('/api/system-settings')) {
-        return {
-          ok: true,
-          json: async () => ({ waste_disposal_service_id: 'srv-single-456' }),
-        } as any;
-      }
-      if (urlStr.includes('/api/services')) {
-        return {
-          ok: true,
-          json: async () => ({ id: 'srv-single-456', name: 'Zbrinjavanje Otpada Single', code: 'waste-disposal' }),
-        } as any;
-      }
-      return {
-        ok: true,
-        json: async () => ([]),
-      } as any;
-    });
-
-    renderWithProviders(<TrackerWasteDisposalPage />, {
-      authValue: {
-        currentUser: { id: 'admin1', name: 'Admin', role: 'Administrator' } as any,
-        isRealAdmin: true,
-        hasPermission: vi.fn().mockReturnValue(true),
-      } as any,
-    });
-
-    await waitFor(() => {
-      const input = screen.getByLabelText(/lblSelectedWasteService|service/i) as HTMLInputElement;
-      expect(input.value).toBe('Zbrinjavanje Otpada Single');
-    });
-  });
-
-  it('uses joined waste_disposal_service from system settings without requesting /api/services', async () => {
+  it('renders title, count chip, and uses joined waste_disposal_service without requesting /api/services', async () => {
     const fetchSpy = vi.spyOn(api, 'apiFetch').mockImplementation(async (url: any) => {
       const urlStr = String(url);
       if (urlStr.includes('/api/system-settings')) {
@@ -141,30 +27,110 @@ describe('TrackerWasteDisposalPage', () => {
           ok: true,
           json: async () => ({
             waste_disposal_service_id: 'srv-joined-789',
-            waste_disposal_service: { id: 'srv-joined-789', name: 'Joined Waste Service', code: 'waste-disposal' },
+            waste_disposal_service: {
+              id: 'srv-joined-789',
+              name: 'Joined Waste Service',
+              code: 'waste-disposal',
+            },
           }),
+        } as any;
+      }
+      if (urlStr.includes('/api/provided-services')) {
+        return {
+          ok: true,
+          json: async () => ({ items: [], total: 0, hasMore: false }),
         } as any;
       }
       return {
         ok: true,
-        json: async () => ([]),
+        json: async () => [],
       } as any;
+    });
+
+    renderWithProviders(<TrackerWasteDisposalPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('subTabWasteDisposal')).toBeInTheDocument();
+      const newBtn = screen.getByRole('button', { name: /btnNewWasteDisposal/i });
+      expect(newBtn).toBeEnabled();
+    });
+
+    expect(screen.queryByText('wasteServiceUnconfiguredHint')).not.toBeInTheDocument();
+    const serviceCalls = fetchSpy.mock.calls.filter(([url]) => String(url).includes('/api/services'));
+    expect(serviceCalls.length).toBe(0);
+  });
+
+  it('shows unconfigured hint alert and System Settings navigation button for users with systemSettings.edit', async () => {
+    vi.spyOn(api, 'apiFetch').mockImplementation(async (url: any) => {
+      const urlStr = String(url);
+      if (urlStr.includes('/api/system-settings')) {
+        return { ok: true, json: async () => ({}) } as any;
+      }
+      if (urlStr.includes('/api/provided-services')) {
+        return { ok: true, json: async () => ({ items: [], total: 0, hasMore: false }) } as any;
+      }
+      return { ok: true, json: async () => [] } as any;
     });
 
     renderWithProviders(<TrackerWasteDisposalPage />, {
       authValue: {
-        currentUser: { id: 'admin1', name: 'Admin', role: 'Administrator' } as any,
-        isRealAdmin: true,
-        hasPermission: vi.fn().mockReturnValue(true),
-      } as any,
+        currentUser: { id: 'ops-1', name: 'Ops User', role: 'Ops', roleLevel: 40, permissions: {} },
+        role: 'Ops',
+        actualRole: 'Ops',
+        roleLevel: 40,
+        hasMinRoleLevel: vi.fn().mockReturnValue(false),
+        isRealAdmin: false,
+        hasPermission: vi.fn((res: string, act: string) => res === 'systemSettings' && act === 'edit'),
+        canEditProject: vi.fn().mockReturnValue(true),
+        canDeleteProject: vi.fn().mockReturnValue(false),
+        isRestrictedToOwn: vi.fn().mockReturnValue(false),
+        login: vi.fn(),
+        logout: vi.fn(),
+        checkAuth: vi.fn(),
+        status: 'authenticated' as const,
+      },
     });
 
-    await waitFor(() => {
-      const input = screen.getByLabelText(/lblSelectedWasteService|service/i) as HTMLInputElement;
-      expect(input.value).toBe('Joined Waste Service');
+    expect(await screen.findByText('wasteServiceUnconfiguredHint')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /btnNewWasteDisposal/i })).toBeDisabled();
+
+    const settingsBtn = screen.getByRole('button', { name: 'goToSystemSettings' });
+    fireEvent.click(settingsBtn);
+    expect(mockNavigate).toHaveBeenCalledWith(PAGE_ROUTES.SYSTEM_SETTINGS);
+  });
+
+  it('hides System Settings button in unconfigured alert when user lacks systemSettings.edit', async () => {
+    vi.spyOn(api, 'apiFetch').mockImplementation(async (url: any) => {
+      const urlStr = String(url);
+      if (urlStr.includes('/api/system-settings')) {
+        return { ok: true, json: async () => ({}) } as any;
+      }
+      if (urlStr.includes('/api/provided-services')) {
+        return { ok: true, json: async () => ({ items: [], total: 0, hasMore: false }) } as any;
+      }
+      return { ok: true, json: async () => [] } as any;
     });
 
-    const serviceCalls = fetchSpy.mock.calls.filter(([url]) => String(url).includes('/api/services'));
-    expect(serviceCalls.length).toBe(0);
+    renderWithProviders(<TrackerWasteDisposalPage />, {
+      authValue: {
+        currentUser: { id: 'user-1', name: 'Regular User', role: 'User', roleLevel: 10, permissions: {} },
+        role: 'User',
+        actualRole: 'User',
+        roleLevel: 10,
+        hasMinRoleLevel: vi.fn().mockReturnValue(false),
+        isRealAdmin: false,
+        hasPermission: vi.fn((res: string) => res !== 'systemSettings'),
+        canEditProject: vi.fn().mockReturnValue(false),
+        canDeleteProject: vi.fn().mockReturnValue(false),
+        isRestrictedToOwn: vi.fn().mockReturnValue(false),
+        login: vi.fn(),
+        logout: vi.fn(),
+        checkAuth: vi.fn(),
+        status: 'authenticated' as const,
+      },
+    });
+
+    expect(await screen.findByText('wasteServiceUnconfiguredHint')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'goToSystemSettings' })).not.toBeInTheDocument();
   });
 });

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { mockCommonApi } from '../helpers/mockApi';
 
 test.describe('Tracker Dashboard', () => {
   const mockProjects = [
@@ -29,6 +30,8 @@ test.describe('Tracker Dashboard', () => {
   ];
 
   test.beforeEach(async ({ page }) => {
+    await mockCommonApi(page);
+
     await page.route(/\/api\/projects(\?.*)?$/, async (route) => {
       const url = new URL(route.request().url());
       const search = (url.searchParams.get('search') || '').toLowerCase();
@@ -56,88 +59,6 @@ test.describe('Tracker Dashboard', () => {
           { id: '2', name: 'Hemijska Industrija' },
         ]),
       });
-    });
-
-    await page.route(/\/api\/services(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route(/\/api\/categories(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route(/\/api\/provided-services(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route(/\/api\/reminders(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route(/\/api\/invoices(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route(/\/api\/users(\?.*)?$/, async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([
-          {
-            id: 1,
-            name: 'Test User',
-            email: 'test@example.com',
-            role: 'Admin',
-            roleEntity: { id: 1, name: 'Admin', isSystemAdmin: true, permissions: {} },
-          },
-        ]),
-      });
-    });
-
-    await page.route('**/api/auth/me', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          id: 1,
-          name: 'Test User',
-          email: 'test@example.com',
-          role: 'Admin',
-          roleEntity: { id: 1, name: 'Admin', isSystemAdmin: true, permissions: {} },
-        }),
-      });
-    });
-
-    await page.route('**/api/roles', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([{ id: 1, name: 'Admin', isSystemAdmin: true, permissions: {} }]),
-      });
-    });
-
-    await page.route('**/api/preferences', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-    });
-
-    await page.route('**/api/system-settings**', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-    });
-
-    await page.route('**/api/stats', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-    });
-
-    await page.route('**/api/projects/stats', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-    });
-
-    await page.route('**/api/notifications', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route('**/api/activity-logs/status', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
     });
   });
 

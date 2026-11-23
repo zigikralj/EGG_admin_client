@@ -28,7 +28,10 @@ export function useActivityLogsQuery(from?: string) {
  * Postgres-aggregated summary query for KPI stats and per-user summaries.
  * Zero raw logs transferred.
  */
-export function useActivityLogsSummaryQuery(from?: string) {
+export function useActivityLogsSummaryQuery(
+  from?: string,
+  options?: { enabled?: boolean }
+) {
   return useQuery<ActivityLogsSummaryResponse>({
     queryKey: ['activity-logs', 'summary', from ?? 'all'],
     queryFn: async () => {
@@ -39,6 +42,7 @@ export function useActivityLogsSummaryQuery(from?: string) {
       if (!res.ok) throw new Error('Failed to fetch activity logs summary');
       return res.json();
     },
+    enabled: options?.enabled ?? true,
     staleTime: TIME_MS.TEN_MINUTES,
     refetchOnWindowFocus: false,
     placeholderData: (prev) => prev,
@@ -130,7 +134,10 @@ export interface ActivityAnalyticsParams {
   compare?: boolean;
 }
 
-export function useActivityAnalyticsQuery(params: ActivityAnalyticsParams) {
+export function useActivityAnalyticsQuery(
+  params: ActivityAnalyticsParams,
+  options?: { enabled?: boolean }
+) {
   const browserTz = typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC';
   const effectiveParams = { tz: browserTz, ...params };
 
@@ -154,6 +161,7 @@ export function useActivityAnalyticsQuery(params: ActivityAnalyticsParams) {
       if (!res.ok) throw new Error('Failed to fetch activity analytics');
       return res.json();
     },
+    enabled: options?.enabled ?? true,
     staleTime: TIME_MS.ONE_MINUTE,
     placeholderData: keepPreviousData,
   });

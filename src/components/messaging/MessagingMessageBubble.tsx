@@ -15,32 +15,42 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
-import { useChat } from '../../context/MessagingContext';
-import type { ChatMessageItem } from './messagingApi';
+import { useMessaging } from '../../context/MessagingContext';
+import type { MessagingMessageItem } from './messagingApi';
 
-interface ChatMessageBubbleProps {
-  message: ChatMessageItem;
+export interface MessagingMessageBubbleProps {
+  message: MessagingMessageItem;
   isCurrentUser: boolean;
   canModerate: boolean;
-  onReply: (message: ChatMessageItem) => void;
+  highlightMentions?: boolean;
+  onReply: (message: MessagingMessageItem) => void;
   onEdit: (messageId: string, newContent: string) => Promise<void>;
   onDelete: (messageId: string) => Promise<void>;
 }
 
 const escapeRegex = (s: string) => s.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
 
-export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = React.memo(({
+export const MessagingMessageBubble: React.FC<MessagingMessageBubbleProps> = React.memo(({
   message,
   isCurrentUser,
   canModerate,
+  highlightMentions = true,
   onReply,
   onEdit,
   onDelete,
 }) => {
-  const { allUsers } = useChat();
+  const { allUsers, openDirectMessagingWithUser } = useMessaging();
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(message.content);
+
+  const senderId = message.sender?.id || message.senderId;
+  const canOpenPrivateChat = !isCurrentUser && Boolean(senderId);
+
+  const handleOpenPrivateChat = () => {
+    if (!canOpenPrivateChat || !senderId) return;
+    void openDirectMessagingWithUser(senderId, message.sender?.name);
+  };
 
   const handleOpenMenu = (e: React.MouseEvent<HTMLElement>) => {
     setMenuAnchor(e.currentTarget);
@@ -61,7 +71,7 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = React.memo(({
 
   // Memoize @mention regex pattern so we only compute it when candidate names change
   const mentionPattern = useMemo(() => {
-    if (!message.content?.includes('@')) return null;
+    if (!highlightMentions || !message.content?.includes('@')) return null;
 
     const namesSet = new Set<string>();
     allUsers.forEach((u) => {
@@ -90,7 +100,7 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = React.memo(({
       return new RegExp(`(@(?:${namesPattern}|[\\p{L}\\p{N}_-]+))`, 'gu');
     }
     return /(@[\p{L}\p{N}_-]+)/gu;
-  }, [allUsers, message.content, message.sender?.name, message.replyTo?.sender?.name]);
+  }, [highlightMentions, allUsers, message.content, message.sender?.name, message.replyTo?.sender?.name]);
 
   const isSystemAnnouncement =
     message.content.startsWith('renamed the group to') ||
@@ -171,7 +181,24 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = React.memo(({
         {!isCurrentUser && (
           <Avatar
             src={message.sender?.avatarUrl || undefined}
-            sx={{ width: 28, height: 28, fontSize: '0.75rem', mb: 0.5 }}
+            onClick={handleOpenPrivateChat}
+            role={canOpenPrivateChat ? 'button' : undefined}
+            tabIndex={canOpenPrivateChat ? 0 : undefined}
+            onKeyDown={(e) => {
+              if (canOpenPrivateChat && (e.key === 'Enter' || e.key === ' ')) {
+                e.preventDefault();
+                handleOpenPrivateChat();
+              }
+            }}
+            sx={{
+              width: 28,
+              height: 28,
+              fontSize: '0.75rem',
+              mb: 0.5,
+              cursor: canOpenPrivateChat ? 'pointer' : 'default',
+              transition: 'opacity 0.15s',
+              '&:hover': canOpenPrivateChat ? { opacity: 0.85 } : undefined,
+            }}
           >
             {message.sender?.name?.charAt(0) || 'U'}
           </Avatar>
@@ -179,7 +206,29 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = React.memo(({
 
         <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
           {!isCurrentUser && (
-            <Typography variant="caption" sx={{ color: 'text.secondary', ml: 0.5, mb: 0.25, fontWeight: 600 }}>
+            <Typography
+              variant="caption"
+              onClick={handleOpenPrivateChat}
+              role={canOpenPrivateChat ? 'button' : undefined}
+              tabIndex={canOpenPrivateChat ? 0 : undefined}
+              onKeyDown={(e) => {
+                if (canOpenPrivateChat && (e.key === 'Enter' || e.key === ' ')) {
+                  e.preventDefault();
+                  handleOpenPrivateChat();
+                }
+              }}
+              sx={{
+                color: 'text.secondary',
+                ml: 0.5,
+                mb: 0.25,
+                fontWeight: 600,
+                alignSelf: 'flex-start',
+                cursor: canOpenPrivateChat ? 'pointer' : 'default',
+                '&:hover': canOpenPrivateChat
+                  ? { textDecoration: 'underline', color: 'primary.main' }
+                  : undefined,
+              }}
+            >
               {message.sender?.name}
             </Typography>
           )}
@@ -342,8 +391,5 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = React.memo(({
   );
 });
 
-ChatMessageBubble.displayName = 'ChatMessageBubble';
-
-export const MessagingMessageBubble = ChatMessageBubble;
-export type MessagingMessageBubbleProps = ChatMessageBubbleProps;
+MessagingMessageBubble.displayName = 'MessagingMessageBubble';
 

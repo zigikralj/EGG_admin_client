@@ -24,12 +24,11 @@ import {
   InsightsIcon,
   RefreshIcon,
 } from '../icons';
-import type { User } from '../../types';
+import type { User, Role } from '../../types';
 import { useRoleLabels } from '../../hooks/useRoleLabels';
+import { useRolesQuery } from '../../queries';
 
 export type RangePreset = '7d' | '30d' | '90d' | 'custom';
-
-const AVAILABLE_ROLES = ['Administrator', 'Manager', 'User', 'Accountant'];
 
 export interface AnalyticsHeaderProps {
   onBack: () => void;
@@ -47,6 +46,7 @@ export interface AnalyticsHeaderProps {
   onRefresh: () => void;
   isFetching: boolean;
   users?: User[];
+  roles?: Role[];
   t: (key: any) => string;
   language: string;
 }
@@ -67,12 +67,25 @@ export const AnalyticsHeader: React.FC<AnalyticsHeaderProps> = ({
   onRefresh,
   isFetching,
   users = [],
+  roles: rolesProp,
   t,
   language: _language,
 }) => {
   const theme = useTheme();
   const isDark = theme.palette.mode === 'dark';
   const { getRoleBadgeLabel } = useRoleLabels();
+  const { data: fetchedRoles = [] } = useRolesQuery({ enabled: !rolesProp });
+  const roleNames = React.useMemo(() => {
+    const source = rolesProp ?? fetchedRoles;
+    if (source.length > 0) {
+      return source.map((r) => r.name);
+    }
+    const derived = new Set<string>();
+    for (const u of users) {
+      if (u.role) derived.add(u.role);
+    }
+    return Array.from(derived);
+  }, [rolesProp, fetchedRoles, users]);
 
   return (
     <Box sx={{ mb: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -206,7 +219,7 @@ export const AnalyticsHeader: React.FC<AnalyticsHeaderProps> = ({
             }
             sx={{ height: 36, fontSize: '0.8rem' }}
           >
-            {AVAILABLE_ROLES.map((r) => (
+            {roleNames.map((r) => (
               <MenuItem key={r} value={r} sx={{ py: 0.5, fontSize: '0.82rem' }}>
                 <Checkbox size="small" checked={selectedRoles.includes(r)} />
                 <ListItemText primary={getRoleBadgeLabel(r)} />

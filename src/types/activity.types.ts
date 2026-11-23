@@ -33,13 +33,12 @@ export interface AnalyticsTotals {
   avgPagesPerSession: number;
 }
 
-export interface ChatUsageAnalytics {
+export interface MessagingUsageAnalytics {
   directMessages: number;
   projectMessages: number;
   groupMessages: number;
   totalMessages: number;
 }
-export type MessagingUsageAnalytics = ChatUsageAnalytics;
 
 export interface ActivityAnalytics {
   range: { from: string; to: string; granularity: 'day' | 'week' | 'month'; tz: string };
@@ -94,7 +93,7 @@ export interface ActivityAnalytics {
   quickDeletes: Array<{ model: string; count: number }>;
   stickiness: { dau: number; wau: number; mau: number };
   totalRegisteredActiveUsers: number;
-  chatUsage?: ChatUsageAnalytics;
+  messagingUsage?: MessagingUsageAnalytics;
 }
 
 export interface EntityVersionSummary {

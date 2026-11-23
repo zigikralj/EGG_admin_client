@@ -1,50 +1,8 @@
 import { test, expect } from '@playwright/test';
+import { mockCommonApi } from '../helpers/mockApi';
 
 test.describe('Permits Management', () => {
-  let permitsData = [
-    {
-      id: 'p-1',
-      permitNumber: 'DOZ-2023-001',
-      indexNumber: '15 01 01',
-      permitTypes: ['Sakupljanje', 'Transport'],
-      clientId: 'c-1',
-      client: { id: 'c-1', name: 'Eko Metal d.o.o.', city: 'Kraljevo' },
-      clientName: 'Eko Metal d.o.o.',
-      startDate: '2023-01-01',
-      endDate: '2028-12-31',
-      notes: 'Dozvola za neopasan ambalažni otpad',
-      wasteCatalogIds: ['wc-1'],
-      wasteCatalogs: [
-        {
-          id: 'wc-1',
-          code: '15 01 01',
-          description: 'Papirna i kartonska ambalaža',
-          isHazardous: false,
-        },
-      ],
-    },
-    {
-      id: 'p-2',
-      permitNumber: 'DOZ-EXPIRED-99',
-      indexNumber: '17 04 05',
-      permitTypes: ['Skladištenje'],
-      clientId: 'c-1',
-      client: { id: 'c-1', name: 'Eko Metal d.o.o.', city: 'Kraljevo' },
-      clientName: 'Eko Metal d.o.o.',
-      startDate: '2020-01-01',
-      endDate: '2021-01-01',
-      notes: 'Stara istekla dozvola',
-      wasteCatalogIds: ['wc-2'],
-      wasteCatalogs: [
-        {
-          id: 'wc-2',
-          code: '17 04 05',
-          description: 'Gvožđe i čelik',
-          isHazardous: false,
-        },
-      ],
-    },
-  ];
+  let permitsData: any[] = [];
 
   const wasteCatalogItems = [
     {
@@ -114,6 +72,8 @@ test.describe('Permits Management', () => {
       },
     ];
 
+    await mockCommonApi(page, { wasteCatalog: wasteCatalogItems });
+
     await page.route(/\/api\/permits(\?.*)?$/, async (route) => {
       if (route.request().method() === 'GET') {
         await route.fulfill({
@@ -137,7 +97,7 @@ test.describe('Permits Management', () => {
           body: JSON.stringify(created),
         });
       } else {
-        await route.continue();
+        await route.fallback();
       }
     });
 
@@ -166,21 +126,8 @@ test.describe('Permits Management', () => {
           body: JSON.stringify({ success: true }),
         });
       } else {
-        await route.continue();
+        await route.fallback();
       }
-    });
-
-    await page.route('**/api/waste-catalog**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          items: wasteCatalogItems,
-          total: wasteCatalogItems.length,
-          page: 1,
-          hasMore: false,
-        }),
-      });
     });
 
     await page.route(/\/api\/clients(\?.*)?$/, async (route) => {
@@ -191,82 +138,6 @@ test.describe('Permits Management', () => {
           { id: 'c-1', name: 'Eko Metal d.o.o.', city: 'Kraljevo' },
         ]),
       });
-    });
-
-    await page.route(/\/api\/reminders(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route('**/api/auth/me', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ id: 1, name: 'Test User', email: 'test@example.com', role: 'Admin' }),
-      });
-    });
-
-    await page.route('**/api/roles', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([{ id: 1, name: 'Admin', isSystemAdmin: true, permissions: {} }]),
-      });
-    });
-
-    await page.route('**/api/preferences', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-    });
-
-    await page.route('**/api/system-settings**', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-    });
-
-    await page.route('**/api/stats', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-    });
-
-    await page.route('**/api/projects/stats', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-    });
-
-    await page.route(/\/api\/projects(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route(/\/api\/invoices(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route('**/api/notifications', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route(/\/api\/users(\?.*)?$/, async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([{ id: 1, name: 'Test User', email: 'test@example.com', role: 'Admin' }]),
-      });
-    });
-
-    await page.route(/\/api\/services(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route(/\/api\/categories(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route(/\/api\/provided-services(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route('**/api/activity-logs**', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route('**/api/activity-logs/status', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
     });
   });
 
@@ -294,11 +165,7 @@ test.describe('Permits Management', () => {
           body: JSON.stringify(created),
         });
       } else {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify(permitsData),
-        });
+        await route.fallback();
       }
     });
 
@@ -363,7 +230,7 @@ test.describe('Permits Management', () => {
           body: JSON.stringify({ id: 'p-1', ...updatedPayload }),
         });
       } else {
-        await route.continue();
+        await route.fallback();
       }
     });
 
@@ -400,7 +267,7 @@ test.describe('Permits Management', () => {
           body: JSON.stringify({ success: true }),
         });
       } else {
-        await route.continue();
+        await route.fallback();
       }
     });
 

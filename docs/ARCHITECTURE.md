@@ -16,7 +16,7 @@
 | **Charts** | MUI X Charts | 9.11.x |
 | **Rich Text Editor** | TipTap (`@tiptap/react`, `@tiptap/starter-kit`, `@tiptap/extension-mention`, `@tiptap/extension-table`) | 3.20.x |
 | **HTML Sanitizer** | DOMPurify | 3.3.x |
-| **Offline Storage** | IndexedDB (`ekos_project_tracker_db`, `ekos_chat_cache_db`) + `BroadcastChannel` | Native Web APIs |
+| **Offline Storage** | IndexedDB (`ekos_project_tracker_db`, `ekos_messaging_cache_db`) + `BroadcastChannel` | Native Web APIs |
 | **State & Caching** | TanStack React Query + Selective Query Persistence | 5.102.x |
 | **Real-Time Messaging** | Server-Sent Events (SSE) (`fetch` stream reader) | Native Web APIs |
 | **Linting** | oxlint | 1.75.x |
@@ -47,21 +47,21 @@ index.html
               │               └── <MainApp />
               │                   └── CustomThemeProvider (MUI theme)
               │                       └── ProjectModalProvider (project modals)
-              │                           └── ChatProvider (SSE stream + IndexedDB chat cache)
+              │                           └── MessagingProvider (SSE stream + IndexedDB message cache)
               │                               ├── <AdminLayout>
               │                               │   └── <AppRoutes />
-              │                               └── <ChatDock />
+              │                               └── <MessagingDock />
               └── vite:preloadError handler (auto-reload on chunk miss)
 ```
 
 ### Provider Nesting Order (outermost → innermost)
 1. **`LanguageProvider`** — i18n must be available to all other providers
-2. **`AuthProvider`** — auth state consumed by notifications, chat, and layout
+2. **`AuthProvider`** — auth state consumed by notifications, messaging, and layout
 3. **`NotificationProvider`** — depends on `useAuth()` for user context
 4. **`LoadingProvider`** — global loading state
 5. **`CustomThemeProvider`** — MUI theme, depends on user preferences
 6. **`ProjectModalProvider`** — global project view/edit modal orchestration
-7. **`ChatProvider`** — real-time direct & contextual project messaging, SSE stream, and floating `ChatDock` orchestration
+7. **`MessagingProvider`** — real-time direct & contextual project messaging, SSE stream, and floating `MessagingDock` orchestration
 
 ---
 
@@ -70,8 +70,8 @@ index.html
 ### 3.1 `MainApp` & Decoupled Routing
 
 [`App.tsx`](../src/App.tsx) is a lean root orchestrator (~65 lines) that:
-- Coordinates top-level providers (`CustomThemeProvider`, `ProjectModalProvider`, `ChatProvider`)
-- Wraps the authenticated shell (`AdminLayout`) and global floating `ChatDock`
+- Coordinates top-level providers (`CustomThemeProvider`, `ProjectModalProvider`, `MessagingProvider`)
+- Wraps the authenticated shell (`AdminLayout`) and global floating `MessagingDock`
 - Delegates route declarations to [`src/routes/AppRoutes.tsx`](../src/routes/AppRoutes.tsx)
 - Automatically checks deployment versions via `VersionUpdatePrompt`
 
@@ -102,13 +102,13 @@ graph TD
 | `TanStack React Query` | Server cache, background polling, paginated entity data & mutations |
 | `useTablePreferences` | Reactive user table column visibility, rows per page, sorting |
 | `useProjectModal` | Global modal orchestration for Project view/edit/new/diff modals |
-| `useChat` | Real-time direct & contextual project chat state, SSE stream, multi-window dock |
+| `useMessaging` | Real-time direct & contextual project messaging state, SSE stream, multi-window dock |
 | `useState` | Local UI state, active dialogs, transient form data |
-| `useContext` | Auth, Language, Theme, Notifications, LoadingMask, ProjectModals, Chat |
+| `useContext` | Auth, Language, Theme, Notifications, LoadingMask, ProjectModals, Messaging |
 | `useMemo` | Derived statistics, active filter calculations, expensive aggregations |
 | `useCallback` | Event handlers and parameterized callback props |
 | `localStorage` | JWT token (`auth_token`), authenticated user snapshot, theme, language, persisted user directory queries |
-| `IndexedDB` | Waste catalog cache (`ekos_project_tracker_db`) and Chat message/conversation cache (`ekos_chat_cache_db`) |
+| `IndexedDB` | Waste catalog cache (`ekos_project_tracker_db`) and Messaging cache (`ekos_messaging_cache_db`) |
 
 ### 3.4 1 Route -> 1 Page Structure
 
@@ -308,17 +308,17 @@ graph TD
         PSS[WasteDisposalStatistics]
     end
 
-    subgraph "Project & Chat Components"
+    subgraph "Project & Messaging Components"
         PC[ProjectCard]
         PM[ProjectModal]
         PVM[ProjectViewModal]
         PIS[ProjectInvoiceSection]
         PRS[ProjectReminderSection]
         PPS[ProjectProgressSlider]
-        CD[ChatDock]
-        CCL[ChatConversationList]
-        CW[ChatWindow]
-        PCP[ProjectChatPane]
+        CD[MessagingDock]
+        CCL[MessagingConversationList]
+        CW[MessagingWindow]
+        PCP[ProjectMessagingPane]
     end
 
     subgraph "Shared & Dialogs"
@@ -427,7 +427,7 @@ apiFetch(path, init?)
 | `/api/system-settings`, `/api/system-settings/:key` | GET, PUT | `systemSettings.queries.ts` (`useSystemSettingsQuery`, `useWasteDisposalServiceId`) |
 | `/api/activity-logs`, `/analytics`, `/status` | GET, POST, PATCH, DELETE | `activity.queries.ts`, `useActivityTracker` |
 | `/api/history/:entityType/:id`, `/diff`, `/versions/:v`, `/restore/:v` | GET, POST | `history.queries.ts`, `HistoryTimelineModal` |
-| `/api/chat/*` | GET, POST, PATCH, DELETE | `ChatContext.tsx`, `src/components/chat/chatApi.ts` |
+| `/api/messaging/*` | GET, POST, PATCH, DELETE | `MessagingContext.tsx`, `src/components/messaging/messagingApi.ts` |
 
 ### 8.3 Dev Server Proxy
 
@@ -534,24 +534,24 @@ graph TD
 
 ---
 
-## 11. Real-Time Chat & Contextual Messaging Architecture
+## 11. Real-Time & Contextual Messaging Architecture
 
-The client features an integrated real-time messaging system supporting **Direct 1-on-1**, **Group**, and **Contextual Project** conversations (`src/context/ChatContext.tsx` and `src/components/chat/`):
+The client features an integrated real-time messaging system supporting **Direct 1-on-1**, **Group**, and **Contextual Project** conversations (`src/context/MessagingContext.tsx` and `src/components/messaging/`):
 
 ```mermaid
 sequenceDiagram
-    participant UI as ChatDock / ProjectChatPane
-    participant CC as ChatContext
-    participant IDB as chatStorage.ts (IndexedDB)
-    participant SSE as /api/chat/stream (SSE)
-    participant API as /api/chat/* REST
+    participant UI as MessagingDock / ProjectMessagingPane
+    participant CC as MessagingContext
+    participant IDB as messagingStorage.ts (IndexedDB)
+    participant SSE as /api/messaging/stream (SSE)
+    participant API as /api/messaging/* REST
 
     CC->>IDB: getCachedConversations() (0ms instant boot)
-    CC->>API: GET /api/chat/conversations
+    CC->>API: GET /api/messaging/conversations
     API-->>CC: Conversations + serverSeq /unreadCount
     CC->>IDB: compare cursorSeq vs serverSeq
     alt Server has newer messages (serverSeq > cursorSeq)
-        CC->>API: GET /api/chat/conversations/:id/messages?sinceSeq=<cursorSeq>
+        CC->>API: GET /api/messaging/conversations/:id/messages?sinceSeq=<cursorSeq>
         API-->>CC: Delta messages + syncDeletedIds
         CC->>IDB: upsertCachedMessages() & setConversationCursor()
     end
@@ -561,14 +561,14 @@ sequenceDiagram
 ```
 
 ### Key Architectural Pillars
-1. **Multi-Window Floating `ChatDock` & Contextual `ProjectChatPane`**:
-   - Up to 3 floating chat windows can be docked simultaneously at the bottom of the screen, or minimized into compact tabs.
-   - Opening a project in `ProjectViewModal` mounts `ProjectChatPane`, lazily resolving or creating the contextual `PROJECT` conversation (`POST /api/chat/conversations/project/:projectId`).
-2. **Sequence-Number IndexedDB Cache (`src/components/chat/chatStorage.ts`)**:
-   - Stores conversations, messages (up to 400 per conversation), and per-conversation sequence cursors in IndexedDB (`ekos_chat_cache_db`).
+1. **Multi-Window Floating `MessagingDock` & Contextual `ProjectMessagingPane`**:
+   - Up to 3 floating messaging windows can be docked simultaneously at the bottom of the screen, or minimized into compact tabs.
+   - Opening a project in `ProjectViewModal` mounts `ProjectMessagingPane`, lazily resolving or creating the contextual `PROJECT` conversation (`POST /api/messaging/conversations/project/:projectId`).
+2. **Sequence-Number IndexedDB Cache (`src/components/messaging/messagingStorage.ts`)**:
+   - Stores conversations, messages (up to 400 per conversation), and per-conversation sequence cursors in IndexedDB (`ekos_messaging_cache_db`).
    - Reconciles incremental message deltas using monotonically increasing `seq` numbers (`?sinceSeq=`) and purges tombstoned message IDs (`syncDeletedIds`).
 3. **Idle-Aware SSE Connection Management**:
-   - Uses a `fetch()` stream reader to pass the `Authorization: Bearer <token>` header to `GET /api/chat/stream`.
+   - Uses a `fetch()` stream reader to pass the `Authorization: Bearer <token>` header to `GET /api/messaging/stream`.
    - Automatically enters `sleeping` mode after 5 minutes of user inactivity (`IDLE_TIMEOUT_MS`) to conserve server connections and wakes immediately on mouse/keyboard/visibility activity.
 
 ---
@@ -682,7 +682,7 @@ client/
 │   ├── context/                    # React context providers
 │   │   ├── AuthContext.tsx         # Auth + dynamic RBAC
 │   │   ├── ProjectModalContext.tsx # Project view/edit modal orchestration
-│   │   ├── ChatContext.tsx         # Real-time SSE messaging & multi-window dock state
+│   │   ├── MessagingContext.tsx    # Real-time SSE messaging & multi-window dock state
 │   │   ├── LanguageContext.tsx     # i18n
 │   │   ├── ThemeContext.tsx        # MUI theming
 │   │   ├── NotificationContext.tsx # @mention notifications
@@ -722,7 +722,7 @@ client/
 │   ├── components/                 # Domain-grouped components
 │   │   ├── common/                 # Generic building blocks (dialogs/, modal/, tiptap/, autocomplete/)
 │   │   ├── layout/                 # AdminLayout, AppHeader, Sidebar, Settings, Profile, Notifications
-│   │   ├── chat/                   # ChatDock, ChatWindow, ChatConversationList, ProjectChatPane, chatApi, chatStorage
+│   │   ├── messaging/              # MessagingDock, MessagingWindow, MessagingConversationList, ProjectMessagingPane, messagingApi, messagingStorage
 │   │   ├── project/                # ProjectCard, ProjectModal, ProjectViewModal, Sections
 │   │   ├── client/                 # ClientModal
 │   │   ├── permit/                 # PermitModal, PermitsTable, StatusBadge, Reminders

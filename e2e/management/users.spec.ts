@@ -1,54 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { USER_ROLES, USER_STATUSES } from '../../src/constants';
+import { mockCommonApi } from '../helpers/mockApi';
 
 test.describe('Users & Roles Management', () => {
-  let usersData = [
-    {
-      id: '1',
-      name: 'Petar Petrović',
-      email: 'petar@ekosgreen.rs',
-      role: USER_ROLES.MANAGER,
-      status: USER_STATUSES.APPROVED,
-      phone: '+381641234567',
-      gender: 'Male',
-    },
-    {
-      id: '2',
-      name: 'Jelena Jovanović',
-      email: 'jelena@ekosgreen.rs',
-      role: USER_ROLES.USER,
-      status: USER_STATUSES.APPROVED,
-      phone: '+381649876543',
-      gender: 'Female',
-    },
-  ];
-
-  let rolesData = [
-    {
-      id: 'r-1',
-      name: USER_ROLES.ADMINISTRATOR,
-      description: 'Puni sistemski pristup',
-      isSystemAdmin: true,
-      permissions: { all: true },
-      _count: { users: 1 },
-    },
-    {
-      id: 'r-2',
-      name: USER_ROLES.MANAGER,
-      description: 'Menadžer projekata i klijenata',
-      isSystemAdmin: false,
-      permissions: { projects: ['view', 'create', 'edit'] },
-      _count: { users: 1 },
-    },
-    {
-      id: 'r-3',
-      name: USER_ROLES.USER,
-      description: 'Standardni korisnik sistema',
-      isSystemAdmin: false,
-      permissions: { projects: ['view'] },
-      _count: { users: 1 },
-    },
-  ];
+  let usersData: any[] = [];
+  let rolesData: any[] = [];
 
   test.beforeEach(async ({ page }) => {
     usersData = [
@@ -56,7 +12,7 @@ test.describe('Users & Roles Management', () => {
         id: '1',
         name: 'Petar Petrović',
         email: 'petar@ekosgreen.rs',
-        role: USER_ROLES.MANAGER,
+        role: 'Manager',
         status: USER_STATUSES.APPROVED,
         phone: '+381641234567',
         gender: 'Male',
@@ -65,7 +21,7 @@ test.describe('Users & Roles Management', () => {
         id: '2',
         name: 'Jelena Jovanović',
         email: 'jelena@ekosgreen.rs',
-        role: USER_ROLES.USER,
+        role: 'User',
         status: USER_STATUSES.APPROVED,
         phone: '+381649876543',
         gender: 'Female',
@@ -78,26 +34,39 @@ test.describe('Users & Roles Management', () => {
         name: USER_ROLES.ADMINISTRATOR,
         description: 'Puni sistemski pristup',
         isSystemAdmin: true,
+        level: 100,
         permissions: { all: true },
         _count: { users: 1 },
       },
       {
         id: 'r-2',
-        name: USER_ROLES.MANAGER,
+        name: 'Manager',
         description: 'Menadžer projekata i klijenata',
         isSystemAdmin: false,
+        level: 50,
         permissions: { projects: ['view', 'create', 'edit'] },
         _count: { users: 1 },
       },
       {
         id: 'r-3',
-        name: USER_ROLES.USER,
+        name: 'User',
         description: 'Standardni korisnik sistema',
         isSystemAdmin: false,
+        level: 10,
         permissions: { projects: ['view'] },
         _count: { users: 1 },
       },
     ];
+
+    await mockCommonApi(page, {
+      user: {
+        id: '99',
+        name: 'Admin Root',
+        email: 'root@ekosgreen.rs',
+        role: 'Administrator',
+      },
+      roles: rolesData,
+    });
 
     await page.route(/\/api\/users(\?.*)?$/, async (route) => {
       if (route.request().method() === 'GET') {
@@ -116,7 +85,7 @@ test.describe('Users & Roles Management', () => {
           body: JSON.stringify(created),
         });
       } else {
-        await route.continue();
+        await route.fallback();
       }
     });
 
@@ -145,84 +114,8 @@ test.describe('Users & Roles Management', () => {
           body: JSON.stringify({ success: true }),
         });
       } else {
-        await route.continue();
+        await route.fallback();
       }
-    });
-
-    await page.route('**/api/roles', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(rolesData),
-      });
-    });
-
-    await page.route('**/api/auth/me', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ id: '99', name: 'Admin Root', email: 'root@ekosgreen.rs', role: 'Administrator' }),
-      });
-    });
-
-    await page.route('**/api/preferences', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-    });
-
-    await page.route('**/api/system-settings**', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-    });
-
-    await page.route('**/api/stats', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-    });
-
-    await page.route('**/api/projects/stats', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-    });
-
-    await page.route('**/api/projects', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route('**/api/clients', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route('**/api/services', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route('**/api/categories', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route('**/api/permits', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route('**/api/reminders', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route('**/api/invoices', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route('**/api/provided-services', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route('**/api/notifications', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route('**/api/activity-logs', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route('**/api/activity-logs/status', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
     });
   });
 
@@ -247,11 +140,7 @@ test.describe('Users & Roles Management', () => {
           body: JSON.stringify(created),
         });
       } else {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify(usersData),
-        });
+        await route.fallback();
       }
     });
 
@@ -288,7 +177,7 @@ test.describe('Users & Roles Management', () => {
     expect(createdPayload).not.toBeNull();
     expect(createdPayload.name).toBe('Milan Nikolić');
     expect(createdPayload.email).toBe('milan@ekosgreen.rs');
-    expect(createdPayload.role).toBe(USER_ROLES.MANAGER);
+    expect(createdPayload.role).toBe('Manager');
   });
 
   test('should edit existing user role', async ({ page }) => {
@@ -302,7 +191,7 @@ test.describe('Users & Roles Management', () => {
           body: JSON.stringify({ id: '2', ...updatedPayload }),
         });
       } else {
-        await route.continue();
+        await route.fallback();
       }
     });
 
@@ -326,7 +215,7 @@ test.describe('Users & Roles Management', () => {
 
     await expect(dialog).not.toBeVisible();
     expect(updatedPayload).not.toBeNull();
-    expect(updatedPayload.role).toBe(USER_ROLES.MANAGER);
+    expect(updatedPayload.role).toBe('Manager');
   });
 
   test('should display the roles page with roles list', async ({ page }) => {

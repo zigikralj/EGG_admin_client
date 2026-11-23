@@ -24,7 +24,7 @@ The client communicates with a separate Express 5 REST API server (see `../serve
 |---|---|
 | `index.html` | HTML shell — mounts `#root` |
 | `src/main.tsx` | ReactDOM entry. Initializes selective query cache persistence (`restorePersistedQueries` / `setupQueryPersistence`), wraps `<App />` in StrictMode, QueryClientProvider, and `<BrowserRouter>` with dynamic basename (`getRouterBasename()`). |
-| `src/App.tsx` | **Lightweight root orchestrator** (~65 lines). Wraps providers (`LanguageProvider`, `AuthProvider`, `NotificationProvider`, `LoadingProvider`, `CustomThemeProvider`, `ProjectModalProvider`, `ChatProvider`), renders `AdminLayout`, `AppRoutes`, `ChatDock`, `LoadingMask`, and `VersionUpdatePrompt`. |
+| `src/App.tsx` | **Lightweight root orchestrator** (~65 lines). Wraps providers (`LanguageProvider`, `AuthProvider`, `NotificationProvider`, `LoadingProvider`, `CustomThemeProvider`, `ProjectModalProvider`, `MessagingProvider`), renders `AdminLayout`, `AppRoutes`, `MessagingDock`, `LoadingMask`, and `VersionUpdatePrompt`. |
 | `src/routes/AppRoutes.tsx` | **Centralized routing** with React 19 / Vite lazy-loaded chunks for each of the 19 dedicated pages. |
 | `vite.config.ts` | Vite + React plugin, dev proxy `/api` → `:5000`, manual chunk splitting, version.json generation, SPA 404 fallback, and dynamic base path resolution. |
 | `playwright.config.ts` | Playwright E2E configuration — base URL `http://localhost:3000`, webServer auto-start (`npm run dev`), auth state fixture (`playwright/.auth/user.json`). |
@@ -59,7 +59,7 @@ Modularized domain types defined in `src/types/` (re-exported via `src/types/ind
 | `ThemeContext.tsx` | `CustomThemeProvider` | `useThemeContext()` | Light/dark/system theme mode, system preference listener via `matchMedia`, syncs `data-theme` attribute on `<html>`. |
 | `NotificationContext.tsx` | `NotificationProvider` | `useNotifications()` | Fetches, polls (25s intervals with Page Visibility pausing), and manages @mention notifications. Optimistic UI for mark-read/delete/clear-all. |
 | `LoadingContext.tsx` | `LoadingProvider` | `useLoading()` | Global async loading spinner state. |
-| `ChatContext.tsx` | `ChatProvider` | `useChat()` | Real-time direct & contextual project messaging state, SSE stream management (`/api/chat/stream` with 5-minute idle sleep), multi-window floating `ChatDock` orchestration, IndexedDB message/conversation cache (`chatStorage.ts`) with sequence-number delta sync, typing/presence tracking, and unread counters. |
+| `MessagingContext.tsx` | `MessagingProvider` | `useMessaging()` | Real-time direct & contextual project messaging state, SSE stream management (`/api/messaging/stream` with 5-minute idle sleep), multi-window floating `MessagingDock` orchestration, IndexedDB message/conversation cache (`messagingStorage.ts`) with sequence-number delta sync, typing/presence tracking, and unread counters. |
 
 ### Constants (`src/constants/`)
 | File | Purpose |
@@ -125,14 +125,20 @@ Modularized domain query modules re-exported through barrel `src/queries/index.t
 | `/data-management/clients` | `CLIENTS` | `ClientsPage.tsx` | Clients administration table with permit linking. |
 | `/data-management/permits` | `PERMITS` | `PermitsPage.tsx` | Environmental permits table, status badges, reminders. |
 | `/data-management/users` | `USERS` | `UsersPage.tsx` | Users administration, approve/reject, force logout. |
-| `/data-management/roles` | `ROLES` | `RolesPage.tsx` | Granular permissions matrix management. |
 | `/data-management/services` | `SERVICES` | `ServicesPage.tsx` | Services catalog with custom data model schema editor. |
 | `/data-management/provided-services` | `PROVIDED_SERVICES` | `ProvidedServicesPage.tsx` | Service delivery logs table. |
 | `/data-management/categories` | `CATEGORIES` | `CategoriesPage.tsx` | Service categories CRUD table. |
 | `/data-management/invoices` | `INVOICES` | `InvoicesPage.tsx` | Invoices lifecycle, parent/child links, line items. |
 | `/data-management/reminders` | `REMINDERS` | `RemindersPage.tsx` | Reminders administration table with entity links. |
-| `/data-management/activity-logs` | `ACTIVITY_LOGS` | `ActivityLogsPage.tsx` | Audit log viewer with diffs. |
-| `/data-management/activity-logs/analytics` | `ACTIVITY_ANALYTICS` | `ActivityAnalyticsPage.tsx` | Activity metrics, user breakdowns, heatmap, and insights. |
+
+### App 3: System (`src/pages/system/`)
+*(Legacy `/data-management/roles` and `/data-management/activity-logs*` routes redirect here via `LEGACY_ROUTE_REDIRECTS` in `constants/appRegistry.ts`.)*
+| Path | Route Constant | Page Component | Notes |
+|---|---|---|---|
+| `/system/roles` | `ROLES` | `RolesPage.tsx` | Granular permissions matrix management driven by `GET /api/permissions/catalog` and `Role.level` hierarchy. |
+| `/system/activity-logs` | `ACTIVITY_LOGS` | `ActivityLogsPage.tsx` | Audit log viewer with diffs. |
+| `/system/activity-logs/analytics` | `ACTIVITY_ANALYTICS` | `ActivityAnalyticsPage.tsx` | Activity metrics, user breakdowns, heatmap, and insights. |
+| `/system/settings` | `SYSTEM_SETTINGS` | `SystemSettingsPage.tsx` | Global system settings (`waste_disposal_service_id`, `activity_logging_enabled`, `activity_log_retention_days`). |
 
 ---
 
@@ -142,7 +148,7 @@ Modularized domain query modules re-exported through barrel `src/queries/index.t
 - `common/dialogs/`: Generic dialogs (`ConfirmDialog`, `ConfirmDeleteDialog`, `ErrorDialog`, `VersionUpdatePrompt`).
 - `common/tiptap/`: Rich text TipTap editor, toolbar, and mentions.
 - `layout/`: App shell (`AdminLayout`, `AppHeader`, `Sidebar`, `SettingsDialog`, `UserProfileDialog`, `NotificationsMenu`).
-- `chat/`: Real-time messaging suite (`ChatDock`, `ChatConversationList`, `ChatWindow`, `ProjectChatPane`, `ChatMessageBubble`, `ChatMessageInput`, `chatApi.ts`, `chatStorage.ts`).
+- `messaging/`: Real-time messaging suite (`MessagingDock`, `MessagingConversationList`, `MessagingWindow`, `ProjectMessagingPane`, `MessagingMessageBubble`, `MessagingMessageInput`, `messagingApi.ts`, `messagingStorage.ts`).
 - `project/`: Project cards, `ProjectModal`, `ProjectViewModal`, sections, sliders, notes.
 - `client/`: Client components including extracted `ClientModal`.
 - `permit/`: Permit components, `PermitModal`, status badges, table, reminder dialogs.
@@ -219,7 +225,11 @@ Modularized domain query modules re-exported through barrel `src/queries/index.t
 > [!IMPORTANT]
 > **CRITICAL RULE — Developer Administrator Visibility:**
 > The developer operates using an Administrator account. Administrator level **MUST see everything and have full access to all features**.
-> **NEVER hide any options, switches, menus, or features from Administrator.** If something is available to Manager, Accountant, or User, Administrator MUST have full access and visibility.
+> **NEVER hide any options, switches, menus, or features from Administrator.**
+>
+> **HARD RULE — NO ROLE NAMES IN AUTHORIZATION LOGIC:**
+> - **NEVER** branch on role display names (such as `'Manager'`, `'Accountant'`, or `isManagerPlus`) in client logic.
+> - **ALWAYS** use granular `hasPermission(resource, action)` / `isRestrictedToOwn(resource)` checks backed by `GET /api/permissions/catalog`, and numeric `roleLevel` / `isSystemAdmin` comparisons for user/role hierarchy. Only `Administrator` (`isRealAdmin` / `isSystemAdmin`) is special-cased.
 
 ### HARD RULE: NO HARDCODED NAMES OR STRINGS FOR FINDING SERVICES (E.G. WASTE DISPOSAL)
 > [!CAUTION]

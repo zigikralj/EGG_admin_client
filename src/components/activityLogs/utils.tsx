@@ -18,6 +18,7 @@ import {
   NotificationsActiveIcon,
   ReceiptLongIcon,
   SecurityIcon,
+  SettingsIcon,
   WebIcon,
   LoginIcon,
   LogoutIcon,
@@ -167,6 +168,7 @@ const API_PREFIX_TO_PAGE_ROUTE: Array<{ prefix: string; page: string }> = [
   { prefix: API_ROUTES.ROLES.BASE, page: PAGE_ROUTES.ROLES },
   { prefix: API_ROUTES.REMINDERS.BASE, page: PAGE_ROUTES.REMINDERS },
   { prefix: API_ROUTES.ACTIVITY_LOGS.BASE, page: PAGE_ROUTES.ACTIVITY_LOGS },
+  { prefix: API_ROUTES.SYSTEM_SETTINGS.BASE, page: PAGE_ROUTES.SYSTEM_SETTINGS },
 ];
 
 export const getCanonicalPagePath = (rawPath?: string): string => {
@@ -218,19 +220,19 @@ export const getPathLabelAndIcon = (
       icon: <CheckCircleIcon fontSize="small" sx={{ color: '#16a34a' }} />,
     };
   }
-  if (type === 'CHAT_MESSAGE_DIRECT') {
+  if (type === 'MESSAGE_DIRECT') {
     return {
       label: 'Direct Message',
       icon: <ChatBubbleOutlinedIcon fontSize="small" sx={{ color: '#0284c7' }} />,
     };
   }
-  if (type === 'CHAT_MESSAGE_PROJECT') {
+  if (type === 'MESSAGE_PROJECT') {
     return {
       label: 'Project Message',
       icon: <FolderSpecialIcon fontSize="small" sx={{ color: '#7c3aed' }} />,
     };
   }
-  if (type === 'CHAT_MESSAGE_GROUP') {
+  if (type === 'MESSAGE_GROUP') {
     return {
       label: 'Group Message',
       icon: <GroupsIcon fontSize="small" sx={{ color: '#059669' }} />,
@@ -288,6 +290,9 @@ export const getPathLabelAndIcon = (
   }
   if (path.includes(PAGE_ROUTES.ACTIVITY_LOGS) || path.includes(API_ROUTES.ACTIVITY_LOGS.BASE) || path.includes('/activity-logs')) {
     return { label: t('tabActivityLogs'), icon: <AccessTimeIcon fontSize="small" sx={{ color: '#475569' }} /> };
+  }
+  if (path.includes(PAGE_ROUTES.SYSTEM_SETTINGS) || path.includes(API_ROUTES.SYSTEM_SETTINGS.BASE) || path.includes('/settings')) {
+    return { label: t('tabSystemSettings'), icon: <SettingsIcon fontSize="small" sx={{ color: '#0284c7' }} /> };
   }
   if (path.includes(PAGE_ROUTES.LOGIN) || path.includes(API_ROUTES.AUTH.LOGIN) || path.includes('/login')) {
     return {

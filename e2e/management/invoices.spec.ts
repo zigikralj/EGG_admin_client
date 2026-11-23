@@ -1,32 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { INVOICE_STATUSES, INVOICE_TYPES } from '../../src/constants';
+import { mockCommonApi } from '../helpers/mockApi';
 
 test.describe('Invoices Management', () => {
-  let invoicesData = [
-    {
-      id: '1',
-      invoiceNumber: 'INV-2023-001',
-      invoiceType: INVOICE_TYPES.STANDARD,
-      clientId: '1',
-      clientName: 'Eko Metal d.o.o.',
-      projectId: '101',
-      projectName: 'Solarni Paneli Blok A',
-      dateCreated: '2023-01-01',
-      dueDate: '2023-01-15',
-      totalAmount: 1500,
-      status: INVOICE_STATUSES.DRAFT,
-      currency: 'RSD',
-      items: [
-        {
-          id: 'item-1',
-          description: 'Konsultantske usluge',
-          quantity: 1,
-          unitPrice: 1500,
-          currency: 'RSD',
-        },
-      ],
-    },
-  ];
+  let invoicesData: any[] = [];
 
   test.beforeEach(async ({ page }) => {
     invoicesData = [
@@ -55,7 +32,8 @@ test.describe('Invoices Management', () => {
       },
     ];
 
-    // Mock all necessary endpoints
+    await mockCommonApi(page);
+
     await page.route(/\/api\/invoices(\?.*)?$/, async (route) => {
       if (route.request().method() === 'GET') {
         await route.fulfill({
@@ -73,7 +51,7 @@ test.describe('Invoices Management', () => {
           body: JSON.stringify(created),
         });
       } else {
-        await route.continue();
+        await route.fallback();
       }
     });
 
@@ -122,7 +100,7 @@ test.describe('Invoices Management', () => {
           body: JSON.stringify({ success: true }),
         });
       } else {
-        await route.continue();
+        await route.fallback();
       }
     });
 
@@ -144,78 +122,6 @@ test.describe('Invoices Management', () => {
           { id: '101', name: 'Solarni Paneli Blok A', clientId: '1', clientName: 'Eko Metal d.o.o.' },
         ]),
       });
-    });
-
-    await page.route(/\/api\/provided-services(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route('**/api/auth/me', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ id: 1, name: 'Test User', email: 'test@example.com', role: 'Admin' }),
-      });
-    });
-
-    await page.route('**/api/roles', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([{ id: 1, name: 'Admin', isSystemAdmin: true, permissions: {} }]),
-      });
-    });
-
-    await page.route('**/api/preferences', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-    });
-
-    await page.route('**/api/system-settings**', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-    });
-
-    await page.route('**/api/stats', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-    });
-
-    await page.route('**/api/projects/stats', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-    });
-
-    await page.route(/\/api\/reminders(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route('**/api/notifications', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route(/\/api\/users(\?.*)?$/, async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([{ id: 1, name: 'Test User', email: 'test@example.com', role: 'Admin' }]),
-      });
-    });
-
-    await page.route(/\/api\/services(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route(/\/api\/categories(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route(/\/api\/permits(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route('**/api/activity-logs**', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route('**/api/activity-logs/status', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
     });
   });
 
@@ -239,11 +145,7 @@ test.describe('Invoices Management', () => {
           body: JSON.stringify(created),
         });
       } else {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify(invoicesData),
-        });
+        await route.fallback();
       }
     });
 
@@ -301,7 +203,7 @@ test.describe('Invoices Management', () => {
           body: JSON.stringify({ success: true, ...patchedStatus }),
         });
       } else {
-        await route.continue();
+        await route.fallback();
       }
     });
 

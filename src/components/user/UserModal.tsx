@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   TextField,
   FormControl,
@@ -14,6 +14,7 @@ import {
 import { VisibilityIcon, VisibilityOff, VpnKeyIcon } from '../icons';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import { useRoleLabels } from '../../hooks/useRoleLabels';
 import { ViewEditModalBase, type ModalMode } from '../common/modal/ViewEditModalBase';
 import { ViewEditField } from '../common/modal/ViewEditField';
 import type { User, Role } from '../../types';
@@ -50,7 +51,37 @@ export const UserModal: React.FC<UserModalProps> = ({
   onError,
 }) => {
   const { t } = useLanguage();
-  const { hasPermission } = useAuth();
+  const { isRealAdmin, roleLevel } = useAuth();
+  const { getRoleBadgeLabel, getRoleColor } = useRoleLabels();
+
+  const assignableRoles = useMemo(
+    () =>
+      rolesList.filter(
+        (r) => isRealAdmin || (!r.isSystemAdmin && r.name !== 'Administrator' && (r.level ?? 0) < roleLevel)
+      ),
+    [rolesList, isRealAdmin, roleLevel]
+  );
+
+  const defaultAssignableRole = useMemo(() => {
+    if (assignableRoles.length === 0) return 'User';
+    const sorted = [...assignableRoles].sort((a, b) => (a.level ?? 0) - (b.level ?? 0));
+    return sorted.find((r) => r.name === 'User')?.name || sorted[0].name;
+  }, [assignableRoles]);
+
+  const selectRoleOptions = useMemo(() => {
+    if (editingUser?.role && !assignableRoles.some((r) => r.name === editingUser.role)) {
+      const existing = rolesList.find((r) => r.name === editingUser.role);
+      return existing
+        ? [...assignableRoles, existing]
+        : [...assignableRoles, { name: editingUser.role, isSystemAdmin: false, permissions: {} }];
+    }
+    return assignableRoles;
+  }, [assignableRoles, editingUser, rolesList]);
+
+  const canChangeRole =
+    isRealAdmin ||
+    !editingUser?.role ||
+    assignableRoles.some((r) => r.name === editingUser.role);
 
   const [internalMode, setInternalMode] = useState<ModalMode>(() => {
     if (controlledMode) return controlledMode;
@@ -88,27 +119,30 @@ export const UserModal: React.FC<UserModalProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const populateFromUser = useCallback((u: User | null) => {
-    if (u) {
-      setName(u.name || '');
-      setEmail(u.email || '');
-      setRole(u.role || 'User');
-      setPhone(u.phone || '');
-      setGender(u.gender || '');
-      setStatus(u.status || (u.isApproved ? 'APPROVED' : 'PENDING'));
-      setPassword('');
-      setShowPassword(false);
-    } else {
-      setName('');
-      setEmail('');
-      setRole('User');
-      setPhone('');
-      setGender('');
-      setStatus('APPROVED');
-      setPassword('');
-      setShowPassword(false);
-    }
-  }, []);
+  const populateFromUser = useCallback(
+    (u: User | null) => {
+      if (u) {
+        setName(u.name || '');
+        setEmail(u.email || '');
+        setRole(u.role || defaultAssignableRole);
+        setPhone(u.phone || '');
+        setGender(u.gender || '');
+        setStatus(u.status || (u.isApproved ? 'APPROVED' : 'PENDING'));
+        setPassword('');
+        setShowPassword(false);
+      } else {
+        setName('');
+        setEmail('');
+        setRole(defaultAssignableRole);
+        setPhone('');
+        setGender('');
+        setStatus('APPROVED');
+        setPassword('');
+        setShowPassword(false);
+      }
+    },
+    [defaultAssignableRole]
+  );
 
   useEffect(() => {
     if (open) {
@@ -124,28 +158,6 @@ export const UserModal: React.FC<UserModalProps> = ({
       onClose();
     }
   };
-
-  const getRoleLabel = useCallback(
-    (roleName: string) => {
-      const key = `role${roleName.replace(/\s+/g, '')}`;
-      const translated = t(key as any);
-      return translated !== key ? translated : roleName;
-    },
-    [t]
-  );
-
-  const getRoleColor = useCallback((roleName: string): 'error' | 'warning' | 'info' | 'default' => {
-    switch (roleName) {
-      case 'Administrator':
-        return 'error';
-      case 'Manager':
-        return 'warning';
-      case 'Staff':
-        return 'info';
-      default:
-        return 'default';
-    }
-  }, []);
 
   const getGenderLabel = useCallback(
     (g?: string | null) => {
@@ -255,30 +267,27 @@ export const UserModal: React.FC<UserModalProps> = ({
           <ViewEditField
             mode={currentMode}
             label={t('lblRole')}
-            value={getRoleLabel(role)}
+            value={getRoleBadgeLabel(role)}
             viewRender={() => (
               <Chip
-                label={getRoleLabel(role)}
+                label={getRoleBadgeLabel(role)}
                 size="small"
-                color={getRoleColor(role)}
+                color={getRoleColor(editingUser ?? role, rolesList)}
               />
             )}
           >
-            <FormControl fullWidth size="small">
+            <FormControl fullWidth size="small" disabled={!canChangeRole}>
               <InputLabel>{t('lblRole')}</InputLabel>
               <Select
                 value={role}
                 label={t('lblRole')}
                 onChange={(e) => setRole(e.target.value as string)}
               >
-                {rolesList.map((r) => {
-                  if (r.name === 'Administrator' && !hasPermission('roles', 'edit')) return null;
-                  return (
-                    <MenuItem key={r.name} value={r.name}>
-                      {getRoleLabel(r.name)}
-                    </MenuItem>
-                  );
-                })}
+                {selectRoleOptions.map((r) => (
+                  <MenuItem key={r.name} value={r.name}>
+                    {getRoleBadgeLabel(r.name)}
+                  </MenuItem>
+                ))}
               </Select>
             </FormControl>
           </ViewEditField>

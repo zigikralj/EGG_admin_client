@@ -22,7 +22,12 @@ export const renderWithProviders = (
   {
     queryClient = createTestQueryClient(),
     authValue = {
-      currentUser: { id: 'user1', name: 'Test User', role: 'ADMIN', permissions: {} },
+      currentUser: { id: 'user1', name: 'Test User', role: 'ADMIN', roleLevel: 100, permissions: {} },
+      role: 'ADMIN',
+      actualRole: 'ADMIN',
+      roleLevel: 100,
+      hasMinRoleLevel: vi.fn().mockReturnValue(true),
+      isRealAdmin: true,
       login: vi.fn(),
       logout: vi.fn(),
       hasPermission: vi.fn().mockReturnValue(true),

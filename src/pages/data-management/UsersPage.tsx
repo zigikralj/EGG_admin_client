@@ -31,6 +31,7 @@ import {
 import type { User, TableViewProps } from '../../types';
 import { useLanguage } from '../../context/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
+import { useRoleLabels } from '../../hooks/useRoleLabels';
 import { TableOptionsSelector, type ColumnDef } from '../../components/common/ColumnSelector';
 import { TableFilterSelector } from '../../components/common/TableFilterSelector';
 import { TableSearchInput } from '../../components/common/TableSearchInput';
@@ -81,7 +82,8 @@ const UsersPage: React.FC<Props> = ({
   const sortState = sortStateProp ?? tablePrefs.sortState;
   const onSortChange = onSortChangeProp ?? tablePrefs.onSortChange;
   const { t } = useLanguage();
-  const { canEditUser, canDeleteUser, hasPermission, currentUser, pendingUsersCount = 0 } = useAuth();
+  const { canEditUser, canDeleteUser, hasPermission, currentUser, pendingUsersCount = 0, isRealAdmin, roleLevel } = useAuth();
+  const { getRoleBadgeLabel: getRoleLabel, getRoleColor } = useRoleLabels();
   const canCreate = hasPermission('users', 'create');
   const canEditAny = hasPermission('users', 'edit');
   const canDeleteAny = hasPermission('users', 'delete');
@@ -243,15 +245,25 @@ const UsersPage: React.FC<Props> = ({
     { id: 'phone', label: t('colPhone') },
   ];
 
-  const getRoleLabel = (r: string) => {
-    switch (r) {
-      case 'Administrator': return t('roleAdministrator');
-      case 'Manager': return t('roleManager');
-      case 'User': return t('roleUser');
-      case 'Accountant': return t('roleAccountant');
-      default: return r;
+  const assignableRoles = useMemo(
+    () =>
+      rolesList.filter(
+        (r) => isRealAdmin || (!r.isSystemAdmin && r.name !== 'Administrator' && (r.level ?? 0) < roleLevel)
+      ),
+    [rolesList, isRealAdmin, roleLevel]
+  );
+
+  const defaultAssignableRole = useMemo(() => {
+    if (assignableRoles.length === 0) return 'User';
+    const sorted = [...assignableRoles].sort((a, b) => (a.level ?? 0) - (b.level ?? 0));
+    return sorted.find((r) => r.name === 'User')?.name || sorted[0].name;
+  }, [assignableRoles]);
+
+  useEffect(() => {
+    if (approveUserTarget && assignableRoles.length > 0 && !assignableRoles.some((r) => r.name === approveRole)) {
+      setApproveRole(defaultAssignableRole);
     }
-  };
+  }, [approveUserTarget, assignableRoles, approveRole, defaultAssignableRole]);
 
   const getGenderLabel = (g?: string | null) => {
     switch (g) {
@@ -259,16 +271,6 @@ const UsersPage: React.FC<Props> = ({
       case 'Female': return t('genderFemale');
       case 'Other': return t('genderOther');
       default: return '—';
-    }
-  };
-
-  const getRoleColor = (r: string): 'secondary' | 'primary' | 'success' | 'info' | 'default' => {
-    switch (r) {
-      case 'Administrator': return 'secondary';
-      case 'Manager': return 'primary';
-      case 'User': return 'success';
-      case 'Accountant': return 'info';
-      default: return 'default';
     }
   };
 
@@ -294,7 +296,7 @@ const UsersPage: React.FC<Props> = ({
 
   const openApproveModal = (u: User) => {
     setApproveUserTarget(u);
-    setApproveRole('User');
+    setApproveRole(defaultAssignableRole);
   };
 
   const handleConfirmApprove = async () => {
@@ -606,7 +608,7 @@ const UsersPage: React.FC<Props> = ({
                           <Chip
                             label={getRoleLabel(u.role)}
                             size="small"
-                            color={getRoleColor(u.role)}
+                            color={getRoleColor(u, rolesList)}
                           />
                         </TableCell>
                       )}
@@ -765,14 +767,17 @@ const UsersPage: React.FC<Props> = ({
                 label={t('lblSelectRole')}
                 onChange={(e) => setApproveRole(e.target.value as string)}
               >
-                {rolesList.map((r) => {
-                  if (r.name === 'Administrator' && !hasPermission('roles', 'edit')) return null;
-                  return (
+                {assignableRoles.length === 0 ? (
+                  <MenuItem value={approveRole} disabled>
+                    {getRoleLabel(approveRole)}
+                  </MenuItem>
+                ) : (
+                  assignableRoles.map((r) => (
                     <MenuItem key={r.name} value={r.name}>
                       {getRoleLabel(r.name)}
                     </MenuItem>
-                  );
-                })}
+                  ))
+                )}
               </Select>
             </FormControl>
           </Box>

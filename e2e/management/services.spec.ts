@@ -1,35 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { PROVIDED_SERVICE_STATUSES } from '../../src/constants';
+import { mockCommonApi } from '../helpers/mockApi';
 
 test.describe('Services & Provided Services Management', () => {
-  let servicesData = [
-    {
-      id: 'srv-1',
-      code: 'waste-audit',
-      name: 'Revizija tokova otpada',
-      group: 'grp-waste',
-      frequency: 12,
-      description: 'Godišnja provera upravljanja otpadom',
-    },
-  ];
-
-  let providedServicesData = [
-    {
-      id: 'ps-1',
-      serviceId: 'srv-1',
-      serviceCode: 'waste-audit',
-      serviceName: 'Revizija tokova otpada',
-      clientId: 'c-1',
-      clientName: 'Eko Metal d.o.o.',
-      projectId: 'p-1',
-      projectName: 'Otpad 2024',
-      status: PROVIDED_SERVICE_STATUSES.COMPLETED,
-      scheduledDate: '2024-05-01',
-      completionDate: '2024-05-10',
-      location: 'Kraljevo',
-      customData: {},
-    },
-  ];
+  let servicesData: any[] = [];
+  let providedServicesData: any[] = [];
 
   test.beforeEach(async ({ page }) => {
     servicesData = [
@@ -61,6 +36,8 @@ test.describe('Services & Provided Services Management', () => {
       },
     ];
 
+    await mockCommonApi(page);
+
     await page.route(/\/api\/services(\?.*)?$/, async (route) => {
       if (route.request().method() === 'GET') {
         await route.fulfill({
@@ -78,7 +55,7 @@ test.describe('Services & Provided Services Management', () => {
           body: JSON.stringify(created),
         });
       } else {
-        await route.continue();
+        await route.fallback();
       }
     });
 
@@ -117,7 +94,7 @@ test.describe('Services & Provided Services Management', () => {
           body: JSON.stringify({ success: true }),
         });
       } else {
-        await route.continue();
+        await route.fallback();
       }
     });
 
@@ -129,7 +106,7 @@ test.describe('Services & Provided Services Management', () => {
           body: JSON.stringify(providedServicesData),
         });
       } else {
-        await route.continue();
+        await route.fallback();
       }
     });
 
@@ -159,74 +136,6 @@ test.describe('Services & Provided Services Management', () => {
         body: JSON.stringify([{ id: 'p-1', name: 'Otpad 2024', clientId: 'c-1' }]),
       });
     });
-
-    await page.route(/\/api\/invoices(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route('**/api/auth/me', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ id: '1', name: 'Test User', email: 'test@example.com', role: 'Admin' }),
-      });
-    });
-
-    await page.route('**/api/roles', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([{ id: 1, name: 'Admin', isSystemAdmin: true, permissions: {} }]),
-      });
-    });
-
-    await page.route('**/api/preferences', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-    });
-
-    await page.route('**/api/system-settings**', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-    });
-
-    await page.route('**/api/stats', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-    });
-
-    await page.route('**/api/projects/stats', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-    });
-
-    await page.route(/\/api\/reminders(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route('**/api/notifications', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route(/\/api\/users(\?.*)?$/, async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([{ id: '1', name: 'Test User', email: 'test@example.com', role: 'Admin' }]),
-      });
-    });
-
-    await page.route(/\/api\/permits(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route(/\/api\/activity-logs(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
-
-    await page.route('**/api/activity-logs/status', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' });
-    });
-
-    await page.route(/\/api\/waste-catalog(\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' });
-    });
   });
 
   test('should display the services list', async ({ page }) => {
@@ -255,11 +164,7 @@ test.describe('Services & Provided Services Management', () => {
           body: JSON.stringify(created),
         });
       } else {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify(servicesData),
-        });
+        await route.fallback();
       }
     });
 
@@ -301,7 +206,7 @@ test.describe('Services & Provided Services Management', () => {
           body: JSON.stringify({ id: 'srv-1', ...updatedPayload }),
         });
       } else {
-        await route.continue();
+        await route.fallback();
       }
     });
 
@@ -338,7 +243,7 @@ test.describe('Services & Provided Services Management', () => {
           body: JSON.stringify({ success: true }),
         });
       } else {
-        await route.continue();
+        await route.fallback();
       }
     });
 

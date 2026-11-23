@@ -56,6 +56,7 @@ export interface ProjectModalProps {
   project?: Project | null;
   initialMode?: ModalMode;
   diffRange?: { dateFrom: string; dateTo: string } | null;
+  initialTab?: 'notes' | 'invoices' | 'reminders' | 'messages';
   onClose: () => void;
   onEdit?: (project: Project) => void;
 }
@@ -66,6 +67,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   project: propProject,
   initialMode,
   diffRange,
+  initialTab,
   onClose,
   onEdit,
 }) => {
@@ -208,7 +210,9 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   } = formState;
 
   // Active Tab navigation
-  const [activeTab, setActiveTab] = useState<'notes' | 'invoices' | 'reminders' | 'chat'>('notes');
+  const [activeTab, setActiveTab] = useState<'notes' | 'invoices' | 'reminders' | 'messages'>(
+    initialTab || 'notes'
+  );
   const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null);
   const [viewingReminder, setViewingReminder] = useState<Reminder | null>(null);
 
@@ -235,12 +239,12 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      setActiveTab('notes');
+      setActiveTab(initialTab || 'notes');
     } else {
       setViewingInvoice(null);
       setViewingReminder(null);
     }
-  }, [isOpen, targetProjectId]);
+  }, [isOpen, targetProjectId, initialTab]);
 
   const invoiceCount = isCreate
     ? invoiceState.stagedInvoices?.length || 0
@@ -251,7 +255,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
 
   // Messaging unread count
   const messagingContext = useMessaging();
-  const chatUnreadCount = effectiveProject?.id ? messagingContext.getProjectUnreadCount(effectiveProject.id) : 0;
+  const messagesUnreadCount = effectiveProject?.id ? messagingContext.getProjectUnreadCount(effectiveProject.id) : 0;
 
   // Auto-saving notes in view mode
   const prevProjectIdRef = useRef<string | undefined>(undefined);
@@ -882,15 +886,15 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                 />
                 {effectiveProject && (
                   <Tab
-                    value="chat"
+                    value="messages"
                     icon={<ChatBubbleOutlinedIcon sx={{ fontSize: 18 }} />}
                     iconPosition="start"
                     label={
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                         <span>{t('tabMessaging')}</span>
-                        {chatUnreadCount > 0 && (
+                        {messagesUnreadCount > 0 && (
                           <Chip
-                            label={chatUnreadCount}
+                            label={messagesUnreadCount}
                             size="small"
                             color="error"
                             sx={{
@@ -1110,7 +1114,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
           </Grid>
 
           {/* TAB 4: MESSAGING */}
-          {effectiveProject && activeTab === 'chat' && (
+          {effectiveProject && activeTab === 'messages' && (
             <Grid size={{ xs: 12 }}>
               <ProjectMessagingPane projectId={effectiveProject.id} />
             </Grid>

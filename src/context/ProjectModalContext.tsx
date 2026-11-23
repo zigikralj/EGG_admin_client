@@ -6,11 +6,13 @@ import { API_ROUTES, TIME_MS } from '../constants';
 
 const ProjectModal = React.lazy(() => import('../components/project/ProjectModal'));
 
+export type ProjectModalTab = 'notes' | 'invoices' | 'reminders' | 'messages';
+
 export interface ProjectModalContextType {
-  openViewProject: (project: Project, diffRange?: { dateFrom: string; dateTo: string } | null) => void;
+  openViewProject: (project: Project, diffRange?: { dateFrom: string; dateTo: string } | null, initialTab?: ProjectModalTab) => void;
   openEditProject: (project: Project | null) => void;
   openNewProject: () => void;
-  openProjectById: (projectId: string) => Promise<void>;
+  openProjectById: (projectId: string, initialTab?: ProjectModalTab) => Promise<void>;
   closeProjectModal: () => void;
   closeProjectViewModal: () => void;
 }
@@ -24,19 +26,22 @@ export const ProjectModalProvider: React.FC<{ children: React.ReactNode }> = ({ 
     project: Project | null;
     initialMode: 'view' | 'edit' | 'create';
     diffRange?: { dateFrom: string; dateTo: string } | null;
+    initialTab?: ProjectModalTab;
   }>({
     isOpen: false,
     project: null,
     initialMode: 'view',
     diffRange: null,
+    initialTab: undefined,
   });
 
-  const openViewProject = useCallback((project: Project, diffRange?: { dateFrom: string; dateTo: string } | null) => {
+  const openViewProject = useCallback((project: Project, diffRange?: { dateFrom: string; dateTo: string } | null, initialTab?: ProjectModalTab) => {
     setModalState({
       isOpen: true,
       project,
       initialMode: 'view',
       diffRange: diffRange || null,
+      initialTab,
     });
   }, []);
 
@@ -46,6 +51,7 @@ export const ProjectModalProvider: React.FC<{ children: React.ReactNode }> = ({ 
       project,
       initialMode: project ? 'edit' : 'create',
       diffRange: null,
+      initialTab: undefined,
     });
   }, []);
 
@@ -53,7 +59,7 @@ export const ProjectModalProvider: React.FC<{ children: React.ReactNode }> = ({ 
     openEditProject(null);
   }, [openEditProject]);
 
-  const openProjectById = useCallback(async (projectId: string) => {
+  const openProjectById = useCallback(async (projectId: string, initialTab?: ProjectModalTab) => {
     try {
       const target = await queryClient.fetchQuery<Project>({
         queryKey: ['projects', 'details', projectId],
@@ -70,6 +76,7 @@ export const ProjectModalProvider: React.FC<{ children: React.ReactNode }> = ({ 
           project: target,
           initialMode: 'view',
           diffRange: null,
+          initialTab,
         });
       }
     } catch (e) {
@@ -81,6 +88,7 @@ export const ProjectModalProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setModalState((prev) => ({
       ...prev,
       isOpen: false,
+      initialTab: undefined,
     }));
   }, []);
 
@@ -104,6 +112,7 @@ export const ProjectModalProvider: React.FC<{ children: React.ReactNode }> = ({ 
             project={modalState.project}
             initialMode={modalState.initialMode}
             diffRange={modalState.diffRange}
+            initialTab={modalState.initialTab}
             onClose={closeModal}
             onEdit={(proj) => {
               setModalState((prev) => ({

@@ -17,6 +17,8 @@ interface AuthContextType {
   setUsersList: (users: User[]) => void;
   role: UserRole;
   actualRole: UserRole;
+  roleLevel: number;
+  hasMinRoleLevel: (minLevel: number) => boolean;
   isRealAdmin: boolean;
   isRestrictedToOwn: (resource: string) => boolean;
   canManageInvoices: boolean;
@@ -133,12 +135,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               const nextPermissions = updatedUser.permissions ?? (roleUnchanged ? prev.permissions : undefined);
               const nextRoleEntity = updatedUser.roleEntity ?? (roleUnchanged ? prev.roleEntity : undefined);
               const nextIsSystemAdmin = updatedUser.isSystemAdmin ?? (roleUnchanged ? prev.isSystemAdmin : undefined);
+              const nextRoleLevel = updatedUser.roleLevel ?? nextRoleEntity?.level ?? (roleUnchanged ? prev.roleLevel : undefined);
               const nextActivityLoggingEnabled = updatedUser.activityLoggingEnabled ?? prev.activityLoggingEnabled;
               if (
                 prev.id === updatedUser.id &&
                 prev.name === updatedUser.name &&
                 prev.email === updatedUser.email &&
                 prev.role === updatedUser.role &&
+                prev.roleLevel === nextRoleLevel &&
                 prev.isSystemAdmin === nextIsSystemAdmin &&
                 prev.activityLoggingEnabled === nextActivityLoggingEnabled &&
                 JSON.stringify(prev.permissions) === JSON.stringify(nextPermissions) &&
@@ -151,6 +155,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 ...updatedUser,
                 permissions: nextPermissions,
                 roleEntity: nextRoleEntity,
+                roleLevel: nextRoleLevel,
                 isSystemAdmin: nextIsSystemAdmin,
                 activityLoggingEnabled: nextActivityLoggingEnabled,
               };
@@ -250,7 +255,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const startPolling = () => {
       if (intervalId !== null) return;
-      intervalId = setInterval(checkAuth, TIME_MS.ONE_MINUTE); // 60s — ~60 req/hr (optimized for egress bandwidth)
+      intervalId = setInterval(checkAuth, TIME_MS.FIVE_MINUTES); // 5m — ~12 req/hr (optimized for Neon/Render free tier)
     };
 
     const stopPolling = () => {
@@ -410,43 +415,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return null;
   }, [currentUser]);
 
+  const roleLevel = React.useMemo(() => {
+    if (!currentUser) return 0;
+    if (typeof currentUser.roleEntity?.level === 'number') {
+      return currentUser.roleEntity.level;
+    }
+    if (typeof currentUser.roleLevel === 'number') {
+      return currentUser.roleLevel;
+    }
+    return 0;
+  }, [currentUser]);
+
   const isRealAdmin = Boolean(
-    currentUser?.isSystemAdmin ||
-    currentUser?.roleEntity?.isSystemAdmin ||
-    actualRole === 'Administrator'
+    currentUser && (
+      currentUser.isSystemAdmin ||
+      currentUser.roleEntity?.isSystemAdmin ||
+      actualRole === 'Administrator'
+    )
   );
   const isSystemAdmin = isRealAdmin;
+
+  const hasMinRoleLevel = React.useCallback(
+    (minLevel: number): boolean => roleLevel >= minLevel,
+    [roleLevel]
+  );
   
   const isRestrictedToOwn = React.useCallback((resource: string): boolean => {
     if (isSystemAdmin) return false;
     if (!userPermissions) return false;
 
     const perms = userPermissions;
-    const checkOnlyOwn = (key: string) => {
-      const val = perms[key];
-      if (val === true) return true;
-      if (Array.isArray(val) && val.length > 0) return true;
-      return false;
-    };
-
     const directKey = `${resource}_onlyOwn`;
-    if (typeof perms[directKey] === 'boolean') {
-      return perms[directKey];
+    const val = perms[directKey];
+    if (typeof val === 'boolean') {
+      return val;
     }
-    if (checkOnlyOwn(directKey)) return true;
-
-    // Legacy fallback ONLY if tracker_* is not configured
-    if (resource === 'tracker_updates') {
-      if (typeof perms.tracker_projects_onlyOwn === 'boolean') return perms.tracker_projects_onlyOwn;
-      if (checkOnlyOwn('tracker_projects_onlyOwn')) return true;
-      if (typeof perms.projects_onlyOwn === 'boolean') return perms.projects_onlyOwn;
-      if (checkOnlyOwn('projects_onlyOwn')) return true;
-    } else if (resource.startsWith('tracker_')) {
-      const base = resource.replace('tracker_', '');
-      if (typeof perms[`${base}_onlyOwn`] === 'boolean') {
-        return perms[`${base}_onlyOwn`];
-      }
-      if (checkOnlyOwn(`${base}_onlyOwn`)) return true;
+    if (Array.isArray(val) && val.length > 0) {
+      return true;
     }
 
     return false;
@@ -462,28 +467,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return Array.isArray(perms.apps) && perms.apps.includes(action);
     }
 
-    // Direct check: if explicitly configured for this resource, obey it.
     if (Array.isArray(perms[resource])) {
       return perms[resource].includes(action);
-    }
-
-    // Legacy fallback ONLY if the key is undefined in perms (e.g. older role schema before separation)
-    if (resource === 'tracker_updates') {
-      if (Array.isArray(perms.tracker_projects)) {
-        return perms.tracker_projects.includes(action);
-      }
-      if (Array.isArray(perms.projects)) {
-        return perms.projects.includes(action);
-      }
-    } else if (resource.startsWith('tracker_')) {
-      const base = resource.replace('tracker_', '');
-      if (Array.isArray(perms[base])) {
-        return perms[base].includes(action);
-      }
-    } else if (resource === 'wasteDisposal') {
-      if (Array.isArray(perms.providedServices)) {
-        return perms.providedServices.includes(action);
-      }
     }
 
     return false;
@@ -496,18 +481,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const canManageInvoices = Boolean(hasPermission('invoices', 'edit') || hasPermission('invoices', 'create'));
   const canManageProvidedServices = Boolean(hasPermission('providedServices', 'edit') || hasPermission('providedServices', 'create'));
 
+  const isTargetSystemAdmin = React.useCallback((targetUser: User): boolean => {
+    return Boolean(
+      targetUser.isSystemAdmin ||
+      targetUser.roleEntity?.isSystemAdmin ||
+      targetUser.role === 'Administrator'
+    );
+  }, []);
+
+  const getTargetLevel = React.useCallback((targetUser: User): number => {
+    if (typeof targetUser.roleEntity?.level === 'number') return targetUser.roleEntity.level;
+    if (typeof targetUser.roleLevel === 'number') return targetUser.roleLevel;
+    return 0;
+  }, []);
+
   const canEditUser = React.useCallback(
     (targetUser: User): boolean => {
       if (isSystemAdmin) return true;
-      const isTargetAdmin = Boolean(
-        targetUser.isSystemAdmin ||
-        targetUser.roleEntity?.isSystemAdmin ||
-        targetUser.role === 'Administrator'
-      );
-      if (isTargetAdmin) return false;
+      if (isTargetSystemAdmin(targetUser)) return false;
+      if (getTargetLevel(targetUser) >= roleLevel) return false;
       return hasPermission('users', 'edit');
     },
-    [isSystemAdmin, hasPermission]
+    [isSystemAdmin, isTargetSystemAdmin, getTargetLevel, roleLevel, hasPermission]
   );
 
   const canDeleteUser = React.useCallback(
@@ -515,15 +510,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!currentUser) return false;
       if (targetUser.id === currentUser.id) return false;
       if (isSystemAdmin) return true;
-      const isTargetAdmin = Boolean(
-        targetUser.isSystemAdmin ||
-        targetUser.roleEntity?.isSystemAdmin ||
-        targetUser.role === 'Administrator'
-      );
-      if (isTargetAdmin) return false;
+      if (isTargetSystemAdmin(targetUser)) return false;
+      if (getTargetLevel(targetUser) >= roleLevel) return false;
       return hasPermission('users', 'delete');
     },
-    [isSystemAdmin, hasPermission, currentUser]
+    [isSystemAdmin, isTargetSystemAdmin, getTargetLevel, roleLevel, hasPermission, currentUser]
   );
 
   const canEditProject = React.useCallback(
@@ -581,6 +572,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUsersList: setUsers,
       role: actualRole,
       actualRole,
+      roleLevel,
+      hasMinRoleLevel,
       isRealAdmin,
       isRestrictedToOwn,
       canManageInvoices,
@@ -606,6 +599,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       register,
       logout,
       actualRole,
+      roleLevel,
+      hasMinRoleLevel,
       isRealAdmin,
       isRestrictedToOwn,
       canManageInvoices,
