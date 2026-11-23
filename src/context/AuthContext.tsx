@@ -255,7 +255,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const startPolling = () => {
       if (intervalId !== null) return;
-      intervalId = setInterval(checkAuth, TIME_MS.ONE_MINUTE); // 60s — ~60 req/hr (optimized for egress bandwidth)
+      intervalId = setInterval(checkAuth, TIME_MS.FIVE_MINUTES); // 5m — ~12 req/hr (optimized for Neon/Render free tier)
     };
 
     const stopPolling = () => {

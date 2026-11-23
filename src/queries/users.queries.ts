@@ -243,6 +243,8 @@ export function useRolesQuery(options?: { enabled?: boolean }) {
   return useQuery<Role[]>({
     queryKey: ['roles'],
     enabled: options?.enabled ?? true,
+    staleTime: TIME_MS.TEN_MINUTES,
+    gcTime: TIME_MS.ONE_DAY,
     queryFn: async () => {
       const res = await apiFetch(API_ROUTES.ROLES.BASE);
       if (!res.ok) throw new Error('Failed to fetch roles');
@@ -255,7 +257,8 @@ export function usePermissionCatalogQuery(options?: { enabled?: boolean }) {
   return useQuery<PermissionCatalogResponse>({
     queryKey: QUERY_KEYS.PERMISSIONS.CATALOG,
     enabled: options?.enabled ?? true,
-    staleTime: TIME_MS.TEN_MINUTES,
+    staleTime: Infinity,
+    gcTime: TIME_MS.ONE_DAY,
     queryFn: async () => {
       const res = await apiFetch(API_ROUTES.PERMISSIONS.CATALOG);
       if (!res.ok) throw new Error('Failed to fetch permission catalog');
