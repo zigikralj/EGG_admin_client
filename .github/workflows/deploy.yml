@@ -73,6 +73,7 @@ jobs:
         env:
           VITE_BASE_PATH: ${{ steps.pages.outputs.base_path }}
           VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || secrets.VITE_API_BASE_URL }}
+          VITE_HOSTNAMES: ${{ vars.HOSTNAMES || secrets.HOSTNAMES || vars.VITE_HOSTNAMES || secrets.VITE_HOSTNAMES }}
           VITE_COMMIT_SHA: ${{ github.sha }}
           VITE_APP_VERSION: ${{ steps.version.outputs.app_version }}
 
