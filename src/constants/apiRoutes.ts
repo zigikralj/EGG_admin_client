@@ -123,4 +123,8 @@ export const API_ROUTES = {
   IMPORT: {
     BASE: '/api/import',
   },
+  MESSAGING: {
+    BASE: '/api/messaging',
+    STREAM: '/api/messaging/stream',
+  },
 } as const;

@@ -2,8 +2,12 @@ import React, { createContext, useContext, useEffect, useState, useCallback, use
 import { useAuth } from './AuthContext';
 import { useLanguage } from './LanguageContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { STORAGE_KEYS, TIME_MS } from '../constants';
-import { getApiUrl } from '../api';
+import { API_ROUTES, STORAGE_KEYS, TIME_MS } from '../constants';
+import {
+  createFetchSSEConnection,
+  type FetchSSEConnection,
+  type SSEEventMessage,
+} from '../utils/sseClient';
 import { useUsersDirectoryQuery, type DirectoryUser } from '../queries';
 import { messagingApi, type MessagingConversationItem, type MessagingMessageItem, type MessagingUnreadSummary } from '../components/messaging/messagingApi';
 import { messagingStorage } from '../components/messaging/messagingStorage';
@@ -172,7 +176,7 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [isNewMessageMinimized, setIsNewMessageMinimized] = useState(false);
   const activeWindowsRef = useRef<ActiveMessagingWindow[]>(activeWindows);
   activeWindowsRef.current = activeWindows;
-  const eventSourceRef = useRef<EventSource | null>(null);
+  const sseConnectionRef = useRef<FetchSSEConnection | null>(null);
   const notificationPrefsRef = useRef<MessagingNotificationPrefs>(notificationPrefs);
   notificationPrefsRef.current = notificationPrefs;
   const tRef = useRef(t);
@@ -235,9 +239,9 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setActiveWindows([]);
       setIsNewMessageOpen(false);
       setIsNewMessageMinimized(false);
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-        eventSourceRef.current = null;
+      if (sseConnectionRef.current) {
+        sseConnectionRef.current.close();
+        sseConnectionRef.current = null;
       }
       messagingStorage.clearAll().catch(() => {});
       return;
@@ -246,343 +250,369 @@ export const MessagingProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
     if (!token) return;
 
-    let es: EventSource | null = null;
+    let sseConnection: FetchSSEConnection | null = null;
     let idleTimer: ReturnType<typeof setTimeout> | null = null;
     let isIdle = false;
     const IDLE_TIMEOUT_MS = TIME_MS.FIVE_MINUTES;
 
-    const connectSSE = () => {
-      if (es) return;
-
-      const url = getApiUrl(`/api/messaging/stream?token=${encodeURIComponent(token)}`);
-      es = new EventSource(url);
-      eventSourceRef.current = es;
-
-      es.addEventListener('CONNECTED', (e: MessageEvent) => {
-        try {
-          const data = JSON.parse(e.data);
-          if (data.onlineUserIds) {
-            setOnlineUserIds(new Set(data.onlineUserIds));
-          }
-        } catch {}
-      });
-
-      es.addEventListener('USER_PRESENCE', (e: MessageEvent) => {
-        try {
-          const { userId, status } = JSON.parse(e.data);
-          setOnlineUserIds((prev) => {
-            const hasUser = prev.has(userId);
-            if ((status === 'ONLINE' && hasUser) || (status !== 'ONLINE' && !hasUser)) {
-              return prev;
+    const handleSSEEvent = (msg: SSEEventMessage) => {
+      switch (msg.event) {
+        case 'CONNECTED': {
+          try {
+            const data = JSON.parse(msg.data);
+            if (data.onlineUserIds) {
+              setOnlineUserIds(new Set(data.onlineUserIds));
             }
-            const next = new Set(prev);
-            if (status === 'ONLINE') next.add(userId);
-            else next.delete(userId);
-            return next;
-          });
-        } catch {}
-      });
+          } catch {}
+          break;
+        }
 
-      es.addEventListener('MESSAGE_CREATED', (e: MessageEvent) => {
-        try {
-          const { conversationId, message, conversation } = JSON.parse(e.data);
-          const isWindowOpenAndVisible =
-            !document.hidden &&
-            activeWindowsRef.current.some(
-              (w) => w.conversationId === conversationId && !w.minimized
-            );
-          const isOwnMessage = message.senderId === currentUser.id;
-          const shouldBeRead = isOwnMessage || isWindowOpenAndVisible;
-
-          const cachedList = queryClient.getQueryData<MessagingConversationItem[]>([
-            'messaging',
-            'conversations',
-          ]);
-          const cachedConv = cachedList?.find((c) => c.id === conversationId);
-          const targetConv = cachedConv || conversation;
-          const isMuted = Boolean(cachedConv?.muted || conversation?.muted);
-          const convParticipants: string[] =
-            targetConv?.participantIds ||
-            (targetConv?.participants || []).map((cp: any) =>
-              typeof cp === 'string' ? cp : cp.userId || cp.user?.id || cp.id
-            );
-          const isProjectConversation =
-            targetConv?.type === 'CONTEXTUAL' || targetConv?.contextType === 'PROJECT';
-          const isGroupConversation = targetConv?.type === 'GROUP';
-          const isWindowOpen = activeWindowsRef.current.some(
-            (w) => w.conversationId === conversationId
-          );
-          const isConvParticipant =
-            (convParticipants.length > 0
-              ? convParticipants.includes(currentUser.id)
-              : Boolean(cachedConv)) || isWindowOpen;
-          const isAllowedForProject = !isProjectConversation || isConvParticipant;
-
-          messagingStorage.upsertMessage(message).catch(() => {});
-
-          queryClient.setQueryData<MessagingMessageItem[]>(
-            ['messaging', 'messages', conversationId],
-            (old = []) => {
-              if (old.some((m) => m.id === message.id)) return old;
-              return [...old, message];
-            }
-          );
-
-          queryClient.setQueryData<MessagingConversationItem[]>(
-            ['messaging', 'conversations'],
-            (old = []) => {
-              const exists = old.some((c) => c.id === conversationId);
-              if (!exists && conversation) {
-                const pIds =
-                  conversation.participantIds ||
-                  (conversation.participants || []).map((cp: any) =>
-                    typeof cp === 'string' ? cp : cp.userId || cp.user?.id || cp.id
-                  );
-
-                // If this is a project conversation, only add it if current user is participant or sender or window is open
-                const isProjConv = conversation.type === 'CONTEXTUAL' || conversation.contextType === 'PROJECT';
-                const isParticipant = pIds.includes(currentUser.id);
-                if (isProjConv && !isParticipant && !isOwnMessage && !isWindowOpenAndVisible) {
-                  return old;
-                }
-
-                const newConv: MessagingConversationItem = {
-                  id: conversation.id,
-                  type: conversation.type,
-                  title: conversation.title,
-                  contextType: conversation.contextType,
-                  contextId: conversation.contextId,
-                  updatedAt: message.createdAt,
-                  lastReadAt: new Date(0).toISOString(),
-                  unreadCount: shouldBeRead ? 0 : 1,
-                  participantIds: pIds,
-                  lastMessage: message,
-                };
-                return [newConv, ...old];
+        case 'USER_PRESENCE': {
+          try {
+            const { userId, status } = JSON.parse(msg.data);
+            setOnlineUserIds((prev) => {
+              const hasUser = prev.has(userId);
+              if ((status === 'ONLINE' && hasUser) || (status !== 'ONLINE' && !hasUser)) {
+                return prev;
               }
+              const next = new Set(prev);
+              if (status === 'ONLINE') next.add(userId);
+              else next.delete(userId);
+              return next;
+            });
+          } catch {}
+          break;
+        }
 
-              return old.map((c) => {
-                if (c.id !== conversationId) return c;
-                return {
-                  ...c,
-                  lastMessage: message,
-                  updatedAt: message.createdAt,
-                  unreadCount: shouldBeRead ? 0 : c.unreadCount + 1,
-                };
-              });
-            }
-          );
-
-          if (!isOwnMessage) {
-            if (isWindowOpenAndVisible) {
-              messagingApi.markAsRead(conversationId).catch(() => {});
-            } else {
-              queryClient.invalidateQueries({ queryKey: ['messaging', 'unread-summary'] });
-            }
-
-            const isBackgrounded = document.hidden || !document.hasFocus();
-            if (
-              isBackgrounded &&
-              !isDndActiveRef.current &&
-              !isMuted &&
-              isAllowedForProject &&
-              notificationPrefsRef.current.enabled
-            ) {
-              const senderName =
-                message.sender?.name ||
-                allUsersRef.current.find((u) => u.id === message.senderId)?.name ||
-                'User';
-              const convTitle =
-                targetConv?.title ||
-                (isProjectConversation
-                  ? tRef.current('messagingProjectDiscussion')
-                  : isGroupConversation
-                    ? tRef.current('messagingGroupConversation')
-                    : senderName);
-
-              showMessagingBrowserNotification({
-                conversationId,
-                senderName,
-                conversationTitle: convTitle,
-                isGroup: isGroupConversation,
-                isProject: isProjectConversation,
-                messageContent: message.content,
-                showPreview: notificationPrefsRef.current.showPreview,
-                privacyTitle: 'Ekos Green Group',
-                privacyBody: tRef.current('messagingNotificationPrivacyBody'),
-                onClick: () => openMessagingRef.current(conversationId, { title: convTitle }),
-              });
-            }
-          }
-        } catch {}
-      });
-
-      es.addEventListener('READ_RECEIPT', (e: MessageEvent) => {
-        try {
-          const { conversationId, lastReadAt } = JSON.parse(e.data);
-          queryClient.setQueryData<MessagingConversationItem[]>(
-            ['messaging', 'conversations'],
-            (old = []) =>
-              old.map((c) => (c.id === conversationId ? { ...c, unreadCount: 0, lastReadAt } : c))
-          );
-          queryClient.setQueryData<MessagingUnreadSummary>(
-            ['messaging', 'unread-summary'],
-            (old) => {
-              if (!old?.byConversation?.[conversationId]) return old;
-              const nextByConv = { ...old.byConversation };
-              delete nextByConv[conversationId];
-              return { ...old, byConversation: nextByConv };
-            }
-          );
-          queryClient.invalidateQueries({ queryKey: ['messaging', 'unread-summary'] });
-        } catch {}
-      });
-
-      es.addEventListener('UNREAD_STATUS', (e: MessageEvent) => {
-        try {
-          const { conversationId, lastReadAt, unreadCount } = JSON.parse(e.data);
-          queryClient.setQueryData<MessagingConversationItem[]>(
-            ['messaging', 'conversations'],
-            (old = []) =>
-              old.map((c) => (c.id === conversationId ? { ...c, unreadCount, lastReadAt } : c))
-          );
-          queryClient.invalidateQueries({ queryKey: ['messaging', 'unread-summary'] });
-        } catch {}
-      });
-
-      es.addEventListener('MESSAGE_UPDATED', (e: MessageEvent) => {
-        try {
-          const { conversationId, message } = JSON.parse(e.data);
-          messagingStorage.upsertMessage(message).catch(() => {});
-          queryClient.setQueryData<MessagingMessageItem[]>(
-            ['messaging', 'messages', conversationId],
-            (old = []) => old.map((m) => (m.id === message.id ? message : m))
-          );
-          queryClient.setQueryData<MessagingConversationItem[]>(
-            ['messaging', 'conversations'],
-            (old = []) =>
-              old.map((c) => {
-                if (c.id !== conversationId || !c.lastMessage) return c;
-                if (
-                  c.lastMessage.id === message.id ||
-                  (message.seq && c.messageSeq === message.seq)
-                ) {
-                  return {
-                    ...c,
-                    lastMessage: {
-                      ...c.lastMessage,
-                      content: message.content,
-                    },
-                  };
-                }
-                return c;
-              })
-          );
-        } catch {}
-      });
-
-      es.addEventListener('MESSAGE_DELETED', (e: MessageEvent) => {
-        try {
-          const { conversationId, messageId, hardDeleted, updatedMessage } = JSON.parse(e.data);
-          if (hardDeleted) {
-            messagingStorage.removeMessage(messageId).catch(() => {});
-          } else if (updatedMessage) {
-            messagingStorage.upsertMessage(updatedMessage).catch(() => {});
-          }
-          queryClient.setQueryData<MessagingMessageItem[]>(
-            ['messaging', 'messages', conversationId],
-            (old = []) => {
-              if (hardDeleted) {
-                return old.filter((m) => m.id !== messageId);
-              }
-              return old.map((m) => (m.id === messageId ? updatedMessage : m));
-            }
-          );
-        } catch {}
-      });
-
-      es.addEventListener('NOTIFICATION', () => {
-        queryClient.invalidateQueries({ queryKey: ['notifications'] });
-      });
-
-      es.addEventListener('CONVERSATION_UPDATED', (e: MessageEvent) => {
-        try {
-          const conversation = JSON.parse(e.data);
-          if (conversation?.id) {
-            queryClient.invalidateQueries({ queryKey: ['messaging', 'conversations'] });
-            queryClient.invalidateQueries({ queryKey: ['messaging', 'conversation', conversation.id] });
-            if (conversation.title) {
-              setActiveWindows((prev) =>
-                prev.map((w) =>
-                  w.conversationId === conversation.id ? { ...w, title: conversation.title } : w
-                )
+        case 'MESSAGE_CREATED': {
+          try {
+            const { conversationId, message, conversation } = JSON.parse(msg.data);
+            const isWindowOpenAndVisible =
+              !document.hidden &&
+              activeWindowsRef.current.some(
+                (w) => w.conversationId === conversationId && !w.minimized
               );
-            }
-          }
-        } catch {}
-      });
+            const isOwnMessage = message.senderId === currentUser.id;
+            const shouldBeRead = isOwnMessage || isWindowOpenAndVisible;
 
-      es.addEventListener('REMOVED_FROM_CONVERSATION', (e: MessageEvent) => {
-        try {
-          const { conversationId } = JSON.parse(e.data);
-          if (conversationId) {
-            setActiveWindows((prev) => prev.filter((w) => w.conversationId !== conversationId));
-            queryClient.invalidateQueries({ queryKey: ['messaging', 'conversations'] });
-            queryClient.invalidateQueries({ queryKey: ['messaging', 'unread-summary'] });
-          }
-        } catch {}
-      });
+            const cachedList = queryClient.getQueryData<MessagingConversationItem[]>([
+              'messaging',
+              'conversations',
+            ]);
+            const cachedConv = cachedList?.find((c) => c.id === conversationId);
+            const targetConv = cachedConv || conversation;
+            const isMuted = Boolean(cachedConv?.muted || conversation?.muted);
+            const convParticipants: string[] =
+              targetConv?.participantIds ||
+              (targetConv?.participants || []).map((cp: any) =>
+                typeof cp === 'string' ? cp : cp.userId || cp.user?.id || cp.id
+              );
+            const isProjectConversation =
+              targetConv?.type === 'CONTEXTUAL' || targetConv?.contextType === 'PROJECT';
+            const isGroupConversation = targetConv?.type === 'GROUP';
+            const isWindowOpen = activeWindowsRef.current.some(
+              (w) => w.conversationId === conversationId
+            );
+            const isConvParticipant =
+              (convParticipants.length > 0
+                ? convParticipants.includes(currentUser.id)
+                : Boolean(cachedConv)) || isWindowOpen;
+            const isAllowedForProject = !isProjectConversation || isConvParticipant;
 
-      es.addEventListener('CONVERSATION_CLEARED', (e: MessageEvent) => {
-        try {
-          const { conversationId } = JSON.parse(e.data);
-          if (conversationId) {
-            messagingStorage.clearConversation(conversationId).catch(() => {});
+            messagingStorage.upsertMessage(message).catch(() => {});
+
             queryClient.setQueryData<MessagingMessageItem[]>(
               ['messaging', 'messages', conversationId],
-              []
+              (old = []) => {
+                if (old.some((m) => m.id === message.id)) return old;
+                return [...old, message];
+              }
             );
-            setActiveWindows((prev) => prev.filter((w) => w.conversationId !== conversationId));
-            queryClient.invalidateQueries({ queryKey: ['messaging', 'conversations'] });
+
+            queryClient.setQueryData<MessagingConversationItem[]>(
+              ['messaging', 'conversations'],
+              (old = []) => {
+                const exists = old.some((c) => c.id === conversationId);
+                if (!exists && conversation) {
+                  const pIds =
+                    conversation.participantIds ||
+                    (conversation.participants || []).map((cp: any) =>
+                      typeof cp === 'string' ? cp : cp.userId || cp.user?.id || cp.id
+                    );
+
+                  // If this is a project conversation, only add it if current user is participant or sender or window is open
+                  const isProjConv = conversation.type === 'CONTEXTUAL' || conversation.contextType === 'PROJECT';
+                  const isParticipant = pIds.includes(currentUser.id);
+                  if (isProjConv && !isParticipant && !isOwnMessage && !isWindowOpenAndVisible) {
+                    return old;
+                  }
+
+                  const newConv: MessagingConversationItem = {
+                    id: conversation.id,
+                    type: conversation.type,
+                    title: conversation.title,
+                    contextType: conversation.contextType,
+                    contextId: conversation.contextId,
+                    updatedAt: message.createdAt,
+                    lastReadAt: new Date(0).toISOString(),
+                    unreadCount: shouldBeRead ? 0 : 1,
+                    participantIds: pIds,
+                    lastMessage: message,
+                  };
+                  return [newConv, ...old];
+                }
+
+                return old.map((c) => {
+                  if (c.id !== conversationId) return c;
+                  return {
+                    ...c,
+                    lastMessage: message,
+                    updatedAt: message.createdAt,
+                    unreadCount: shouldBeRead ? 0 : c.unreadCount + 1,
+                  };
+                });
+              }
+            );
+
+            if (!isOwnMessage) {
+              if (isWindowOpenAndVisible) {
+                messagingApi.markAsRead(conversationId).catch(() => {});
+              } else {
+                queryClient.invalidateQueries({ queryKey: ['messaging', 'unread-summary'] });
+              }
+
+              const isBackgrounded = document.hidden || !document.hasFocus();
+              if (
+                isBackgrounded &&
+                !isDndActiveRef.current &&
+                !isMuted &&
+                isAllowedForProject &&
+                notificationPrefsRef.current.enabled
+              ) {
+                const senderName =
+                  message.sender?.name ||
+                  allUsersRef.current.find((u) => u.id === message.senderId)?.name ||
+                  'User';
+                const convTitle =
+                  targetConv?.title ||
+                  (isProjectConversation
+                    ? tRef.current('messagingProjectDiscussion')
+                    : isGroupConversation
+                      ? tRef.current('messagingGroupConversation')
+                      : senderName);
+
+                showMessagingBrowserNotification({
+                  conversationId,
+                  senderName,
+                  conversationTitle: convTitle,
+                  isGroup: isGroupConversation,
+                  isProject: isProjectConversation,
+                  messageContent: message.content,
+                  showPreview: notificationPrefsRef.current.showPreview,
+                  privacyTitle: 'Ekos Green Group',
+                  privacyBody: tRef.current('messagingNotificationPrivacyBody'),
+                  onClick: () => openMessagingRef.current(conversationId, { title: convTitle }),
+                });
+              }
+            }
+          } catch {}
+          break;
+        }
+
+        case 'READ_RECEIPT': {
+          try {
+            const { conversationId, lastReadAt } = JSON.parse(msg.data);
+            queryClient.setQueryData<MessagingConversationItem[]>(
+              ['messaging', 'conversations'],
+              (old = []) =>
+                old.map((c) => (c.id === conversationId ? { ...c, unreadCount: 0, lastReadAt } : c))
+            );
+            queryClient.setQueryData<MessagingUnreadSummary>(
+              ['messaging', 'unread-summary'],
+              (old) => {
+                if (!old?.byConversation?.[conversationId]) return old;
+                const nextByConv = { ...old.byConversation };
+                delete nextByConv[conversationId];
+                return { ...old, byConversation: nextByConv };
+              }
+            );
             queryClient.invalidateQueries({ queryKey: ['messaging', 'unread-summary'] });
-          }
-        } catch {}
-      });
+          } catch {}
+          break;
+        }
 
-      es.addEventListener('MUTE_UPDATED', (e: MessageEvent) => {
-        try {
-          const { conversationId, mutedUntil } = JSON.parse(e.data);
-          queryClient.setQueryData<MessagingConversationItem[]>(
-            ['messaging', 'conversations'],
-            (old = []) =>
-              old.map((c) =>
-                c.id === conversationId
-                  ? { ...c, muted: Boolean(mutedUntil), mutedUntil }
-                  : c
-              )
-          );
-          queryClient.invalidateQueries({ queryKey: ['messaging', 'unread-summary'] });
-        } catch {}
-      });
+        case 'UNREAD_STATUS': {
+          try {
+            const { conversationId, lastReadAt, unreadCount } = JSON.parse(msg.data);
+            queryClient.setQueryData<MessagingConversationItem[]>(
+              ['messaging', 'conversations'],
+              (old = []) =>
+                old.map((c) => (c.id === conversationId ? { ...c, unreadCount, lastReadAt } : c))
+            );
+            queryClient.invalidateQueries({ queryKey: ['messaging', 'unread-summary'] });
+          } catch {}
+          break;
+        }
 
-      es.addEventListener('DND_UPDATED', (e: MessageEvent) => {
-        try {
-          const { dndUntil } = JSON.parse(e.data);
-          queryClient.setQueryData<MessagingUnreadSummary>(
-            ['messaging', 'unread-summary'],
-            (old) => (old ? { ...old, dndUntil } : { totalUnread: 0, byConversation: {}, byProject: {}, dndUntil })
-          );
+        case 'MESSAGE_UPDATED': {
+          try {
+            const { conversationId, message } = JSON.parse(msg.data);
+            messagingStorage.upsertMessage(message).catch(() => {});
+            queryClient.setQueryData<MessagingMessageItem[]>(
+              ['messaging', 'messages', conversationId],
+              (old = []) => old.map((m) => (m.id === message.id ? message : m))
+            );
+            queryClient.setQueryData<MessagingConversationItem[]>(
+              ['messaging', 'conversations'],
+              (old = []) =>
+                old.map((c) => {
+                  if (c.id !== conversationId || !c.lastMessage) return c;
+                  if (
+                    c.lastMessage.id === message.id ||
+                    (message.seq && c.messageSeq === message.seq)
+                  ) {
+                    return {
+                      ...c,
+                      lastMessage: {
+                        ...c.lastMessage,
+                        content: message.content,
+                      },
+                    };
+                  }
+                  return c;
+                })
+            );
+          } catch {}
+          break;
+        }
+
+        case 'MESSAGE_DELETED': {
+          try {
+            const { conversationId, messageId, hardDeleted, updatedMessage } = JSON.parse(msg.data);
+            if (hardDeleted) {
+              messagingStorage.removeMessage(messageId).catch(() => {});
+            } else if (updatedMessage) {
+              messagingStorage.upsertMessage(updatedMessage).catch(() => {});
+            }
+            queryClient.setQueryData<MessagingMessageItem[]>(
+              ['messaging', 'messages', conversationId],
+              (old = []) => {
+                if (hardDeleted) {
+                  return old.filter((m) => m.id !== messageId);
+                }
+                return old.map((m) => (m.id === messageId ? updatedMessage : m));
+              }
+            );
+          } catch {}
+          break;
+        }
+
+        case 'NOTIFICATION': {
+          queryClient.invalidateQueries({ queryKey: ['notifications'] });
+          break;
+        }
+
+        case 'CONVERSATION_UPDATED': {
+          try {
+            const conversation = JSON.parse(msg.data);
+            if (conversation?.id) {
+              queryClient.invalidateQueries({ queryKey: ['messaging', 'conversations'] });
+              queryClient.invalidateQueries({ queryKey: ['messaging', 'conversation', conversation.id] });
+              if (conversation.title) {
+                setActiveWindows((prev) =>
+                  prev.map((w) =>
+                    w.conversationId === conversation.id ? { ...w, title: conversation.title } : w
+                  )
+                );
+              }
+            }
+          } catch {}
+          break;
+        }
+
+        case 'REMOVED_FROM_CONVERSATION': {
+          try {
+            const { conversationId } = JSON.parse(msg.data);
+            if (conversationId) {
+              setActiveWindows((prev) => prev.filter((w) => w.conversationId !== conversationId));
+              queryClient.invalidateQueries({ queryKey: ['messaging', 'conversations'] });
+              queryClient.invalidateQueries({ queryKey: ['messaging', 'unread-summary'] });
+            }
+          } catch {}
+          break;
+        }
+
+        case 'CONVERSATION_CLEARED': {
+          try {
+            const { conversationId } = JSON.parse(msg.data);
+            if (conversationId) {
+              messagingStorage.clearConversation(conversationId).catch(() => {});
+              queryClient.setQueryData<MessagingMessageItem[]>(
+                ['messaging', 'messages', conversationId],
+                []
+              );
+              setActiveWindows((prev) => prev.filter((w) => w.conversationId !== conversationId));
+              queryClient.invalidateQueries({ queryKey: ['messaging', 'conversations'] });
+              queryClient.invalidateQueries({ queryKey: ['messaging', 'unread-summary'] });
+            }
+          } catch {}
+          break;
+        }
+
+        case 'MUTE_UPDATED': {
+          try {
+            const { conversationId, mutedUntil } = JSON.parse(msg.data);
+            queryClient.setQueryData<MessagingConversationItem[]>(
+              ['messaging', 'conversations'],
+              (old = []) =>
+                old.map((c) =>
+                  c.id === conversationId
+                    ? { ...c, muted: Boolean(mutedUntil), mutedUntil }
+                    : c
+                )
+            );
+            queryClient.invalidateQueries({ queryKey: ['messaging', 'unread-summary'] });
+          } catch {}
+          break;
+        }
+
+        case 'DND_UPDATED': {
+          try {
+            const { dndUntil } = JSON.parse(msg.data);
+            queryClient.setQueryData<MessagingUnreadSummary>(
+              ['messaging', 'unread-summary'],
+              (old) => (old ? { ...old, dndUntil } : { totalUnread: 0, byConversation: {}, byProject: {}, dndUntil })
+            );
+            queryClient.invalidateQueries({ queryKey: ['messaging', 'unread-summary'] });
+            queryClient.invalidateQueries({ queryKey: ['messaging', 'conversations'] });
+          } catch {}
+          break;
+        }
+
+        default:
+          break;
+      }
+    };
+
+    const connectSSE = () => {
+      if (sseConnection) return;
+
+      sseConnection = createFetchSSEConnection({
+        url: API_ROUTES.MESSAGING.STREAM,
+        onEvent: handleSSEEvent,
+        onReconnect: () => {
           queryClient.invalidateQueries({ queryKey: ['messaging', 'unread-summary'] });
           queryClient.invalidateQueries({ queryKey: ['messaging', 'conversations'] });
-        } catch {}
+        },
       });
+      sseConnectionRef.current = sseConnection;
     };
 
     const disconnectSSE = () => {
-      if (es) {
-        es.close();
-        es = null;
-        eventSourceRef.current = null;
+      if (sseConnection) {
+        sseConnection.close();
+        sseConnection = null;
+        sseConnectionRef.current = null;
       }
     };
 
