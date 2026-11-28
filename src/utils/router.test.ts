@@ -17,6 +17,7 @@ describe('router utils', () => {
       });
       // Mock Vite env
       vi.stubEnv('BASE_URL', '/');
+      vi.stubEnv('VITE_HOSTNAMES', '');
     });
 
     afterEach(() => {
@@ -36,32 +37,33 @@ describe('router utils', () => {
       expect(getRouterBasename()).toBe('/');
     });
 
-    it('returns / for custom ekosgroup domains', () => {
-      window.location.hostname = 'project-tracker.ekosgroup.rs';
-      expect(getRouterBasename()).toBe('/');
-      
-      window.location.hostname = 'test.ekosgroup.rs';
-      expect(getRouterBasename()).toBe('/');
-    });
+    it('returns / for custom domains configured in VITE_HOSTNAMES', () => {
+      vi.stubEnv('VITE_HOSTNAMES', 'app.example.com, *.example.org, custom.example.dev');
+      window.location.pathname = '/project-tracker/dashboard';
 
-    it('detects repo name EGG_admin_client from path', () => {
-      window.location.hostname = 'some-domain.com';
-      window.location.pathname = '/EGG_admin_client/dashboard';
-      expect(getRouterBasename()).toBe('/EGG_admin_client');
-      
-      // case preserving
-      window.location.pathname = '/egg_admin_client/dashboard';
-      expect(getRouterBasename()).toBe('/egg_admin_client');
+      window.location.hostname = 'app.example.com';
+      expect(getRouterBasename()).toBe('/');
+
+      window.location.hostname = 'sub.example.org';
+      expect(getRouterBasename()).toBe('/');
+
+      window.location.hostname = 'custom.example.dev';
+      expect(getRouterBasename()).toBe('/');
+
+      window.location.hostname = 'unlisted.example.net';
+      vi.stubEnv('BASE_URL', '/app-subpath/');
+      window.location.pathname = '/app-subpath/dashboard';
+      expect(getRouterBasename()).toBe('/app-subpath');
     });
 
     it('detects repo basename from github.io domains', () => {
-      window.location.hostname = 'zigikralj.github.io';
+      window.location.hostname = 'user.github.io';
       window.location.pathname = '/my-repo-name/dashboard';
       expect(getRouterBasename()).toBe('/my-repo-name');
     });
 
     it('ignores internal app routes on github.io', () => {
-      window.location.hostname = 'zigikralj.github.io';
+      window.location.hostname = 'user.github.io';
       window.location.pathname = '/project-tracker'; // this is an internal route
       
       // Fallback to BASE_URL which is '/'

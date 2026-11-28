@@ -2,14 +2,36 @@
  * Resolves the router basename dynamically based on the current execution environment.
  *
  * Scenarios:
- * 1. Current GitHub Pages deployment (https://zigikralj.github.io/EGG_admin_client/...):
- *    Returns '/EGG_admin_client' (preserving exact case from URL).
- * 2. Future custom domain (https://project-tracker.ekosgroup.rs/... or any *.ekosgroup.rs):
+ * 1. GitHub Pages project subpath deployment (https://user.github.io/my-repo/...):
+ *    Returns '/my-repo' (preserving exact case from URL).
+ * 2. Custom domains configured via VITE_HOSTNAMES (comma-separated, supports *.domain):
  *    Returns '/' (served from domain root).
  * 3. Local development (http://localhost:3000/ or 127.0.0.1):
  *    Returns '/'.
  * 4. Fallback to Vite's import.meta.env.BASE_URL when applicable.
  */
+function matchesCustomHostname(hostname: string, rawHostnames?: string): boolean {
+  if (!rawHostnames) {
+    return false;
+  }
+
+  const normalizedHost = hostname.toLowerCase();
+  const entries = rawHostnames
+    .split(',')
+    .map((entry) => entry.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, ''))
+    .filter(Boolean);
+
+  return entries.some((entry) => {
+    if (entry.startsWith('*.')) {
+      return normalizedHost.endsWith(entry.slice(1));
+    }
+    if (entry.startsWith('.')) {
+      return normalizedHost.endsWith(entry);
+    }
+    return normalizedHost === entry;
+  });
+}
+
 export function getRouterBasename(): string {
   if (typeof window === 'undefined') {
     return '/';
@@ -22,20 +44,12 @@ export function getRouterBasename(): string {
   if (
     hostname === 'localhost' ||
     hostname === '127.0.0.1' ||
-    hostname === 'project-tracker.ekosgroup.rs' ||
-    hostname.endsWith('.ekosgroup.rs')
+    matchesCustomHostname(hostname, import.meta.env.VITE_HOSTNAMES)
   ) {
     return '/';
   }
 
-  // 2. Path-based detection for repository subfolder (e.g. /EGG_admin_client/...)
-  // Case-insensitive match that preserves the casing in the URL
-  const repoMatch = pathname.match(/^\/(egg_admin_client)(?:\/|$)/i);
-  if (repoMatch) {
-    return `/${repoMatch[1]}`;
-  }
-
-  // 3. GitHub Pages domain (*.github.io) without custom domain:
+  // 2. GitHub Pages domain (*.github.io) without custom domain:
   // Any path segment that isn't an internal app route is treated as the repo basename
   if (hostname.endsWith('.github.io')) {
     const firstSegment = pathname.split('/').filter(Boolean)[0];
@@ -44,7 +58,7 @@ export function getRouterBasename(): string {
     }
   }
 
-  // 4. Fallback to Vite base if set and not root or relative dot
+  // 3. Fallback to Vite base if set and not root or relative dot
   const viteBase = import.meta.env.BASE_URL;
   if (viteBase && viteBase !== './' && viteBase !== '/') {
     return viteBase.replace(/\/$/, '');
