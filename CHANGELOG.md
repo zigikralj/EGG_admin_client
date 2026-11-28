@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.12.0] - 2026-11-28
+
+- feat: add GitHub Pages deployment workflow and dynamic router basenam… (#128) by @zigikralj
+
 ## [v1.11.18] - 2026-11-23
 
 - Bugfixing enter focus (#126) by @zigikralj
